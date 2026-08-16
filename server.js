@@ -3,13 +3,6 @@ const path = require("path");
 
 const app = express();
 
-console.log("================================");
-console.log("DzMoney SERVER STARTING");
-console.log("Express version:", require("express/package.json").version);
-console.log("Node version:", process.version);
-console.log("Server file:", __filename);
-console.log("================================");
-
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -36,7 +29,6 @@ app.get("/api", (req, res) => {
 });
 
 // Frontend fallback
-// استخدم app.use بدون "*" لتجنب مشكلة path-to-regexp
 app.use((req, res) => {
   res.sendFile(
     path.join(__dirname, "public", "index.html")
