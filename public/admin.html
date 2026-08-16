@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DzMoney Admin</title>
+<style>
+:root{color-scheme:dark;--bg:#07121f;--card:#101e2e;--muted:#8fa2b8;--accent:#53e0b0;--danger:#ff6b6b;--line:#223247}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#06101c,#0a1827);font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#f4f7fb}
+.wrap{max-width:1100px;margin:auto;padding:24px}.card{background:rgba(16,30,46,.94);border:1px solid var(--line);border-radius:20px;padding:20px;margin:14px 0;box-shadow:0 10px 35px #0004}
+h1,h2{margin-top:0}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}.stat{padding:18px;border-radius:16px;background:#0c1928;border:1px solid var(--line)}.stat b{font-size:28px;display:block;margin-top:5px}
+input,textarea,select,button{font:inherit;border-radius:12px;border:1px solid var(--line);padding:11px 13px;background:#091522;color:#fff}
+input,textarea,select{width:100%}button{cursor:pointer;background:#173044}button.primary{background:#18a978;border-color:#18a978;color:#06140f;font-weight:700}button.danger{background:#4a1d26;border-color:#6d2834;color:#ffb7b7}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:10px 0}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.tabs button.active{background:#18a978;color:#06140f}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);font-size:14px}.scroll{overflow:auto}.hidden{display:none}.pill{padding:4px 8px;border-radius:999px;background:#173044}.ok{color:var(--accent)}.bad{color:#ff8e8e}
+#login{max-width:420px;margin:12vh auto}
+.small{font-size:13px}.actions{display:flex;gap:7px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section id="login" class="card">
+    <h1>DzMoney Admin</h1>
+    <p class="muted">Secure owner panel</p>
+    <input id="password" type="password" placeholder="Admin password">
+    <button class="primary" style="width:100%;margin-top:10px" onclick="login()">Login</button>
+    <p id="loginMsg" class="bad"></p>
+  </section>
+
+  <main id="app" class="hidden">
+    <div class="actions" style="justify-content:space-between;align-items:center">
+      <div><h1>DzMoney Admin</h1><div class="muted">Owner controls</div></div>
+      <button onclick="logout()">Logout</button>
+    </div>
+
+    <div class="tabs">
+      <button class="active" onclick="tab('overview',this)">Overview</button>
+      <button onclick="tab('users',this)">Users</button>
+      <button onclick="tab('tasks',this)">Tasks</button>
+      <button onclick="tab('settings',this)">Settings</button>
+      <button onclick="tab('audit',this)">Audit</button>
+    </div>
+
+    <section id="overview" class="page">
+      <div id="stats" class="grid"></div>
+      <div class="card"><h2>Recent admin actions</h2><div id="recent" class="scroll"></div></div>
+    </section>
+
+    <section id="users" class="page hidden">
+      <div class="card">
+        <h2>Users</h2>
+        <div class="row"><input id="userSearch" placeholder="Search Telegram/user ID"><button class="primary" onclick="loadUsers()">Search</button></div>
+        <div id="usersTable" class="scroll"></div>
+      </div>
+    </section>
+
+    <section id="tasks" class="page hidden">
+      <div class="card">
+        <h2>Tasks</h2>
+        <div id="tasksList"></div>
+      </div>
+      <div class="card">
+        <h2>Create task</h2>
+        <div class="row">
+          <input id="newId" placeholder="ID e.g. survey">
+          <input id="newTitle" placeholder="Title">
+          <input id="newReward" type="number" placeholder="BUX reward">
+          <input id="newDuration" type="number" placeholder="Duration seconds">
+          <input id="newIcon" placeholder="Icon">
+          <input id="newDesc" placeholder="Description">
+        </div>
+        <button class="primary" onclick="createTask()">Create</button>
+      </div>
+    </section>
+
+    <section id="settings" class="page hidden">
+      <div class="card"><h2>App settings</h2><div id="settingsForm"></div><button class="primary" onclick="saveSettings()">Save settings</button></div>
+    </section>
+
+    <section id="audit" class="page hidden">
+      <div class="card"><h2>Audit log</h2><div id="auditTable" class="scroll"></div></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+async function api(url,opt={}){const r=await fetch(url,{credentials:"same-origin",headers:{"Content-Type":"application/json",...(opt.headers||{})},...opt});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.message||"Request failed");return d}
+async function login(){try{await api("/api/admin/login",{method:"POST",body:JSON.stringify({password:$("password").value})});$("login").classList.add("hidden");$("app").classList.remove("hidden");loadAll()}catch(e){$("loginMsg").textContent=e.message}}
+async function logout(){await api("/api/admin/logout",{method:"POST"}).catch(()=>{});location.reload()}
+async function loadAll(){loadStats();loadUsers();loadTasks();loadSettings();loadAudit()}
+function tab(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$(id).classList.remove("hidden");document.querySelectorAll(".tabs button").forEach(x=>x.classList.remove("active"));btn.classList.add("active")}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+async function loadStats(){try{const d=await api("/api/admin/stats");const s=d.stats;$("stats").innerHTML=[["Users",s.users],["Banned",s.bannedUsers],["Total BUX",s.totalBux],["Total Coins",s.totalCoins],["Active tasks",s.activeTasks],["Task claims",s.totalClaims]].map(x=>`<div class="stat"><span class="muted">${x[0]}</span><b>${Number(x[1]).toLocaleString()}</b></div>`).join("");$("recent").innerHTML=table(["Action","Target","Details","Time"],d.recentActions.map(x=>[x.action,x.target_id||"",x.details,new Date(Number(x.created_at)).toLocaleString()]))}catch(e){console.error(e)}}
+function table(head,rows){return `<table><thead><tr>${head.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(x=>`<td>${esc(x)}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
+async function loadUsers(){try{const d=await api("/api/admin/users?q="+encodeURIComponent($("userSearch").value));$("usersTable").innerHTML=table(["ID","BUX","Coins","TON","Banned","Actions"],d.users.map(u=>[u.id,u.bux,u.coins,u.ton.toFixed(6),u.isBanned?"YES":"NO",`<div class="actions"><button onclick="changeBalance('${esc(u.id)}')">Balance</button><button class="${u.isBanned?"":"danger"}" onclick="ban('${esc(u.id)}',${!u.isBanned})">${u.isBanned?"Unban":"Ban"}</button></div>`]))}catch(e){$("usersTable").innerHTML=`<p class="bad">${esc(e.message)}</p>`}}
+async function changeBalance(id){const b=prompt("BUX delta (+add, -remove):","0");if(b===null)return;const c=prompt("Coins delta (+add, -remove):","0");if(c===null)return;try{await api("/api/admin/users/"+encodeURIComponent(id)+"/balance",{method:"POST",body:JSON.stringify({buxDelta:Number(b),coinsDelta:Number(c)})});loadUsers();loadStats();alert("Balance updated.")}catch(e){alert(e.message)}}
+async function ban(id,banned){if(!confirm((banned?"Ban ":"Unban ")+id+"?"))return;try{await api("/api/admin/users/"+encodeURIComponent(id)+"/ban",{method:"POST",body:JSON.stringify({banned})});loadUsers();loadStats()}catch(e){alert(e.message)}}
+async function loadTasks(){try{const d=await api("/api/admin/tasks");$("tasksList").innerHTML=d.tasks.map(t=>`<div class="card"><div class="row"><input id="t_title_${esc(t.id)}" value="${esc(t.title)}"><input id="t_reward_${esc(t.id)}" type="number" value="${t.reward}"><input id="t_duration_${esc(t.id)}" type="number" value="${t.duration}"><input id="t_icon_${esc(t.id)}" value="${esc(t.icon)}"></div><textarea id="t_desc_${esc(t.id)}">${esc(t.description)}</textarea><div class="actions" style="margin-top:8px"><label><input style="width:auto" id="t_active_${esc(t.id)}" type="checkbox" ${t.active?"checked":""}> Active</label><label><input style="width:auto" id="t_repeat_${esc(t.id)}" type="checkbox" ${t.repeatable?"checked":""}> Repeatable</label><button class="primary" onclick="saveTask('${esc(t.id)}')">Save</button><button class="danger" onclick="deleteTask('${esc(t.id)}')">Delete</button></div></div>`).join("")}catch(e){$("tasksList").innerHTML=`<p class="bad">${esc(e.message)}</p>`}}
+async function saveTask(id){try{await api("/api/admin/tasks/"+encodeURIComponent(id),{method:"PUT",body:JSON.stringify({title:$("t_title_"+id).value,description:$("t_desc_"+id).value,reward:Number($("t_reward_"+id).value),duration:Number($("t_duration_"+id).value),icon:$("t_icon_"+id).value,active:$("t_active_"+id).checked,repeatable:$("t_repeat_"+id).checked})});alert("Task saved.");loadTasks()}catch(e){alert(e.message)}}
+async function createTask(){try{await api("/api/admin/tasks",{method:"POST",body:JSON.stringify({id:$("newId").value,title:$("newTitle").value,description:$("newDesc").value,reward:Number($("newReward").value),duration:Number($("newDuration").value),icon:$("newIcon").value||"🎯"})});alert("Task created.");loadTasks()}catch(e){alert(e.message)}}
+async function deleteTask(id){if(!confirm("Delete task "+id+"? Claims linked to it will also be removed."))return;try{await api("/api/admin/tasks/"+encodeURIComponent(id),{method:"DELETE"});loadTasks();loadStats()}catch(e){alert(e.message)}}
+async function loadSettings(){try{const d=await api("/api/admin/settings");$("settingsForm").innerHTML=Object.entries(d.settings).map(([k,v])=>`<div class="row"><label class="muted">${esc(k)}<input data-setting="${esc(k)}" value="${esc(v)}"></label></div>`).join("")}catch(e){$("settingsForm").innerHTML=`<p class="bad">${esc(e.message)}</p>`}}
+async function saveSettings(){const settings={};document.querySelectorAll("[data-setting]").forEach(x=>settings[x.dataset.setting]=x.value);try{await api("/api/admin/settings",{method:"PUT",body:JSON.stringify({settings})});alert("Settings saved.")}catch(e){alert(e.message)}}
+async function loadAudit(){try{const d=await api("/api/admin/audit");$("auditTable").innerHTML=table(["Admin","Action","Target","Details","Time"],d.logs.map(x=>[x.admin_id,x.action,x.target_id||"",x.details,new Date(Number(x.created_at)).toLocaleString()]))}catch(e){$("auditTable").innerHTML=`<p class="bad">${esc(e.message)}</p>`}}
+(async()=>{try{await api("/api/admin/me");$("login").classList.add("hidden");$("app").classList.remove("hidden");loadAll()}catch(e){}})();
+</script>
+</body>
+</html>
