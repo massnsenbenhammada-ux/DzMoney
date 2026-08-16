@@ -12,11 +12,11 @@ const __dirname = path.dirname(__filename);
 app.use(express.json());
 
 
-// Serve Mini App
+// Serve the DzMoney frontend
 app.use(express.static(path.join(__dirname, "public")));
 
 
-// API health check
+// API status
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
@@ -26,8 +26,8 @@ app.get("/api/status", (req, res) => {
 });
 
 
-// Fallback
-app.get("*", (req, res) => {
+// Send the Mini App for all other routes
+app.use((req, res) => {
   res.sendFile(
     path.join(__dirname, "public", "index.html")
   );
@@ -36,7 +36,5 @@ app.get("*", (req, res) => {
 
 // Start server
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `DzMoney server running on port ${PORT}`
-  );
+  console.log(`DzMoney server running on port ${PORT}`);
 });
