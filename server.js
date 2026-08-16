@@ -1,22 +1,18 @@
-import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
+const express = require("express");
+const path = require("path");
 
 const app = express();
 
+// Railway provides the PORT automatically
 const PORT = process.env.PORT || 3000;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+// Parse JSON requests
 app.use(express.json());
 
-
-// Serve the DzMoney frontend
+// Serve files from the public folder
 app.use(express.static(path.join(__dirname, "public")));
 
-
-// API status
+// Health / status API
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
@@ -25,14 +21,24 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+// Basic API test
+app.get("/api", (req, res) => {
+  res.json({
+    success: true,
+    message: "DzMoney API is working"
+  });
+});
 
-// Send the Mini App for all other routes
+// SPA fallback
+// IMPORTANT:
+// We intentionally do NOT use app.get("*")
+// because Express 5 throws:
+// PathError: Missing parameter name
 app.use((req, res) => {
   res.sendFile(
     path.join(__dirname, "public", "index.html")
   );
 });
-
 
 // Start server
 app.listen(PORT, "0.0.0.0", () => {
