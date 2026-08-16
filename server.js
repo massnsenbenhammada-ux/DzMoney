@@ -1,4 +1,5 @@
 const express = require("express");
+const path = require("path");
 
 const app = express();
 
@@ -8,9 +9,17 @@ console.log("DzMoney starting...");
 console.log("Node:", process.version);
 console.log("PORT:", PORT);
 
-app.get("/", (req, res) => {
-  res.status(200).send("DzMoney is ONLINE");
-});
+// ============================
+// Frontend
+// ============================
+
+const publicPath = path.join(__dirname, "public");
+
+app.use(express.static(publicPath));
+
+// ============================
+// API
+// ============================
 
 app.get("/api", (req, res) => {
   res.status(200).json({
@@ -28,6 +37,12 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+// ============================
+// Start server
+// ============================
+
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`DzMoney server running on 0.0.0.0:${PORT}`);
+  console.log(
+    `DzMoney server running on 0.0.0.0:${PORT}`
+  );
 });
