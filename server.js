@@ -1,81 +1,22 @@
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 
 const PORT = process.env.PORT || 3000;
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>DzMoney</title>
 
-      <style>
-        body {
-          margin: 0;
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: #08111f;
-          color: white;
-          font-family: Arial, sans-serif;
-        }
+// Serve Mini App
+app.use(express.static(path.join(__dirname, "public")));
 
-        .box {
-          width: 90%;
-          max-width: 400px;
-          padding: 30px;
-          text-align: center;
-          border-radius: 24px;
-          background: #101d30;
-          border: 1px solid #1e3855;
-        }
 
-        h1 {
-          margin-bottom: 10px;
-        }
-
-        p {
-          color: #91a5bb;
-        }
-
-        .status {
-          margin-top: 20px;
-          padding: 14px;
-          border-radius: 14px;
-          background: #123d2a;
-          color: #72e6a1;
-        }
-      </style>
-    </head>
-
-    <body>
-
-      <div class="box">
-
-        <h1>💎 DzMoney</h1>
-
-        <p>
-          Telegram Mini App
-        </p>
-
-        <div class="status">
-          ✅ Server is running
-        </div>
-
-      </div>
-
-    </body>
-    </html>
-  `);
-});
-
+// API health check
 app.get("/api/status", (req, res) => {
   res.json({
     success: true,
@@ -84,6 +25,18 @@ app.get("/api/status", (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`DzMoney running on port ${PORT}`);
+
+// Fallback
+app.get("*", (req, res) => {
+  res.sendFile(
+    path.join(__dirname, "public", "index.html")
+  );
+});
+
+
+// Start server
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(
+    `DzMoney server running on port ${PORT}`
+  );
 });
