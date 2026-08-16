@@ -7,25 +7,124 @@ if (tg) {
 
 
 // ============================
-// DzMoney State
+// State
 // ============================
 
 let coins = 0;
 let bux = 0;
 
-let dailyAvailable = true;
 let dailyRemaining = 0;
 
+let currentTasks = [];
+
 
 // ============================
-// Save original Home
+// Telegram user
 // ============================
 
-const mainElement = document.querySelector("main");
+function getTelegramUser() {
 
-const homeHTML = mainElement
-  ? mainElement.innerHTML
-  : "";
+  if (
+    tg &&
+    tg.initDataUnsafe &&
+    tg.initDataUnsafe.user
+  ) {
+
+    return tg.initDataUnsafe.user;
+
+  }
+
+  return {
+    id: "demo-user"
+  };
+}
+
+
+// ============================
+// API
+// ============================
+
+async function api(
+  url,
+  options = {}
+) {
+
+  const telegramUser =
+    getTelegramUser();
+
+
+  const config = {
+
+    ...options,
+
+    headers: {
+
+      "Content-Type":
+        "application/json",
+
+      ...(options.headers || {})
+
+    }
+
+  };
+
+
+  if (config.body) {
+
+    try {
+
+      const body =
+        JSON.parse(config.body);
+
+      body.telegramUser =
+        telegramUser;
+
+      config.body =
+        JSON.stringify(body);
+
+    } catch (error) {
+
+      console.error(error);
+
+    }
+
+  } else {
+
+    config.body =
+      JSON.stringify({
+        telegramUser
+      });
+
+    config.method =
+      options.method || "POST";
+
+  }
+
+
+  const response =
+    await fetch(
+      url,
+      config
+    );
+
+
+  const data =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      data.message ||
+      "Something went wrong"
+    );
+
+  }
+
+
+  return data;
+
+}
 
 
 // ============================
@@ -33,20 +132,64 @@ const homeHTML = mainElement
 // ============================
 
 function formatNumber(value) {
-  return Number(value).toLocaleString();
+
+  return Number(value)
+    .toLocaleString();
+
 }
 
+
+function formatTime(seconds) {
+
+  const hours =
+    Math.floor(
+      seconds / 3600
+    );
+
+  const minutes =
+    Math.floor(
+      (seconds % 3600) / 60
+    );
+
+  const secs =
+    seconds % 60;
+
+
+  return [
+    hours,
+    minutes,
+    secs
+  ]
+    .map(
+      value =>
+        String(value)
+          .padStart(2, "0")
+    )
+    .join(":");
+
+}
+
+
+// ============================
+// Balance
+// ============================
 
 function updateBalance() {
 
   const coinsElement =
-    document.getElementById("coins");
+    document.getElementById(
+      "coins"
+    );
 
   const buxElement =
-    document.getElementById("bux");
+    document.getElementById(
+      "bux"
+    );
 
   const tonElement =
-    document.getElementById("ton");
+    document.getElementById(
+      "ton"
+    );
 
 
   if (coinsElement) {
@@ -67,75 +210,137 @@ function updateBalance() {
 
   if (tonElement) {
 
-    const ton =
-      bux / 10000;
-
     tonElement.textContent =
-      ton.toFixed(4);
+      (bux / 10000)
+        .toFixed(4);
 
   }
+
 }
 
 
 // ============================
-// Daily Reward
+// Load user
 // ============================
 
-function formatTime(seconds) {
+async function loadUser() {
 
-  const hours =
-    Math.floor(seconds / 3600);
+  try {
 
-  const minutes =
-    Math.floor(
-      (seconds % 3600) / 60
+    const user =
+      getTelegramUser();
+
+    const response =
+      await fetch(
+        "/api/user?telegramUser=" +
+        encodeURIComponent(
+          JSON.stringify(user)
+        )
+      );
+
+
+    const data =
+      await response.json();
+
+
+    if (
+      data.success &&
+      data.user
+    ) {
+
+      coins =
+        data.user.coins;
+
+      bux =
+        data.user.bux;
+
+
+      if (
+        data.user.dailyClaimAt
+      ) {
+
+        const elapsed =
+          Math.floor(
+            (
+              Date.now() -
+              data.user.dailyClaimAt
+            ) / 1000
+          );
+
+        dailyRemaining =
+          Math.max(
+            0,
+            86400 - elapsed
+          );
+
+      }
+
+    }
+
+
+    updateBalance();
+    updateDaily();
+
+  } catch (error) {
+
+    console.error(
+      "User load error:",
+      error
     );
 
-  const secs =
-    seconds % 60;
+  }
 
-
-  return [
-    hours,
-    minutes,
-    secs
-  ]
-    .map(
-      value =>
-        String(value).padStart(2, "0")
-    )
-    .join(":");
 }
+
+
+// ============================
+// Daily reward
+// ============================
+
+const dailyButton =
+  document.getElementById(
+    "daily-button"
+  );
+
+const dailyText =
+  document.getElementById(
+    "daily-text"
+  );
 
 
 function updateDaily() {
 
-  const dailyButton =
-    document.getElementById("daily-button");
-
-  const dailyText =
-    document.getElementById("daily-text");
-
-
-  if (!dailyButton || !dailyText) {
+  if (
+    !dailyButton ||
+    !dailyText
+  ) {
     return;
   }
 
 
-  if (dailyRemaining > 0) {
+  if (
+    dailyRemaining > 0
+  ) {
 
-    dailyButton.disabled = true;
+    dailyButton.disabled =
+      true;
 
     dailyButton.textContent =
-      formatTime(dailyRemaining);
+      formatTime(
+        dailyRemaining
+      );
+
 
     dailyText.textContent =
       "Next reward available in " +
-      formatTime(dailyRemaining);
+      formatTime(
+        dailyRemaining
+      );
 
   } else {
 
-    dailyButton.disabled = false;
+    dailyButton.disabled =
+      false;
 
     dailyButton.textContent =
       "Claim";
@@ -144,45 +349,67 @@ function updateDaily() {
       "Your daily reward is ready!";
 
   }
+
 }
 
 
-function bindDailyReward() {
-
-  const dailyButton =
-    document.getElementById("daily-button");
-
-
-  if (!dailyButton) {
-    return;
-  }
-
+if (dailyButton) {
 
   dailyButton.addEventListener(
     "click",
-    () => {
+    async () => {
 
-      if (!dailyAvailable) {
+      if (
+        dailyRemaining > 0
+      ) {
         return;
       }
 
 
-      // Daily reward
-      coins += 1000;
-      bux += 1;
+      dailyButton.disabled =
+        true;
 
 
-      dailyAvailable = false;
+      try {
 
-      dailyRemaining =
-        24 * 60 * 60;
+        const data =
+          await api(
+            "/api/daily/claim",
+            {
+              method: "POST"
+            }
+          );
 
 
-      updateBalance();
-      updateDaily();
+        coins =
+          data.user.coins;
+
+        bux =
+          data.user.bux;
+
+
+        dailyRemaining =
+          86400;
+
+
+        updateBalance();
+        updateDaily();
+
+
+      } catch (error) {
+
+        alert(
+          error.message
+        );
+
+        dailyButton.disabled =
+          false;
+
+      }
 
     }
   );
+
 }
 
 
@@ -190,7 +417,9 @@ function bindDailyReward() {
 // Navigation
 // ============================
 
-function openSection(section) {
+function setActiveNav(
+  section
+) {
 
   const items =
     document.querySelectorAll(
@@ -221,208 +450,111 @@ function openSection(section) {
 
   }
 
+}
 
-  if (section === "home") {
+
+function openSection(
+  section
+) {
+
+  setActiveNav(
+    section
+  );
+
+
+  if (
+    section === "home"
+  ) {
+
     showHome();
+
   }
 
 
-  if (section === "tasks") {
+  if (
+    section === "tasks"
+  ) {
+
     showTasks();
+
   }
 
 
-  if (section === "friends") {
+  if (
+    section === "friends"
+  ) {
+
     showFriends();
+
   }
 
 
-  if (section === "wallet") {
+  if (
+    section === "wallet"
+  ) {
+
     showWallet();
+
   }
+
 }
 
 
 // ============================
-// HOME
+// Main content
+// ============================
+
+function getMain() {
+
+  return document.querySelector(
+    "main"
+  );
+
+}
+
+
+// ============================
+// Home
 // ============================
 
 function showHome() {
 
-  if (!mainElement) {
-    return;
-  }
-
-
-  mainElement.innerHTML =
-    homeHTML;
-
-
-  bindDailyReward();
-
-  updateBalance();
-  updateDaily();
-
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
+  location.reload();
 
 }
 
 
 // ============================
-// TASKS
+// Tasks
 // ============================
 
-function showTasks() {
+async function showTasks() {
 
-  if (!mainElement) {
-    return;
-  }
+  const main =
+    getMain();
 
-
-  mainElement.innerHTML = `
-
-    <section class="tasks-page">
-
-      <div class="section-heading">
-
-        <h2>
-          Tasks
-        </h2>
-
-        <p>
-          Complete activities and earn BUX
-        </p>
-
-      </div>
+  if (!main) return;
 
 
-      <div class="task-list">
+  main.innerHTML = `
 
+    <section class="page-header">
 
-        <!-- TASK 1 -->
+      <h1>Tasks</h1>
 
-        <div class="task-card">
+      <p>
+        Complete activities and earn BUX
+      </p>
 
-          <div class="task-icon">
-            📺
-          </div>
+    </section>
 
-          <div class="task-info">
+    <section
+      id="tasks-list"
+      class="tasks-list"
+    >
 
-            <h3>
-              Watch a video
-            </h3>
-
-            <p>
-              Watch the video and earn 10 BUX
-            </p>
-
-          </div>
-
-          <button
-            class="task-button"
-            onclick="startTask(this, 10, 100)"
-          >
-            Earn
-          </button>
-
-        </div>
-
-
-        <!-- TASK 2 -->
-
-        <div class="task-card">
-
-          <div class="task-icon">
-            🌐
-          </div>
-
-          <div class="task-info">
-
-            <h3>
-              Visit a website
-            </h3>
-
-            <p>
-              Visit the website and earn 25 BUX
-            </p>
-
-          </div>
-
-          <button
-            class="task-button"
-            onclick="startTask(this, 25, 250)"
-          >
-            Earn
-          </button>
-
-        </div>
-
-
-        <!-- TASK 3 -->
-
-        <div class="task-card">
-
-          <div class="task-icon">
-            ⭐
-          </div>
-
-          <div class="task-info">
-
-            <h3>
-              Daily activity
-            </h3>
-
-            <p>
-              Complete today's activity and earn 50 BUX
-            </p>
-
-          </div>
-
-          <button
-            class="task-button"
-            onclick="startTask(this, 50, 500)"
-          >
-            Earn
-          </button>
-
-        </div>
-
-
-        <!-- TASK 4 -->
-
-        <div class="task-card">
-
-          <div class="task-icon">
-            🎁
-          </div>
-
-          <div class="task-info">
-
-            <h3>
-              Special task
-            </h3>
-
-            <p>
-              Complete the special task and earn 100 BUX
-            </p>
-
-          </div>
-
-          <button
-            class="task-button"
-            onclick="startTask(this, 100, 1000)"
-          >
-            Earn
-          </button>
-
-        </div>
-
-
+      <div class="loading-card">
+        Loading tasks...
       </div>
 
     </section>
@@ -435,96 +567,350 @@ function showTasks() {
     behavior: "smooth"
   });
 
+
+  try {
+
+    const user =
+      getTelegramUser();
+
+
+    const response =
+      await fetch(
+        "/api/tasks?telegramUser=" +
+        encodeURIComponent(
+          JSON.stringify(user)
+        )
+      );
+
+
+    const data =
+      await response.json();
+
+
+    currentTasks =
+      data.tasks || [];
+
+
+    renderTasks();
+
+
+  } catch (error) {
+
+    document.getElementById(
+      "tasks-list"
+    ).innerHTML = `
+
+      <div class="error-card">
+
+        Unable to load tasks.
+
+        <button
+          onclick="showTasks()"
+        >
+          Retry
+        </button>
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+function renderTasks() {
+
+  const container =
+    document.getElementById(
+      "tasks-list"
+    );
+
+
+  if (!container) return;
+
+
+  container.innerHTML =
+    currentTasks
+      .map(task => {
+
+        const buttonText =
+          task.completed
+            ? "Completed"
+            : "Earn";
+
+
+        return `
+
+          <div
+            class="task-card
+            ${task.completed
+              ? "task-completed"
+              : ""}"
+          >
+
+            <div
+              class="task-icon"
+            >
+              ${task.icon}
+            </div>
+
+            <div
+              class="task-info"
+            >
+
+              <h3>
+                ${task.title}
+              </h3>
+
+              <p>
+                ${task.description}
+              </p>
+
+            </div>
+
+            <button
+              class="
+                task-button
+                ${task.completed
+                  ? "completed"
+                  : ""}
+              "
+              ${
+                task.completed
+                  ? "disabled"
+                  : ""
+              }
+              onclick="
+                startTask('${task.id}')
+              "
+            >
+              ${buttonText}
+            </button>
+
+          </div>
+
+        `;
+
+      })
+      .join("");
+
 }
 
 
 // ============================
-// Start Task
+// Start task
 // ============================
 
-function startTask(button, reward, coinReward) {
+async function startTask(
+  taskId
+) {
 
-  if (!button || button.disabled) {
-    return;
+  const task =
+    currentTasks.find(
+      item =>
+        item.id === taskId
+    );
+
+
+  if (!task) return;
+
+  if (task.completed) return;
+
+
+  const button =
+    document.querySelector(
+      `.task-card button[onclick*="'${taskId}'"]`
+    );
+
+
+  if (button) {
+
+    button.disabled =
+      true;
+
   }
 
 
-  button.disabled = true;
-
-  button.textContent =
-    "Working...";
+  let remaining =
+    task.duration;
 
 
-  // Demo task timer
-  setTimeout(() => {
+  if (button) {
 
-    bux += reward;
+    button.textContent =
+      formatTime(remaining);
 
-    coins += coinReward;
+  }
+
+
+  const timer =
+    setInterval(
+      async () => {
+
+        remaining--;
+
+
+        if (button) {
+
+          button.textContent =
+            formatTime(
+              remaining
+            );
+
+        }
+
+
+        if (
+          remaining <= 0
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+
+          await claimTask(
+            taskId,
+            button
+          );
+
+        }
+
+      },
+      1000
+    );
+
+}
+
+
+// ============================
+// Claim task
+// ============================
+
+async function claimTask(
+  taskId,
+  button
+) {
+
+  try {
+
+    const data =
+      await api(
+        `/api/tasks/${taskId}/claim`,
+        {
+          method: "POST"
+        }
+      );
+
+
+    coins =
+      data.user.coins;
+
+    bux =
+      data.user.bux;
 
 
     updateBalance();
 
 
-    button.textContent =
-      "Completed";
+    if (button) {
 
-    button.classList.add(
-      "completed"
+      button.textContent =
+        "Completed";
+
+      button.classList.add(
+        "completed"
+      );
+
+    }
+
+
+    const task =
+      currentTasks.find(
+        item =>
+          item.id === taskId
+      );
+
+
+    if (task) {
+
+      task.completed =
+        true;
+
+    }
+
+
+    alert(
+      `+${data.reward} BUX earned!`
     );
 
 
-  }, 2000);
+  } catch (error) {
+
+    alert(
+      error.message
+    );
+
+
+    if (button) {
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        "Earn";
+
+    }
+
+  }
 
 }
 
 
 // ============================
-// FRIENDS
+// Friends
 // ============================
 
 function showFriends() {
 
-  if (!mainElement) {
-    return;
-  }
+  const main =
+    getMain();
+
+  if (!main) return;
 
 
-  mainElement.innerHTML = `
+  main.innerHTML = `
 
-    <section class="tasks-page">
+    <section class="page-header">
 
-      <div class="section-heading">
+      <h1>Friends</h1>
 
-        <h2>
-          Friends
-        </h2>
+      <p>
+        Invite friends and earn rewards
+      </p>
 
-        <p>
-          Invite friends and earn rewards
-        </p>
+    </section>
 
+
+    <section
+      class="friends-card"
+    >
+
+      <div class="friends-icon-large">
+        👥
       </div>
 
+      <div>
 
-      <div class="info-card">
+        <h3>
+          Referral system
+        </h3>
 
-        <div class="info-icon">
-          👥
-        </div>
-
-        <div>
-
-          <strong>
-            Referral system
-          </strong>
-
-          <p>
-            Invite your friends and earn BUX.
-            Referral rewards will be activated soon.
-          </p>
-
-        </div>
+        <p>
+          Invite your friends and earn BUX.
+          Referral rewards will be activated soon.
+        </p>
 
       </div>
 
@@ -542,149 +928,72 @@ function showFriends() {
 
 
 // ============================
-// WALLET
+// Wallet
 // ============================
 
 function showWallet() {
 
-  if (!mainElement) {
-    return;
-  }
+  const main =
+    getMain();
+
+  if (!main) return;
 
 
-  mainElement.innerHTML = `
+  main.innerHTML = `
 
-    <section class="tasks-page">
+    <section class="page-header">
 
-      <div class="section-heading">
+      <h1>Wallet</h1>
 
-        <h2>
-          Wallet
-        </h2>
+      <p>
+        Manage your BUX and withdrawals
+      </p>
 
-        <p>
-          Manage your BUX and withdrawals
-        </p>
+    </section>
+
+
+    <section
+      class="wallet-card"
+    >
+
+      <div
+        class="wallet-top"
+      >
+
+        <span>
+          Available BUX
+        </span>
+
+        <span
+          class="online-dot"
+        >
+          ● Online
+        </span>
 
       </div>
 
 
-      <section class="balance-card">
+      <div
+        class="wallet-balance"
+      >
 
-        <div class="balance-top">
+        💰
 
-          <span>
-            Available BUX
-          </span>
+        <strong>
+          ${formatNumber(bux)}
+        </strong>
 
-          <span class="online-dot">
-            ● Online
-          </span>
-
-        </div>
+      </div>
 
 
-        <div class="coins">
-
-          <span class="coin-icon">
-            💰
-          </span>
-
-          <span>
-            ${formatNumber(bux)}
-          </span>
-
-        </div>
-
-
-        <div class="balance-label">
-          BUX
-        </div>
-
-
-        <div class="balance-divider"></div>
-
-
-        <div class="mini-balances">
-
-          <div class="mini-balance">
-
-            <span class="mini-icon">
-              TON
-            </span>
-
-            <div>
-
-              <strong>
-                ${(bux / 10000).toFixed(4)}
-              </strong>
-
-              <small>
-                Estimated TON
-              </small>
-
-            </div>
-
-          </div>
-
-
-          <div class="mini-balance">
-
-            <span class="mini-icon">
-              💎
-            </span>
-
-            <div>
-
-              <strong>
-                ${formatNumber(coins)}
-              </strong>
-
-              <small>
-                Coins
-              </small>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      <section class="info-card">
-
-        <div class="info-icon">
-          💰
-        </div>
-
-        <div>
-
-          <strong>
-            Withdrawals
-          </strong>
-
-          <p>
-            Minimum withdrawal:
-            <b>2,000 BUX</b>
-            = 0.2 TON
-          </p>
-
-        </div>
-
-      </section>
-
+      <p>
+        Minimum withdrawal:
+        <b>2,000 BUX</b>
+      </p>
 
       <button
-        class="claim-button"
-        style="
-          width:100%;
-          margin-top:16px;
-          padding:15px;
-          font-size:13px;
-        "
-        onclick="requestWithdrawal()"
+        class="withdraw-button"
+        onclick="withdraw()"
       >
         Withdraw
       </button>
@@ -702,46 +1011,39 @@ function showWallet() {
 }
 
 
-// ============================
-// Withdrawal
-// ============================
+function withdraw() {
 
-function requestWithdrawal() {
-
-  if (bux < 2000) {
+  if (
+    bux < 2000
+  ) {
 
     alert(
       "Minimum withdrawal is 2,000 BUX."
     );
 
     return;
+
   }
 
 
   alert(
-    "Withdrawal system will be connected to the wallet backend next."
+    "Withdrawal system will be activated in the next stage."
   );
 
 }
 
 
 // ============================
-// Daily Countdown
+// Countdown
 // ============================
 
 setInterval(() => {
 
-  if (dailyRemaining > 0) {
+  if (
+    dailyRemaining > 0
+  ) {
 
     dailyRemaining--;
-
-    if (dailyRemaining <= 0) {
-
-      dailyRemaining = 0;
-      dailyAvailable = true;
-
-    }
-
 
     updateDaily();
 
@@ -756,6 +1058,6 @@ setInterval(() => {
 
 updateBalance();
 
-bindDailyReward();
-
 updateDaily();
+
+loadUser();
