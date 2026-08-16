@@ -195,6 +195,8 @@ button {
   background: rgba(85, 230, 176, 0.08);
 
   filter: blur(5px);
+
+  pointer-events: none;
 }
 
 .balance-top {
@@ -388,6 +390,11 @@ button {
   transform: scale(0.94);
 }
 
+.claim-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 
 /* =========================
    SECTION
@@ -570,6 +577,8 @@ button {
   width: 40px;
   height: 40px;
 
+  flex-shrink: 0;
+
   display: flex;
   align-items: center;
   justify-content: center;
@@ -597,6 +606,231 @@ button {
 
 .info-card b {
   color: var(--primary);
+}
+
+
+/* =========================
+   TASKS PAGE
+========================= */
+
+.tasks-page {
+  width: 100%;
+
+  animation:
+    tasksPageIn 0.25s ease;
+}
+
+.tasks-page .section-heading {
+  margin-top: 8px;
+  margin-bottom: 17px;
+}
+
+
+/* TASK LIST */
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+}
+
+
+/* TASK CARD */
+
+.task-card {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  width: 100%;
+
+  padding: 15px;
+
+  border-radius: 19px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.055),
+      rgba(255, 255, 255, 0.018)
+    );
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.07);
+
+  box-shadow:
+    0 10px 30px
+    rgba(0, 0, 0, 0.12);
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.task-card:active {
+  transform: scale(0.985);
+
+  background:
+    rgba(255, 255, 255, 0.07);
+}
+
+
+/* TASK ICON */
+
+.task-icon {
+  width: 48px;
+  height: 48px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 15px;
+
+  background:
+    rgba(85, 230, 176, 0.10);
+
+  border: 1px solid
+    rgba(85, 230, 176, 0.08);
+
+  font-size: 22px;
+
+  box-shadow:
+    0 8px 20px
+    rgba(0, 0, 0, 0.12);
+}
+
+
+/* TASK INFORMATION */
+
+.task-info {
+  flex: 1;
+
+  min-width: 0;
+}
+
+.task-info h3 {
+  margin: 0;
+
+  color: var(--text);
+
+  font-size: 14px;
+  font-weight: 750;
+
+  line-height: 1.2;
+}
+
+.task-info p {
+  margin: 6px 0 0;
+
+  color: var(--muted);
+
+  font-size: 10px;
+
+  line-height: 1.45;
+}
+
+
+/* TASK BUTTON */
+
+.task-button {
+  flex-shrink: 0;
+
+  min-width: 54px;
+
+  border: 0;
+
+  padding: 10px 12px;
+
+  border-radius: 12px;
+
+  background:
+    var(--primary);
+
+  color:
+    #07111f;
+
+  font-size: 11px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 6px 18px
+    rgba(85, 230, 176, 0.12);
+
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    background 0.18s ease;
+}
+
+.task-button:active {
+  transform: scale(0.93);
+}
+
+.task-button:disabled {
+  cursor: default;
+
+  opacity: 0.65;
+}
+
+
+/* COMPLETED TASK */
+
+.task-button.completed {
+  background:
+    rgba(85, 230, 176, 0.12);
+
+  color:
+    var(--primary);
+
+  border:
+    1px solid
+    rgba(85, 230, 176, 0.18);
+
+  box-shadow: none;
+}
+
+
+/* COMPLETED CARD */
+
+.task-card:has(.task-button.completed) {
+  border-color:
+    rgba(85, 230, 176, 0.16);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(85, 230, 176, 0.055),
+      rgba(255, 255, 255, 0.018)
+    );
+}
+
+
+/* TASK PAGE ANIMATION */
+
+@keyframes tasksPageIn {
+
+  from {
+    opacity: 0;
+    transform:
+      translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translateY(0);
+  }
+
 }
 
 
@@ -703,6 +937,37 @@ button {
 
   .brand-name {
     font-size: 18px;
+  }
+
+  .task-card {
+    padding: 13px;
+    gap: 10px;
+  }
+
+  .task-icon {
+    width: 44px;
+    height: 44px;
+
+    border-radius: 13px;
+
+    font-size: 20px;
+  }
+
+  .task-info h3 {
+    font-size: 13px;
+  }
+
+  .task-info p {
+    font-size: 9px;
+  }
+
+  .task-button {
+    min-width: 50px;
+
+    padding:
+      9px 10px;
+
+    font-size: 10px;
   }
 
 }
