@@ -990,3 +990,378 @@ button {
   }
 
 }
+/* =========================
+   DZMoney Pages
+========================= */
+
+.page-header {
+  margin-top: 28px;
+  margin-bottom: 32px;
+}
+
+.page-header h1 {
+  margin: 0;
+
+  font-size: 30px;
+  font-weight: 800;
+
+  letter-spacing: -0.8px;
+}
+
+.page-header p {
+  margin: 8px 0 0;
+
+  color: var(--muted);
+
+  font-size: 14px;
+}
+
+
+/* =========================
+   Tasks
+========================= */
+
+.tasks-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+}
+
+.task-card {
+  display: flex;
+  align-items: center;
+
+  gap: 16px;
+
+  min-height: 138px;
+
+  padding: 18px 16px;
+
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,0.045),
+      rgba(255,255,255,0.018)
+    );
+
+  border: 1px solid
+    rgba(255,255,255,0.08);
+
+  transition:
+    transform .2s,
+    border-color .2s;
+}
+
+.task-card:active {
+  transform: scale(.98);
+}
+
+.task-icon {
+  width: 68px;
+  height: 68px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 20px;
+
+  background:
+    rgba(85,230,176,.10);
+
+  font-size: 32px;
+}
+
+.task-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-info h3 {
+  margin: 0;
+
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.task-info p {
+  margin: 7px 0 0;
+
+  color: var(--muted);
+
+  font-size: 11px;
+
+  line-height: 1.45;
+}
+
+.task-button {
+  flex-shrink: 0;
+
+  min-width: 96px;
+
+  padding: 13px 14px;
+
+  border: 0;
+
+  border-radius: 16px;
+
+  background: var(--primary);
+
+  color: #071b16;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition: .2s;
+}
+
+.task-button:active {
+  transform: scale(.94);
+}
+
+.task-button:disabled {
+  cursor: default;
+}
+
+.task-button.completed {
+  background:
+    rgba(85,230,176,.10);
+
+  color:
+    var(--primary);
+
+  border:
+    1px solid
+    rgba(85,230,176,.20);
+}
+
+.task-completed {
+  border-color:
+    rgba(85,230,176,.16);
+}
+
+.loading-card,
+.error-card {
+  padding: 25px;
+
+  text-align: center;
+
+  border-radius: 20px;
+
+  background:
+    rgba(255,255,255,.035);
+
+  color: var(--muted);
+
+  font-size: 13px;
+}
+
+.error-card button {
+  display: block;
+
+  margin: 15px auto 0;
+
+  padding: 10px 18px;
+
+  border: 0;
+
+  border-radius: 12px;
+
+  background: var(--primary);
+
+  font-weight: 700;
+}
+
+
+/* =========================
+   Friends
+========================= */
+
+.friends-card {
+  display: flex;
+  align-items: center;
+
+  gap: 16px;
+
+  padding: 22px;
+
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(85,230,176,.07),
+      rgba(255,255,255,.025)
+    );
+
+  border:
+    1px solid
+    rgba(85,230,176,.12);
+}
+
+.friends-icon-large {
+  width: 58px;
+  height: 58px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 18px;
+
+  background:
+    rgba(85,230,176,.10);
+
+  font-size: 28px;
+}
+
+.friends-card h3 {
+  margin: 0;
+
+  font-size: 16px;
+}
+
+.friends-card p {
+  margin: 7px 0 0;
+
+  color: var(--muted);
+
+  font-size: 11px;
+
+  line-height: 1.45;
+}
+
+
+/* =========================
+   Wallet
+========================= */
+
+.wallet-card {
+  padding: 23px;
+
+  border-radius: 23px;
+
+  background:
+    linear-gradient(
+      145deg,
+      #10263a,
+      #0b192b
+    );
+
+  border:
+    1px solid
+    rgba(255,255,255,.08);
+
+  box-shadow:
+    0 20px 50px
+    rgba(0,0,0,.22);
+}
+
+.wallet-top {
+  display: flex;
+  justify-content: space-between;
+
+  color: var(--muted);
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wallet-balance {
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  margin-top: 25px;
+
+  font-size: 34px;
+}
+
+.wallet-balance strong {
+  font-size: 38px;
+}
+
+.wallet-card > p {
+  margin: 14px 0 20px;
+
+  color: var(--muted);
+
+  font-size: 12px;
+}
+
+.wallet-card > p b {
+  color: var(--primary);
+}
+
+.withdraw-button {
+  width: 100%;
+
+  padding: 15px;
+
+  border: 0;
+
+  border-radius: 15px;
+
+  background: var(--gold);
+
+  color: #17120a;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.withdraw-button:active {
+  transform: scale(.98);
+}
+
+
+/* =========================
+   Small screens
+========================= */
+
+@media (max-width: 390px) {
+
+  .task-card {
+    gap: 10px;
+
+    padding: 14px;
+  }
+
+  .task-icon {
+    width: 55px;
+    height: 55px;
+
+    border-radius: 17px;
+
+    font-size: 25px;
+  }
+
+  .task-info h3 {
+    font-size: 14px;
+  }
+
+  .task-info p {
+    font-size: 10px;
+  }
+
+  .task-button {
+    min-width: 78px;
+
+    padding: 11px 8px;
+
+    font-size: 10px;
+  }
+
+}
