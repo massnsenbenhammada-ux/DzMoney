@@ -3,6 +3,13 @@ const path = require("path");
 
 const app = express();
 
+console.log("================================");
+console.log("DzMoney SERVER STARTING");
+console.log("Express version:", require("express/package.json").version);
+console.log("Node version:", process.version);
+console.log("Server file:", __filename);
+console.log("================================");
+
 const PORT = process.env.PORT || 3000;
 
 // Middleware
