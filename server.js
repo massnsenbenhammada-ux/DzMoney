@@ -1,144 +1,103 @@
-const http = require("http");
-const fs = require("fs");
+const express = require("express");
 const path = require("path");
-const url = require("url");
+
+const app = express();
 
 const PORT = process.env.PORT || 3000;
-const PUBLIC_DIR = path.join(__dirname, "public");
+const publicPath = path.join(__dirname, "public");
 
-const MIME_TYPES = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "application/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".gif": "image/gif",
-  ".svg": "image/svg+xml",
-  ".webp": "image/webp",
-  ".ico": "image/x-icon"
-};
+// ============================
+// Environment diagnostics
+// ============================
 
-function sendJSON(res, data, statusCode = 200) {
-  const body = JSON.stringify(data);
+console.log("================================");
+console.log("DzMoney Environment");
+console.log("================================");
+console.log("Node version:", process.version);
+console.log(
+  "Express version:",
+  require("express/package.json").version
+);
+console.log("Working directory:", process.cwd());
+console.log("Server file:", __filename);
+console.log("PORT:", PORT);
+console.log("Public path:", publicPath);
+console.log("================================");
 
-  res.writeHead(statusCode, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(body)
+// ============================
+// Middleware
+// ============================
+
+app.use(express.json());
+
+// ============================
+// Frontend static files
+// ============================
+
+app.use(express.static(publicPath));
+
+// ============================
+// API status
+// ============================
+
+app.get("/api/status", (req, res) => {
+  res.json({
+    success: true,
+    app: "DzMoney",
+    status: "online",
+    node: process.version,
+    express: require("express/package.json").version
   });
+});
 
-  res.end(body);
-}
+// ============================
+// API root
+// ============================
 
-function sendFile(res, filePath) {
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
-      sendJSON(
-        res,
-        {
-          success: false,
-          error: "File not found"
-        },
-        404
-      );
-
-      return;
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-
-    const contentType =
-      MIME_TYPES[ext] ||
-      "application/octet-stream";
-
-    res.writeHead(200, {
-      "Content-Type": contentType,
-      "Content-Length": data.length
-    });
-
-    res.end(data);
+app.get("/api", (req, res) => {
+  res.json({
+    success: true,
+    message: "DzMoney API is working"
   });
-}
+});
 
-const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url);
-  const pathname = parsedUrl.pathname;
+// ============================
+// Frontend fallback
+// ============================
+// مهم:
+// لا تستخدم app.get("*")
+// ولا app.get("/*")
+// مع Express 5.
+//
+// نستخدم هذا middleware بدون route pattern.
 
-  // ============================
-  // API status
-  // ============================
-
-  if (pathname === "/api/status") {
-    sendJSON(res, {
-      success: true,
-      app: "DzMoney",
-      status: "online",
-      node: process.version
+app.use((req, res, next) => {
+  // API غير موجود
+  if (req.path.startsWith("/api/")) {
+    return res.status(404).json({
+      success: false,
+      error: "API endpoint not found"
     });
-
-    return;
   }
 
-  // ============================
-  // API root
-  // ============================
-
-  if (pathname === "/api") {
-    sendJSON(res, {
-      success: true,
-      message: "DzMoney API is working",
-      node: process.version
-    });
-
-    return;
-  }
-
-  // ============================
-  // Frontend
-  // ============================
-
-  let requestedPath = pathname;
-
-  if (requestedPath === "/") {
-    requestedPath = "/index.html";
-  }
-
-  // Prevent path traversal
-  const safePath = path.normalize(requestedPath)
-    .replace(/^(\.\.(\/|\\|$))+/, "");
-
-  const filePath = path.join(
-    PUBLIC_DIR,
-    safePath
-  );
-
-  // Make sure file stays inside public directory
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    sendJSON(
-      res,
-      {
-        success: false,
-        error: "Forbidden"
-      },
-      403
-    );
-
-    return;
-  }
-
-  fs.stat(filePath, (error, stats) => {
-
-    if (!error && stats.isFile()) {
-      sendFile(res, filePath);
-      return;
+  // إرسال الواجهة
+  res.sendFile(path.join(publicPath, "index.html"), (err) => {
+    if (err) {
+      next(err);
     }
+  });
+});
 
-    // Frontend fallback
-    sendFile(
-      res,
-      path.join(PUBLIC_DIR, "index.html")
-    );
+// ============================
+// Error handler
+// ============================
+
+app.use((err, req, res, next) => {
+  console.error("SERVER ERROR:", err);
+
+  res.status(500).json({
+    success: false,
+    error: "Internal server error"
   });
 });
 
@@ -146,12 +105,14 @@ const server = http.createServer((req, res) => {
 // Start server
 // ============================
 
-server.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log("================================");
-  console.log("DzMoney server started");
-  console.log("================================");
-  console.log("Node version:", process.version);
+  console.log("DzMoney server is ONLINE");
   console.log("Port:", PORT);
-  console.log("Public directory:", PUBLIC_DIR);
+  console.log("Node:", process.version);
+  console.log(
+    "Express:",
+    require("express/package.json").version
+  );
   console.log("================================");
 });
