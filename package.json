@@ -1,6 +1,6 @@
 {
   "name": "dzmoney",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "DzMoney Telegram Mini App with PostgreSQL and testnet TON payout engine",
   "main": "server.js",
   "scripts": {
