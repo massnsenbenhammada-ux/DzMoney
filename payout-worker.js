@@ -17,8 +17,6 @@ console.log("TON payout env check:", JSON.stringify({
   TON_TREASURY_MNEMONIC: process.env.TON_TREASURY_MNEMONIC ? "PRESENT" : "MISSING"
 }));
 
-// Testnet-only safety: a mnemonic explicitly enables the worker for the
-// current test environment, while TON_PAYOUT_ENABLED=false can still disable it.
 const ENABLED = String(process.env.TON_PAYOUT_ENABLED || (MNEMONIC ? "true" : "false")).toLowerCase() === "true";
 
 console.log("TON payout worker boot:", JSON.stringify({
@@ -84,6 +82,7 @@ if (NETWORK !== "testnet") {
       ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS payout_started_at BIGINT;
       ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS payout_attempts INTEGER NOT NULL DEFAULT 0;
       ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS payout_error TEXT NOT NULL DEFAULT '';
+      ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS payout_network TEXT;
     `);
   }
 
@@ -153,16 +152,16 @@ if (NETWORK !== "testnet") {
     );
     if (!locked.rowCount) return false;
 
-    console.log(`TON payout worker: sending withdrawal #${id}: ${amountTon} TON -> ${destination.toString({ bounceable: false, urlSafe: true })}`);
+    console.log(`TON payout worker: sending TESTNET withdrawal #${id}: ${amountTon} TON -> ${destination.toString({ bounceable: false, urlSafe: true })}`);
 
     try {
       await contract.sendTransfer({
         seqno: seqnoBefore,
         secretKey: keyPair.secretKey,
-        messages: [internal({ to: destination, value: amountNano, bounce: false, body: `DzMoney withdrawal #${id}` })],
+        messages: [internal({ to: destination, value: amountNano, bounce: false, body: `DzMoney TESTNET withdrawal #${id}` })],
         sendMode: SendMode.PAY_GAS_SEPARATELY
       });
-      console.log(`TON payout worker: broadcast accepted for withdrawal #${id}, seqno=${seqnoBefore}`);
+      console.log(`TON payout worker: broadcast accepted for TESTNET withdrawal #${id}, seqno=${seqnoBefore}`);
     } catch (error) {
       await pool.query(`UPDATE withdrawals SET status='approved', payout_error=$1, updated_at=$2 WHERE id=$3 AND status='processing'`, [String(error?.message || error).slice(0, 2000), Date.now(), id]);
       throw error;
@@ -171,13 +170,13 @@ if (NETWORK !== "testnet") {
     const confirmation = await waitForConfirmation({ contract, client, treasuryAddress: wallet.address, destination, amountNano, seqnoBefore, recipientBalanceBefore });
     if (!confirmation.confirmed) {
       await pool.query(`UPDATE withdrawals SET status='processing', payout_error=$1, updated_at=$2 WHERE id=$3 AND status='processing'`, ["Broadcast accepted, but recipient confirmation was not proven. Manual reconciliation required; no automatic resend.", Date.now(), id]);
-      console.error(`TON payout worker: withdrawal #${id} needs reconciliation; NO automatic resend.`);
+      console.error(`TON payout worker: TESTNET withdrawal #${id} needs reconciliation; NO automatic resend.`);
       return true;
     }
 
     const txHash = confirmation.hash || "";
     await pool.query(`UPDATE withdrawals SET status='paid', processed_at=$1, payout_tx_hash=$2, payout_error='', updated_at=$1 WHERE id=$3 AND status='processing'`, [Date.now(), txHash, id]);
-    console.log(`TON payout worker: withdrawal #${id} PAID. tx=${txHash || "hash-pending"}`);
+    console.log(`TON payout worker: TESTNET withdrawal #${id} PAID. tx=${txHash || "hash-pending"}`);
     return true;
   }
 
@@ -193,12 +192,38 @@ if (NETWORK !== "testnet") {
     busy = true;
     try {
       await ensureSchema();
-      const approved = await pool.query(`SELECT id,amount_ton,destination,status,payout_attempts FROM withdrawals WHERE status='approved' ORDER BY id ASC LIMIT 1`);
+
+      // TESTNET isolation:
+      // 1) Explicit payout_network='testnet' is accepted.
+      // 2) Legacy rows with no network marker are accepted only when their
+      //    user-friendly destination is unmistakably a testnet address (0Q.../kQ...).
+      // 3) Raw addresses such as 0:<hash> are NOT auto-classified as testnet.
+      // This prevents old/mainnet withdrawals such as #7 from ever being paid
+      // by the testnet treasury.
+      const approved = await pool.query(`
+        SELECT id, amount_ton, destination, status, payout_attempts, payout_network
+        FROM withdrawals
+        WHERE status='approved'
+          AND (
+            LOWER(COALESCE(payout_network, '')) = 'testnet'
+            OR (
+              COALESCE(TRIM(payout_network), '') = ''
+              AND LOWER(TRIM(destination)) LIKE '0q%'
+            )
+            OR (
+              COALESCE(TRIM(payout_network), '') = ''
+              AND LOWER(TRIM(destination)) LIKE 'k%'
+            )
+          )
+        ORDER BY id ASC
+        LIMIT 1
+      `);
+
       if (approved.rowCount) {
-        console.log(`TON payout worker: found approved withdrawal #${approved.rows[0].id}`);
+        console.log(`TON payout worker: found approved TESTNET withdrawal #${approved.rows[0].id}`);
         await processWithdrawal(approved.rows[0]);
       } else {
-        console.log("TON payout worker: heartbeat - no approved withdrawals");
+        console.log("TON payout worker: heartbeat - no approved TESTNET withdrawals");
       }
       await recoverProcessing();
     } catch (error) {
@@ -209,7 +234,7 @@ if (NETWORK !== "testnet") {
   }
 
   (async () => {
-    console.log("TON payout worker: ENABLED, TESTNET ONLY");
+    console.log("TON payout worker: ENABLED, TESTNET ONLY; legacy/non-testnet withdrawals are excluded");
     await poll();
     setInterval(poll, POLL_MS);
   })().catch(error => console.error("TON payout worker fatal startup error:", error?.stack || error));
