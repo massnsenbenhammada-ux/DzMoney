@@ -1,10 +1,10 @@
 {
   "name": "dzmoney",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "DzMoney Telegram Mini App with PostgreSQL and testnet TON payout engine",
   "main": "server.js",
   "scripts": {
-    "start": "node -r ./payout-worker.js server.js"
+    "start": "node -r ./manual-wallet-server.js -r ./payout-worker.js server.js"
   },
   "engines": {
     "node": "20.x"
