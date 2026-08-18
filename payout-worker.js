@@ -10,6 +10,13 @@ const RPC_API_KEY = String(process.env.TONCENTER_API_KEY || "").trim();
 const POLL_MS = Math.max(5000, Number(process.env.TON_PAYOUT_POLL_MS || 10000));
 const CONFIRM_TIMEOUT_MS = Math.max(30000, Number(process.env.TON_PAYOUT_CONFIRM_TIMEOUT_MS || 120000));
 
+// Safe environment diagnostics: values/secrets are NEVER printed.
+console.log("TON payout env check:", JSON.stringify({
+  TON_PAYOUT_ENABLED: process.env.TON_PAYOUT_ENABLED ? "PRESENT" : "MISSING",
+  TON_PAYOUT_NETWORK: process.env.TON_PAYOUT_NETWORK ? "PRESENT" : "MISSING",
+  TON_TREASURY_MNEMONIC: process.env.TON_TREASURY_MNEMONIC ? "PRESENT" : "MISSING"
+}));
+
 // Testnet-only safety: a mnemonic explicitly enables the worker for the
 // current test environment, while TON_PAYOUT_ENABLED=false can still disable it.
 const ENABLED = String(process.env.TON_PAYOUT_ENABLED || (MNEMONIC ? "true" : "false")).toLowerCase() === "true";
