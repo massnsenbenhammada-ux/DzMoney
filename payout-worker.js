@@ -1,11 +1,13 @@
 const { Pool } = require("pg");
 const { Address, TonClient, WalletContractV5R1, SendMode, internal, toNano } = require("@ton/ton");
 const { mnemonicToPrivateKey } = require("@ton/crypto");
+const nacl = require("tweetnacl");
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const NETWORK = String(process.env.TON_PAYOUT_NETWORK || "testnet").toLowerCase();
 const MNEMONIC = String(process.env.TON_TREASURY_MNEMONIC || "").trim();
 const TREASURY_ADDRESS = String(process.env.TON_TREASURY_ADDRESS || "").trim();
+const MNEMONIC_TYPE = String(process.env.TON_TREASURY_MNEMONIC_TYPE || "auto").toLowerCase();
 const RPC_ENDPOINT = process.env.TON_RPC_ENDPOINT || "https://testnet.toncenter.com/api/v2/jsonRPC";
 const RPC_API_KEY = String(process.env.TONCENTER_API_KEY || "").trim();
 const POLL_MS = Math.max(5000, Number(process.env.TON_PAYOUT_POLL_MS || 10000));
@@ -15,7 +17,8 @@ console.log("TON payout env check:", JSON.stringify({
   TON_PAYOUT_ENABLED: process.env.TON_PAYOUT_ENABLED ? "PRESENT" : "MISSING",
   TON_PAYOUT_NETWORK: process.env.TON_PAYOUT_NETWORK ? "PRESENT" : "MISSING",
   TON_TREASURY_MNEMONIC: process.env.TON_TREASURY_MNEMONIC ? "PRESENT" : "MISSING",
-  TON_TREASURY_ADDRESS: TREASURY_ADDRESS ? "PRESENT" : "MISSING"
+  TON_TREASURY_ADDRESS: TREASURY_ADDRESS ? "PRESENT" : "MISSING",
+  TON_TREASURY_MNEMONIC_TYPE: MNEMONIC_TYPE
 }));
 
 const ENABLED = String(process.env.TON_PAYOUT_ENABLED || (MNEMONIC ? "true" : "false")).toLowerCase() === "true";
@@ -26,6 +29,7 @@ console.log("TON payout worker boot:", JSON.stringify({
   database: Boolean(DATABASE_URL),
   mnemonic: Boolean(MNEMONIC),
   treasuryAddress: Boolean(TREASURY_ADDRESS),
+  mnemonicType: MNEMONIC_TYPE,
   rpc: RPC_ENDPOINT,
   pollMs: POLL_MS
 }));
@@ -37,13 +41,16 @@ if (NETWORK !== "testnet") {
   console.log("TON payout worker: disabled. Set TON_PAYOUT_ENABLED=true or provide the testnet treasury mnemonic.");
   module.exports = {};
 } else if (!DATABASE_URL) {
-  console.error("TON payout worker: DATABASE_URL is missing; will keep retrying configuration checks.");
+  console.error("TON payout worker: DATABASE_URL is missing; refusing to process payouts.");
   module.exports = {};
 } else if (!MNEMONIC) {
-  console.error("TON payout worker: TON_TREASURY_MNEMONIC is missing; will keep retrying configuration checks.");
+  console.error("TON payout worker: TON_TREASURY_MNEMONIC is missing; refusing to process payouts.");
   module.exports = {};
 } else if (!TREASURY_ADDRESS) {
   console.error("TON payout worker: TON_TREASURY_ADDRESS is missing; refusing to process payouts.");
+  module.exports = {};
+} else if (!["auto", "ton", "multichain"].includes(MNEMONIC_TYPE)) {
+  console.error("TON payout worker: TON_TREASURY_MNEMONIC_TYPE must be auto, ton, or multichain.");
   module.exports = {};
 } else {
   const pool = new Pool({
@@ -62,24 +69,96 @@ if (NETWORK !== "testnet") {
     return Address.parse(TREASURY_ADDRESS);
   }
 
+  async function deriveMultichainKeyPair(mnemonicWords) {
+    // TON's current wallet interoperability guideline defines a 12-word
+    // Multichain mnemonic as BIP39 -> BIP44 -> SLIP-0010 Ed25519 at
+    // m/44'/607'/0'. This is different from @ton/crypto's TON-specific KDF.
+    const bip39 = await import("@scure/bip39");
+    const englishModule = await import("@scure/bip39/wordlists/english.js");
+    const slip10Module = await import("micro-key-producer/slip10.js");
+    const english = englishModule.wordlist || englishModule.default;
+    const mnemonic = mnemonicWords.join(" ");
+
+    if (!bip39.validateMnemonic(mnemonic, english)) {
+      throw new Error("Configured 12-word treasury mnemonic is not a valid BIP39 mnemonic.");
+    }
+
+    const seed = bip39.mnemonicToSeedSync(mnemonic);
+    const slip10 = slip10Module.default || slip10Module;
+    const root = slip10.fromMasterSeed(seed);
+    const derived = root.derive("m/44'/607'/0'");
+    const signing = nacl.sign.keyPair.fromSeed(Buffer.from(derived.privateKey));
+
+    return {
+      publicKey: Buffer.from(signing.publicKey),
+      secretKey: Buffer.from(signing.secretKey),
+      scheme: "multichain",
+      path: "m/44'/607'/0'"
+    };
+  }
+
+  async function deriveCandidateKeys() {
+    const words = MNEMONIC.split(/\s+/).filter(Boolean);
+    const type = MNEMONIC_TYPE === "auto"
+      ? (words.length === 12 ? "multichain" : "auto")
+      : MNEMONIC_TYPE;
+
+    if (type === "multichain") {
+      return [await deriveMultichainKeyPair(words)];
+    }
+
+    if (type === "ton") {
+      const keyPair = await mnemonicToPrivateKey(words);
+      return [{
+        publicKey: Buffer.from(keyPair.publicKey),
+        secretKey: Buffer.from(keyPair.secretKey),
+        scheme: "ton"
+      }];
+    }
+
+    // Auto mode: 12 words are unambiguously Multichain by TON's current
+    // interoperability guideline. For 24 words, try both supported schemes
+    // and accept a candidate only if it matches the configured on-chain wallet.
+    if (words.length === 12) return [await deriveMultichainKeyPair(words)];
+
+    if (words.length !== 24) {
+      throw new Error(`Unsupported treasury mnemonic length: ${words.length}. Use 12 or 24 words.`);
+    }
+
+    const candidates = [];
+    try {
+      const keyPair = await mnemonicToPrivateKey(words);
+      candidates.push({
+        publicKey: Buffer.from(keyPair.publicKey),
+        secretKey: Buffer.from(keyPair.secretKey),
+        scheme: "ton"
+      });
+    } catch (_) {}
+
+    try {
+      candidates.push(await deriveMultichainKeyPair(words));
+    } catch (_) {}
+
+    if (!candidates.length) throw new Error("The configured 24-word mnemonic is invalid under the supported TON mnemonic schemes.");
+    return candidates;
+  }
+
+  async function readOnChainWalletIdentity(client, address) {
+    const walletIdResult = await client.runMethod(address, "get_subwallet_id");
+    const publicKeyResult = await client.runMethod(address, "get_public_key");
+    const walletId = Number(walletIdResult.stack.readBigNumber());
+    const publicKeyBig = publicKeyResult.stack.readBigNumber();
+    let publicKeyHex = publicKeyBig.toString(16);
+    publicKeyHex = publicKeyHex.padStart(64, "0");
+    return { walletId, publicKey: Buffer.from(publicKeyHex, "hex") };
+  }
+
   async function getWalletContext() {
     if (!walletContextPromise) {
       walletContextPromise = (async () => {
-        const keyPair = await mnemonicToPrivateKey(MNEMONIC.split(/\s+/));
         const treasuryAddress = treasuryAddressObject();
-
-        // The configured address is authoritative for treasury balance checks.
-        // The mnemonic is used only to sign the outgoing transfer.
-        const walletId = 0x7FFFFF11;
-        const wallet = WalletContractV5R1.create({
-          walletId,
-          publicKey: keyPair.publicKey,
-          workchain: treasuryAddress.workChain
-        });
-
         const client = new TonClient({ endpoint: RPC_ENDPOINT, apiKey: RPC_API_KEY || undefined });
         const configuredBalance = await client.getBalance(treasuryAddress);
-        const derivedAddress = wallet.address;
 
         console.log(
           "TON payout worker: configured TESTNET treasury",
@@ -89,17 +168,38 @@ if (NETWORK !== "testnet") {
           "TON"
         );
 
-        if (!derivedAddress.equals(treasuryAddress)) {
-          console.error(
-            "TON payout worker: WARNING - mnemonic-derived signing wallet does not equal configured treasury address.",
-            "configured=",
-            treasuryAddress.toString({ testOnly: true, bounceable: false, urlSafe: true }),
-            "derived=",
-            derivedAddress.toString({ testOnly: true, bounceable: false, urlSafe: true })
+        // Read the wallet's actual on-chain identity. We do not guess a
+        // wallet_id or assume a mnemonic scheme when the chain can tell us.
+        const onChain = await readOnChainWalletIdentity(client, treasuryAddress);
+        const candidates = await deriveCandidateKeys();
+        const matches = [];
+
+        for (const candidate of candidates) {
+          const wallet = WalletContractV5R1.create({
+            walletId: onChain.walletId,
+            publicKey: candidate.publicKey,
+            workchain: treasuryAddress.workChain
+          });
+          const addressMatches = wallet.address.equals(treasuryAddress);
+          const publicKeyMatches = Buffer.compare(candidate.publicKey, onChain.publicKey) === 0;
+          if (addressMatches && publicKeyMatches) matches.push({ candidate, wallet });
+        }
+
+        if (matches.length !== 1) {
+          const candidateSummary = candidates.map(c => `${c.scheme}${c.path ? `:${c.path}` : ""}`).join(", ");
+          throw new Error(
+            `Treasury signer verification failed. On-chain wallet_id=${onChain.walletId}, on-chain public key=${onChain.publicKey.toString("hex")}. ` +
+            `No unique mnemonic candidate matched configured address ${treasuryAddress.toString({ testOnly: true, bounceable: false, urlSafe: true })}. ` +
+            `Checked: ${candidateSummary}. Refusing to send.`
           );
         }
 
-        return { keyPair, wallet, client, treasuryAddress };
+        const { candidate, wallet } = matches[0];
+        console.log(
+          `TON payout worker: signer verified on-chain (${candidate.scheme}${candidate.path ? ` ${candidate.path}` : ""}); wallet_id=${onChain.walletId}`
+        );
+
+        return { keyPair: candidate, wallet, client, treasuryAddress, onChainWalletId: onChain.walletId };
       })().catch(error => {
         walletContextPromise = null;
         throw error;
@@ -170,13 +270,8 @@ if (NETWORK !== "testnet") {
     const feeReserve = toNano("0.05");
     if (balance < amountNano + feeReserve) throw new Error(`Treasury balance is insufficient. Need at least ${Number(amountNano + feeReserve) / 1e9} TON.`);
 
-    const derivedAddress = wallet.address;
-    if (!derivedAddress.equals(treasuryAddress)) {
-      throw new Error(
-        `Treasury signer mismatch. Configured ${treasuryAddress.toString({ testOnly: true, bounceable: false, urlSafe: true })} but mnemonic derives ${derivedAddress.toString({ testOnly: true, bounceable: false, urlSafe: true })}. Refusing to send.`
-      );
-    }
-
+    // getWalletContext() has already proved that the exact signing key and
+    // wallet contract address match the configured on-chain treasury.
     let recipientBalanceBefore = 0n;
     try { recipientBalanceBefore = await client.getBalance(destination); } catch (_) {}
 
@@ -262,7 +357,7 @@ if (NETWORK !== "testnet") {
   }
 
   (async () => {
-    console.log("TON payout worker: ENABLED, TESTNET ONLY; explicit treasury address mode");
+    console.log("TON payout worker: ENABLED, TESTNET ONLY; explicit treasury + on-chain signer verification");
     await poll();
     setInterval(poll, POLL_MS);
   })().catch(error => console.error("TON payout worker fatal startup error:", error?.stack || error));
