@@ -1,6 +1,6 @@
 {
   "name": "dzmoney",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "DzMoney Telegram Mini App with PostgreSQL and testnet TON payout engine",
   "main": "server.js",
   "scripts": {
@@ -14,6 +14,8 @@
     "pg": "^8.16.3",
     "@ton/ton": "^16.3.0",
     "@ton/crypto": "^3.3.0",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl": "^1.0.3",
+    "@scure/bip39": "^1.6.0",
+    "micro-key-producer": "^0.9.0"
   }
 }
