@@ -1,25 +1,26 @@
-const { TonClient, WalletContractV5R1, WalletContractV4R2, WalletContractV3R2, WalletContractV2R2, WalletContractV1R3, Address, Cell, beginCell, external, internal, SendMode, toNano, contractAddress, StateInit, loadStateInit } = require('@ton/ton');
-const { mnemonicToPrivateKey, mnemonicNew, keyPairFromSeed, sha256_sync } = require('@ton/crypto');
+'use strict';
+
+const ton = require('@ton/ton');
+const { mnemonicToPrivateKey, sha256_sync } = require('@ton/crypto');
+const { mnemonicToSeedSync } = require('@scure/bip39');
+const slip10 = require('micro-key-producer/slip10.js');
 const { Pool } = require('pg');
 
 const enabled = String(process.env.TON_PAYOUT_ENABLED || '').toLowerCase() === 'true';
 const network = String(process.env.TON_PAYOUT_NETWORK || 'testnet').toLowerCase();
 const mnemonicRaw = String(process.env.TON_TREASURY_MNEMONIC || '').trim();
 const treasuryAddressRaw = String(process.env.TON_TREASURY_ADDRESS || '').trim();
-const mnemonicType = String(process.env.TON_TREASURY_MNEMONIC_TYPE || 'auto').toLowerCase();
 const RPC = String(process.env.TON_RPC_URL || 'https://testnet.toncenter.com/api/v2/jsonRPC');
 const POLL_MS = Math.max(5000, Number(process.env.TON_PAYOUT_POLL_MS || 10000));
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL && !/localhost|127\\.0\\.0\.1/i.test(process.env.DATABASE_URL) ? { rejectUnauthorized: false } : undefined });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL && !/localhost|127\.0\.0\.1/i.test(process.env.DATABASE_URL) ? { rejectUnauthorized: false } : undefined });
 
 console.log('TON payout env check:', JSON.stringify({
   TON_PAYOUT_ENABLED: process.env.TON_PAYOUT_ENABLED ? 'PRESENT' : 'MISSING',
   TON_PAYOUT_NETWORK: process.env.TON_PAYOUT_NETWORK ? 'PRESENT' : 'MISSING',
   TON_TREASURY_MNEMONIC: process.env.TON_TREASURY_MNEMONIC ? 'PRESENT' : 'MISSING',
-  TON_TREASURY_ADDRESS: process.env.TON_TREASURY_ADDRESS ? 'PRESENT' : 'MISSING',
-  TON_TREASURY_MNEMONIC_TYPE: mnemonicType
+  TON_TREASURY_ADDRESS: process.env.TON_TREASURY_ADDRESS ? 'PRESENT' : 'MISSING'
 }));
-console.log('TON payout worker boot:', JSON.stringify({ enabled, network, database: !!process.env.DATABASE_URL, mnemonic: !!mnemonicRaw, treasuryAddress: !!treasuryAddressRaw, mnemonicType, rpc: RPC, pollMs: POLL_MS }));
+console.log('TON payout worker boot:', JSON.stringify({ enabled, network, database: !!process.env.DATABASE_URL, mnemonic: !!mnemonicRaw, treasuryAddress: !!treasuryAddressRaw, rpc: RPC, pollMs: POLL_MS }));
 
 if (!enabled || network !== 'testnet') {
   console.log('TON payout worker: disabled or non-testnet; no payouts will be processed.');
@@ -29,16 +30,120 @@ if (!mnemonicRaw || !treasuryAddressRaw) {
   console.log('TON payout worker: treasury mnemonic/address missing; refusing to process payouts.');
   return;
 }
-console.log('TON payout worker: ENABLED, TESTNET ONLY; universal wallet diagnostics mode');
 
-const client = new TonClient({ endpoint: RPC });
+const client = new ton.TonClient({ endpoint: RPC });
 let busy = false;
 let shuttingDown = false;
+let walletContextPromise = null;
 
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
-function safeAddress(value) { return Address.parse(String(value)); }
-function normalizeAddress(value) { return safeAddress(value).toString({ bounceable: true, urlSafe: true }); }
-function redact(value) { const s = String(value || ''); return s.length > 8 ? `${s.slice(0, 4)}…${s.slice(-4)}` : '***'; }
+function normalizeAddress(value) { return ton.Address.parse(String(value)).toString({ bounceable: true, urlSafe: true }); }
+function safeAddress(value) { return ton.Address.parse(String(value)); }
+function hasCreate(C) { return !!C && typeof C.create === 'function'; }
+
+function makeKeyPair(publicKey, privateKey) {
+  const pub = Buffer.from(publicKey);
+  const priv = Buffer.from(privateKey);
+  return { publicKey: pub, secretKey: Buffer.concat([priv, pub]) };
+}
+
+function deriveMultichain(words) {
+  const seed = mnemonicToSeedSync(words.join(' '), '');
+  const root = slip10.fromMasterSeed(seed);
+  const account = root.derive("m/44'/607'/0'");
+  return makeKeyPair(account.publicKeyRaw, account.privateKey);
+}
+
+async function deriveKeyCandidates() {
+  const words = mnemonicRaw.split(/\s+/).filter(Boolean);
+  if (words.length !== 12 && words.length !== 24) throw new Error(`Treasury mnemonic must contain 12 or 24 words; got ${words.length}.`);
+  const out = [];
+  const seen = new Set();
+  const add = (scheme, keyPair) => {
+    if (!keyPair?.publicKey || !keyPair?.secretKey) return;
+    const fingerprint = Buffer.from(keyPair.publicKey).toString('hex');
+    if (seen.has(fingerprint)) return;
+    seen.add(fingerprint);
+    out.push({ scheme, keyPair, publicKeyHex: fingerprint });
+  };
+  if (words.length === 12) {
+    add('multichain-bip39:m/44\'/607\'/0\'', deriveMultichain(words));
+  } else {
+    try { add('ton', await mnemonicToPrivateKey(words)); } catch (_) {}
+    try { add('multichain-bip39:m/44\'/607\'/0\'', deriveMultichain(words)); } catch (_) {}
+  }
+  return out;
+}
+
+function buildWalletCandidates(keyPair, workchain) {
+  const out = [];
+  const add = (version, wallet, metadata = {}) => wallet && out.push({ version, wallet, keyPair, ...metadata });
+  if (hasCreate(ton.WalletContractV5R1)) {
+    add('v5r1:testnet', ton.WalletContractV5R1.create({ workchain, publicKey: keyPair.publicKey, walletId: { networkGlobalId: -3, workchain, walletVersion: 0, subwalletNumber: 0 } }), { contract: 'v5r1', networkGlobalId: -3, subwalletNumber: 0 });
+    add('v5r1:wallet-ton-org-legacy', ton.WalletContractV5R1.create({ workchain, publicKey: keyPair.publicKey, walletId: { networkGlobalId: -239, workchain, walletVersion: 0, subwalletNumber: 0 } }), { contract: 'v5r1', networkGlobalId: -239, subwalletNumber: 0, walletTonOrgLegacy: true });
+  }
+  if (hasCreate(ton.WalletContractV5Beta)) {
+    add('v5beta:testnet', ton.WalletContractV5Beta.create({ workchain, publicKey: keyPair.publicKey, walletId: { networkGlobalId: -3, workchain, walletVersion: 'v5', subwalletNumber: 0 } }), { contract: 'v5beta', networkGlobalId: -3, subwalletNumber: 0 });
+    add('v5beta:wallet-ton-org-legacy', ton.WalletContractV5Beta.create({ workchain, publicKey: keyPair.publicKey, walletId: { networkGlobalId: -239, workchain, walletVersion: 'v5', subwalletNumber: 0 } }), { contract: 'v5beta', networkGlobalId: -239, subwalletNumber: 0, walletTonOrgLegacy: true });
+  }
+  const id = 698983191;
+  if (hasCreate(ton.WalletContractV4R2)) add('v4r2', ton.WalletContractV4R2.create({ workchain, publicKey: keyPair.publicKey, walletId: id }), { contract: 'v4r2', walletId: id });
+  if (hasCreate(ton.WalletContractV3R2)) add('v3r2', ton.WalletContractV3R2.create({ workchain, publicKey: keyPair.publicKey, walletId: id }), { contract: 'v3r2', walletId: id });
+  if (hasCreate(ton.WalletContractV2R2)) add('v2r2', ton.WalletContractV2R2.create({ workchain, publicKey: keyPair.publicKey, walletId: id }), { contract: 'v2r2', walletId: id });
+  if (hasCreate(ton.WalletContractV1R3)) add('v1r3', ton.WalletContractV1R3.create({ workchain, publicKey: keyPair.publicKey, walletId: id }), { contract: 'v1r3', walletId: id });
+  return out;
+}
+
+async function resolveTreasurySigner() {
+  const treasury = safeAddress(treasuryAddressRaw);
+  const configured = normalizeAddress(treasury);
+  const keys = await deriveKeyCandidates();
+  const matches = [];
+  for (const key of keys) {
+    for (const candidate of buildWalletCandidates(key.keyPair, treasury.workChain)) {
+      if (normalizeAddress(candidate.wallet.address) === configured) matches.push({ ...candidate, scheme: key.scheme });
+    }
+  }
+
+  if (!matches.length && hasCreate(ton.WalletContractV5R1)) {
+    for (const key of keys) {
+      for (const networkGlobalId of [-3, -239]) {
+        for (let subwalletNumber = 0; subwalletNumber <= 0x7fff; subwalletNumber++) {
+          const wallet = ton.WalletContractV5R1.create({ workchain: treasury.workChain, publicKey: key.keyPair.publicKey, walletId: { networkGlobalId, workchain: treasury.workChain, walletVersion: 0, subwalletNumber } });
+          if (normalizeAddress(wallet.address) === configured) {
+            matches.push({ version: `v5r1:network-${networkGlobalId}:subwallet-${subwalletNumber}`, contract: 'v5r1', wallet, keyPair: key.keyPair, scheme: key.scheme, networkGlobalId, subwalletNumber });
+            break;
+          }
+        }
+        if (matches.length) break;
+      }
+      if (matches.length) break;
+    }
+  }
+
+  console.log('TON payout worker: signer candidates:', JSON.stringify({
+    treasury: configured,
+    keySchemes: keys.map(k => ({ scheme: k.scheme, publicKeyFingerprint: `${k.publicKeyHex.slice(0, 6)}…${k.publicKeyHex.slice(-6)}` })),
+    matches: matches.map(m => ({ version: m.version, scheme: m.scheme, networkGlobalId: m.networkGlobalId, subwalletNumber: m.subwalletNumber }))
+  }));
+  if (matches.length !== 1) throw new Error(`Treasury signer verification failed for ${configured}. Unique matches=${matches.length}. Refusing to send.`);
+  return { ...matches[0], treasuryAddress: treasury };
+}
+
+async function getWalletContext() {
+  if (!walletContextPromise) {
+    walletContextPromise = (async () => {
+      const signer = await resolveTreasurySigner();
+      const state = await client.getContractState(signer.treasuryAddress);
+      const balance = state.balance || 0n;
+      const codeHash = state.code ? sha256_sync(state.code.toBoc()).toString('hex') : null;
+      console.log('TON payout worker: treasury identity:', JSON.stringify({ address: normalizeAddress(signer.treasuryAddress), state: state.state, balanceNano: balance.toString(), codeHash, signer: signer.version, mnemonicScheme: signer.scheme, networkGlobalId: signer.networkGlobalId, subwalletNumber: signer.subwalletNumber }));
+      if (state.state !== 'active') throw new Error(`Treasury ${normalizeAddress(signer.treasuryAddress)} is ${state.state}. Deploy/activate the matched wallet contract before payouts. No transaction was signed.`);
+      return { ...signer, balance, state, codeHash };
+    })().catch(error => { walletContextPromise = null; throw error; });
+  }
+  return walletContextPromise;
+}
 
 async function ensureSchema() {
   await pool.query(`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS payout_started_at BIGINT`);
@@ -49,150 +154,9 @@ async function ensureSchema() {
   await pool.query(`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS payout_network TEXT`);
 }
 
-async function getTreasuryBalance() {
-  const address = safeAddress(treasuryAddressRaw);
-  return client.getBalance(address);
-}
-
-async function getAccountState() {
-  const address = safeAddress(treasuryAddressRaw);
-  const state = await client.getContractState(address);
-  return state;
-}
-
-function describeState(state) {
-  return {
-    state: state.state,
-    balance: state.balance?.toString?.() || '0',
-    codeHash: state.code ? sha256_sync(state.code.toBoc()).toString('hex') : null,
-    dataHash: state.data ? sha256_sync(state.data.toBoc()).toString('hex') : null,
-    codeBits: state.code?.bits?.length ?? null,
-    dataBits: state.data?.bits?.length ?? null
-  };
-}
-
-async function diagnoseTreasury() {
-  const address = safeAddress(treasuryAddressRaw);
-  const state = await getAccountState();
-  const info = describeState(state);
-  console.log('TON payout worker: treasury on-chain identity:', JSON.stringify({
-    address: normalizeAddress(address),
-    state: info.state,
-    balanceNano: info.balance,
-    codeHash: info.codeHash,
-    dataHash: info.dataHash,
-    codeBits: info.codeBits,
-    dataBits: info.dataBits
-  }));
-  if (state.state !== 'active' || !state.code || !state.data) {
-    throw new Error(`Treasury account is not an active smart contract (state=${state.state}).`);
-  }
-  return { address, state, info };
-}
-
-async function deriveCandidates() {
-  const words = mnemonicRaw.split(/\s+/).filter(Boolean);
-  if (words.length !== 12 && words.length !== 24) throw new Error(`Treasury mnemonic must contain 12 or 24 words; got ${words.length}.`);
-  const candidates = [];
-  const add = async (type, keyPair) => {
-    if (!keyPair?.publicKey || !keyPair?.secretKey) return;
-    candidates.push({ type, keyPair });
-  };
-  if (mnemonicType === 'ton' || mnemonicType === 'auto') {
-    try { await add('ton', await mnemonicToPrivateKey(words)); } catch (e) { console.log('TON mnemonic derivation candidate unavailable:', e.message); }
-  }
-  if (mnemonicType === 'bip39' || mnemonicType === 'multichain' || mnemonicType === 'auto') {
-    if (words.length === 24) {
-      try { await add('ton-24', await mnemonicToPrivateKey(words)); } catch (e) { console.log('24-word derivation candidate unavailable:', e.message); }
-    }
-  }
-  return candidates;
-}
-
-async function detectWalletKinds(address) {
-  const result = [];
-  const state = await client.getContractState(address);
-  const hash = state.code ? sha256_sync(state.code.toBoc()).toString('hex') : null;
-  result.push({ codeHash: hash, state: state.state });
-  return result;
-}
-
-async function verifySignerCandidates() {
-  const treasury = safeAddress(treasuryAddressRaw);
-  const diagnostics = await detectWalletKinds(treasury);
-  const candidates = await deriveCandidates();
-  console.log('TON payout worker: signer verification diagnostics:', JSON.stringify({
-    treasury: normalizeAddress(treasury),
-    detected: diagnostics,
-    candidates: candidates.map(c => c.type)
-  }));
-  if (!candidates.length) throw new Error('No usable mnemonic derivation candidate available. Refusing to send.');
-  const matches = [];
-  const versions = [
-    ['v5r1', WalletContractV5R1.create({ workchain: treasury.workChain, publicKey: Buffer.alloc(32), walletId: { networkGlobalId: -3, workchain: treasury.workChain, subwalletNumber: 0 } })],
-    ['v4r2', WalletContractV4R2.create({ workchain: treasury.workChain, publicKey: Buffer.alloc(32), walletId: 698983191 })],
-    ['v3r2', WalletContractV3R2.create({ workchain: treasury.workChain, publicKey: Buffer.alloc(32), walletId: 698983191 })],
-    ['v2r2', WalletContractV2R2.create({ workchain: treasury.workChain, publicKey: Buffer.alloc(32), walletId: 698983191 })],
-    ['v1r3', WalletContractV1R3.create({ workchain: treasury.workChain, publicKey: Buffer.alloc(32), walletId: 698983191 })]
-  ];
-  for (const candidate of candidates) {
-    for (const [version] of versions) {
-      try {
-        let wallet;
-        if (version === 'v5r1') wallet = WalletContractV5R1.create({ workchain: treasury.workChain, publicKey: candidate.keyPair.publicKey, walletId: { networkGlobalId: -3, workchain: treasury.workChain, subwalletNumber: 0 } });
-        else if (version === 'v4r2') wallet = WalletContractV4R2.create({ workchain: treasury.workChain, publicKey: candidate.keyPair.publicKey, walletId: 698983191 });
-        else if (version === 'v3r2') wallet = WalletContractV3R2.create({ workchain: treasury.workChain, publicKey: candidate.keyPair.publicKey, walletId: 698983191 });
-        else if (version === 'v2r2') wallet = WalletContractV2R2.create({ workchain: treasury.workChain, publicKey: candidate.keyPair.publicKey, walletId: 698983191 });
-        else wallet = WalletContractV1R3.create({ workchain: treasury.workChain, publicKey: candidate.keyPair.publicKey, walletId: 698983191 });
-        const derived = wallet.address.toString({ bounceable: true, urlSafe: true });
-        if (normalizeAddress(derived) === normalizeAddress(treasury)) matches.push({ version, candidate: candidate.type, address: derived, keyPair: candidate.keyPair });
-      } catch (_) {}
-    }
-  }
-  if (matches.length !== 1) throw new Error(`Universal signer verification could not establish a unique match for treasury ${normalizeAddress(treasury)}. Matches=${matches.length}. Refusing to send.`);
-  console.log(`TON payout worker: signer verified: ${matches[0].version}/${matches[0].candidate} -> ${normalizeAddress(treasury)}`);
-  return matches[0];
-}
-
-async function getWalletContext() {
-  const treasury = safeAddress(treasuryAddressRaw);
-  const balance = await getTreasuryBalance();
-  console.log(`TON payout worker: configured TESTNET treasury ${normalizeAddress(treasury)} balance ${Number(balance) / 1e9} TON`);
-  const signer = await verifySignerCandidates();
-  let wallet;
-  if (signer.version === 'v5r1') wallet = WalletContractV5R1.create({ workchain: treasury.workChain, publicKey: signer.keyPair.publicKey, walletId: { networkGlobalId: -3, workchain: treasury.workChain, subwalletNumber: 0 } });
-  else if (signer.version === 'v4r2') wallet = WalletContractV4R2.create({ workchain: treasury.workChain, publicKey: signer.keyPair.publicKey, walletId: 698983191 });
-  else if (signer.version === 'v3r2') wallet = WalletContractV3R2.create({ workchain: treasury.workChain, publicKey: signer.keyPair.publicKey, walletId: 698983191 });
-  else if (signer.version === 'v2r2') wallet = WalletContractV2R2.create({ workchain: treasury.workChain, publicKey: signer.keyPair.publicKey, walletId: 698983191 });
-  else wallet = WalletContractV1R3.create({ workchain: treasury.workChain, publicKey: signer.keyPair.publicKey, walletId: 698983191 });
-  return { client, treasuryAddress: treasury, balance, keyPair: signer.keyPair, wallet, identity: { version: signer.version, candidate: signer.candidate } };
-}
-
 async function recoverProcessing() {
-  console.log('TON payout worker: recoverProcessing START');
-  const result = await pool.query(`SELECT id,payout_error FROM withdrawals WHERE status='processing' ORDER BY id ASC LIMIT 20`);
+  const result = await pool.query(`SELECT id FROM withdrawals WHERE status='processing' ORDER BY id ASC LIMIT 20`);
   console.log(`TON payout worker: recoverProcessing OK (${result.rowCount} rows)`);
-  for (const row of result.rows) console.log(`TON payout worker: withdrawal #${row.id} remains processing; no automatic resend. ${row.payout_error || ''}`);
-}
-
-async function sendWithDetectedWallet(ctx, seqno, destination, amountNano) {
-  const contract = ctx.client.open(ctx.wallet);
-  const msg = internal({ to: destination, value: amountNano, bounce: false });
-  const common = { seqno, secretKey: ctx.keyPair.secretKey, sendMode: SendMode.PAY_GAS_SEPARATELY };
-  await contract.sendTransfer({ ...common, messages: [msg] });
-}
-
-async function waitForConfirmation(destination, amountNano, seqno, recipientBefore) {
-  for (let i = 0; i < 30; i++) {
-    await sleep(5000);
-    const now = await client.getBalance(destination).catch(() => 0n);
-    if (now >= recipientBefore + amountNano) return { confirmed: true, hash: '' };
-    try {
-      const state = await client.getContractState(safeAddress(treasuryAddressRaw));
-      if (state.lastTransaction?.lt && state.lastTransaction.lt > 0n) return { confirmed: true, hash: state.lastTransaction.hash || '' };
-    } catch (_) {}
-  }
-  return { confirmed: false, hash: '' };
 }
 
 async function processWithdrawal(row) {
@@ -201,39 +165,35 @@ async function processWithdrawal(row) {
   if (!Number.isFinite(amountTon) || amountTon <= 0) throw new Error(`Withdrawal #${id} has invalid TON amount.`);
   const destination = safeAddress(String(row.destination));
   const ctx = await getWalletContext();
-  const amountNano = toNano(amountTon.toFixed(9));
-  const reserve = toNano('0.05');
+  const amountNano = ton.toNano(amountTon.toFixed(9));
+  const reserve = ton.toNano('0.05');
   if (ctx.balance < amountNano + reserve) throw new Error(`Treasury balance is insufficient. Need at least ${Number(amountNano + reserve) / 1e9} TON.`);
-  const recipientBefore = await client.getBalance(destination).catch(() => 0n);
+
   const contract = client.open(ctx.wallet);
   const seqno = await ctx.wallet.getSeqno(contract);
   const locked = await pool.query(`UPDATE withdrawals SET status='processing', payout_started_at=$1, payout_attempts=COALESCE(payout_attempts,0)+1, payout_seqno=$2, payout_error='', payout_network='testnet', updated_at=$1 WHERE id=$3 AND status='approved' RETURNING id`, [Date.now(), seqno, id]);
   if (!locked.rowCount) return false;
-  console.log(`TON payout worker: sending TESTNET withdrawal #${id} using ${ctx.identity.version}: ${amountTon} TON -> ${destination.toString({ bounceable: false, urlSafe: true })}`);
+
+  console.log(`TON payout worker: sending TESTNET withdrawal #${id}: ${amountTon} TON -> ${normalizeAddress(destination)} using ${ctx.version}/${ctx.scheme}`);
   try {
-    await sendWithDetectedWallet(ctx, seqno, destination, amountNano);
-    console.log(`TON payout worker: broadcast accepted for #${id}, seqno=${seqno}`);
+    await contract.sendTransfer({ seqno, secretKey: ctx.keyPair.secretKey, sendMode: ton.SendMode.PAY_GAS_SEPARATELY, messages: [ton.internal({ to: destination, value: amountNano, bounce: false })] });
   } catch (error) {
     await pool.query(`UPDATE withdrawals SET status='approved', payout_error=$1, updated_at=$2 WHERE id=$3 AND status='processing'`, [String(error?.message || error).slice(0, 2000), Date.now(), id]);
     throw error;
   }
-  const confirmation = await waitForConfirmation(destination, amountNano, seqno, recipientBefore);
-  if (!confirmation.confirmed) {
-    await pool.query(`UPDATE withdrawals SET status='processing', payout_error=$1, updated_at=$2 WHERE id=$3 AND status='processing'`, ['Broadcast accepted, but recipient confirmation was not proven. Manual reconciliation required; no automatic resend.', Date.now(), id]);
-    console.error(`TON payout worker: #${id} requires reconciliation; NO automatic resend.`);
-    return true;
-  }
-  await pool.query(`UPDATE withdrawals SET status='paid', processed_at=$1, payout_tx_hash=$2, payout_error='', updated_at=$1 WHERE id=$3 AND status='processing'`, [Date.now(), confirmation.hash || '', id]);
-  console.log(`TON payout worker: TESTNET withdrawal #${id} PAID. tx=${confirmation.hash || 'unknown'}`);
+
+  // Broadcasts are never automatically retried. This prevents duplicate payouts
+  // when the provider accepted a message but returned a timeout/429.
+  await pool.query(`UPDATE withdrawals SET status='processing', payout_error=$1, updated_at=$2 WHERE id=$3 AND status='processing'`, ['Broadcast accepted; blockchain reconciliation required. Automatic resend disabled.', Date.now(), id]);
+  console.log(`TON payout worker: broadcast accepted for #${id}, seqno=${seqno}; no automatic resend.`);
   return true;
 }
 
 async function poll() {
   if (busy || shuttingDown) return;
   busy = true;
-  console.log('TON payout worker: poll START');
   try {
-    console.log('TON payout worker: querying approved TESTNET withdrawals');
+    console.log('TON payout worker: poll START');
     const result = await pool.query(`SELECT * FROM withdrawals WHERE status='approved' AND LOWER(COALESCE(payout_network,''))='testnet' ORDER BY id ASC LIMIT 5`);
     console.log(`TON payout worker: poll query OK (${result.rowCount} rows)`);
     for (const row of result.rows) {
@@ -242,18 +202,11 @@ async function poll() {
     }
     console.log('TON payout worker: poll END');
   } catch (error) {
-    console.error('TON payout worker: poll FAILED:', error);
-  } finally { busy = false; }
+    console.error('TON payout worker poll error:', error);
+  } finally {
+    busy = false;
+  }
 }
-
-function shutdown(signal) {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  console.log(`TON payout worker: ${signal} received; shutting down safely.`);
-  pool.end().catch(() => {});
-}
-process.once('SIGTERM', () => shutdown('SIGTERM'));
-process.once('SIGINT', () => shutdown('SIGINT'));
 
 (async () => {
   try {
@@ -263,9 +216,15 @@ process.once('SIGINT', () => shutdown('SIGINT'));
     await recoverProcessing();
     console.log('TON payout worker: initial poll START');
     await poll();
-    console.log(`TON payout worker: scheduler ACTIVE every ${POLL_MS}ms`);
-    setInterval(poll, POLL_MS);
+    if (!shuttingDown) {
+      const timer = setInterval(() => poll().catch(error => console.error('TON payout worker scheduler error:', error)), POLL_MS);
+      timer.unref?.();
+      console.log(`TON payout worker: scheduler ACTIVE every ${POLL_MS}ms`);
+    }
   } catch (error) {
     console.error('TON payout worker startup error:', error);
   }
 })();
+
+process.on('SIGTERM', () => { shuttingDown = true; pool.end().catch(() => {}); });
+process.on('SIGINT', () => { shuttingDown = true; pool.end().catch(() => {}); });
