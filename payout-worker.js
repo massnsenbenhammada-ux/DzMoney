@@ -79,10 +79,6 @@ async function ensureSchema() {
   `);
 }
 
-function toUserFriendly(address) {
-  return Address.parse(address).toString({ bounceable: false, urlSafe: true });
-}
-
 async function findRecentTransactionHash(client, address, beforeSeqno) {
   try {
     const txs = await client.getTransactions(address, { limit: 10 });
@@ -100,27 +96,28 @@ async function findRecentTransactionHash(client, address, beforeSeqno) {
   return "";
 }
 
-async function waitForSeqnoAndRecipient({ contract, client, treasuryAddress, destination, amountNano, seqnoBefore }) {
+async function waitForConfirmation({ contract, client, treasuryAddress, destination, amountNano, seqnoBefore, recipientBalanceBefore }) {
   const deadline = Date.now() + CONFIRM_TIMEOUT_MS;
-  let lastBalance = null;
+  let lastBalance = recipientBalanceBefore;
   while (Date.now() < deadline) {
     const seqnoNow = await contract.getSeqno();
-    if (seqnoNow !== seqnoBefore) {
-      let recipientBalance = null;
-      try {
-        recipientBalance = await client.getBalance(destination);
-        lastBalance = recipientBalance;
-      } catch (_) {}
+    let recipientBalance = null;
+    try {
+      recipientBalance = await client.getBalance(destination);
+      lastBalance = recipientBalance;
+    } catch (_) {}
 
+    if (seqnoNow !== seqnoBefore) {
       const hash = await findRecentTransactionHash(client, treasuryAddress, seqnoBefore);
-      if (recipientBalance === null || recipientBalance >= amountNano) {
-        return { confirmed: true, hash, recipientBalance };
+      const receivedDelta = recipientBalance === null ? null : recipientBalance - recipientBalanceBefore;
+      if (receivedDelta === null || receivedDelta >= amountNano) {
+        return { confirmed: true, hash, recipientBalance, receivedDelta };
       }
-      return { confirmed: true, hash, recipientBalance };
+      return { confirmed: false, hash, recipientBalance, receivedDelta };
     }
     await sleep(1500);
   }
-  return { confirmed: false, hash: "", recipientBalance: lastBalance };
+  return { confirmed: false, hash: "", recipientBalance: lastBalance, receivedDelta: lastBalance === null ? null : lastBalance - recipientBalanceBefore };
 }
 
 async function processWithdrawal(row) {
@@ -138,6 +135,13 @@ async function processWithdrawal(row) {
   const feeReserve = toNano("0.05");
   if (balance < amountNano + feeReserve) {
     throw new Error(`Treasury balance is insufficient. Need at least ${Number(amountNano + feeReserve) / 1e9} TON.`);
+  }
+
+  let recipientBalanceBefore = 0n;
+  try {
+    recipientBalanceBefore = await client.getBalance(destination);
+  } catch (_) {
+    recipientBalanceBefore = 0n;
   }
 
   const seqnoBefore = await contract.getSeqno();
@@ -178,13 +182,14 @@ async function processWithdrawal(row) {
     throw error;
   }
 
-  const confirmation = await waitForSeqnoAndRecipient({
+  const confirmation = await waitForConfirmation({
     contract,
     client,
     treasuryAddress: wallet.address,
     destination,
     amountNano,
-    seqnoBefore
+    seqnoBefore,
+    recipientBalanceBefore
   });
 
   if (!confirmation.confirmed) {
@@ -192,7 +197,7 @@ async function processWithdrawal(row) {
       `UPDATE withdrawals
        SET status='processing', payout_error=$1, updated_at=$2
        WHERE id=$3 AND status='processing'`,
-      ["Broadcast accepted but blockchain confirmation was not observed before timeout.", Date.now(), id]
+      ["Broadcast accepted, but recipient confirmation was not proven. Manual reconciliation required; no automatic resend.", Date.now(), id]
     );
     return true;
   }
@@ -210,8 +215,8 @@ async function processWithdrawal(row) {
 }
 
 async function recoverProcessing() {
-  // Do not automatically resend a processing payout. A broadcast may already
-  // have happened before a process crash. Keep it for reconciliation instead.
+  // Never automatically resend a processing payout. A broadcast may already
+  // have happened before a crash, so automatic retry could double-pay.
   const result = await pool.query(
     `SELECT id,status,payout_error FROM withdrawals WHERE status='processing' ORDER BY id ASC LIMIT 20`
   );
