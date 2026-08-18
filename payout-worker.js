@@ -57,15 +57,38 @@ if (NETWORK !== "testnet") {
     if (!walletContextPromise) {
       walletContextPromise = (async () => {
         const keyPair = await mnemonicToPrivateKey(MNEMONIC.split(/\s+/));
+
+        // wallet.ton.org currently uses the MAINNET V5 wallet_id when deriving
+        // its TESTNET wallet address. TON's official docs explicitly document
+        // this wallet.ton.org testnet derivation issue. Using the same V5
+        // wallet_id here makes the backend derive the exact treasury account
+        // that wallet.ton.org shows for the mnemonic, instead of creating a
+        // second V5 account with the normal testnet wallet_id.
+        //
+        // Mainnet V5 default wallet_id: 0x7FFFFF11
+        // Normal Testnet V5 wallet_id:   0x7FFFFFFD
+        // For compatibility with the project's wallet.ton.org treasury we
+        // intentionally use the wallet.ton.org-compatible value below.
+        const WALLET_TON_ORG_TESTNET_WALLET_ID = 0x7FFFFF11;
+
         const wallet = WalletContractV5R1.create({
-          walletId: { networkGlobalId: -3 },
+          walletId: WALLET_TON_ORG_TESTNET_WALLET_ID,
           publicKey: keyPair.publicKey,
           workchain: 0
         });
+
         const client = new TonClient({ endpoint: RPC_ENDPOINT, apiKey: RPC_API_KEY || undefined });
         const contract = client.open(wallet);
         const balance = await contract.getBalance();
-        console.log("TON payout worker: TESTNET treasury", wallet.address.toString(), "balance", Number(balance) / 1e9, "TON");
+
+        console.log(
+          "TON payout worker: TESTNET treasury",
+          wallet.address.toString({ testOnly: true, bounceable: false, urlSafe: true }),
+          "balance",
+          Number(balance) / 1e9,
+          "TON"
+        );
+
         return { keyPair, wallet, client, contract };
       })().catch(error => {
         walletContextPromise = null;
@@ -198,8 +221,6 @@ if (NETWORK !== "testnet") {
       // 2) Legacy rows with no network marker are accepted only when their
       //    user-friendly destination is unmistakably a testnet address (0Q.../kQ...).
       // 3) Raw addresses such as 0:<hash> are NOT auto-classified as testnet.
-      // This prevents old/mainnet withdrawals such as #7 from ever being paid
-      // by the testnet treasury.
       const approved = await pool.query(`
         SELECT id, amount_ton, destination, status, payout_attempts, payout_network
         FROM withdrawals
