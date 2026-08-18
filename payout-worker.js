@@ -5,16 +5,17 @@ const { mnemonicToPrivateKey } = require("@ton/crypto");
 const DATABASE_URL = process.env.DATABASE_URL;
 const NETWORK = String(process.env.TON_PAYOUT_NETWORK || "testnet").toLowerCase();
 const MNEMONIC = String(process.env.TON_TREASURY_MNEMONIC || "").trim();
+const TREASURY_ADDRESS = String(process.env.TON_TREASURY_ADDRESS || "").trim();
 const RPC_ENDPOINT = process.env.TON_RPC_ENDPOINT || "https://testnet.toncenter.com/api/v2/jsonRPC";
 const RPC_API_KEY = String(process.env.TONCENTER_API_KEY || "").trim();
 const POLL_MS = Math.max(5000, Number(process.env.TON_PAYOUT_POLL_MS || 10000));
 const CONFIRM_TIMEOUT_MS = Math.max(30000, Number(process.env.TON_PAYOUT_CONFIRM_TIMEOUT_MS || 120000));
 
-// Safe environment diagnostics: values/secrets are NEVER printed.
 console.log("TON payout env check:", JSON.stringify({
   TON_PAYOUT_ENABLED: process.env.TON_PAYOUT_ENABLED ? "PRESENT" : "MISSING",
   TON_PAYOUT_NETWORK: process.env.TON_PAYOUT_NETWORK ? "PRESENT" : "MISSING",
-  TON_TREASURY_MNEMONIC: process.env.TON_TREASURY_MNEMONIC ? "PRESENT" : "MISSING"
+  TON_TREASURY_MNEMONIC: process.env.TON_TREASURY_MNEMONIC ? "PRESENT" : "MISSING",
+  TON_TREASURY_ADDRESS: TREASURY_ADDRESS ? "PRESENT" : "MISSING"
 }));
 
 const ENABLED = String(process.env.TON_PAYOUT_ENABLED || (MNEMONIC ? "true" : "false")).toLowerCase() === "true";
@@ -24,6 +25,7 @@ console.log("TON payout worker boot:", JSON.stringify({
   network: NETWORK,
   database: Boolean(DATABASE_URL),
   mnemonic: Boolean(MNEMONIC),
+  treasuryAddress: Boolean(TREASURY_ADDRESS),
   rpc: RPC_ENDPOINT,
   pollMs: POLL_MS
 }));
@@ -40,6 +42,9 @@ if (NETWORK !== "testnet") {
 } else if (!MNEMONIC) {
   console.error("TON payout worker: TON_TREASURY_MNEMONIC is missing; will keep retrying configuration checks.");
   module.exports = {};
+} else if (!TREASURY_ADDRESS) {
+  console.error("TON payout worker: TON_TREASURY_ADDRESS is missing; refusing to process payouts.");
+  module.exports = {};
 } else {
   const pool = new Pool({
     connectionString: DATABASE_URL,
@@ -53,43 +58,48 @@ if (NETWORK !== "testnet") {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  function treasuryAddressObject() {
+    return Address.parse(TREASURY_ADDRESS);
+  }
+
   async function getWalletContext() {
     if (!walletContextPromise) {
       walletContextPromise = (async () => {
         const keyPair = await mnemonicToPrivateKey(MNEMONIC.split(/\s+/));
+        const treasuryAddress = treasuryAddressObject();
 
-        // wallet.ton.org currently uses the MAINNET V5 wallet_id when deriving
-        // its TESTNET wallet address. TON's official docs explicitly document
-        // this wallet.ton.org testnet derivation issue. Using the same V5
-        // wallet_id here makes the backend derive the exact treasury account
-        // that wallet.ton.org shows for the mnemonic, instead of creating a
-        // second V5 account with the normal testnet wallet_id.
-        //
-        // Mainnet V5 default wallet_id: 0x7FFFFF11
-        // Normal Testnet V5 wallet_id:   0x7FFFFFFD
-        // For compatibility with the project's wallet.ton.org treasury we
-        // intentionally use the wallet.ton.org-compatible value below.
-        const WALLET_TON_ORG_TESTNET_WALLET_ID = 0x7FFFFF11;
-
+        // The configured address is authoritative for treasury balance checks.
+        // The mnemonic is used only to sign the outgoing transfer.
+        const walletId = 0x7FFFFF11;
         const wallet = WalletContractV5R1.create({
-          walletId: WALLET_TON_ORG_TESTNET_WALLET_ID,
+          walletId,
           publicKey: keyPair.publicKey,
-          workchain: 0
+          workchain: treasuryAddress.workChain
         });
 
         const client = new TonClient({ endpoint: RPC_ENDPOINT, apiKey: RPC_API_KEY || undefined });
-        const contract = client.open(wallet);
-        const balance = await contract.getBalance();
+        const configuredBalance = await client.getBalance(treasuryAddress);
+        const derivedAddress = wallet.address;
 
         console.log(
-          "TON payout worker: TESTNET treasury",
-          wallet.address.toString({ testOnly: true, bounceable: false, urlSafe: true }),
+          "TON payout worker: configured TESTNET treasury",
+          treasuryAddress.toString({ testOnly: true, bounceable: false, urlSafe: true }),
           "balance",
-          Number(balance) / 1e9,
+          Number(configuredBalance) / 1e9,
           "TON"
         );
 
-        return { keyPair, wallet, client, contract };
+        if (!derivedAddress.equals(treasuryAddress)) {
+          console.error(
+            "TON payout worker: WARNING - mnemonic-derived signing wallet does not equal configured treasury address.",
+            "configured=",
+            treasuryAddress.toString({ testOnly: true, bounceable: false, urlSafe: true }),
+            "derived=",
+            derivedAddress.toString({ testOnly: true, bounceable: false, urlSafe: true })
+          );
+        }
+
+        return { keyPair, wallet, client, treasuryAddress };
       })().catch(error => {
         walletContextPromise = null;
         throw error;
@@ -154,16 +164,24 @@ if (NETWORK !== "testnet") {
     if (!Number.isFinite(amountTon) || amountTon <= 0) throw new Error(`Withdrawal #${id} has invalid TON amount.`);
 
     const destination = Address.parse(String(row.destination));
-    const { keyPair, wallet, client, contract } = await getWalletContext();
-    const balance = await contract.getBalance();
+    const { keyPair, wallet, client, treasuryAddress } = await getWalletContext();
+    const balance = await client.getBalance(treasuryAddress);
     const amountNano = toNano(amountTon.toFixed(9));
     const feeReserve = toNano("0.05");
     if (balance < amountNano + feeReserve) throw new Error(`Treasury balance is insufficient. Need at least ${Number(amountNano + feeReserve) / 1e9} TON.`);
 
+    const derivedAddress = wallet.address;
+    if (!derivedAddress.equals(treasuryAddress)) {
+      throw new Error(
+        `Treasury signer mismatch. Configured ${treasuryAddress.toString({ testOnly: true, bounceable: false, urlSafe: true })} but mnemonic derives ${derivedAddress.toString({ testOnly: true, bounceable: false, urlSafe: true })}. Refusing to send.`
+      );
+    }
+
     let recipientBalanceBefore = 0n;
     try { recipientBalanceBefore = await client.getBalance(destination); } catch (_) {}
 
-    const seqnoBefore = await contract.getSeqno();
+    const seqnoBefore = await client.runMethod(treasuryAddress, "seqno").then(r => Number(r.stack.readNumber()));
+    const contract = client.open(wallet);
     const now = Date.now();
     const locked = await pool.query(
       `UPDATE withdrawals
@@ -190,7 +208,7 @@ if (NETWORK !== "testnet") {
       throw error;
     }
 
-    const confirmation = await waitForConfirmation({ contract, client, treasuryAddress: wallet.address, destination, amountNano, seqnoBefore, recipientBalanceBefore });
+    const confirmation = await waitForConfirmation({ contract, client, treasuryAddress, destination, amountNano, seqnoBefore, recipientBalanceBefore });
     if (!confirmation.confirmed) {
       await pool.query(`UPDATE withdrawals SET status='processing', payout_error=$1, updated_at=$2 WHERE id=$3 AND status='processing'`, ["Broadcast accepted, but recipient confirmation was not proven. Manual reconciliation required; no automatic resend.", Date.now(), id]);
       console.error(`TON payout worker: TESTNET withdrawal #${id} needs reconciliation; NO automatic resend.`);
@@ -216,25 +234,14 @@ if (NETWORK !== "testnet") {
     try {
       await ensureSchema();
 
-      // TESTNET isolation:
-      // 1) Explicit payout_network='testnet' is accepted.
-      // 2) Legacy rows with no network marker are accepted only when their
-      //    user-friendly destination is unmistakably a testnet address (0Q.../kQ...).
-      // 3) Raw addresses such as 0:<hash> are NOT auto-classified as testnet.
       const approved = await pool.query(`
         SELECT id, amount_ton, destination, status, payout_attempts, payout_network
         FROM withdrawals
         WHERE status='approved'
           AND (
             LOWER(COALESCE(payout_network, '')) = 'testnet'
-            OR (
-              COALESCE(TRIM(payout_network), '') = ''
-              AND LOWER(TRIM(destination)) LIKE '0q%'
-            )
-            OR (
-              COALESCE(TRIM(payout_network), '') = ''
-              AND LOWER(TRIM(destination)) LIKE 'k%'
-            )
+            OR (COALESCE(TRIM(payout_network), '') = '' AND LOWER(TRIM(destination)) LIKE '0q%')
+            OR (COALESCE(TRIM(payout_network), '') = '' AND LOWER(TRIM(destination)) LIKE 'k%')
           )
         ORDER BY id ASC
         LIMIT 1
@@ -255,7 +262,7 @@ if (NETWORK !== "testnet") {
   }
 
   (async () => {
-    console.log("TON payout worker: ENABLED, TESTNET ONLY; legacy/non-testnet withdrawals are excluded");
+    console.log("TON payout worker: ENABLED, TESTNET ONLY; explicit treasury address mode");
     await poll();
     setInterval(poll, POLL_MS);
   })().catch(error => console.error("TON payout worker fatal startup error:", error?.stack || error));
