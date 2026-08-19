@@ -1,0 +1,53 @@
+name: Phase 1 PostgreSQL Ledger Tests
+
+on:
+  push:
+    branches: [phase1-core-ledger]
+  workflow_dispatch:
+
+jobs:
+  ledger-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: dzmoney_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d dzmoney_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: test
+      PGPASSWORD: test
+      PGDATABASE: dzmoney_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Create minimal test schema
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE users (id TEXT PRIMARY KEY);
+          CREATE TABLE task_claims (
+            user_id TEXT NOT NULL,
+            task_id TEXT NOT NULL,
+            claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, task_id)
+          );
+          INSERT INTO users(id) VALUES ('test-user');
+          SQL
+      - name: Apply Phase 1 migration
+        run: psql -v ON_ERROR_STOP=1 -f migrations/001_core_ledger.sql
+      - name: Run PostgreSQL concurrency tests
+        run: node tests/postgres-ledger-concurrency.js
