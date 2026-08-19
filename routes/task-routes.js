@@ -1,13 +1,12 @@
 "use strict";
 
 const { listAvailableTasks, startTask } = require("../services/task-api");
-const { authenticateTelegramWebApp } = require("../services/telegram-task-auth");
+const { telegramTaskAuth } = require("../services/telegram-task-auth");
 
 function installTaskRoutes(app, pool, botToken) {
   if (!app || !pool) throw new Error("app and pool are required");
-  const auth = authenticateTelegramWebApp(botToken);
+  const auth = telegramTaskAuth({ botToken });
 
-  // Keep the new reward system isolated from the legacy /api/tasks routes.
   app.get("/api/v2/tasks", auth, async (req, res) => {
     try {
       const tasks = await listAvailableTasks(pool, String(req.telegramUser.id));
