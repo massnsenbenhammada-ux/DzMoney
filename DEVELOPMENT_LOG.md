@@ -88,19 +88,18 @@ This file records implementation milestones and important architectural decision
 
 ## 2026-08-19 — Daily Activity Implementation Started
 
-- Added `services/daily-task-service.js` with transactional server-side reward processing for `Daily Check-in`.
-- Daily Check-in uses the existing `task_completions` and `task_reward_events` records and credits both Coins and DZX in the same PostgreSQL transaction as the ledger entries.
-- Duplicate Daily Check-in rewards are blocked for the 24-hour window.
-- Added `/api/v2/tasks/:taskId/verify` behind Telegram WebApp authentication; tasks requiring external verification are deliberately rejected rather than being rewarded from frontend claims.
+- Added `services/daily-task-service.js` with transactional server-side reward processing for Daily Tasks.
+- Daily Check-in initially used the secure server claim path; this was subsequently changed so the reward requires a real AdsGram Rewarded ad.
+- Duplicate Daily Check-in rewards remain blocked by the task's 24-hour cadence.
+- Added `/api/v2/tasks/:taskId/verify` behind Telegram WebApp authentication; Daily Check-in is now deliberately rejected by this endpoint because it requires AdsGram verification.
 - Added Admin-controlled daily settings: ad count, updates channel URL, and canonical Daily reward values.
 - Updated the task API to expose the current Admin-controlled ad count and update-channel metadata.
-- Updated the Daily Activity UI so Daily Check-in performs the secure claim flow, Check for Update opens the configured updates channel, and Share with Friends opens the Telegram share flow.
-- Invite and ad-network tasks remain verification-gated and are not falsely credited until their trusted verification integrations are implemented.
+- Updated the Daily Activity UI so Check for Update opens the configured updates channel and Share with Friends opens the Telegram share flow.
 
 ## 2026-08-19 — AdsGram Real Reward Callback Integration
 
 - Replaced the missing/placeholder `showAdsGramAd` path in `public/task-v2-ui.js` with a real AdsGram SDK integration using the official Rewarded `onReward` event.
-- AdsGram SDK is loaded from `https://sad.adsgram.ai/js/sad.min.js` and initialized with the Admin-provided `adsgramBlockId` from the current `view_ads` task metadata.
+- AdsGram SDK is loaded from `https://sad.adsgram.ai/js/sad.min.js` and initialized with the configured DzMoney AdsGram UnitID `43650` when no Admin override exists.
 - The ad progress counter is advanced only after AdsGram fires the real `onReward` callback; a resolved `AdController.show()` promise alone is intentionally not treated as reward proof.
 - Added cleanup for `onReward`, `onSkip`, `onError`, and `onBannerNotFound` listeners so callbacks cannot remain attached across ad sessions.
 - No fake timeout, synthetic callback, or frontend-only counter increment was introduced.
@@ -113,38 +112,54 @@ This file records implementation milestones and important architectural decision
 - Optional `ADSGRAM_REWARD_SECRET` support was added for deployments that want an additional shared-secret gate.
 - The visible counter and final reward are based on server-confirmed AdsGram events, not a client callback alone.
 - The final reward remains transactional through `task_reward_events`, `users`, and `economy_ledger`.
-- Remaining production requirement: configure the Reward URL in the AdsGram dashboard with the deployed DzMoney endpoint and test it with a real approved Reward block.
 
 ## 2026-08-19 — AdsGram Callback Race Removed
 
-### What changed
-- Added `POST /api/v2/tasks/view_ads/ad-start`.
-- The authenticated client now creates the pending AdsGram view **before** `AdController.show()` starts playback.
-- `public/task-v2-ui.js` now calls `ad-start`, then opens AdsGram, then waits for the server-side Reward URL confirmation.
+- Added pending-view registration before AdsGram playback.
+- The authenticated client now creates the pending AdsGram view before `AdController.show()` starts playback.
 - The old `ad-complete` endpoint remains as a compatibility path, but it is not treated as proof of a completed advertisement.
+- This removes the race where AdsGram could call the Reward URL before DzMoney had created the pending record.
+
+## 2026-08-19 — Daily Check-in Converted to Rewarded Ad
+
+### What changed
+- **Daily Check-in now requires exactly one real AdsGram Rewarded ad before the daily reward can be credited.**
+- Added generic `POST /api/v2/tasks/:taskId/ad-start` for AdsGram tasks, supporting `daily_checkin` and `view_ads`.
+- `recordAdCompletion()` now registers a pending AdsGram view for either task without granting a reward.
+- `confirmAdsGramReward()` now reads the pending view's `task_id`, so the same AdsGram Reward URL can securely confirm either Daily Check-in or View Ads.
+- Daily Check-in is rewarded only after AdsGram's Reward URL confirms the pending view.
+- The reward remains transactional: `task_completions` + `task_reward_events` + `users` balances + `economy_ledger` are updated together.
+- `Daily Check-in` keeps its existing 24-hour cadence; after successful reward it becomes unavailable until the cooldown expires.
+- `services/task-api.js` now exposes the same AdsGram `UnitID 43650` to both Daily Check-in and View Ads.
+- `public/task-v2-ui.js` now shows **Watch Ad** for Daily Check-in, registers the pending view before playback, opens AdsGram, and waits for server confirmation before showing the reward.
+- The direct `/api/v2/tasks/daily_checkin/verify` path can no longer grant the reward and returns `EXTERNAL_VERIFICATION_REQUIRED`.
 
 ### Why
-- AdsGram's server-side Reward URL is independent of the browser's `onReward` event. The previous sequence created the pending row only after `onReward`, leaving a race where AdsGram could call the Reward URL first and receive no pending view.
-- Moving pending-view registration before playback removes that race.
+- This matches the agreed economic behavior: Daily Check-in is an advertising-funded reward, not a free daily emission.
+- It prevents users from claiming the Daily reward by clicking the button or spoofing a frontend callback.
 
-### Files/tables affected
+### Files affected
+- `services/daily-task-service.js`
+- `services/task-api.js`
 - `routes/task-routes.js`
 - `public/task-v2-ui.js`
-- Existing `adsgram_ad_views` table and `daily-task-service.js` flow are reused.
+- `DEVELOPMENT_LOG.md`
 
-### Migration/configuration
-- No destructive migration.
-- No new external configuration beyond the existing AdsGram Reward URL and optional `ADSGRAM_REWARD_SECRET`.
+### Migration/configuration impact
+- No destructive database migration is required.
+- Existing `adsgram_ad_views` is reused; its `task_id` now distinguishes `daily_checkin` from `view_ads`.
+- No new environment variable is required.
+- AdsGram UnitID remains `43650` unless an Admin `adsgram_block_id` setting overrides it.
 
 ### Tests performed
-- Reviewed the complete callback sequence in the current client and server implementation.
-- Verified the pending record is created before `AdController.show()` is called.
-- Verified the client waits for the confirmed server-side counter rather than incrementing locally.
-- Verified the Reward URL remains the only path that changes a pending view to `confirmed` and can trigger the final reward.
+- Static flow review of the complete Daily Check-in path: Telegram auth → task start → pending ad record → AdsGram playback → `onReward` → AdsGram Reward URL → server confirmation → transactional reward.
+- Verified that direct Daily Check-in verification cannot credit the reward anymore.
+- Verified that the same Reward URL can distinguish the two ad tasks through the pending record's `task_id`.
+- Live end-to-end testing remains blocked until AdsGram UnitID `43650` changes from `Created` to an active/approved serving state.
 
 ### Remaining risks
-- The live AdsGram dashboard callback has not yet been exercised against the deployed DzMoney environment, so end-to-end external delivery remains to be tested.
-- The Reward URL is an additional provider callback mechanism and should be protected with the configured shared secret where supported by the AdsGram URL configuration.
+- AdsGram currently reports UnitID `43650` as `Created` / not active, so a real ad cannot yet be used to validate the final callback chain.
+- Once AdsGram activates the Unit, the Daily Check-in flow must be live-tested before the AdsGram task phase is marked fully complete.
 
 ## Implementation Status
 
@@ -160,6 +175,7 @@ This file records implementation milestones and important architectural decision
 - [x] AdsGram real client `onReward` callback connected to the ad progress flow
 - [x] AdsGram server-side Reward URL confirmation endpoint added
 - [x] AdsGram pending-view race removed by registering before playback
+- [x] Daily Check-in changed to AdsGram Rewarded + 24h cooldown
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into production server flow
 - [ ] Withdrawal rules integrated into production server flow
@@ -167,7 +183,7 @@ This file records implementation milestones and important architectural decision
 - [ ] Squad engine integrated
 - [ ] Rewards Pool implemented
 - [ ] Packages implemented
-- [~] Task completion API integrated — Daily Check-in and AdsGram client + server Reward URL flow implemented; production external callback still requires live AdsGram configuration/test
+- [~] Task completion API integrated — Daily Check-in and View Ads use AdsGram client + server Reward URL flow; live production callback still requires AdsGram activation
 - [ ] Admin controls implemented
 - [ ] Anti-fraud implemented
 - [ ] Full test suite completed
