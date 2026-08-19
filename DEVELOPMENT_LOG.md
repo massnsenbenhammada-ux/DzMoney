@@ -25,14 +25,14 @@ This file records implementation milestones and important architectural decision
 
 ## 2026-08-19 — Phase 1 Database Foundation
 
-- Added `economy-schema-migration.js` as a non-destructive startup migration.
+- Added `scripts/migrate-economy.js` as a non-destructive startup migration.
 - Added new `users` columns for `dzx`, `dzp`, `deposited_dzx`, `withdrawable_dzx`, and `locked_dzx` without removing legacy BUX fields.
 - Added `economy_ledger` for auditable DZX/DZP/Coins entries.
 - Added `economy_settings` for Admin-controlled economic parameters.
 - Seeded initial economic settings: 10,000 DZX/Ton, 1 TON minimum deposit, 0.2 TON minimum withdrawal, 2,000,000 Coins withdrawal requirement, 20% referral, 50% Squad activity threshold, 100% Squad bonus ceiling.
-- Added a one-time compatibility bootstrap that copies an existing positive BUX balance into the new DZX column without deleting or changing the legacy BUX balance.
-- Updated `package.json` startup to run the schema migration before the existing wallet/withdrawal middleware and `server.js`.
+- Updated `package.json` startup so the economic migration completes before the existing wallet/withdrawal middleware and `server.js` start.
 - Existing BUX columns and current wallet/withdrawal implementation remain untouched for safe incremental migration.
+- Important: no automatic BUX→DZX balance conversion has been performed yet. That migration will be a separate audited step after the application-layer DZX integration is ready.
 
 ## Implementation Status
 
