@@ -7,17 +7,31 @@ This file records implementation milestones and important architectural decision
 - Added `PROJECT_ROADMAP.md` as the authoritative product/economic specification.
 - Agreed to preserve the existing application and avoid destructive rewrites.
 - Development must proceed incrementally and safely.
-- Next implementation focus: inspect and extend the existing economic/wallet foundation before changing user-facing task flows.
+
+## 2026-08-19 — Phase 1 Economic Foundation Started
+
+- Added `services/economy.js` with isolated economic primitives so the existing Express/wallet/task implementation is not replaced.
+- Added `tests/economy.test.js` covering the agreed initial economic rules.
+- Initial constants represented in the new module:
+  - 1 TON = 10,000 DZX.
+  - Minimum deposit = 1 TON.
+  - Minimum withdrawal = 0.2 TON.
+  - Minimum withdrawal Coins requirement = 2,000,000 Coins.
+  - Referral = 20% of base activity reward only.
+  - Squad daily activity threshold = 50%.
+  - Squad bonus ceiling = 100%.
+- Implemented pure functions for TON/DZX conversion, referral calculation, daily Squad activation, Squad bonus resolution, activity reward calculation, economic-budget validation, and withdrawal requirements.
+- No existing `server.js`, wallet code, withdrawal code, or frontend code was deleted or rewritten in this step.
 
 ## Implementation Status
 
 - [ ] Phase 1 audit completed
-- [ ] Economic foundation implemented
+- [x] Economic foundation primitives added
 - [ ] DZX/DZP migration completed
-- [ ] Deposit rules implemented
-- [ ] Withdrawal rules implemented
-- [ ] Referral engine implemented
-- [ ] Squad engine implemented
+- [ ] Deposit rules integrated into server
+- [ ] Withdrawal rules integrated into server
+- [ ] Referral engine integrated
+- [ ] Squad engine integrated
 - [ ] Rewards Pool implemented
 - [ ] Packages implemented
 - [ ] Task engine implemented
