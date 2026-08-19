@@ -4,7 +4,7 @@
   if (!document.querySelector('link[data-dz-task-fix]')) {
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/task-v2-fix.css?v=4';
+    link.href = '/task-v2-fix.css?v=5';
     link.dataset.dzTaskFix = '1';
     document.head.appendChild(link);
   }
@@ -53,8 +53,11 @@
     return number.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 4 });
   }
 
+  // IMPORTANT: reward_coins/rewardCoins are the in-app Coins balance, not DZP.
+  // DZP is a separate economic points/token unit and must never be shown here as the
+  // label for task coin rewards.
   function rewardMarkup(task) {
-    return `<div class="dz-task-reward"><b>+${formatInteger(task.rewardCoins)}</b> DZP <i>•</i> <b>💎 +${formatDZX(task.rewardDZX)}</b> DZX</div>`;
+    return `<div class="dz-task-reward"><b>+${formatInteger(task.rewardCoins)}</b> Coins <i>•</i> <b>💎 +${formatDZX(task.rewardDZX)}</b> DZX</div>`;
   }
 
   function renderShell(category = null) {
@@ -68,7 +71,7 @@
         <div class="dz-tasks-hero">
           <div class="dz-tasks-eyebrow">DZMONEY EARN</div>
           <h1>Tasks</h1>
-          <p>Choose a category and complete tasks to earn <strong>DZP</strong> + <strong>DZX</strong> rewards.</p>
+          <p>Choose a category and complete tasks to earn <strong>Coins</strong> + <strong>DZX</strong> rewards.</p>
         </div>
         <div class="dz-category-list">${CATEGORIES.map((item,index)=>`
           <button class="dz-category-card" type="button" data-category="${item.id}">
@@ -172,7 +175,7 @@
         const reward = await api(`/api/v2/tasks/${encodeURIComponent(taskId)}/verify`, { method: "POST", body: JSON.stringify({ source: "daily_checkin" }) });
         button.textContent = "Claimed";
         button.classList.add("is-started");
-        const rewardText = `+${formatInteger(reward.reward?.coins)} DZP • +${formatDZX(reward.reward?.dzx)} DZX`;
+        const rewardText = `+${formatInteger(reward.reward?.coins)} Coins • +${formatDZX(reward.reward?.dzx)} DZX`;
         setTimeout(() => alert(`Daily Check-in complete!\n${rewardText}`), 50);
         await loadTasks();
         return;
