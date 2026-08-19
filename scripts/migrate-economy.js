@@ -39,6 +39,9 @@ async function migrate() {
         ADD COLUMN IF NOT EXISTS locked_dzx BIGINT NOT NULL DEFAULT 0;
     `);
 
+    // Create the new ledger when it does not exist. If an earlier deployment
+    // already created a partial economy_ledger table, upgrade it in-place
+    // instead of assuming the original schema is still present.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS economy_ledger (
         id BIGSERIAL PRIMARY KEY,
@@ -47,11 +50,42 @@ async function migrate() {
         direction TEXT NOT NULL CHECK (direction IN ('CREDIT','DEBIT')),
         amount BIGINT NOT NULL CHECK (amount > 0),
         balance_bucket TEXT NOT NULL DEFAULT 'available',
-        source_type TEXT NOT NULL,
+        source_type TEXT NOT NULL DEFAULT 'SYSTEM',
         source_id TEXT NOT NULL DEFAULT '',
         metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
-        created_at BIGINT NOT NULL
+        created_at BIGINT NOT NULL DEFAULT 0
       );
+    `);
+
+    // Backward-compatible schema repair for a ledger created by an older
+    // version of the migration. Never drop or rename existing columns/data.
+    await pool.query(`
+      ALTER TABLE economy_ledger
+        ADD COLUMN IF NOT EXISTS asset TEXT,
+        ADD COLUMN IF NOT EXISTS direction TEXT,
+        ADD COLUMN IF NOT EXISTS amount BIGINT,
+        ADD COLUMN IF NOT EXISTS balance_bucket TEXT NOT NULL DEFAULT 'available',
+        ADD COLUMN IF NOT EXISTS source_type TEXT NOT NULL DEFAULT 'SYSTEM',
+        ADD COLUMN IF NOT EXISTS source_id TEXT NOT NULL DEFAULT '',
+        ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        ADD COLUMN IF NOT EXISTS created_at BIGINT NOT NULL DEFAULT 0;
+    `);
+
+    // If this was a partial/legacy ledger, populate only the newly introduced
+    // fields where a safe default is possible. Do not modify existing balances.
+    await pool.query(`
+      UPDATE economy_ledger
+      SET source_type = COALESCE(NULLIF(source_type, ''), 'LEGACY'),
+          source_id = COALESCE(source_id, ''),
+          balance_bucket = COALESCE(balance_bucket, 'available'),
+          metadata = COALESCE(metadata, '{}'::jsonb),
+          created_at = COALESCE(created_at, 0)
+      WHERE source_type IS NULL
+         OR source_type = ''
+         OR source_id IS NULL
+         OR balance_bucket IS NULL
+         OR metadata IS NULL
+         OR created_at IS NULL;
     `);
 
     await pool.query(`
