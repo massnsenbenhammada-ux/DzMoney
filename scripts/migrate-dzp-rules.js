@@ -10,7 +10,6 @@ async function migrate() {
   try {
     await client.query('BEGIN');
 
-    // DZP is intentionally kept separate from Coins and DZX.
     await client.query(`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS dzp BIGINT NOT NULL DEFAULT 0;
@@ -56,7 +55,8 @@ async function migrate() {
     await client.query(`
       INSERT INTO dzp_settings(key, value) VALUES
         ('referral_dzp_reward', 0),
-        ('default_activity_dzp', 0)
+        ('default_activity_dzp', 0),
+        ('ad_dzp_reward', 0)
       ON CONFLICT (key) DO NOTHING
     `);
 
