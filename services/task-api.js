@@ -21,7 +21,6 @@ async function listAvailableTasks(pool, userId) {
     WHERE t.active=TRUE
     ORDER BY CASE t.type WHEN 'daily' THEN 1 WHEN 'game' THEN 2 WHEN 'social' THEN 3 WHEN 'web' THEN 4 WHEN 'special' THEN 5 WHEN 'partner' THEN 6 ELSE 99 END, t.created_at
   `, [String(userId)]);
-
   const now = Date.now();
   const adProgress = await getAdProgress(pool, userId);
   return rows.map(row => {
@@ -44,6 +43,7 @@ async function listAvailableTasks(pool, userId) {
       rewardCoins: row.reward_coins,
       rewardDZX: row.reward_dzx,
       requiredCount,
+      progress: row.id === "view_ads" ? { completedCount: Math.min(requiredCount, adProgress), requiredCount } : null,
       verificationMethod: row.verification_method,
       metadata,
       available: row.id === "view_ads" ? adProgress < requiredCount : (!nextAvailableAt || now >= nextAvailableAt),
@@ -66,10 +66,7 @@ async function startTask(pool, userId, taskId) {
   if (cooldown && task.id !== "view_ads") {
     const recent = await pool.query(`SELECT created_at FROM task_completions WHERE user_id=$1 AND task_id=$2 AND status IN ('pending','verified','rewarded') ORDER BY created_at DESC LIMIT 1`, [String(userId), String(taskId)]);
     if (recent.rows.length && now < Number(recent.rows[0].created_at) + cooldown * 1000) {
-      const error = new Error("Task is on cooldown.");
-      error.code = "TASK_COOLDOWN";
-      error.nextAvailableAt = Number(recent.rows[0].created_at) + cooldown * 1000;
-      throw error;
+      const error = new Error("Task is on cooldown."); error.code = "TASK_COOLDOWN"; error.nextAvailableAt = Number(recent.rows[0].created_at) + cooldown * 1000; throw error;
     }
   }
   const result = await pool.query(`INSERT INTO task_completions (user_id,task_id,status,verification,created_at) VALUES ($1,$2,'pending','{}'::jsonb,$3) RETURNING id,task_id,status,created_at`, [String(userId), String(taskId), now]);
