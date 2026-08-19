@@ -94,7 +94,7 @@ This file records implementation milestones and important architectural decision
 - Added `/api/v2/tasks/:taskId/verify` behind Telegram WebApp authentication; tasks requiring external verification are deliberately rejected rather than being rewarded from frontend claims.
 - Added Admin-controlled daily settings: ad count, updates channel URL, and canonical Daily reward values.
 - Updated the task API to expose the current Admin-controlled ad count and update-channel metadata.
-- Updated the Daily Activity UI so Daily Check-in performs the secure claim flow, Check for Update opens the configured updates channel, and Share with Friends opens Telegram's share flow.
+- Updated the Daily Activity UI so Daily Check-in performs the secure claim flow, Check for Update opens the configured updates channel, and Share with Friends opens the Telegram share flow.
 - Invite and ad-network tasks remain verification-gated and are not falsely credited until their trusted verification integrations are implemented.
 
 ## 2026-08-19 — AdsGram Real Reward Callback Integration
@@ -103,25 +103,48 @@ This file records implementation milestones and important architectural decision
 - AdsGram SDK is loaded from `https://sad.adsgram.ai/js/sad.min.js` and initialized with the Admin-provided `adsgramBlockId` from the current `view_ads` task metadata.
 - The ad progress counter is advanced only after AdsGram fires the real `onReward` callback; a resolved `AdController.show()` promise alone is intentionally not treated as reward proof.
 - Added cleanup for `onReward`, `onSkip`, `onError`, and `onBannerNotFound` listeners so callbacks cannot remain attached across ad sessions.
-- The existing authenticated `/api/v2/tasks/view_ads/ad-complete` endpoint remains the server-side recording/reward path after the real callback; the frontend does not directly increment the counter.
-- Added SDK loading reuse and controller reuse per AdsGram block ID.
 - No fake timeout, synthetic callback, or frontend-only counter increment was introduced.
-- Verification performed: inspected the current AdsGram official Rewarded API documentation and confirmed `onReward` is the event emitted when a Rewarded banner is watched to the end; inspected the current DzMoney task route/service and preserved the existing transactional reward path.
 
 ## 2026-08-19 — AdsGram Server-Side Reward URL Confirmation
 
-- Reworked `services/daily-task-service.js` so the browser-side AdsGram `onReward` callback registers a **pending ad view** instead of advancing the counter or crediting a reward.
-- Added the `adsgram_ad_views` table lazily and transactionally, with pending/confirmed status and timestamps. This is non-destructive and does not alter existing task/economy tables.
-- Added `confirmAdsGramReward()` to consume the oldest pending AdsGram view for the authenticated Telegram user ID supplied by AdsGram's Reward URL, then advance the confirmed ad count.
-- The final daily ad reward is still credited transactionally through `task_reward_events`, `users`, and `economy_ledger`, but only after the AdsGram Reward URL confirmation.
-- Added the real public `GET /api/adsgram/reward?userid=[userId]` endpoint in `routes/task-routes.js`.
-- The endpoint deliberately does not use Telegram WebApp authentication because the request originates from AdsGram. An optional `ADSGRAM_REWARD_SECRET` can be configured and is checked when present.
-- Updated `public/task-v2-ui.js` to register the browser `onReward`, then poll the server for up to 15 seconds for the AdsGram server confirmation before updating the visible counter.
-- The visible ad counter therefore represents **server-confirmed AdsGram rewards**, not merely client-side callbacks.
-- Configuration required in AdsGram: set the Reward URL to the deployed endpoint using AdsGram's `[userId]` replacement, for example `https://YOUR-DZMONEY-DOMAIN/api/adsgram/reward?userid=[userId]`. If `ADSGRAM_REWARD_SECRET` is configured, append `&secret=YOUR_SECRET`.
-- Important: AdsGram documents the Reward URL as an additional server-side confirmation alongside the standard client callback; it is not a cryptographic signature. Debug/test AdsGram views do not trigger the Reward URL.
-- Tests performed: inspected the current AdsGram official API documentation and the live DzMoney task route/bootstrap/service chain; verified the new flow is idempotent at the pending-view level and keeps reward credit inside a PostgreSQL transaction.
-- Remaining risk: the production AdsGram dashboard must be configured with the exact deployed Reward URL and a real approved Reward block. Until a real ad is watched in production, the end-to-end external callback cannot be claimed as live-tested.
+- Added `adsgram_ad_views` as a pending/confirmed server-side view record.
+- Added `confirmAdsGramReward()` to consume a pending AdsGram view only when AdsGram calls the server-side Reward URL.
+- Added `GET /api/adsgram/reward?userid=[userId]`; this endpoint intentionally does not require Telegram WebApp authentication because the request originates from AdsGram.
+- Optional `ADSGRAM_REWARD_SECRET` support was added for deployments that want an additional shared-secret gate.
+- The visible counter and final reward are based on server-confirmed AdsGram events, not a client callback alone.
+- The final reward remains transactional through `task_reward_events`, `users`, and `economy_ledger`.
+- Remaining production requirement: configure the Reward URL in the AdsGram dashboard with the deployed DzMoney endpoint and test it with a real approved Reward block.
+
+## 2026-08-19 — AdsGram Callback Race Removed
+
+### What changed
+- Added `POST /api/v2/tasks/view_ads/ad-start`.
+- The authenticated client now creates the pending AdsGram view **before** `AdController.show()` starts playback.
+- `public/task-v2-ui.js` now calls `ad-start`, then opens AdsGram, then waits for the server-side Reward URL confirmation.
+- The old `ad-complete` endpoint remains as a compatibility path, but it is not treated as proof of a completed advertisement.
+
+### Why
+- AdsGram's server-side Reward URL is independent of the browser's `onReward` event. The previous sequence created the pending row only after `onReward`, leaving a race where AdsGram could call the Reward URL first and receive no pending view.
+- Moving pending-view registration before playback removes that race.
+
+### Files/tables affected
+- `routes/task-routes.js`
+- `public/task-v2-ui.js`
+- Existing `adsgram_ad_views` table and `daily-task-service.js` flow are reused.
+
+### Migration/configuration
+- No destructive migration.
+- No new external configuration beyond the existing AdsGram Reward URL and optional `ADSGRAM_REWARD_SECRET`.
+
+### Tests performed
+- Reviewed the complete callback sequence in the current client and server implementation.
+- Verified the pending record is created before `AdController.show()` is called.
+- Verified the client waits for the confirmed server-side counter rather than incrementing locally.
+- Verified the Reward URL remains the only path that changes a pending view to `confirmed` and can trigger the final reward.
+
+### Remaining risks
+- The live AdsGram dashboard callback has not yet been exercised against the deployed DzMoney environment, so end-to-end external delivery remains to be tested.
+- The Reward URL is an additional provider callback mechanism and should be protected with the configured shared secret where supported by the AdsGram URL configuration.
 
 ## Implementation Status
 
@@ -136,6 +159,7 @@ This file records implementation milestones and important architectural decision
 - [x] Task catalog and verification foundation added
 - [x] AdsGram real client `onReward` callback connected to the ad progress flow
 - [x] AdsGram server-side Reward URL confirmation endpoint added
+- [x] AdsGram pending-view race removed by registering before playback
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into production server flow
 - [ ] Withdrawal rules integrated into production server flow
