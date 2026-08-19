@@ -27,18 +27,31 @@ This file records implementation milestones and important architectural decision
 
 - Added `scripts/migrate-economy.js` as a non-destructive startup migration.
 - Added new `users` columns for `dzx`, `dzp`, `deposited_dzx`, `withdrawable_dzx`, and `locked_dzx` without removing legacy BUX fields.
+- DZX storage was upgraded to `NUMERIC(30,9)` so valid fractional rewards such as 0.2 DZX can be represented exactly.
 - Added `economy_ledger` for auditable DZX/DZP/Coins entries.
 - Added `economy_settings` for Admin-controlled economic parameters.
+- Added isolated referral qualification fields.
+- Added initial hierarchical Squad tables: `squads`, `squad_members`, and `squad_daily_activity`.
+- Added package catalog and `user_packages` tables for future revenue-based Rewards Pool weights.
 - Seeded initial economic settings: 10,000 DZX/Ton, 1 TON minimum deposit, 0.2 TON minimum withdrawal, 2,000,000 Coins withdrawal requirement, 20% referral, 50% Squad activity threshold, 100% Squad bonus ceiling.
 - Updated `package.json` startup so the economic migration completes before the existing wallet/withdrawal middleware and `server.js` start.
 - Existing BUX columns and current wallet/withdrawal implementation remain untouched for safe incremental migration.
 - Important: no automatic BUX→DZX balance conversion has been performed yet. That migration will be a separate audited step after the application-layer DZX integration is ready.
+
+## 2026-08-19 — Transactional Ledger Layer
+
+- Added `services/economy-ledger.js` with transaction-aware DZX credit/debit primitives.
+- Ledger writes and balance updates are designed to use the same PostgreSQL client/transaction.
+- Supports available, withdrawable, and locked DZX buckets.
+- Prevents debits when the selected bucket has insufficient balance.
+- This layer is intentionally not wired into the legacy endpoints yet; integration comes after the current wallet/task routes are mapped and tested.
 
 ## Implementation Status
 
 - [ ] Phase 1 audit completed
 - [x] Economic foundation primitives added
 - [x] Economic database foundation added
+- [x] Transactional DZX ledger primitives added
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into server
 - [ ] Withdrawal rules integrated into server
