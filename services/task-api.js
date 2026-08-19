@@ -1,5 +1,7 @@
 "use strict";
 
+const DEFAULT_ADSGRAM_BLOCK_ID = "43650";
+
 async function getTaskSettings(pool) {
   const { rows } = await pool.query(`SELECT key,value FROM economy_settings WHERE key IN ('daily_ad_task_count','updates_channel_url','adsgram_block_id')`);
   return Object.fromEntries(rows.map(row => [row.key, row.value]));
@@ -32,7 +34,9 @@ async function listAvailableTasks(pool, userId) {
     if (row.id === "view_ads") {
       metadata.count = requiredCount;
       metadata.completedCount = Math.min(requiredCount, adProgress);
-      if (settings.adsgram_block_id) metadata.adsgramBlockId = String(settings.adsgram_block_id);
+      // 43650 is the currently approved/started DzMoney AdsGram UnitID.
+      // An existing Admin setting takes precedence when configured.
+      metadata.adsgramBlockId = String(settings.adsgram_block_id || DEFAULT_ADSGRAM_BLOCK_ID);
     }
     if (row.id === "check_updates" && settings.updates_channel_url) metadata.channelUrl = settings.updates_channel_url;
     return {
