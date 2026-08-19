@@ -28,8 +28,6 @@ async function migrate() {
   try {
     await pool.query("BEGIN");
 
-    // DZX uses NUMERIC so legitimate fractional rewards such as 0.2 DZX
-    // (20% of a 1 DZX base reward) are represented exactly. Legacy BUX stays untouched.
     await pool.query(`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS dzx NUMERIC(30,9) NOT NULL DEFAULT 0,
@@ -39,7 +37,6 @@ async function migrate() {
         ADD COLUMN IF NOT EXISTS locked_dzx NUMERIC(30,9) NOT NULL DEFAULT 0;
     `);
 
-    // If a previous deployment created these columns as BIGINT, widen them safely.
     await pool.query(`
       ALTER TABLE users
         ALTER COLUMN dzx TYPE NUMERIC(30,9) USING dzx::numeric,
@@ -73,9 +70,6 @@ async function migrate() {
         ADD COLUMN IF NOT EXISTS source_id TEXT NOT NULL DEFAULT '',
         ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
         ADD COLUMN IF NOT EXISTS created_at BIGINT NOT NULL DEFAULT 0;
-    `);
-
-    await pool.query(`
       ALTER TABLE economy_ledger
         ALTER COLUMN amount TYPE NUMERIC(30,9) USING amount::numeric;
     `);
@@ -91,13 +85,24 @@ async function migrate() {
          OR balance_bucket IS NULL OR metadata IS NULL OR created_at IS NULL;
     `);
 
+    await pool.query(`CREATE INDEX IF NOT EXISTS economy_ledger_user_created_idx ON economy_ledger(user_id, created_at DESC);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS economy_ledger_source_idx ON economy_ledger(source_type, source_id);`);
+
     await pool.query(`
-      CREATE INDEX IF NOT EXISTS economy_ledger_user_created_idx
-      ON economy_ledger(user_id, created_at DESC);
-    `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS economy_ledger_source_idx
-      ON economy_ledger(source_type, source_id);
+      CREATE TABLE IF NOT EXISTS economy_deposits (
+        id BIGSERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        idempotency_key TEXT NOT NULL UNIQUE,
+        external_tx_id TEXT NOT NULL,
+        network TEXT NOT NULL,
+        ton_amount NUMERIC(30,9) NOT NULL CHECK (ton_amount > 0),
+        dzx_amount NUMERIC(30,9) NOT NULL CHECK (dzx_amount > 0),
+        status TEXT NOT NULL DEFAULT 'credited',
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        created_at BIGINT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS economy_deposits_user_idx ON economy_deposits(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS economy_deposits_tx_idx ON economy_deposits(external_tx_id, network);
     `);
 
     await pool.query(`
@@ -111,21 +116,17 @@ async function migrate() {
     const now = Date.now();
     for (const [key, value] of Object.entries(settings)) {
       await pool.query(
-        `INSERT INTO economy_settings(key,value,updated_at)
-         VALUES($1,$2,$3)
-         ON CONFLICT(key) DO NOTHING`,
+        `INSERT INTO economy_settings(key,value,updated_at) VALUES($1,$2,$3) ON CONFLICT(key) DO NOTHING`,
         [key, value, now]
       );
     }
 
-    // Referral qualification is separate from the legacy referral balance fields.
     await pool.query(`
       ALTER TABLE users
         ADD COLUMN IF NOT EXISTS referral_qualified_at BIGINT,
         ADD COLUMN IF NOT EXISTS referral_lifetime_enabled BOOLEAN NOT NULL DEFAULT FALSE;
     `);
 
-    // Hierarchical Squad data is isolated from Referral data.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS squads (
         id BIGSERIAL PRIMARY KEY,
@@ -162,7 +163,6 @@ async function migrate() {
       );
     `);
 
-    // Package participation/weight data is intentionally separate from the user balance.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS packages (
         id BIGSERIAL PRIMARY KEY,
@@ -174,7 +174,6 @@ async function migrate() {
         created_at BIGINT NOT NULL,
         updated_at BIGINT NOT NULL
       );
-
       CREATE TABLE IF NOT EXISTS user_packages (
         id BIGSERIAL PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -189,28 +188,17 @@ async function migrate() {
     `);
 
     await pool.query(`
-      DO $$
-      BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_dzx_nonnegative') THEN
-          ALTER TABLE users ADD CONSTRAINT users_dzx_nonnegative CHECK (dzx >= 0) NOT VALID;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_dzp_nonnegative') THEN
-          ALTER TABLE users ADD CONSTRAINT users_dzp_nonnegative CHECK (dzp >= 0) NOT VALID;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_deposited_dzx_nonnegative') THEN
-          ALTER TABLE users ADD CONSTRAINT users_deposited_dzx_nonnegative CHECK (deposited_dzx >= 0) NOT VALID;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_withdrawable_dzx_nonnegative') THEN
-          ALTER TABLE users ADD CONSTRAINT users_withdrawable_dzx_nonnegative CHECK (withdrawable_dzx >= 0) NOT VALID;
-        END IF;
-        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_locked_dzx_nonnegative') THEN
-          ALTER TABLE users ADD CONSTRAINT users_locked_dzx_nonnegative CHECK (locked_dzx >= 0) NOT VALID;
-        END IF;
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_dzx_nonnegative') THEN ALTER TABLE users ADD CONSTRAINT users_dzx_nonnegative CHECK (dzx >= 0) NOT VALID; END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_dzp_nonnegative') THEN ALTER TABLE users ADD CONSTRAINT users_dzp_nonnegative CHECK (dzp >= 0) NOT VALID; END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_deposited_dzx_nonnegative') THEN ALTER TABLE users ADD CONSTRAINT users_deposited_dzx_nonnegative CHECK (deposited_dzx >= 0) NOT VALID; END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_withdrawable_dzx_nonnegative') THEN ALTER TABLE users ADD CONSTRAINT users_withdrawable_dzx_nonnegative CHECK (withdrawable_dzx >= 0) NOT VALID; END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_locked_dzx_nonnegative') THEN ALTER TABLE users ADD CONSTRAINT users_locked_dzx_nonnegative CHECK (locked_dzx >= 0) NOT VALID; END IF;
       END $$;
     `);
 
     await pool.query("COMMIT");
-    console.log("Economic migration: OK (DZX/DZP/referral/squad/packages ready; legacy BUX preserved)");
+    console.log("Economic migration: OK (DZX/DZP/referral/squad/packages/deposit ledger ready; legacy BUX preserved)");
   } catch (error) {
     await pool.query("ROLLBACK").catch(() => {});
     console.error("Economic migration failed:", error);
