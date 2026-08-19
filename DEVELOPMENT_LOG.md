@@ -64,18 +64,17 @@ This file records implementation milestones and important architectural decision
 
 - Added `services/ton-deposit-verifier.js`.
 - The verifier accepts only a normalized candidate supplied by a trusted TON RPC/indexer adapter.
-- It validates:
-  - network
-  - transaction id
-  - recipient deposit address
-  - sender address format when supplied
-  - minimum deposit amount
-  - successful transaction state
-  - confirmation count
-  - transaction timestamp / processing window
-- The verifier does **not** credit DZX itself. Only a candidate that passes this gate may be forwarded to `dzx-deposit.js`.
-- Added `tests/ton-deposit-verifier.test.js` covering successful verification and rejection cases.
-- No automatic blockchain scanner or public endpoint was added yet. This is intentional: the actual TON adapter must first be matched to the project's configured Testnet/Mainnet endpoint and deposit wallet.
+- It validates network, transaction id, recipient deposit address, sender address format when supplied, minimum deposit amount, successful transaction state, confirmation count, and transaction timestamp / processing window.
+- The verifier does not credit DZX itself.
+
+## 2026-08-19 — TON Adapter and Deposit Orchestration
+
+- Added `services/ton-center-adapter.js` as a read-only TON Center API v3 adapter.
+- Added `services/ton-deposit-service.js` to orchestrate: duplicate check → blockchain lookup → verification gate → transactional DZX credit.
+- The adapter does not credit balances and does not trust client-supplied amounts.
+- TON Center API credentials remain server-side; no API key or wallet address is hardcoded.
+- Added `tests/ton-center-adapter.test.js` and `tests/ton-deposit-service.test.js` guards.
+- No public deposit endpoint or automatic production scanner has been enabled yet.
 
 ## Implementation Status
 
@@ -86,8 +85,8 @@ This file records implementation milestones and important architectural decision
 - [x] Non-destructive DZX API bridge added
 - [x] DZX deposit crediting primitive added
 - [x] TON deposit verification gate added
+- [x] TON read adapter and deposit orchestration added
 - [ ] DZX/DZP application-layer migration completed
-- [ ] Trusted TON RPC/indexer adapter integrated
 - [ ] Deposit rules integrated into production server flow
 - [ ] Withdrawal rules integrated into production server flow
 - [ ] Referral engine integrated
