@@ -11,6 +11,20 @@ async function seed() {
   });
   try {
     const now = Date.now();
+    const defaults = {
+      daily_ad_task_count: "20",
+      updates_channel_url: "",
+      daily_task_reward_coins: "1000",
+      daily_task_reward_dzx: "1",
+      invite_1_reward_coins: "10000",
+      invite_1_reward_dzx: "10",
+      invite_10_reward_coins: "100000",
+      invite_10_reward_dzx: "100"
+    };
+    for (const [key, value] of Object.entries(defaults)) {
+      await pool.query(`INSERT INTO economy_settings(key,value,updated_at) VALUES($1,$2,$3) ON CONFLICT(key) DO NOTHING`, [key, value, now]);
+    }
+
     for (const task of getDailyTasks()) {
       const cadenceSeconds = task.cadence === "24h" ? 86400 : null;
       const verifier = requiredVerifier(task);
@@ -21,6 +35,7 @@ async function seed() {
         ON CONFLICT (id) DO UPDATE SET
           type=EXCLUDED.type,
           title=EXCLUDED.title,
+          description=EXCLUDED.description,
           reward_coins=EXCLUDED.reward_coins,
           reward_dzx=EXCLUDED.reward_dzx,
           verification_method=EXCLUDED.verification_method,
