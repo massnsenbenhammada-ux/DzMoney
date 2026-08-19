@@ -179,10 +179,10 @@ async function processWithdrawal(row) {
 
   const contract = client.open(ctx.wallet);
   // An uninitialized funded wallet has no on-chain seqno yet. V5 starts at seqno 0.
-  // TonClient's provider automatically includes the contract StateInit on the first
-  // external message when the wallet is not deployed, so the first payout can safely
-  // activate the exact verified W5R1 treasury and perform the transfer atomically.
-  const seqno = ctx.state === 'uninitialized' ? 0 : await ctx.wallet.getSeqno(contract);
+  // The opened contract exposes getSeqno() with the provider adapter expected by
+  // @ton/ton. Passing the OpenedContract into WalletContractV5R1.getSeqno() directly
+  // is invalid because that low-level method expects a provider with getState().
+  const seqno = ctx.state === 'uninitialized' ? 0 : await contract.getSeqno();
   const locked = await pool.query(`UPDATE withdrawals SET status='processing', payout_started_at=$1, payout_attempts=COALESCE(payout_attempts,0)+1, payout_seqno=$2, payout_error='', payout_network='testnet', updated_at=$1 WHERE id=$3 AND status='approved' RETURNING id`, [Date.now(), seqno, id]);
   if (!locked.rowCount) return false;
 
