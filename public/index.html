@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -7,7 +7,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
   <script src="https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js"></script>
   <link rel="stylesheet" href="/style.css?v=5">
-  <link rel="stylesheet" href="/squad-ui.css?v=1">
+  <link rel="stylesheet" href="/squad-ui.css?v=2">
 </head>
 <body>
 <div class="app">
@@ -32,6 +32,7 @@
         <div class="mini-balance"><span class="mini-icon">TON</span><div><strong id="ton">0.000</strong><small>Estimated TON</small></div></div>
       </div>
     </section>
+
     <section class="daily-card">
       <div class="daily-icon">🎁</div>
       <div class="daily-content"><h3>Daily Reward</h3><p id="daily-text">Your reward is ready!</p></div>
@@ -52,23 +53,33 @@
         <input id="promo-code" type="text" maxlength="64" autocomplete="off" placeholder="Enter promo code...">
         <button id="promo-button" type="button" disabled>Redeem</button>
       </div>
-      <p class="promo-note">Promo code redemption will be connected to the secure backend.</p>
+      <p class="promo-note">Promo codes will be activated through the secure backend.</p>
     </section>
 
-    <section class="squad-card">
+    <section class="squad-card" id="squad-card">
       <div class="squad-head">
-        <div class="squad-icon">💎</div>
+        <div class="squad-icon">👥</div>
         <div>
           <h3>DzMoney Squad</h3>
-          <p>Build a community together and unlock a team task bonus.</p>
+          <p>Grow your community together and unlock a team task bonus.</p>
         </div>
       </div>
-      <div class="squad-progress" aria-hidden="true"><span></span></div>
-      <div class="squad-meta">
-        <span>Squad size</span>
-        <strong>Configured by admin</strong>
+      <div class="squad-stat-row">
+        <div><span>Members</span><strong id="home-squad-count">—</strong></div>
+        <div><span>Target</span><strong id="home-squad-target">—</strong></div>
       </div>
-      <button class="squad-action" type="button" onclick="openSquadInfo()">View Squad</button>
+      <div class="squad-progress" aria-label="Squad progress"><span id="home-squad-progress"></span></div>
+      <div class="squad-meta"><span id="home-squad-status">Your Squad</span><strong id="home-squad-bonus">Bonus configured by admin</strong></div>
+      <button class="squad-action" type="button" onclick="openSquadPage()">View Squad →</button>
+    </section>
+
+    <section class="coming-soon-card">
+      <div class="coming-soon-icon">🚀</div>
+      <div>
+        <span class="coming-soon-label">COMING SOON</span>
+        <h3>Something new is coming</h3>
+        <p>A future DzMoney feature will appear here. Stay tuned.</p>
+      </div>
     </section>
 
     <section class="info-card"><div class="info-icon">💰</div><div><strong>BUX withdrawals</strong><p>Minimum withdrawal <b>2,000 BUX</b> = 0.2 TON</p></div></section>
@@ -83,6 +94,6 @@
 <script src="/app.js?v=6"></script>
 <script src="/withdrawal-input-fix.js?v=1"></script>
 <script src="/wallet-reset-fix.js?v=1"></script>
-<script src="/squad-ui.js?v=1"></script>
+<script src="/squad-ui.js?v=2"></script>
 </body>
 </html>
