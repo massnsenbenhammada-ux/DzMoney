@@ -33,11 +33,10 @@ This file records implementation milestones and important architectural decision
 - Added isolated referral qualification fields.
 - Added initial hierarchical Squad tables: `squads`, `squad_members`, and `squad_daily_activity`.
 - Added package catalog and `user_packages` tables for future revenue-based Rewards Pool weights.
-- Added `economy_deposits` with a unique idempotency key to prevent a verified TON transaction from crediting DZX more than once.
 - Seeded initial economic settings: 10,000 DZX/Ton, 1 TON minimum deposit, 0.2 TON minimum withdrawal, 2,000,000 Coins withdrawal requirement, 20% referral, 50% Squad activity threshold, 100% Squad bonus ceiling.
-- Updated `package.json` startup so the economic migration completes before the existing wallet/withdrawal middleware and `server.js` start.
+- Updated startup so the economic migration completes before the existing wallet/withdrawal middleware and `server.js` start.
 - Existing BUX columns and current wallet/withdrawal implementation remain untouched for safe incremental migration.
-- Important: no automatic BUX→DZX balance conversion has been performed yet. That migration will be a separate audited step after the application-layer DZX integration is ready.
+- No automatic BUX→DZX balance conversion has been performed.
 
 ## 2026-08-19 — Transactional Ledger Layer
 
@@ -45,24 +44,38 @@ This file records implementation milestones and important architectural decision
 - Ledger writes and balance updates are designed to use the same PostgreSQL client/transaction.
 - Supports available, withdrawable, and locked DZX buckets.
 - Prevents debits when the selected bucket has insufficient balance.
+- This layer is intentionally not wired into legacy endpoints yet.
 
 ## 2026-08-19 — Non-destructive Application Bridge
 
 - Added `economy-integration.js` as a preloaded Express bridge.
 - Added `GET /api/economy/status` for health verification of the new economic layer.
-- Added authenticated `GET /api/economy/me` to expose the user's Coins, DZX, DZP, deposited/withdrawable/locked DZX buckets, and economic settings without changing legacy wallet/task responses.
-- The bridge independently verifies Telegram WebApp init data and uses the new economy tables.
+- Added authenticated `GET /api/economy/me` to expose Coins, DZX, DZP, deposited/withdrawable/locked DZX buckets, and economic settings without changing legacy wallet/task responses.
 - Existing BUX wallet, task rewards, withdrawal endpoints, and frontend responses remain untouched.
 
-## 2026-08-19 — Verified TON Deposit Primitive
+## 2026-08-19 — Safe TON Deposit Layer
 
-- Added `services/dzx-deposit.js`.
-- It credits DZX only when called by a trusted blockchain-verification layer.
-- Conversion uses the configured initial economic rule: 1 TON = 10,000 DZX.
-- Deposited DZX is credited to the deposited bucket and recorded in the economic ledger.
-- Added an idempotency key based on network + external transaction ID so a verified TON transaction cannot be credited twice.
-- This is intentionally a verification/credit primitive, not a public endpoint and not a replacement for the existing TON transaction-discovery code.
-- No automatic crediting of unverified user-supplied transaction IDs has been introduced.
+- Added `services/dzx-deposit.js` as the transactional DZX crediting primitive.
+- Added idempotency protection using `network + external transaction id`, preventing duplicate DZX credit from the same verified TON transaction.
+- A verified deposit credits `deposited_dzx` and records the matching ledger entry in the same PostgreSQL transaction.
+- The module deliberately does not accept unverified client-supplied transactions.
+
+## 2026-08-19 — Conservative TON Verification Gate
+
+- Added `services/ton-deposit-verifier.js`.
+- The verifier accepts only a normalized candidate supplied by a trusted TON RPC/indexer adapter.
+- It validates:
+  - network
+  - transaction id
+  - recipient deposit address
+  - sender address format when supplied
+  - minimum deposit amount
+  - successful transaction state
+  - confirmation count
+  - transaction timestamp / processing window
+- The verifier does **not** credit DZX itself. Only a candidate that passes this gate may be forwarded to `dzx-deposit.js`.
+- Added `tests/ton-deposit-verifier.test.js` covering successful verification and rejection cases.
+- No automatic blockchain scanner or public endpoint was added yet. This is intentional: the actual TON adapter must first be matched to the project's configured Testnet/Mainnet endpoint and deposit wallet.
 
 ## Implementation Status
 
@@ -71,10 +84,12 @@ This file records implementation milestones and important architectural decision
 - [x] Economic database foundation added
 - [x] Transactional DZX ledger primitives added
 - [x] Non-destructive DZX API bridge added
-- [x] Verified TON deposit credit primitive added
+- [x] DZX deposit crediting primitive added
+- [x] TON deposit verification gate added
 - [ ] DZX/DZP application-layer migration completed
-- [ ] Blockchain deposit verifier integrated
-- [ ] Withdrawal rules integrated into server
+- [ ] Trusted TON RPC/indexer adapter integrated
+- [ ] Deposit rules integrated into production server flow
+- [ ] Withdrawal rules integrated into production server flow
 - [ ] Referral engine integrated
 - [ ] Squad engine integrated
 - [ ] Rewards Pool implemented
