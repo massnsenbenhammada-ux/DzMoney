@@ -1,9 +1,7 @@
 'use strict';
 
-// Runtime compatibility for @ton/ton wallet exports.
-// Wallet identity/derivation is resolved deterministically by payout-worker.js.
-// This module only normalizes SDK exports; it deliberately does not
-// monkey-patch constructors asynchronously.
+// Runtime compatibility for @ton/ton wallet exports and SLIP10.
+// This module only normalizes SDK exports before payout-worker.js loads.
 const ton = require('@ton/ton');
 
 function hasCreate(value) {
@@ -23,6 +21,37 @@ function loadExport(name, paths) {
     } catch (_) {}
   }
   return null;
+}
+
+function normalizeSlip10CommonJS() {
+  try {
+    const resolved = require.resolve('micro-key-producer/slip10.js');
+    const loaded = require(resolved);
+    const defaultExport = loaded?.default;
+    const HDKey = loaded?.HDKey || defaultExport?.HDKey || (typeof defaultExport === 'function' ? defaultExport : null);
+    const factory = loaded?.fromMasterSeed || defaultExport?.fromMasterSeed || HDKey?.fromMasterSeed;
+
+    if (typeof factory === 'function') {
+      if (typeof loaded.fromMasterSeed !== 'function') loaded.fromMasterSeed = factory.bind(HDKey || defaultExport || loaded);
+      if (defaultExport && typeof defaultExport.fromMasterSeed !== 'function') defaultExport.fromMasterSeed = factory.bind(HDKey || defaultExport);
+      return true;
+    }
+
+    if (HDKey && typeof HDKey.fromMasterSeed === 'function') {
+      const patched = {
+        ...loaded,
+        HDKey,
+        default: defaultExport || HDKey,
+        fromMasterSeed: HDKey.fromMasterSeed.bind(HDKey)
+      };
+      require.cache[resolved].exports = patched;
+      return true;
+    }
+
+    return false;
+  } catch (_) {
+    return false;
+  }
 }
 
 if (!hasCreate(ton.WalletContractV4R2) && hasCreate(ton.WalletContractV4)) {
@@ -58,6 +87,7 @@ if (!hasCreate(ton.WalletContractV4R2) && hasCreate(ton.WalletContractV4)) {
   ton.WalletContractV4R2 = ton.WalletContractV4;
 }
 
+const slip10Ready = normalizeSlip10CommonJS();
 console.log('TON wallet compat: loaded', JSON.stringify({
   v5r1: hasCreate(ton.WalletContractV5R1),
   v5beta: hasCreate(ton.WalletContractV5Beta),
@@ -65,7 +95,8 @@ console.log('TON wallet compat: loaded', JSON.stringify({
   v3r2: hasCreate(ton.WalletContractV3R2),
   v2r2: hasCreate(ton.WalletContractV2R2),
   v1r3: hasCreate(ton.WalletContractV1R3),
-  v4Alias: hasCreate(ton.WalletContractV4)
+  v4Alias: hasCreate(ton.WalletContractV4),
+  slip10FromMasterSeed: slip10Ready
 }));
 
 const required = [
@@ -78,3 +109,4 @@ const required = [
 ];
 const unavailable = required.filter(([, C]) => !hasCreate(C)).map(([name]) => name);
 if (unavailable.length) console.log(`TON wallet compat: unavailable adapters: ${unavailable.join(', ')}`);
+if (!slip10Ready) console.log('TON wallet compat: SLIP10 unavailable; payout signer derivation will refuse to run.');
