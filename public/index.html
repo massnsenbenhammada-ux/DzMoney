@@ -7,6 +7,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
   <script src="https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js"></script>
   <link rel="stylesheet" href="/style.css?v=5">
+  <link rel="stylesheet" href="/squad-ui.css?v=1">
 </head>
 <body>
 <div class="app">
@@ -36,13 +37,40 @@
       <div class="daily-content"><h3>Daily Reward</h3><p id="daily-text">Your reward is ready!</p></div>
       <button id="daily-button" class="claim-button">Claim</button>
     </section>
+
     <div class="section-heading"><div><h2>Earn more</h2><p>Complete activities and earn rewards</p></div></div>
-    <section class="features">
-      <button class="feature-card" onclick="openSection('tasks')"><div class="feature-icon tasks-icon">📺</div><div class="feature-info"><h3>Tasks</h3><p>Watch & complete</p></div><span class="arrow">›</span></button>
-      <button class="feature-card" onclick="openSection('friends')"><div class="feature-icon friends-icon">👥</div><div class="feature-info"><h3>Friends</h3><p>Invite & earn</p></div><span class="arrow">›</span></button>
-      <button class="feature-card" onclick="openSection('wallet')"><div class="feature-icon wallet-icon">💳</div><div class="feature-info"><h3>Wallet</h3><p>Withdraw BUX</p></div><span class="arrow">›</span></button>
-      <button class="feature-card coming-soon"><div class="feature-icon investment-icon">🚀</div><div class="feature-info"><h3>Investment</h3><p>Coming soon</p></div><span class="soon-badge">SOON</span></button>
+
+    <section class="promo-card">
+      <div class="promo-head">
+        <div class="promo-icon">🎟️</div>
+        <div>
+          <h3>Promo Code</h3>
+          <p>Have a code? Enter it here.</p>
+        </div>
+      </div>
+      <div class="promo-form">
+        <input id="promo-code" type="text" maxlength="64" autocomplete="off" placeholder="Enter promo code...">
+        <button id="promo-button" type="button" disabled>Redeem</button>
+      </div>
+      <p class="promo-note">Promo code redemption will be connected to the secure backend.</p>
     </section>
+
+    <section class="squad-card">
+      <div class="squad-head">
+        <div class="squad-icon">💎</div>
+        <div>
+          <h3>DzMoney Squad</h3>
+          <p>Build a community together and unlock a team task bonus.</p>
+        </div>
+      </div>
+      <div class="squad-progress" aria-hidden="true"><span></span></div>
+      <div class="squad-meta">
+        <span>Squad size</span>
+        <strong>Configured by admin</strong>
+      </div>
+      <button class="squad-action" type="button" onclick="openSquadInfo()">View Squad</button>
+    </section>
+
     <section class="info-card"><div class="info-icon">💰</div><div><strong>BUX withdrawals</strong><p>Minimum withdrawal <b>2,000 BUX</b> = 0.2 TON</p></div></section>
   </main>
   <nav class="bottom-nav">
@@ -55,5 +83,6 @@
 <script src="/app.js?v=6"></script>
 <script src="/withdrawal-input-fix.js?v=1"></script>
 <script src="/wallet-reset-fix.js?v=1"></script>
+<script src="/squad-ui.js?v=1"></script>
 </body>
 </html>
