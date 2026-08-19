@@ -194,6 +194,52 @@ This file records implementation milestones and important architectural decision
 ### Remaining risks
 - The live UI cannot be fully validated against a real rewarded advertisement while AdsGram UnitID `43650` remains `Created` / not active.
 
+## 2026-08-19 — Phase 3A DZX Withdrawal Foundation
+
+### What changed
+- Added `scripts/migrate-dzx-withdrawals.js` with a non-destructive `economy_withdrawals` table.
+- Added `withdrawal-dzx.js` as an isolated DZX withdrawal request API; legacy BUX withdrawal routes remain untouched.
+- Added idempotency-key protection for withdrawal creation.
+- Withdrawal requests require the economic minimum of 2,000 DZX (derived from 0.2 TON × 10,000 DZX/Ton) and 2,000,000 Coins.
+- The withdrawal fee is read from Admin-controlled `economy_settings.withdrawal_fee_dzx`.
+- A valid request atomically moves the requested DZX from `withdrawable_dzx` to `locked_dzx` and writes matching `economy_ledger` entries.
+- Added user withdrawal history endpoint under `/api/economy/withdrawals`.
+- The withdrawal network is explicitly restricted to `testnet` at the database layer for the current build.
+- Updated `package.json` to run the new migration before the server and preload the DZX withdrawal API.
+
+### Why
+- This is the first non-destructive implementation step for Roadmap Phase 3.
+- Deposited DZX remains separate from `withdrawable_dzx`; the withdrawal API can only lock the withdrawable bucket.
+- The legacy BUX withdrawal implementation is preserved until the DZX migration is fully validated.
+
+### Files/tables affected
+- `scripts/migrate-dzx-withdrawals.js`
+- `withdrawal-dzx.js`
+- `package.json`
+- `economy_withdrawals`
+- `economy_settings`
+- `economy_ledger`
+- `users.withdrawable_dzx`
+- `users.locked_dzx`
+
+### Migration/configuration impact
+- No destructive migration.
+- No new environment variable.
+- `withdrawal_fee_dzx` defaults to `0` only when not already configured.
+- Existing BUX withdrawal tables/routes are not modified.
+- TON payout remains TESTNET-only.
+
+### Tests performed
+- Static transaction-flow review of Telegram authentication → validation → row lock → withdrawal creation → DZX bucket lock → ledger entries.
+- Verified idempotency is enforced by a unique database key and replay handling.
+- Verified minimum Coins/DZX checks and fee validation are server-side.
+- Live database/HTTP testing remains pending deployment because this environment does not have the production `DATABASE_URL`.
+
+### Remaining risks
+- Settlement worker/admin approval is not implemented yet; requests remain `PENDING` after creation.
+- Frontend withdrawal UI is not yet migrated to this DZX endpoint.
+- Full production payout must remain blocked until settlement, anti-fraud, and testnet verification are completed.
+
 ## Implementation Status
 
 - [ ] Phase 1 audit completed
@@ -210,9 +256,10 @@ This file records implementation milestones and important architectural decision
 - [x] AdsGram pending-view race removed by registering before playback
 - [x] Daily Check-in changed to AdsGram Rewarded + 24h cooldown
 - [x] Daily Check-in UI fixed to Watch Ad + live cooldown
+- [x] Phase 3A DZX withdrawal request foundation added
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into production server flow
-- [ ] Withdrawal rules integrated into production server flow
+- [ ] Withdrawal settlement/production payout flow completed
 - [ ] Referral engine integrated
 - [ ] Squad engine integrated
 - [ ] Rewards Pool implemented
