@@ -6,9 +6,11 @@
 // It performs one read-only RPC request and all address derivation locally.
 
 const ton = require('@ton/ton');
-const { mnemonicToPrivateKey, sha256_sync } = require('@ton/crypto');
-const { mnemonicToSeedSync } = require('@scure/bip39');
-const slip10 = require('micro-key-producer/slip10.js');
+const { mnemonicToSeedSync } = require('@ton/crypto');
+const { mnemonicToSeedSync: scureMnemonicToSeedSync } = require('@scure/bip39');
+const slip10Module = require('micro-key-producer/slip10.js');
+const slip10 = slip10Module.default || slip10Module;
+const { sha256_sync } = require('@ton/crypto');
 
 const NETWORK = String(process.env.TON_PAYOUT_NETWORK || 'testnet').toLowerCase();
 const RPC = String(process.env.TON_RPC_URL || 'https://testnet.toncenter.com/api/v2/jsonRPC');
@@ -37,9 +39,14 @@ function fingerprint(publicKey) {
 }
 
 function deriveWalletOrgBip39Key(words) {
-  // This mirrors ton-blockchain/ton-wallet/src/api/chains/ton/auth.ts:
-  // bip39.mnemonicToSeedSync() -> ed25519 HD path m/44'/607'/0' -> Ed25519.
-  const seed = mnemonicToSeedSync(words.join(' '), '');
+  if (!slip10 || typeof slip10.fromMasterSeed !== 'function') {
+    throw new Error('micro-key-producer SLIP10 API unavailable: expected fromMasterSeed()');
+  }
+
+  // wallet.ton.org uses the BIP39 seed and TON HD path m/44'/607'/0'.
+  // micro-key-producer is ESM-first in recent releases, so CommonJS may
+  // expose the HDKey implementation through .default.
+  const seed = scureMnemonicToSeedSync(words.join(' '), '');
   const root = slip10.fromMasterSeed(seed);
   const account = root.derive(TON_BIP39_PATH);
   const publicKey = Buffer.from(account.publicKeyRaw);
@@ -116,15 +123,14 @@ async function main() {
 
   // wallet.ton.org's buildWallet() creates W5R1 without a network argument.
   // @ton/ton's W5R1 default is the Mainnet wallet ID (-239). The web wallet
-  // then only changes the displayed address flags to testOnly=true for Testnet.
+  // then displays the address with testOnly=true for Testnet.
   const walletOrgW5 = buildW5(walletOrgKey.publicKey, WALLET_ORG_NETWORK_GLOBAL_ID);
   const walletOrgAddress = normalize(walletOrgW5.address, { bounceable: false, testOnly: true });
 
-  // This is the normal @ton/ton Testnet W5R1 configuration for comparison.
+  // Normal @ton/ton Testnet W5R1 configuration for comparison.
   const standardTestnetW5 = buildW5(walletOrgKey.publicKey, STANDARD_TESTNET_NETWORK_GLOBAL_ID);
   const standardTestnetAddress = normalize(standardTestnetW5.address, { bounceable: false, testOnly: true });
 
-  // The same wallet.ton.org address in bounceable Testnet form.
   const walletOrgBounceable = normalize(walletOrgW5.address, { bounceable: true, testOnly: true });
 
   const matches = {
