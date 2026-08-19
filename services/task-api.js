@@ -5,6 +5,18 @@ async function getTaskSettings(pool) {
   return Object.fromEntries(rows.map(row => [row.key, row.value]));
 }
 
+async function getAdProgress(pool, userId) {
+  const { rows } = await pool.query(`
+    SELECT verification
+    FROM task_completions
+    WHERE user_id=$1 AND task_id='view_ads' AND status IN ('pending','rewarded')
+    ORDER BY created_at DESC LIMIT 1
+  `, [String(userId)]);
+  if (!rows.length) return 0;
+  const verification = rows[0].verification && typeof rows[0].verification === "object" ? rows[0].verification : {};
+  return Math.max(0, Number(verification.adCount || 0));
+}
+
 async function listAvailableTasks(pool, userId) {
   const settings = await getTaskSettings(pool);
   const { rows } = await pool.query(`
@@ -22,13 +34,17 @@ async function listAvailableTasks(pool, userId) {
   `, [String(userId)]);
 
   const now = Date.now();
+  const adProgress = await getAdProgress(pool, userId);
   return rows.map(row => {
     const cooldown = row.cadence_seconds == null ? null : Number(row.cadence_seconds);
     const last = row.last_completed_at == null ? null : Number(row.last_completed_at);
     const nextAvailableAt = cooldown && last ? last + cooldown * 1000 : null;
     const requiredCount = row.id === "view_ads" ? Math.max(1, Number(settings.daily_ad_task_count || 20)) : Number(row.required_count || 1);
     const metadata = row.metadata && typeof row.metadata === "object" ? { ...row.metadata } : {};
-    if (row.id === "view_ads") metadata.count = requiredCount;
+    if (row.id === "view_ads") {
+      metadata.count = requiredCount;
+      metadata.completedCount = Math.min(requiredCount, adProgress);
+    }
     if (row.id === "check_updates" && settings.updates_channel_url) metadata.channelUrl = settings.updates_channel_url;
     return {
       id: row.id,
@@ -42,7 +58,7 @@ async function listAvailableTasks(pool, userId) {
       requiredCount,
       verificationMethod: row.verification_method,
       metadata,
-      available: !nextAvailableAt || now >= nextAvailableAt,
+      available: row.id === "view_ads" ? adProgress < requiredCount : (!nextAvailableAt || now >= nextAvailableAt),
       nextAvailableAt,
       lastStatus: row.last_status || null
     };
@@ -53,10 +69,14 @@ async function startTask(pool, userId, taskId) {
   const taskResult = await pool.query(`SELECT * FROM tasks WHERE id = $1 AND active = TRUE`, [String(taskId)]);
   if (!taskResult.rows.length) throw new Error("Task not found or inactive.");
   const task = taskResult.rows[0];
+  if (String(taskId) === "view_ads") {
+    const existing = await pool.query(`SELECT id,task_id,status,created_at FROM task_completions WHERE user_id=$1 AND task_id='view_ads' AND status='pending' ORDER BY created_at DESC LIMIT 1`, [String(userId)]);
+    if (existing.rows.length) return { task, completion: existing.rows[0] };
+  }
   const now = Date.now();
   const cooldown = task.cadence_seconds == null ? null : Number(task.cadence_seconds);
 
-  if (cooldown) {
+  if (cooldown && task.id !== "view_ads") {
     const recent = await pool.query(`
       SELECT created_at FROM task_completions
       WHERE user_id = $1 AND task_id = $2 AND status IN ('pending','verified','rewarded')
