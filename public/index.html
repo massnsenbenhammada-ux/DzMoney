@@ -7,6 +7,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js?63"></script>
   <script src="https://unpkg.com/@tonconnect/ui@3.0.0/dist/tonconnect-ui.min.js"></script>
   <link rel="stylesheet" href="/style.css?v=5">
+  <link rel="stylesheet" href="/dzp-ui.css?v=1">
   <link rel="stylesheet" href="/squad-ui.css?v=1">
   <link rel="stylesheet" href="/squad-v2.css?v=1">
   <link rel="stylesheet" href="/task-v2.css?v=1">
@@ -18,7 +19,26 @@
     <button class="profile-button">👤</button>
   </header>
   <main>
-    <section class="balance-card"><div class="balance-top"><span>Total balance</span><span class="online-dot">● Online</span></div><div class="coins"><span class="coin-icon">💎</span><span id="coins">0</span></div><div class="balance-label">DZP</div><div class="balance-divider"></div><div class="mini-balances"><div class="mini-balance"><span class="mini-icon">💰</span><div><strong id="bux">0</strong><small>DZX</small></div></div><div class="mini-balance"><span class="mini-icon">TON</span><div><strong id="ton">0.000</strong><small>Estimated TON</small></div></div></div></section>
+    <section class="balance-card">
+      <div class="balance-top"><span>Total balance</span><span class="online-dot">● Online</span></div>
+      <div class="coins"><span class="coin-icon">💎</span><span id="coins">0</span></div>
+      <div class="balance-label">Coins</div>
+      <div class="balance-divider"></div>
+      <div class="mini-balances">
+        <div class="mini-balance dzp-balance">
+          <span class="mini-icon">DZP</span>
+          <div><strong id="dzp">0</strong><small>DZP Points</small></div>
+        </div>
+        <div class="mini-balance">
+          <span class="mini-icon">💰</span>
+          <div><strong id="bux">0</strong><small>DZX</small></div>
+        </div>
+        <div class="mini-balance">
+          <span class="mini-icon">TON</span>
+          <div><strong id="ton">0.000</strong><small>Estimated TON</small></div>
+        </div>
+      </div>
+    </section>
     <section class="daily-card"><div class="daily-icon">🎁</div><div class="daily-content"><h3>Daily Reward</h3><p id="daily-text">Your reward is ready!</p></div><button id="daily-button" class="claim-button">Claim</button></section>
     <div class="section-heading"><div><h2>Earn more</h2><p>Complete activities and earn rewards</p></div></div>
     <section class="promo-card"><div class="promo-head"><div class="promo-icon">🎟️</div><div><h3>Promo Code</h3><p>Have a code? Enter it here.</p></div></div><div class="promo-form"><input id="promo-code" type="text" maxlength="64" autocomplete="off" placeholder="Enter promo code..."><button id="promo-button" type="button" disabled>Redeem</button></div><p class="promo-note">Promo codes will be activated through the secure backend.</p></section>
@@ -34,6 +54,7 @@
   </nav>
 </div>
 <script src="/app.js?v=6"></script>
+<script src="/dzp-ui.js?v=1"></script>
 <script src="/withdrawal-input-fix.js?v=1"></script>
 <script src="/wallet-reset-fix.js?v=1"></script>
 <script src="/squad-ui.js?v=2"></script>
