@@ -3,11 +3,18 @@
 // DzMoney Mainnet READ-ONLY diagnostic.
 // SECURITY: this script never signs, deploys, sends, or moves funds.
 // It derives the W5R1 Mainnet address locally and performs one read-only RPC call.
+//
+// IMPORTANT: do not use micro-key-producer/slip10 here. The installed version
+// in DzMoney does not expose fromMasterSeed(). We use the same @ton/crypto
+// derivation path already used by ton-forensic-diagnostic.js.
 
 const ton = require('@ton/ton');
-const { mnemonicToPrivateKey } = require('@ton/crypto');
-const { mnemonicToSeedSync } = require('@scure/bip39');
-const slip10 = require('micro-key-producer/slip10.js');
+const {
+  mnemonicToPrivateKey,
+  mnemonicToHDSeed,
+  deriveEd25519Path,
+  keyPairFromSeed
+} = require('@ton/crypto');
 
 const MAINNET_RPC = String(process.env.TON_MAINNET_RPC_URL || 'https://toncenter.com/api/v2/jsonRPC');
 const mnemonicRaw = String(process.env.TON_TREASURY_MNEMONIC || '').trim();
@@ -22,29 +29,45 @@ function fingerprint(publicKey) {
   return `${h.slice(0, 8)}…${h.slice(-8)}`;
 }
 
-function makeKeyPair(publicKey, privateKey) {
-  const pub = Buffer.from(publicKey);
-  const priv = Buffer.from(privateKey);
-  return { publicKey: pub, secretKey: Buffer.concat([priv, pub]) };
+function keyPairFromTonSeed(seed) {
+  const kp = keyPairFromSeed(Buffer.from(seed));
+  return {
+    publicKey: Buffer.from(kp.publicKey),
+    secretKey: Buffer.from(kp.secretKey)
+  };
 }
 
-function deriveMultichain(words) {
-  const seed = mnemonicToSeedSync(words.join(' '), '');
-  const root = slip10.fromMasterSeed(seed);
-  const account = root.derive("m/44'/607'/0'");
-  return makeKeyPair(account.publicKeyRaw, account.privateKey);
+async function deriveMultichain(words) {
+  const hdSeed = await mnemonicToHDSeed(words);
+  const seed = await deriveEd25519Path(hdSeed, [44, 607, 0]);
+  return keyPairFromTonSeed(seed);
 }
 
 async function deriveKeys(words) {
   const candidates = [];
+
+  // DzMoney's 12-word treasury format is the Multichain/BIP44 path used by
+  // the existing forensic diagnostic: m/44'/607'/0'.
   if (words.length === 12) {
-    candidates.push({ scheme: "multichain-bip39:m/44'/607'/0'", keyPair: deriveMultichain(words) });
+    candidates.push({
+      scheme: "multichain-bip39:m/44'/607'/0'",
+      keyPair: await deriveMultichain(words)
+    });
   } else if (words.length === 24) {
-    try { candidates.push({ scheme: 'ton', keyPair: await mnemonicToPrivateKey(words) }); } catch (_) {}
-    try { candidates.push({ scheme: "multichain-bip39:m/44'/607'/0'", keyPair: deriveMultichain(words) }); } catch (_) {}
+    try {
+      candidates.push({ scheme: 'ton', keyPair: await mnemonicToPrivateKey(words) });
+    } catch (_) {}
+    try {
+      candidates.push({
+        scheme: "multichain-bip39:m/44'/607'/0'",
+        keyPair: await deriveMultichain(words)
+      });
+    } catch (_) {}
   } else {
     throw new Error(`Mnemonic must contain 12 or 24 words; got ${words.length}.`);
   }
+
+  if (!candidates.length) throw new Error('No supported mnemonic derivation succeeded.');
   return candidates;
 }
 
