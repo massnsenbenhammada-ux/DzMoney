@@ -25,9 +25,8 @@ function installTaskRoutes(app, pool, botToken) {
     }
   });
 
-  // Register the pending AdsGram view BEFORE playback. AdsGram's server-side
-  // Reward URL can arrive independently of the browser callback, so creating
-  // the pending record after playback would introduce a race.
+  // Create the pending server-side ad record BEFORE playback. AdsGram's
+  // Reward URL is the authority that later confirms and credits the view.
   app.post("/api/v2/tasks/:taskId/ad-start", auth, async (req, res) => {
     try {
       const taskId = String(req.params.taskId);
@@ -37,28 +36,21 @@ function installTaskRoutes(app, pool, botToken) {
       const result = await recordAdCompletion(pool, String(req.telegramUser.id), req.body || {}, taskId);
       res.json({ ok: true, pending: Boolean(result.pending), pendingViewId: result.pendingViewId || null, completedCount: result.completedCount, requiredCount: result.requiredCount, completed: result.completed, completion: result.completion });
     } catch (error) {
-      const status = error.code === "TASK_NOT_FOUND" ? 404 : 500;
+      const statusByCode = { TASK_NOT_FOUND: 404, INVALID_AD_TASK: 400, AD_ALREADY_PENDING: 409 };
+      const status = statusByCode[error.code] || 500;
       if (status >= 500) console.error(`POST /api/v2/tasks/${req.params.taskId}/ad-start failed:`, error);
       res.status(status).json({ ok: false, error: error.code || "AD_START_FAILED", message: error.message });
     }
   });
 
-  // Compatibility endpoint for clients that still call ad-complete. New UI
-  // calls ad-start before showing the ad; this endpoint is not trusted as proof.
+  // Deliberately do NOT credit from a browser callback. Older clients may call
+  // this route, but only AdsGram's server Reward URL can confirm a real view.
   app.post("/api/v2/tasks/view_ads/ad-complete", auth, async (req, res) => {
-    try {
-      const result = await recordAdCompletion(pool, String(req.telegramUser.id), req.body || {}, "view_ads");
-      res.json({ ok: true, pending: Boolean(result.pending), pendingViewId: result.pendingViewId || null, completedCount: result.completedCount, requiredCount: result.requiredCount, completed: result.completed, reward: result.completed ? { coins: result.coins, dzx: result.dzx } : null, completion: result.completion, rewardEventId: result.rewardEventId || null });
-    } catch (error) {
-      const status = error.code === "TASK_NOT_FOUND" ? 404 : 500;
-      if (status >= 500) console.error("POST /api/v2/tasks/view_ads/ad-complete failed:", error);
-      res.status(status).json({ ok: false, error: error.code || "AD_COMPLETION_FAILED", message: error.message });
-    }
+    res.status(409).json({ ok: false, error: "AD_SERVER_CONFIRMATION_REQUIRED", message: "Wait for AdsGram server confirmation." });
   });
 
   // AdsGram Reward URL callback. AdsGram replaces [userId] with the Telegram
-  // user id. This endpoint intentionally does not require WebApp auth.
-  // Optional ADSGRAM_REWARD_SECRET protects the public callback when configured.
+  // user id. Optional ADSGRAM_REWARD_SECRET can additionally protect it.
   app.get("/api/adsgram/reward", async (req, res) => {
     const configuredSecret = String(process.env.ADSGRAM_REWARD_SECRET || "").trim();
     if (configuredSecret && String(req.query.secret || "") !== configuredSecret) return res.status(401).send("unauthorized");
