@@ -7,6 +7,22 @@ async function getSetting(pool, key, fallback = null) {
   return rows.length ? rows[0].value : fallback;
 }
 
+async function ensureAdsgramSchema(client) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS adsgram_ad_views (
+      id BIGSERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      task_id TEXT NOT NULL DEFAULT 'view_ads',
+      status TEXT NOT NULL DEFAULT 'pending',
+      provider TEXT NOT NULL DEFAULT 'AdsGram',
+      created_at BIGINT NOT NULL,
+      confirmed_at BIGINT
+    );
+    CREATE INDEX IF NOT EXISTS adsgram_ad_views_pending_idx
+      ON adsgram_ad_views(user_id, task_id, status, created_at);
+  `);
+}
+
 async function ensureDailySettings(pool) {
   const defaults = {
     daily_ad_task_count: "20",
@@ -14,9 +30,7 @@ async function ensureDailySettings(pool) {
     daily_task_reward_coins: "1000",
     daily_task_reward_dzx: "1",
     invite_1_reward_coins: "10000",
-    invite_1_reward_dzx: "10",
-    invite_10_reward_coins: "100000",
-    invite_10_reward_dzx: "100"
+    invite_1_reward_dzx: "10"
   };
   const now = Date.now();
   for (const [key, value] of Object.entries(defaults)) {
@@ -29,54 +43,158 @@ async function recordAdCompletion(pool, userId, adProof = {}) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    await ensureAdsgramSchema(client);
+
+    const taskResult = await client.query("SELECT * FROM tasks WHERE id='view_ads' AND active=TRUE FOR UPDATE");
+    if (!taskResult.rowCount) throw Object.assign(new Error("Ad task not found or inactive."), { code: "TASK_NOT_FOUND" });
+
+    const required = Math.max(1, Number(await getSetting(client, "daily_ad_task_count", "20")));
+    const provider = String(adProof.provider || "AdsGram");
+    const now = Date.now();
+
+    const completionResult = await client.query(`
+      SELECT id,status,verification,created_at
+      FROM task_completions
+      WHERE user_id=$1 AND task_id='view_ads' AND status IN ('pending','rewarded')
+      ORDER BY created_at DESC LIMIT 1 FOR UPDATE
+    `, [uid]);
+
+    let completion;
+    if (completionResult.rowCount) {
+      completion = completionResult.rows[0];
+    } else {
+      const inserted = await client.query(`
+        INSERT INTO task_completions(user_id,task_id,status,verification,created_at)
+        VALUES($1,'view_ads','pending',$2::jsonb,$3)
+        RETURNING id,status,verification,created_at
+      `, [uid, JSON.stringify({ adCount: 0 }), now]);
+      completion = inserted.rows[0];
+    }
+
+    const previous = completion.verification && typeof completion.verification === "object" ? completion.verification : {};
+    const confirmedCount = Math.min(required, Math.max(0, Number(previous.adCount || 0)));
+
+    if (confirmedCount >= required || completion.status === "rewarded") {
+      await client.query("COMMIT");
+      return {
+        completedCount: required,
+        requiredCount: required,
+        completed: true,
+        pending: false,
+        completion: { id: completion.id, status: "rewarded" }
+      };
+    }
+
+    // The client-side AdsGram onReward event is only a signal to register a
+    // pending view. The counter is NOT advanced here. The AdsGram Reward URL
+    // must confirm this pending view before it can count toward the daily total.
+    const pending = await client.query(`
+      INSERT INTO adsgram_ad_views(user_id,task_id,status,provider,created_at)
+      VALUES($1,'view_ads','pending',$2,$3)
+      RETURNING id,created_at
+    `, [uid, provider, now]);
+
+    await client.query("COMMIT");
+    return {
+      completedCount: confirmedCount,
+      requiredCount: required,
+      completed: false,
+      pending: true,
+      pendingViewId: String(pending.rows[0].id),
+      completion: { id: completion.id, status: completion.status }
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function confirmAdsGramReward(pool, userId) {
+  const uid = String(userId || "").trim();
+  if (!/^\d+$/.test(uid)) throw Object.assign(new Error("Invalid AdsGram Telegram user id."), { code: "INVALID_USER_ID" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await ensureAdsgramSchema(client);
+
     const taskResult = await client.query("SELECT * FROM tasks WHERE id='view_ads' AND active=TRUE FOR UPDATE");
     if (!taskResult.rowCount) throw Object.assign(new Error("Ad task not found or inactive."), { code: "TASK_NOT_FOUND" });
     const task = taskResult.rows[0];
     const required = Math.max(1, Number(await getSetting(client, "daily_ad_task_count", "20")));
 
-    let completionResult = await client.query(`
+    const pending = await client.query(`
+      SELECT id,created_at
+      FROM adsgram_ad_views
+      WHERE user_id=$1 AND task_id='view_ads' AND status='pending'
+      ORDER BY created_at ASC
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    `, [uid]);
+
+    if (!pending.rowCount) {
+      await client.query("COMMIT");
+      return { accepted: false, reason: "NO_PENDING_AD" };
+    }
+
+    const completionResult = await client.query(`
       SELECT id,status,verification,created_at
       FROM task_completions
-      WHERE user_id=$1 AND task_id='view_ads' AND status='pending'
+      WHERE user_id=$1 AND task_id='view_ads' AND status IN ('pending','rewarded')
       ORDER BY created_at DESC LIMIT 1 FOR UPDATE
     `, [uid]);
+
     if (!completionResult.rowCount) {
-      const inserted = await client.query(`
-        INSERT INTO task_completions(user_id,task_id,status,verification,created_at)
-        VALUES($1,'view_ads','pending',$2::jsonb,$3)
-        RETURNING id,status,verification,created_at
-      `, [uid, JSON.stringify({ adCount: 0 }), Date.now()]);
-      completionResult = inserted;
+      await client.query("ROLLBACK");
+      throw Object.assign(new Error("Pending AdsGram view has no task completion."), { code: "COMPLETION_NOT_FOUND" });
     }
 
     const completion = completionResult.rows[0];
     const previous = completion.verification && typeof completion.verification === "object" ? completion.verification : {};
     const count = Math.min(required, Math.max(0, Number(previous.adCount || 0)) + 1);
     const now = Date.now();
+
+    await client.query(
+      `UPDATE adsgram_ad_views SET status='confirmed',confirmed_at=$1 WHERE id=$2`,
+      [now, pending.rows[0].id]
+    );
+
     const proof = {
       ...previous,
       adCount: count,
       lastAd: {
-        provider: String(adProof.provider || "AdsGram"),
-        completed: true,
-        timestamp: now
+        provider: "AdsGram",
+        confirmed: true,
+        timestamp: now,
+        source: "reward_url"
       }
     };
 
     if (count < required) {
       await client.query(`UPDATE task_completions SET verification=$1::jsonb WHERE id=$2`, [JSON.stringify(proof), completion.id]);
       await client.query("COMMIT");
-      return { completedCount: count, requiredCount: required, completed: false, completion: { id: completion.id, status: "pending" } };
+      return {
+        accepted: true,
+        completedCount: count,
+        requiredCount: required,
+        completed: false,
+        completion: { id: completion.id, status: "pending" }
+      };
     }
 
     const coins = BigInt(String(task.reward_coins || 0));
     const dzx = String(task.reward_dzx || "0");
-    await client.query(`UPDATE task_completions SET status='rewarded',verification=$1::jsonb,verified_at=$2,rewarded_at=$2 WHERE id=$3`, [JSON.stringify({ ...proof, verified: true, method: "ad_network_reward" }), now, completion.id]);
+    await client.query(
+      `UPDATE task_completions SET status='rewarded',verification=$1::jsonb,verified_at=$2,rewarded_at=$2 WHERE id=$3`,
+      [JSON.stringify({ ...proof, verified: true, method: "adsgram_reward_url" }), now, completion.id]
+    );
 
     const event = await client.query(`
       INSERT INTO task_reward_events(user_id,task_id,task_type,base_dzx,squad_bonus_dzx,total_dzx,coins_reward,economic_budget_dzx,status,metadata,created_at,credited_at)
       VALUES($1,$2,$3,$4,0,$4,$5,$4,'credited',$6::jsonb,$7,$7) RETURNING id
-    `, [uid, "view_ads", task.type, dzx, coins.toString(), JSON.stringify({ verification: "ad_network_reward", adCount: required, provider: String(adProof.provider || "AdsGram") }), now]);
+    `, [uid, "view_ads", task.type, dzx, coins.toString(), JSON.stringify({ verification: "adsgram_reward_url", adCount: required, provider: "AdsGram" }), now]);
 
     await client.query("UPDATE task_completions SET reward_event_id=$1 WHERE id=$2", [event.rows[0].id, completion.id]);
     await client.query("UPDATE users SET coins=COALESCE(coins,0)+$1, dzx=COALESCE(dzx,0)+$2 WHERE id=$3", [coins.toString(), dzx, uid]);
@@ -84,12 +202,21 @@ async function recordAdCompletion(pool, userId, adProof = {}) {
       INSERT INTO economy_ledger(user_id,asset,direction,amount,balance_bucket,source_type,source_id,metadata,created_at)
       VALUES($1,'COINS','CREDIT',$2,'available','TASK_REWARD',$3,$4::jsonb,$5),
             ($1,'DZX','CREDIT',$6,'withdrawable','TASK_REWARD',$3,$4::jsonb,$5)
-    `, [uid, coins.toString(), String(event.rows[0].id), JSON.stringify({ taskId: "view_ads", taskType: task.type, adCount: required }), now, dzx]);
+    `, [uid, coins.toString(), String(event.rows[0].id), JSON.stringify({ taskId: "view_ads", taskType: task.type, adCount: required, verification: "adsgram_reward_url" }), now, dzx]);
 
     await client.query("COMMIT");
-    return { completedCount: required, requiredCount: required, completed: true, completion: { id: completion.id, status: "rewarded" }, rewardEventId: String(event.rows[0].id), coins: coins.toString(), dzx };
+    return {
+      accepted: true,
+      completedCount: required,
+      requiredCount: required,
+      completed: true,
+      completion: { id: completion.id, status: "rewarded" },
+      rewardEventId: String(event.rows[0].id),
+      coins: coins.toString(),
+      dzx
+    };
   } catch (error) {
-    await client.query("ROLLBACK");
+    await client.query("ROLLBACK").catch(() => {});
     throw error;
   } finally {
     client.release();
@@ -147,4 +274,4 @@ async function verifyAndRewardDailyTask(pool, userId, taskId, verification = {})
   }
 }
 
-module.exports = { ensureDailySettings, getSetting, verifyAndRewardDailyTask, recordAdCompletion };
+module.exports = { ensureDailySettings, getSetting, verifyAndRewardDailyTask, recordAdCompletion, confirmAdsGramReward };
