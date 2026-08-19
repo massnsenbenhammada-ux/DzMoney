@@ -1,9 +1,9 @@
 "use strict";
 
 // Loads the new task API without modifying the legacy /api/tasks routes.
-// It hooks Express' listen call so the fully-created application instance is
-// available, while using its own PostgreSQL pool. This is temporary isolation
-// until the new task flow replaces the legacy routes after verification.
+// The task routes are mounted through a Router and inserted at the beginning
+// of the finalized Express stack. This is important because server.js already
+// has legacy fallback/404 middleware registered before app.listen().
 const express = require("express");
 const { Pool } = require("pg");
 const { installTaskRoutes } = require("./routes/task-routes");
@@ -22,12 +22,22 @@ if (!express.application.__dzmoneyTaskBootstrap) {
   express.application.__dzmoneyTaskBootstrap = true;
   express.application.listen = function patchedListen(...args) {
     if (!this.__dzmoneyTaskRoutesInstalled) {
+      const router = express.Router();
       installTaskRoutes(
-        this,
+        router,
         taskPool,
         String(process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || "").trim()
       );
+
+      // app.listen() is called after server.js has registered its fallback
+      // middleware. Mount the new router before that fallback, without
+      // changing or replacing any legacy route.
+      if (!this._router || !Array.isArray(this._router.stack)) {
+        throw new Error("Express router stack is unavailable; task routes were not installed.");
+      }
+      this._router.stack.unshift(...router.stack);
       this.__dzmoneyTaskRoutesInstalled = true;
+      console.log("Task API v2 routes: mounted before legacy fallback");
     }
     return originalListen.apply(this, args);
   };
