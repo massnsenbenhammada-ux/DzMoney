@@ -1,4 +1,6 @@
-const { Pool } = require('pg');
+"use strict";
+
+const { Pool } = require("pg");
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -7,11 +9,13 @@ const pool = new Pool({
 
 async function grantActivityDzp({ userId, sourceType, sourceId, amount, metadata = {} }) {
   const value = Number(amount || 0);
-  if (!userId || !sourceType || !sourceId || !Number.isFinite(value) || value <= 0) return { granted: false, amount: 0 };
+  if (!userId || !sourceType || !sourceId || !Number.isFinite(value) || value <= 0) {
+    return { granted: false, amount: 0 };
+  }
 
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
     const inserted = await client.query(
       `INSERT INTO dzp_activity_ledger(user_id, source_type, source_id, amount, metadata)
        VALUES ($1,$2,$3,$4,$5)
@@ -21,22 +25,27 @@ async function grantActivityDzp({ userId, sourceType, sourceId, amount, metadata
     );
 
     if (!inserted.rowCount) {
-      await client.query('COMMIT');
+      await client.query("COMMIT");
       return { granted: false, amount: 0, duplicate: true };
     }
 
-    // Adapt to the project's existing user balance column when available.
     await client.query(
-      `UPDATE users
-          SET dzp_balance = COALESCE(dzp_balance, 0) + $2
-        WHERE id = $1`,
+      `UPDATE users SET dzp = COALESCE(dzp, 0) + $2 WHERE id = $1`,
       [String(userId), value]
     );
 
-    await client.query('COMMIT');
+    await client.query(
+      `INSERT INTO economy_ledger(
+         user_id, asset, direction, amount, balance_bucket,
+         source_type, source_id, metadata, created_at
+       ) VALUES ($1,'DZP','CREDIT',$2,'available',$3,$4,$5::jsonb,$6)`,
+      [String(userId), value, sourceType, String(sourceId), JSON.stringify(metadata), Date.now()]
+    );
+
+    await client.query("COMMIT");
     return { granted: true, amount: value };
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
@@ -51,7 +60,7 @@ async function grantReferralDzpOnce({ referrerUserId, referredUserId, amount }) 
 
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
     const inserted = await client.query(
       `INSERT INTO referral_dzp_rewards(referrer_user_id, referred_user_id, amount)
        VALUES ($1,$2,$3)
@@ -61,18 +70,27 @@ async function grantReferralDzpOnce({ referrerUserId, referredUserId, amount }) 
     );
 
     if (!inserted.rowCount) {
-      await client.query('COMMIT');
+      await client.query("COMMIT");
       return { granted: false, amount: 0, duplicate: true };
     }
 
     await client.query(
-      `UPDATE users SET dzp_balance = COALESCE(dzp_balance, 0) + $2 WHERE id = $1`,
+      `UPDATE users SET dzp = COALESCE(dzp, 0) + $2 WHERE id = $1`,
       [String(referrerUserId), value]
     );
-    await client.query('COMMIT');
+
+    await client.query(
+      `INSERT INTO economy_ledger(
+         user_id, asset, direction, amount, balance_bucket,
+         source_type, source_id, metadata, created_at
+       ) VALUES ($1,'DZP','CREDIT',$2,'available','REFERRAL_DZP',$3,$4::jsonb,$5)`,
+      [String(referrerUserId), value, String(inserted.rows[0].id), JSON.stringify({ referredUserId: String(referredUserId), oneTime: true }), Date.now()]
+    );
+
+    await client.query("COMMIT");
     return { granted: true, amount: value };
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
