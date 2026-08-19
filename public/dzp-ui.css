@@ -1,0 +1,13 @@
+.dzp-balance {
+  border-color: rgba(170, 140, 255, 0.14);
+  background: rgba(170, 140, 255, 0.055);
+}
+
+.dzp-balance .mini-icon {
+  background: rgba(170, 140, 255, 0.12);
+  color: var(--purple);
+}
+
+.dzp-balance strong {
+  font-variant-numeric: tabular-nums;
+}
