@@ -106,8 +106,22 @@ This file records implementation milestones and important architectural decision
 - The existing authenticated `/api/v2/tasks/view_ads/ad-complete` endpoint remains the server-side recording/reward path after the real callback; the frontend does not directly increment the counter.
 - Added SDK loading reuse and controller reuse per AdsGram block ID.
 - No fake timeout, synthetic callback, or frontend-only counter increment was introduced.
-- Important remaining security work: AdsGram's optional server-side Reward URL should be evaluated before production-grade anti-fraud/reward hardening; the current `onReward` integration is the real SDK client callback requested for the UI flow.
 - Verification performed: inspected the current AdsGram official Rewarded API documentation and confirmed `onReward` is the event emitted when a Rewarded banner is watched to the end; inspected the current DzMoney task route/service and preserved the existing transactional reward path.
+
+## 2026-08-19 — AdsGram Server-Side Reward URL Confirmation
+
+- Reworked `services/daily-task-service.js` so the browser-side AdsGram `onReward` callback registers a **pending ad view** instead of advancing the counter or crediting a reward.
+- Added the `adsgram_ad_views` table lazily and transactionally, with pending/confirmed status and timestamps. This is non-destructive and does not alter existing task/economy tables.
+- Added `confirmAdsGramReward()` to consume the oldest pending AdsGram view for the authenticated Telegram user ID supplied by AdsGram's Reward URL, then advance the confirmed ad count.
+- The final daily ad reward is still credited transactionally through `task_reward_events`, `users`, and `economy_ledger`, but only after the AdsGram Reward URL confirmation.
+- Added the real public `GET /api/adsgram/reward?userid=[userId]` endpoint in `routes/task-routes.js`.
+- The endpoint deliberately does not use Telegram WebApp authentication because the request originates from AdsGram. An optional `ADSGRAM_REWARD_SECRET` can be configured and is checked when present.
+- Updated `public/task-v2-ui.js` to register the browser `onReward`, then poll the server for up to 15 seconds for the AdsGram server confirmation before updating the visible counter.
+- The visible ad counter therefore represents **server-confirmed AdsGram rewards**, not merely client-side callbacks.
+- Configuration required in AdsGram: set the Reward URL to the deployed endpoint using AdsGram's `[userId]` replacement, for example `https://YOUR-DZMONEY-DOMAIN/api/adsgram/reward?userid=[userId]`. If `ADSGRAM_REWARD_SECRET` is configured, append `&secret=YOUR_SECRET`.
+- Important: AdsGram documents the Reward URL as an additional server-side confirmation alongside the standard client callback; it is not a cryptographic signature. Debug/test AdsGram views do not trigger the Reward URL.
+- Tests performed: inspected the current AdsGram official API documentation and the live DzMoney task route/bootstrap/service chain; verified the new flow is idempotent at the pending-view level and keeps reward credit inside a PostgreSQL transaction.
+- Remaining risk: the production AdsGram dashboard must be configured with the exact deployed Reward URL and a real approved Reward block. Until a real ad is watched in production, the end-to-end external callback cannot be claimed as live-tested.
 
 ## Implementation Status
 
@@ -121,6 +135,7 @@ This file records implementation milestones and important architectural decision
 - [x] TON read adapter and deposit orchestration added
 - [x] Task catalog and verification foundation added
 - [x] AdsGram real client `onReward` callback connected to the ad progress flow
+- [x] AdsGram server-side Reward URL confirmation endpoint added
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into production server flow
 - [ ] Withdrawal rules integrated into production server flow
@@ -128,7 +143,7 @@ This file records implementation milestones and important architectural decision
 - [ ] Squad engine integrated
 - [ ] Rewards Pool implemented
 - [ ] Packages implemented
-- [~] Task completion API integrated — Daily Check-in and AdsGram client reward callback flow implemented; trusted server-side verification hardening remains
+- [~] Task completion API integrated — Daily Check-in and AdsGram client + server Reward URL flow implemented; production external callback still requires live AdsGram configuration/test
 - [ ] Admin controls implemented
 - [ ] Anti-fraud implemented
 - [ ] Full test suite completed
