@@ -35,6 +35,7 @@ const client = new ton.TonClient({ endpoint: RPC });
 let busy = false;
 let shuttingDown = false;
 let walletContextPromise = null;
+let walletActivationPending = false;
 
 function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 function normalizeAddress(value) { return ton.Address.parse(String(value)).toString({ bounceable: true, urlSafe: true }); }
@@ -137,9 +138,16 @@ async function getWalletContext() {
       const state = await client.getContractState(signer.treasuryAddress);
       const balance = state.balance || 0n;
       const codeHash = state.code ? sha256_sync(state.code.toBoc()).toString('hex') : null;
-      console.log('TON payout worker: treasury identity:', JSON.stringify({ address: normalizeAddress(signer.treasuryAddress), state: state.state, balanceNano: balance.toString(), codeHash, signer: signer.version, mnemonicScheme: signer.scheme, networkGlobalId: signer.networkGlobalId, subwalletNumber: signer.subwalletNumber }));
-      if (state.state !== 'active') throw new Error(`Treasury ${normalizeAddress(signer.treasuryAddress)} is ${state.state}. Deploy/activate the matched wallet contract before payouts. No transaction was signed.`);
-      return { ...signer, balance, state, codeHash };
+      const willDeploy = state.state === 'uninitialized';
+      console.log('TON payout worker: treasury identity:', JSON.stringify({ address: normalizeAddress(signer.treasuryAddress), state: state.state, balanceNano: balance.toString(), codeHash, signer: signer.version, mnemonicScheme: signer.scheme, networkGlobalId: signer.networkGlobalId, subwalletNumber: signer.subwalletNumber, willDeployOnFirstTransfer: willDeploy }));
+
+      if (state.state === 'frozen') {
+        throw new Error(`Treasury ${normalizeAddress(signer.treasuryAddress)} is frozen. Refusing to send.`);
+      }
+      if (state.state === 'uninitialized' && walletActivationPending) {
+        throw new Error(`Treasury ${normalizeAddress(signer.treasuryAddress)} has a deployment broadcast pending. Waiting for on-chain activation; automatic resend is disabled.`);
+      }
+      return { ...signer, balance, state, codeHash, willDeploy };
     })().catch(error => { walletContextPromise = null; throw error; });
   }
   return walletContextPromise;
@@ -170,16 +178,26 @@ async function processWithdrawal(row) {
   if (ctx.balance < amountNano + reserve) throw new Error(`Treasury balance is insufficient. Need at least ${Number(amountNano + reserve) / 1e9} TON.`);
 
   const contract = client.open(ctx.wallet);
-  const seqno = await ctx.wallet.getSeqno(contract);
+  // An uninitialized funded wallet has no on-chain seqno yet. V5 starts at seqno 0.
+  // TonClient's provider automatically includes the contract StateInit on the first
+  // external message when the wallet is not deployed, so the first payout can safely
+  // activate the exact verified W5R1 treasury and perform the transfer atomically.
+  const seqno = ctx.state === 'uninitialized' ? 0 : await ctx.wallet.getSeqno(contract);
   const locked = await pool.query(`UPDATE withdrawals SET status='processing', payout_started_at=$1, payout_attempts=COALESCE(payout_attempts,0)+1, payout_seqno=$2, payout_error='', payout_network='testnet', updated_at=$1 WHERE id=$3 AND status='approved' RETURNING id`, [Date.now(), seqno, id]);
   if (!locked.rowCount) return false;
 
-  console.log(`TON payout worker: sending TESTNET withdrawal #${id}: ${amountTon} TON -> ${normalizeAddress(destination)} using ${ctx.version}/${ctx.scheme}`);
+  console.log(`TON payout worker: sending TESTNET withdrawal #${id}: ${amountTon} TON -> ${normalizeAddress(destination)} using ${ctx.version}/${ctx.scheme}${ctx.willDeploy ? ' (DEPLOY+PAYOUT)' : ''}`);
   try {
     await contract.sendTransfer({ seqno, secretKey: ctx.keyPair.secretKey, sendMode: ton.SendMode.PAY_GAS_SEPARATELY, messages: [ton.internal({ to: destination, value: amountNano, bounce: false })] });
   } catch (error) {
     await pool.query(`UPDATE withdrawals SET status='approved', payout_error=$1, updated_at=$2 WHERE id=$3 AND status='processing'`, [String(error?.message || error).slice(0, 2000), Date.now(), id]);
     throw error;
+  }
+
+  if (ctx.willDeploy) {
+    walletActivationPending = true;
+    walletContextPromise = null;
+    console.log(`TON payout worker: first external message accepted for #${id}; W5R1 deployment is included. No second payout will be attempted until the treasury becomes active.`);
   }
 
   // Broadcasts are never automatically retried. This prevents duplicate payouts
@@ -197,6 +215,10 @@ async function poll() {
     const result = await pool.query(`SELECT * FROM withdrawals WHERE status='approved' AND LOWER(COALESCE(payout_network,''))='testnet' ORDER BY id ASC LIMIT 5`);
     console.log(`TON payout worker: poll query OK (${result.rowCount} rows)`);
     for (const row of result.rows) {
+      if (walletActivationPending) {
+        console.log(`TON payout worker: treasury activation pending; leaving withdrawal #${row.id} approved and skipping additional sends.`);
+        break;
+      }
       console.log(`TON payout worker: found approved TESTNET withdrawal #${row.id}`);
       try { await processWithdrawal(row); } catch (error) { console.error('TON payout worker error:', error); }
     }
