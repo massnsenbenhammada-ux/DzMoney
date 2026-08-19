@@ -33,6 +33,7 @@ This file records implementation milestones and important architectural decision
 - Added isolated referral qualification fields.
 - Added initial hierarchical Squad tables: `squads`, `squad_members`, and `squad_daily_activity`.
 - Added package catalog and `user_packages` tables for future revenue-based Rewards Pool weights.
+- Added `economy_deposits` with a unique idempotency key to prevent a verified TON transaction from crediting DZX more than once.
 - Seeded initial economic settings: 10,000 DZX/Ton, 1 TON minimum deposit, 0.2 TON minimum withdrawal, 2,000,000 Coins withdrawal requirement, 20% referral, 50% Squad activity threshold, 100% Squad bonus ceiling.
 - Updated `package.json` startup so the economic migration completes before the existing wallet/withdrawal middleware and `server.js` start.
 - Existing BUX columns and current wallet/withdrawal implementation remain untouched for safe incremental migration.
@@ -44,7 +45,6 @@ This file records implementation milestones and important architectural decision
 - Ledger writes and balance updates are designed to use the same PostgreSQL client/transaction.
 - Supports available, withdrawable, and locked DZX buckets.
 - Prevents debits when the selected bucket has insufficient balance.
-- This layer is intentionally not wired into the legacy endpoints yet; integration comes after the current wallet/task routes are mapped and tested.
 
 ## 2026-08-19 — Non-destructive Application Bridge
 
@@ -52,8 +52,17 @@ This file records implementation milestones and important architectural decision
 - Added `GET /api/economy/status` for health verification of the new economic layer.
 - Added authenticated `GET /api/economy/me` to expose the user's Coins, DZX, DZP, deposited/withdrawable/locked DZX buckets, and economic settings without changing legacy wallet/task responses.
 - The bridge independently verifies Telegram WebApp init data and uses the new economy tables.
-- Updated startup to preload the bridge.
-- Existing BUX wallet, task rewards, withdrawal endpoints, and frontend responses remain untouched in this step.
+- Existing BUX wallet, task rewards, withdrawal endpoints, and frontend responses remain untouched.
+
+## 2026-08-19 — Verified TON Deposit Primitive
+
+- Added `services/dzx-deposit.js`.
+- It credits DZX only when called by a trusted blockchain-verification layer.
+- Conversion uses the configured initial economic rule: 1 TON = 10,000 DZX.
+- Deposited DZX is credited to the deposited bucket and recorded in the economic ledger.
+- Added an idempotency key based on network + external transaction ID so a verified TON transaction cannot be credited twice.
+- This is intentionally a verification/credit primitive, not a public endpoint and not a replacement for the existing TON transaction-discovery code.
+- No automatic crediting of unverified user-supplied transaction IDs has been introduced.
 
 ## Implementation Status
 
@@ -62,8 +71,9 @@ This file records implementation milestones and important architectural decision
 - [x] Economic database foundation added
 - [x] Transactional DZX ledger primitives added
 - [x] Non-destructive DZX API bridge added
+- [x] Verified TON deposit credit primitive added
 - [ ] DZX/DZP application-layer migration completed
-- [ ] Deposit rules integrated into server
+- [ ] Blockchain deposit verifier integrated
 - [ ] Withdrawal rules integrated into server
 - [ ] Referral engine integrated
 - [ ] Squad engine integrated
