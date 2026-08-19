@@ -2,7 +2,7 @@
 
 const { listAvailableTasks, startTask } = require("../services/task-api");
 const { telegramTaskAuth } = require("../services/telegram-task-auth");
-const { verifyAndRewardDailyTask, recordAdCompletion } = require("../services/daily-task-service");
+const { verifyAndRewardDailyTask, recordAdCompletion, confirmAdsGramReward } = require("../services/daily-task-service");
 
 function installTaskRoutes(app, pool, botToken) {
   if (!app || !pool) throw new Error("app and pool are required");
@@ -30,11 +30,15 @@ function installTaskRoutes(app, pool, botToken) {
     }
   });
 
+  // Client-side onReward only registers a pending view. The counter is
+  // advanced only after AdsGram calls the server-side Reward URL below.
   app.post("/api/v2/tasks/view_ads/ad-complete", auth, async (req, res) => {
     try {
       const result = await recordAdCompletion(pool, String(req.telegramUser.id), req.body || {});
       res.json({
         ok: true,
+        pending: Boolean(result.pending),
+        pendingViewId: result.pendingViewId || null,
         completedCount: result.completedCount,
         requiredCount: result.requiredCount,
         completed: result.completed,
@@ -46,6 +50,29 @@ function installTaskRoutes(app, pool, botToken) {
       const status = error.code === "TASK_NOT_FOUND" ? 404 : 500;
       if (status >= 500) console.error("POST /api/v2/tasks/view_ads/ad-complete failed:", error);
       res.status(status).json({ ok: false, error: error.code || "AD_COMPLETION_FAILED", message: error.message });
+    }
+  });
+
+  // AdsGram Reward URL callback. AdsGram replaces [userId] with the user's
+  // Telegram ID. This endpoint is intentionally NOT protected by Telegram
+  // WebApp auth because the request originates from AdsGram, not the browser.
+  // Optional ADSGRAM_REWARD_SECRET protects the public URL from arbitrary calls.
+  app.get("/api/adsgram/reward", async (req, res) => {
+    const configuredSecret = String(process.env.ADSGRAM_REWARD_SECRET || "").trim();
+    if (configuredSecret && String(req.query.secret || "") !== configuredSecret) {
+      return res.status(401).send("unauthorized");
+    }
+
+    try {
+      const userId = String(req.query.userid || req.query.userId || "").trim();
+      const result = await confirmAdsGramReward(pool, userId);
+      if (!result.accepted && result.reason === "NO_PENDING_AD") {
+        return res.status(204).end();
+      }
+      return res.status(200).send("ok");
+    } catch (error) {
+      console.error("GET /api/adsgram/reward failed:", error);
+      return res.status(400).send("invalid");
     }
   });
 
