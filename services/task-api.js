@@ -1,6 +1,12 @@
 "use strict";
 
+async function getTaskSettings(pool) {
+  const { rows } = await pool.query(`SELECT key,value FROM economy_settings WHERE key IN ('daily_ad_task_count','updates_channel_url')`);
+  return Object.fromEntries(rows.map(row => [row.key, row.value]));
+}
+
 async function listAvailableTasks(pool, userId) {
+  const settings = await getTaskSettings(pool);
   const { rows } = await pool.query(`
     SELECT t.*, c.created_at AS last_completed_at, c.status AS last_status
     FROM tasks t
@@ -12,7 +18,7 @@ async function listAvailableTasks(pool, userId) {
       LIMIT 1
     ) c ON TRUE
     WHERE t.active = TRUE
-    ORDER BY t.type, t.created_at
+    ORDER BY CASE t.type WHEN 'daily' THEN 1 WHEN 'game' THEN 2 WHEN 'social' THEN 3 WHEN 'web' THEN 4 WHEN 'special' THEN 5 WHEN 'partner' THEN 6 ELSE 99 END, t.created_at
   `, [String(userId)]);
 
   const now = Date.now();
@@ -20,15 +26,22 @@ async function listAvailableTasks(pool, userId) {
     const cooldown = row.cadence_seconds == null ? null : Number(row.cadence_seconds);
     const last = row.last_completed_at == null ? null : Number(row.last_completed_at);
     const nextAvailableAt = cooldown && last ? last + cooldown * 1000 : null;
+    const requiredCount = row.id === "view_ads" ? Math.max(1, Number(settings.daily_ad_task_count || 20)) : Number(row.required_count || 1);
+    const metadata = row.metadata && typeof row.metadata === "object" ? { ...row.metadata } : {};
+    if (row.id === "view_ads") metadata.count = requiredCount;
+    if (row.id === "check_updates" && settings.updates_channel_url) metadata.channelUrl = settings.updates_channel_url;
     return {
       id: row.id,
       type: row.type,
-      title: row.title,
-      description: row.description,
+      title: row.id === "view_ads" ? `View ${requiredCount} Ads` : row.title,
+      description: row.id === "invite_1" || row.id === "invite_10"
+        ? `${row.description || "Invite qualifying friends."} Earn a lifetime 20% referral share from eligible referred activity.`
+        : row.description,
       rewardCoins: row.reward_coins,
       rewardDZX: row.reward_dzx,
-      requiredCount: row.required_count,
+      requiredCount,
       verificationMethod: row.verification_method,
+      metadata,
       available: !nextAvailableAt || now >= nextAvailableAt,
       nextAvailableAt,
       lastStatus: row.last_status || null
