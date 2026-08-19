@@ -97,6 +97,18 @@ This file records implementation milestones and important architectural decision
 - Updated the Daily Activity UI so Daily Check-in performs the secure claim flow, Check for Update opens the configured updates channel, and Share with Friends opens Telegram's share flow.
 - Invite and ad-network tasks remain verification-gated and are not falsely credited until their trusted verification integrations are implemented.
 
+## 2026-08-19 — AdsGram Real Reward Callback Integration
+
+- Replaced the missing/placeholder `showAdsGramAd` path in `public/task-v2-ui.js` with a real AdsGram SDK integration using the official Rewarded `onReward` event.
+- AdsGram SDK is loaded from `https://sad.adsgram.ai/js/sad.min.js` and initialized with the Admin-provided `adsgramBlockId` from the current `view_ads` task metadata.
+- The ad progress counter is advanced only after AdsGram fires the real `onReward` callback; a resolved `AdController.show()` promise alone is intentionally not treated as reward proof.
+- Added cleanup for `onReward`, `onSkip`, `onError`, and `onBannerNotFound` listeners so callbacks cannot remain attached across ad sessions.
+- The existing authenticated `/api/v2/tasks/view_ads/ad-complete` endpoint remains the server-side recording/reward path after the real callback; the frontend does not directly increment the counter.
+- Added SDK loading reuse and controller reuse per AdsGram block ID.
+- No fake timeout, synthetic callback, or frontend-only counter increment was introduced.
+- Important remaining security work: AdsGram's optional server-side Reward URL should be evaluated before production-grade anti-fraud/reward hardening; the current `onReward` integration is the real SDK client callback requested for the UI flow.
+- Verification performed: inspected the current AdsGram official Rewarded API documentation and confirmed `onReward` is the event emitted when a Rewarded banner is watched to the end; inspected the current DzMoney task route/service and preserved the existing transactional reward path.
+
 ## Implementation Status
 
 - [ ] Phase 1 audit completed
@@ -108,6 +120,7 @@ This file records implementation milestones and important architectural decision
 - [x] TON deposit verification gate added
 - [x] TON read adapter and deposit orchestration added
 - [x] Task catalog and verification foundation added
+- [x] AdsGram real client `onReward` callback connected to the ad progress flow
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into production server flow
 - [ ] Withdrawal rules integrated into production server flow
@@ -115,7 +128,7 @@ This file records implementation milestones and important architectural decision
 - [ ] Squad engine integrated
 - [ ] Rewards Pool implemented
 - [ ] Packages implemented
-- [~] Task completion API integrated — Daily Check-in implemented; external-verification tasks pending their trusted adapters
+- [~] Task completion API integrated — Daily Check-in and AdsGram client reward callback flow implemented; trusted server-side verification hardening remains
 - [ ] Admin controls implemented
 - [ ] Anti-fraud implemented
 - [ ] Full test suite completed
