@@ -3,26 +3,19 @@ BEGIN;
 -- ============================================================
 -- DzMoney Phase 1: Core financial foundation
 --
--- Design goals:
---   1. Ledger is the immutable financial history.
---   2. wallet_balances is the fast current-balance projection.
---   3. Every financial mutation has an idempotency key.
---   4. Coins and BUX are separate currencies.
---   5. Task claims support one-time and repeatable tasks.
---
--- IMPORTANT:
--- This migration only creates the database foundation. Existing
--- application code is NOT switched to use it by this migration.
+-- IMPORTANT: this migration only creates the foundation. Existing
+-- application code is not switched to it by this migration.
+-- Existing users/tasks use TEXT identifiers in the current schema.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ------------------------------------------------------------
--- Current wallet balances
+-- Current wallet balances: fast projection of the financial ledger.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS wallet_balances (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   currency TEXT NOT NULL CHECK (currency IN ('COINS', 'BUX')),
   available_amount NUMERIC(30, 6) NOT NULL DEFAULT 0 CHECK (available_amount >= 0),
   locked_amount NUMERIC(30, 6) NOT NULL DEFAULT 0 CHECK (locked_amount >= 0),
@@ -35,12 +28,12 @@ CREATE INDEX IF NOT EXISTS idx_wallet_balances_user
   ON wallet_balances(user_id);
 
 -- ------------------------------------------------------------
--- Immutable financial ledger
+-- Immutable financial history.
 -- amount is signed: positive = credit, negative = debit.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS ledger_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE RESTRICT,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   currency TEXT NOT NULL CHECK (currency IN ('COINS', 'BUX')),
   amount NUMERIC(30, 6) NOT NULL CHECK (amount <> 0),
   balance_before NUMERIC(30, 6) NOT NULL CHECK (balance_before >= 0),
@@ -77,11 +70,6 @@ CREATE INDEX IF NOT EXISTS idx_ledger_reference
 CREATE INDEX IF NOT EXISTS idx_ledger_user_currency_created
   ON ledger_entries(user_id, currency, created_at DESC);
 
--- ------------------------------------------------------------
--- Prevent duplicate business operations even if a caller uses
--- different request IDs. A reference can be unique when supplied.
--- The partial index intentionally permits NULL reference IDs.
--- ------------------------------------------------------------
 CREATE UNIQUE INDEX IF NOT EXISTS uq_ledger_reference_operation
   ON ledger_entries(user_id, currency, entry_type, reference_type, reference_id)
   WHERE reference_type IS NOT NULL AND reference_id IS NOT NULL
@@ -97,9 +85,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_ledger_reference_operation
     );
 
 -- ------------------------------------------------------------
--- Task claim history
--- Existing projects may have a legacy one-row-per-user/task table.
--- The new foundation adds a stable claim id and operation fields.
+-- Task claim history.
+-- The current production schema uses TEXT user/task identifiers and
+-- a legacy (user_id, task_id) primary key. We preserve all legacy
+-- columns and replace only the primary key with a stable claim id.
 -- ------------------------------------------------------------
 ALTER TABLE task_claims
   ADD COLUMN IF NOT EXISTS id UUID DEFAULT gen_random_uuid();
@@ -111,8 +100,6 @@ WHERE id IS NULL;
 ALTER TABLE task_claims
   ALTER COLUMN id SET NOT NULL;
 
--- Drop the legacy composite primary key if it exists. The exact
--- constraint name is normally task_claims_pkey for the existing schema.
 DO $$
 DECLARE
   pk_name TEXT;
@@ -135,7 +122,7 @@ ALTER TABLE task_claims
     CHECK (status IN ('STARTED', 'COMPLETED', 'REJECTED', 'EXPIRED', 'CANCELLED'));
 
 ALTER TABLE task_claims
-  ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS started_at_ts TIMESTAMPTZ;
 
 ALTER TABLE task_claims
   ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
@@ -168,13 +155,11 @@ CREATE INDEX IF NOT EXISTS idx_task_claims_user_status
   ON task_claims(user_id, status, created_at DESC);
 
 -- ------------------------------------------------------------
--- Generic idempotency records for non-ledger operations.
--- This prevents repeated HTTP requests from creating duplicate
--- business actions such as a task start or daily claim.
+-- Generic idempotency records for non-ledger business operations.
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS idempotency_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   operation TEXT NOT NULL,
   key TEXT NOT NULL,
   request_hash TEXT,
@@ -191,7 +176,7 @@ CREATE INDEX IF NOT EXISTS idx_idempotency_created
   ON idempotency_keys(created_at);
 
 -- ------------------------------------------------------------
--- Keep updated_at synchronized for wallet balances.
+-- Wallet balance timestamp trigger.
 -- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION dzmoney_touch_wallet_balance_updated_at()
 RETURNS TRIGGER
