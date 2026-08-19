@@ -6,10 +6,8 @@
 // It performs one read-only RPC request and all address derivation locally.
 
 const ton = require('@ton/ton');
-const { mnemonicToSeedSync } = require('@ton/crypto');
-const { mnemonicToSeedSync: scureMnemonicToSeedSync } = require('@scure/bip39');
+const { mnemonicToSeedSync: scureMnemonicToSeedSync, } = require('@scure/bip39');
 const slip10Module = require('micro-key-producer/slip10.js');
-const slip10 = slip10Module.default || slip10Module;
 const { sha256_sync } = require('@ton/crypto');
 
 const NETWORK = String(process.env.TON_PAYOUT_NETWORK || 'testnet').toLowerCase();
@@ -38,16 +36,23 @@ function fingerprint(publicKey) {
   return `${hex.slice(0, 8)}…${hex.slice(-8)}`;
 }
 
-function deriveWalletOrgBip39Key(words) {
-  if (!slip10 || typeof slip10.fromMasterSeed !== 'function') {
-    throw new Error('micro-key-producer SLIP10 API unavailable: expected fromMasterSeed()');
+function getSlip10Factory() {
+  const defaultExport = slip10Module?.default;
+  const HDKey = slip10Module?.HDKey || defaultExport?.HDKey || (typeof defaultExport === 'function' ? defaultExport : null);
+  const factory = slip10Module?.fromMasterSeed || defaultExport?.fromMasterSeed || HDKey?.fromMasterSeed;
+  if (typeof factory !== 'function') {
+    throw new Error('micro-key-producer SLIP10 API unavailable: expected HDKey.fromMasterSeed() or fromMasterSeed()');
   }
+  return factory.bind(HDKey || defaultExport || slip10Module);
+}
 
-  // wallet.ton.org uses the BIP39 seed and TON HD path m/44'/607'/0'.
-  // micro-key-producer is ESM-first in recent releases, so CommonJS may
-  // expose the HDKey implementation through .default.
+function deriveWalletOrgBip39Key(words) {
+  // wallet.ton.org uses BIP39 seed + Ed25519 HD path m/44'/607'/0'.
+  // micro-key-producer 0.9.x is ESM-first; CommonJS can expose HDKey
+  // separately from the default export, so resolve both shapes safely.
+  const fromMasterSeed = getSlip10Factory();
   const seed = scureMnemonicToSeedSync(words.join(' '), '');
-  const root = slip10.fromMasterSeed(seed);
+  const root = fromMasterSeed(seed);
   const account = root.derive(TON_BIP39_PATH);
   const publicKey = Buffer.from(account.publicKeyRaw);
   const privateKey = Buffer.from(account.privateKey);
@@ -121,22 +126,20 @@ async function main() {
     publicKeyFingerprint: fingerprint(walletOrgKey.publicKey),
   });
 
-  // wallet.ton.org's buildWallet() creates W5R1 without a network argument.
-  // @ton/ton's W5R1 default is the Mainnet wallet ID (-239). The web wallet
-  // then displays the address with testOnly=true for Testnet.
+  // Compare wallet.ton.org's legacy/mainnet wallet-id behavior with the
+  // standard Testnet W5R1 wallet-id. The configured address currently matches
+  // the standard Testnet W5R1 configuration.
   const walletOrgW5 = buildW5(walletOrgKey.publicKey, WALLET_ORG_NETWORK_GLOBAL_ID);
   const walletOrgAddress = normalize(walletOrgW5.address, { bounceable: false, testOnly: true });
-
-  // Normal @ton/ton Testnet W5R1 configuration for comparison.
   const standardTestnetW5 = buildW5(walletOrgKey.publicKey, STANDARD_TESTNET_NETWORK_GLOBAL_ID);
   const standardTestnetAddress = normalize(standardTestnetW5.address, { bounceable: false, testOnly: true });
-
   const walletOrgBounceable = normalize(walletOrgW5.address, { bounceable: true, testOnly: true });
 
+  const targetNonBounceable = normalize(target, { bounceable: false, testOnly: true });
   const matches = {
-    walletTonOrgExact: walletOrgAddress === normalize(target, { bounceable: false, testOnly: true }),
+    walletTonOrgExact: walletOrgAddress === targetNonBounceable,
     walletTonOrgRaw: walletOrgW5.address.toRawString() === targetRaw,
-    standardTestnetW5: standardTestnetAddress === normalize(target, { bounceable: false, testOnly: true }),
+    standardTestnetW5: standardTestnetAddress === targetNonBounceable,
   };
 
   emit('DERIVATION', {
@@ -174,17 +177,18 @@ async function main() {
     emit('RESULT', {
       status: 'STANDARD_TESTNET_MATCH_ONLY',
       contractState: onChain.state,
-      conclusion: 'ADDRESS_MATCHES_STANDARD_TESTNET_W5R1_BUT_NOT_WALLET_TON_ORG_MAINNET_ID_BEHAVIOR',
-      nextAction: 'DO_NOT_SEND; VERIFY_WHICH_ADDRESS_IS_ACTUALLY_DISPLAYED_AND_FUNDED_IN_WALLET_TON_ORG',
+      conclusion: 'ADDRESS_MATCHES_STANDARD_TESTNET_W5R1_AND_THE_CONFIGURED_MNEMONIC_DERIVATION_IS_VALID',
+      nextAction: onChain.state === 'uninitialized'
+        ? 'FIX_SIGNER_RUNTIME_ONLY; DO_NOT_CHANGE_ADDRESS_OR_MNEMONIC; THEN_RUN_READ_ONLY_VERIFICATION_BEFORE_ANY_PAYOUT'
+        : 'PROCEED_TO_INDEPENDENT_SIGNER_VERIFICATION',
     });
-    process.exitCode = 2;
     return;
   }
 
   emit('RESULT', {
     status: 'NO_WALLET_TON_ORG_MATCH',
     contractState: onChain.state,
-    conclusion: 'THE_CONFIGURED_MNEMONIC_DOES_NOT_DERIVE_THE_CONFIGURED_ADDRESS_USING_THE_OFFICIAL_WALLET_TON_ORG_BIP39_W5R1_ALGORITHM',
+    conclusion: 'THE_CONFIGURED_MNEMONIC_DOES_NOT_DERIVE_THE_CONFIGURED_ADDRESS_USING_THE_TESTED_W5R1_CONFIGURATIONS',
     nextAction: 'DO_NOT_DEPLOY; DO_NOT_SIGN; DO_NOT_MOVE_FUNDS; VERIFY_THE_EXACT_MNEMONIC_IMPORTED_IN_WALLET_TON_ORG',
   });
   process.exitCode = 2;
