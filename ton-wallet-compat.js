@@ -27,28 +27,25 @@ function normalizeSlip10CommonJS() {
   try {
     const resolved = require.resolve('micro-key-producer/slip10.js');
     const loaded = require(resolved);
+    if (typeof loaded?.fromMasterSeed === 'function') return true;
+
     const defaultExport = loaded?.default;
     const HDKey = loaded?.HDKey || defaultExport?.HDKey || (typeof defaultExport === 'function' ? defaultExport : null);
-    const factory = loaded?.fromMasterSeed || defaultExport?.fromMasterSeed || HDKey?.fromMasterSeed;
+    const factory = defaultExport?.fromMasterSeed || HDKey?.fromMasterSeed;
+    if (typeof factory !== 'function') return false;
 
-    if (typeof factory === 'function') {
-      if (typeof loaded.fromMasterSeed !== 'function') loaded.fromMasterSeed = factory.bind(HDKey || defaultExport || loaded);
-      if (defaultExport && typeof defaultExport.fromMasterSeed !== 'function') defaultExport.fromMasterSeed = factory.bind(HDKey || defaultExport);
-      return true;
-    }
-
-    if (HDKey && typeof HDKey.fromMasterSeed === 'function') {
-      const patched = {
-        ...loaded,
-        HDKey,
-        default: defaultExport || HDKey,
-        fromMasterSeed: HDKey.fromMasterSeed.bind(HDKey)
-      };
-      require.cache[resolved].exports = patched;
-      return true;
-    }
-
-    return false;
+    // Recent micro-key-producer releases are ESM-first. Under CommonJS the
+    // namespace may expose HDKey/default without a top-level fromMasterSeed.
+    // Replace the cached namespace instead of mutating a possibly frozen ESM
+    // namespace object. payout-worker.js will then receive the normalized API.
+    const patched = {
+      ...(loaded && typeof loaded === 'object' ? loaded : {}),
+      HDKey: HDKey || loaded?.HDKey,
+      default: defaultExport || HDKey,
+      fromMasterSeed: factory.bind(HDKey || defaultExport)
+    };
+    require.cache[resolved].exports = patched;
+    return true;
   } catch (_) {
     return false;
   }
