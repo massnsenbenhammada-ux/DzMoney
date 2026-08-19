@@ -46,12 +46,22 @@ This file records implementation milestones and important architectural decision
 - Prevents debits when the selected bucket has insufficient balance.
 - This layer is intentionally not wired into the legacy endpoints yet; integration comes after the current wallet/task routes are mapped and tested.
 
+## 2026-08-19 — Non-destructive Application Bridge
+
+- Added `economy-integration.js` as a preloaded Express bridge.
+- Added `GET /api/economy/status` for health verification of the new economic layer.
+- Added authenticated `GET /api/economy/me` to expose the user's Coins, DZX, DZP, deposited/withdrawable/locked DZX buckets, and economic settings without changing legacy wallet/task responses.
+- The bridge independently verifies Telegram WebApp init data and uses the new economy tables.
+- Updated startup to preload the bridge.
+- Existing BUX wallet, task rewards, withdrawal endpoints, and frontend responses remain untouched in this step.
+
 ## Implementation Status
 
 - [ ] Phase 1 audit completed
 - [x] Economic foundation primitives added
 - [x] Economic database foundation added
 - [x] Transactional DZX ledger primitives added
+- [x] Non-destructive DZX API bridge added
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into server
 - [ ] Withdrawal rules integrated into server
