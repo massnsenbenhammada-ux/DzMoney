@@ -82,8 +82,7 @@
       try{
         await adsgramController.show();
         if(!settled){
-          // Rewarded ads must be credited from AdsGram's real onReward event.
-          // A resolved show() promise alone is intentionally not treated as proof.
+          // Rewarded ads are credited only from the real onReward event.
         }
       }catch(error){
         if(settled)return;
@@ -95,7 +94,35 @@
   window.showAdsGramAd=showAdsGramAd;
 
   async function startTask(id,b){const original=b.textContent;b.disabled=true;b.textContent=id==="daily_checkin"?"Claiming":id==="view_ads"?"Watch":"Starting";try{const r=await api(`/api/v2/tasks/${encodeURIComponent(id)}/start`,{method:"POST",body:"{}"});if(id==="view_ads"){const task=allTasks.find(t=>t.id==="view_ads");const blockId=task?.metadata?.adsgramBlockId||"";if(!blockId)throw new Error("Ads are not configured yet. Please try again later.");b.textContent="Watching…";await window.showAdsGramAd({blockId,onReward:()=>onAdComplete("AdsGram")});b.disabled=false;b.textContent=original;return}if(id==="daily_checkin"){const x=await api(`/api/v2/tasks/${id}/verify`,{method:"POST",body:JSON.stringify({source:"daily_checkin"})});alert(`Daily Check-in complete!\n+${int(x.reward?.coins)} Coins • +${dzx(x.reward?.dzx)} DZX`);await loadTasks();return}if(id==="check_updates"&&r.task?.metadata?.channelUrl)window.open(r.task.metadata.channelUrl,"_blank");b.textContent=id==="check_updates"?"Opened":id==="share_friends"?"Shared":id==="invite_1"||id==="invite_10"?"Invited":"Started";b.classList.add("is-started")}catch(e){b.disabled=false;b.textContent=original;alert(e.message||"Unable to start task.")}}
-  async function onAdComplete(provider){try{const r=await api("/api/v2/tasks/view_ads/ad-complete",{method:"POST",body:JSON.stringify({provider,confirmed:true})});await loadTasks();if(r.completed)alert(`Daily ads complete!\n+${int(r.reward?.coins)} Coins • +${dzx(r.reward?.dzx)} DZX`)}catch(e){alert(e.message||"Unable to record ad view.")}}
+
+  async function onAdComplete(provider){
+    const registered=await api("/api/v2/tasks/view_ads/ad-complete",{method:"POST",body:JSON.stringify({provider,confirmed:true})});
+    if(!registered.pending){await loadTasks();return registered;}
+
+    // The browser callback only registers the view. AdsGram's Reward URL must
+    // confirm it on the server before the progress counter advances.
+    const started=Date.now();
+    while(Date.now()-started<15000){
+      await new Promise(resolve=>setTimeout(resolve,1000));
+      const refreshed=await api("/api/v2/tasks");
+      allTasks=Array.isArray(refreshed.tasks)?refreshed.tasks:[];
+      const task=getAdTask();
+      const progress=task?.progress||{};
+      const confirmedCount=Number(progress.completedCount||0);
+      const registeredCount=Number(registered.completedCount||0);
+      if(confirmedCount>registeredCount || task?.available===false){
+        renderTasks();
+        if(task?.progress?.completedCount>=task?.progress?.requiredCount){
+          alert(`Daily ads completed!\n+${int(task.rewardCoins)} Coins • +${dzx(task.rewardDZX)} DZX`);
+        }
+        return registered;
+      }
+    }
+    await loadTasks();
+    throw new Error("Ad reward confirmation is still pending. The counter will update after AdsGram confirms the reward.");
+  }
+
+  function getAdTask(){return allTasks.find(t=>t.id==="view_ads")||null}
   window.dzMoneyAdCompleted=onAdComplete;
   const originalOpenSection=window.openSection;window.openSection=function(page){if(page==="tasks"){renderShell();if(typeof window.setActiveNav==="function")window.setActiveNav("tasks");return}if(typeof originalOpenSection==="function")return originalOpenSection.apply(this,arguments)};
 })();
