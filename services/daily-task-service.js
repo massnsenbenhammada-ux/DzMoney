@@ -24,6 +24,78 @@ async function ensureDailySettings(pool) {
   }
 }
 
+async function recordAdCompletion(pool, userId, adProof = {}) {
+  const uid = String(userId);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const taskResult = await client.query("SELECT * FROM tasks WHERE id='view_ads' AND active=TRUE FOR UPDATE");
+    if (!taskResult.rowCount) throw Object.assign(new Error("Ad task not found or inactive."), { code: "TASK_NOT_FOUND" });
+    const task = taskResult.rows[0];
+    const required = Math.max(1, Number(await getSetting(client, "daily_ad_task_count", "20")));
+
+    let completionResult = await client.query(`
+      SELECT id,status,verification,created_at
+      FROM task_completions
+      WHERE user_id=$1 AND task_id='view_ads' AND status='pending'
+      ORDER BY created_at DESC LIMIT 1 FOR UPDATE
+    `, [uid]);
+    if (!completionResult.rowCount) {
+      const inserted = await client.query(`
+        INSERT INTO task_completions(user_id,task_id,status,verification,created_at)
+        VALUES($1,'view_ads','pending',$2::jsonb,$3)
+        RETURNING id,status,verification,created_at
+      `, [uid, JSON.stringify({ adCount: 0 }), Date.now()]);
+      completionResult = inserted;
+    }
+
+    const completion = completionResult.rows[0];
+    const previous = completion.verification && typeof completion.verification === "object" ? completion.verification : {};
+    const count = Math.min(required, Math.max(0, Number(previous.adCount || 0)) + 1);
+    const now = Date.now();
+    const proof = {
+      ...previous,
+      adCount: count,
+      lastAd: {
+        provider: String(adProof.provider || "AdsGram"),
+        completed: true,
+        timestamp: now
+      }
+    };
+
+    if (count < required) {
+      await client.query(`UPDATE task_completions SET verification=$1::jsonb WHERE id=$2`, [JSON.stringify(proof), completion.id]);
+      await client.query("COMMIT");
+      return { completedCount: count, requiredCount: required, completed: false, completion: { id: completion.id, status: "pending" } };
+    }
+
+    const coins = BigInt(String(task.reward_coins || 0));
+    const dzx = String(task.reward_dzx || "0");
+    await client.query(`UPDATE task_completions SET status='rewarded',verification=$1::jsonb,verified_at=$2,rewarded_at=$2 WHERE id=$3`, [JSON.stringify({ ...proof, verified: true, method: "ad_network_reward" }), now, completion.id]);
+
+    const event = await client.query(`
+      INSERT INTO task_reward_events(user_id,task_id,task_type,base_dzx,squad_bonus_dzx,total_dzx,coins_reward,economic_budget_dzx,status,metadata,created_at,credited_at)
+      VALUES($1,$2,$3,$4,0,$4,$5,$4,'credited',$6::jsonb,$7,$7) RETURNING id
+    `, [uid, "view_ads", task.type, dzx, coins.toString(), JSON.stringify({ verification: "ad_network_reward", adCount: required, provider: String(adProof.provider || "AdsGram") }), now]);
+
+    await client.query("UPDATE task_completions SET reward_event_id=$1 WHERE id=$2", [event.rows[0].id, completion.id]);
+    await client.query("UPDATE users SET coins=COALESCE(coins,0)+$1, dzx=COALESCE(dzx,0)+$2 WHERE id=$3", [coins.toString(), dzx, uid]);
+    await client.query(`
+      INSERT INTO economy_ledger(user_id,asset,direction,amount,balance_bucket,source_type,source_id,metadata,created_at)
+      VALUES($1,'COINS','CREDIT',$2,'available','TASK_REWARD',$3,$4::jsonb,$5),
+            ($1,'DZX','CREDIT',$6,'withdrawable','TASK_REWARD',$3,$4::jsonb,$5)
+    `, [uid, coins.toString(), String(event.rows[0].id), JSON.stringify({ taskId: "view_ads", taskType: task.type, adCount: required }), now, dzx]);
+
+    await client.query("COMMIT");
+    return { completedCount: required, requiredCount: required, completed: true, completion: { id: completion.id, status: "rewarded" }, rewardEventId: String(event.rows[0].id), coins: coins.toString(), dzx };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function verifyAndRewardDailyTask(pool, userId, taskId, verification = {}) {
   const uid = String(userId);
   const id = String(taskId);
@@ -51,34 +123,19 @@ async function verifyAndRewardDailyTask(pool, userId, taskId, verification = {})
     const now = Date.now();
     let completion;
     if (recent.rowCount) {
-      const result = await client.query(`
-        UPDATE task_completions SET status='rewarded',verification=$1::jsonb,verified_at=$2,rewarded_at=$2
-        WHERE id=$3 RETURNING id,task_id,status,created_at,rewarded_at
-      `, [JSON.stringify({ verified: true, method: "server_checkin", ...verification }), now, recent.rows[0].id]);
+      const result = await client.query(`UPDATE task_completions SET status='rewarded',verification=$1::jsonb,verified_at=$2,rewarded_at=$2 WHERE id=$3 RETURNING id,task_id,status,created_at,rewarded_at`, [JSON.stringify({ verified: true, method: "server_checkin", ...verification }), now, recent.rows[0].id]);
       completion = result.rows[0];
     } else {
-      const result = await client.query(`
-        INSERT INTO task_completions(user_id,task_id,status,verification,created_at,verified_at,rewarded_at)
-        VALUES($1,$2,'rewarded',$3::jsonb,$4,$4,$4)
-        RETURNING id,task_id,status,created_at,rewarded_at
-      `, [uid, id, JSON.stringify({ verified: true, method: "server_checkin", ...verification }), now]);
+      const result = await client.query(`INSERT INTO task_completions(user_id,task_id,status,verification,created_at,verified_at,rewarded_at) VALUES($1,$2,'rewarded',$3::jsonb,$4,$4,$4) RETURNING id,task_id,status,created_at,rewarded_at`, [uid, id, JSON.stringify({ verified: true, method: "server_checkin", ...verification }), now]);
       completion = result.rows[0];
     }
 
     const coins = BigInt(String(task.reward_coins || 0));
     const dzx = String(task.reward_dzx || "0");
-    const event = await client.query(`
-      INSERT INTO task_reward_events(user_id,task_id,task_type,base_dzx,squad_bonus_dzx,total_dzx,coins_reward,economic_budget_dzx,status,metadata,created_at,credited_at)
-      VALUES($1,$2,$3,$4,0,$4,$5,$4,'credited',$6::jsonb,$7,$7) RETURNING id
-    `, [uid, id, task.type, dzx, coins.toString(), JSON.stringify({ verification: "server_checkin", daily: true }), now]);
-
+    const event = await client.query(`INSERT INTO task_reward_events(user_id,task_id,task_type,base_dzx,squad_bonus_dzx,total_dzx,coins_reward,economic_budget_dzx,status,metadata,created_at,credited_at) VALUES($1,$2,$3,$4,0,$4,$5,$4,'credited',$6::jsonb,$7,$7) RETURNING id`, [uid, id, task.type, dzx, coins.toString(), JSON.stringify({ verification: "server_checkin", daily: true }), now]);
     await client.query("UPDATE task_completions SET reward_event_id=$1 WHERE id=$2", [event.rows[0].id, completion.id]);
     await client.query("UPDATE users SET coins=COALESCE(coins,0)+$1, dzx=COALESCE(dzx,0)+$2 WHERE id=$3", [coins.toString(), dzx, uid]);
-    await client.query(`
-      INSERT INTO economy_ledger(user_id,asset,direction,amount,balance_bucket,source_type,source_id,metadata,created_at)
-      VALUES($1,'COINS','CREDIT',$2,'available','TASK_REWARD',$3,$4::jsonb,$5),
-            ($1,'DZX','CREDIT',$6,'withdrawable','TASK_REWARD',$3,$4::jsonb,$5)
-    `, [uid, coins.toString(), String(event.rows[0].id), JSON.stringify({ taskId: id, taskType: task.type }), now, dzx]);
+    await client.query(`INSERT INTO economy_ledger(user_id,asset,direction,amount,balance_bucket,source_type,source_id,metadata,created_at) VALUES($1,'COINS','CREDIT',$2,'available','TASK_REWARD',$3,$4::jsonb,$5),($1,'DZX','CREDIT',$6,'withdrawable','TASK_REWARD',$3,$4::jsonb,$5)`, [uid, coins.toString(), String(event.rows[0].id), JSON.stringify({ taskId: id, taskType: task.type }), now, dzx]);
 
     await client.query("COMMIT");
     return { completion, rewardEventId: String(event.rows[0].id), coins: coins.toString(), dzx };
@@ -90,4 +147,4 @@ async function verifyAndRewardDailyTask(pool, userId, taskId, verification = {})
   }
 }
 
-module.exports = { ensureDailySettings, getSetting, verifyAndRewardDailyTask };
+module.exports = { ensureDailySettings, getSetting, verifyAndRewardDailyTask, recordAdCompletion };
