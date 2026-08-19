@@ -1,9 +1,8 @@
 "use strict";
 
 // Loads the new task API without modifying the legacy /api/tasks routes.
-// The task routes are mounted through a Router and inserted at the beginning
-// of the finalized Express stack. This is important because server.js already
-// has legacy fallback/404 middleware registered before app.listen().
+// server.js registers its legacy fallback before app.listen(), so we inject
+// the task router immediately before the finalized Express router stack starts.
 const express = require("express");
 const { Pool } = require("pg");
 const { installTaskRoutes } = require("./routes/task-routes");
@@ -20,6 +19,7 @@ const taskPool = new Pool({
 const originalListen = express.application.listen;
 if (!express.application.__dzmoneyTaskBootstrap) {
   express.application.__dzmoneyTaskBootstrap = true;
+
   express.application.listen = function patchedListen(...args) {
     if (!this.__dzmoneyTaskRoutesInstalled) {
       const router = express.Router();
@@ -29,16 +29,22 @@ if (!express.application.__dzmoneyTaskBootstrap) {
         String(process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || "").trim()
       );
 
-      // app.listen() is called after server.js has registered its fallback
-      // middleware. Mount the new router before that fallback, without
-      // changing or replacing any legacy route.
-      if (!this._router || !Array.isArray(this._router.stack)) {
+      // Express 5 exposes the router as app.router rather than the old
+      // app._router property. Keep compatibility with Express 4 as well.
+      const stack = this.router && Array.isArray(this.router.stack)
+        ? this.router.stack
+        : (this._router && Array.isArray(this._router.stack) ? this._router.stack : null);
+
+      if (!stack) {
         throw new Error("Express router stack is unavailable; task routes were not installed.");
       }
-      this._router.stack.unshift(...router.stack);
+
+      // Put the new routes ahead of the legacy fallback/404 layers.
+      stack.unshift(...router.stack);
       this.__dzmoneyTaskRoutesInstalled = true;
       console.log("Task API v2 routes: mounted before legacy fallback");
     }
+
     return originalListen.apply(this, args);
   };
 }
