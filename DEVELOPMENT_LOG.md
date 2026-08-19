@@ -86,6 +86,17 @@ This file records implementation milestones and important architectural decision
 - Existing legacy task routes remain untouched to avoid double rewards during migration.
 - `View Ads` stores an Admin setting key (`daily_ad_task_count`) rather than hardcoding the required ad count.
 
+## 2026-08-19 — Daily Activity Implementation Started
+
+- Added `services/daily-task-service.js` with transactional server-side reward processing for `Daily Check-in`.
+- Daily Check-in uses the existing `task_completions` and `task_reward_events` records and credits both Coins and DZX in the same PostgreSQL transaction as the ledger entries.
+- Duplicate Daily Check-in rewards are blocked for the 24-hour window.
+- Added `/api/v2/tasks/:taskId/verify` behind Telegram WebApp authentication; tasks requiring external verification are deliberately rejected rather than being rewarded from frontend claims.
+- Added Admin-controlled daily settings: ad count, updates channel URL, and canonical Daily reward values.
+- Updated the task API to expose the current Admin-controlled ad count and update-channel metadata.
+- Updated the Daily Activity UI so Daily Check-in performs the secure claim flow, Check for Update opens the configured updates channel, and Share with Friends opens Telegram's share flow.
+- Invite and ad-network tasks remain verification-gated and are not falsely credited until their trusted verification integrations are implemented.
+
 ## Implementation Status
 
 - [ ] Phase 1 audit completed
@@ -104,7 +115,7 @@ This file records implementation milestones and important architectural decision
 - [ ] Squad engine integrated
 - [ ] Rewards Pool implemented
 - [ ] Packages implemented
-- [ ] Task completion API integrated
+- [~] Task completion API integrated — Daily Check-in implemented; external-verification tasks pending their trusted adapters
 - [ ] Admin controls implemented
 - [ ] Anti-fraud implemented
 - [ ] Full test suite completed
