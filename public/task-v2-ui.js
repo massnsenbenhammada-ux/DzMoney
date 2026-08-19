@@ -5,7 +5,7 @@
   const tg=window.Telegram?.WebApp;
   const CATEGORIES=[{id:"daily",title:"Daily Activity",subtitle:"Complete daily activities and earn rewards",icon:"☀️"},{id:"game",title:"Game Tasks",subtitle:"Play partner Mini Apps and earn rewards",icon:"🎮"},{id:"social",title:"Social Tasks",subtitle:"Follow, join and engage",icon:"👥"},{id:"web",title:"Web Tasks",subtitle:"Visit websites and complete actions",icon:"◎"},{id:"special",title:"Special Tasks",subtitle:"Higher-value verified tasks",icon:"✦"},{id:"partner",title:"Partner Tasks",subtitle:"Exclusive partner campaigns",icon:"🤝"}];
   const DAILY_ORDER=["daily_checkin","check_updates","share_friends","view_ads","invite_1","invite_10"];
-  let allTasks=[],currentCategory=null;
+  let allTasks=[],currentCategory=null,adsgramScriptPromise=null,adsgramController=null;
   async function api(url,options={}){const headers={"Content-Type":"application/json",...(options.headers||{})};if(tg?.initData)headers["X-Telegram-Init-Data"]=tg.initData;const r=await fetch(url,{...options,headers}),raw=await r.text();let d={};try{d=raw?JSON.parse(raw):{}}catch(_){}if(!r.ok){const e=new Error(d.message||d.error||raw||`HTTP ${r.status}`);e.status=r.status;throw e}return d}
   const esc=v=>String(v??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   const main=()=>document.querySelector("main"),cat=id=>CATEGORIES.find(x=>x.id===id)||CATEGORIES[0];
@@ -19,7 +19,82 @@
 
   async function loadTasks(){const list=document.getElementById("dz-task-list");if(!list)return;list.innerHTML='<div class="dz-loading"><span></span><span></span><span></span><p>Loading tasks</p></div>';try{const r=await api("/api/v2/tasks");allTasks=Array.isArray(r.tasks)?r.tasks:[];renderTasks()}catch(e){list.innerHTML=`<div class="dz-error-state"><strong>Unable to load tasks</strong><p>${esc(e.message)}</p><button id="dz-task-retry">Try again</button></div>`;document.getElementById("dz-task-retry").onclick=loadTasks}}
 
-  async function startTask(id,b){const original=b.textContent;b.disabled=true;b.textContent=id==="daily_checkin"?"Claiming":id==="view_ads"?"Watch":"Starting";try{const r=await api(`/api/v2/tasks/${encodeURIComponent(id)}/start`,{method:"POST",body:"{}"});if(id==="view_ads"){const provider=r.task?.metadata?.adProvider||"AdsGram";if(typeof window.showAdsGramAd==="function"){await window.showAdsGramAd({onComplete:()=>onAdComplete(provider)})}else{alert("Ad provider is not connected yet. The counter will update only after a confirmed ad view.")}b.disabled=false;b.textContent=original;return}if(id==="daily_checkin"){const x=await api(`/api/v2/tasks/${id}/verify`,{method:"POST",body:JSON.stringify({source:"daily_checkin"})});alert(`Daily Check-in complete!\n+${int(x.reward?.coins)} Coins • +${dzx(x.reward?.dzx)} DZX`);await loadTasks();return}if(id==="check_updates"&&r.task?.metadata?.channelUrl)window.open(r.task.metadata.channelUrl,"_blank");b.textContent=id==="check_updates"?"Opened":id==="share_friends"?"Shared":id==="invite_1"||id==="invite_10"?"Invited":"Started";b.classList.add("is-started")}catch(e){b.disabled=false;b.textContent=original;alert(e.message||"Unable to start task.")}}
+  function loadAdsGramSdk(){
+    if(window.Adsgram)return Promise.resolve(window.Adsgram);
+    if(adsgramScriptPromise)return adsgramScriptPromise;
+    adsgramScriptPromise=new Promise((resolve,reject)=>{
+      const existing=document.querySelector('script[data-dz-adsgram]');
+      if(existing){
+        existing.addEventListener("load",()=>window.Adsgram?resolve(window.Adsgram):reject(new Error("AdsGram SDK is unavailable.")),{once:true});
+        existing.addEventListener("error",()=>reject(new Error("AdsGram SDK failed to load.")),{once:true});
+        return;
+      }
+      const script=document.createElement("script");
+      script.src="https://sad.adsgram.ai/js/sad.min.js";
+      script.async=true;
+      script.dataset.dzAdsgram="1";
+      script.onload=()=>window.Adsgram?resolve(window.Adsgram):reject(new Error("AdsGram SDK is unavailable."));
+      script.onerror=()=>reject(new Error("AdsGram SDK failed to load."));
+      document.head.appendChild(script);
+    });
+    return adsgramScriptPromise;
+  }
+
+  async function showAdsGramAd({blockId,onReward,onError}={}){
+    const id=String(blockId||"").trim();
+    if(!id)throw new Error("AdsGram is not configured yet.");
+    const Adsgram=await loadAdsGramSdk();
+    if(!adsgramController||adsgramController.__dzBlockId!==id){
+      adsgramController=Adsgram.init({blockId:id});
+      adsgramController.__dzBlockId=id;
+    }
+    return new Promise(async (resolve,reject)=>{
+      let settled=false;
+      const cleanup=()=>{
+        try{adsgramController.removeEventListener("onReward",rewardHandler)}catch(_){ }
+        try{adsgramController.removeEventListener("onSkip",skipHandler)}catch(_){ }
+        try{adsgramController.removeEventListener("onError",errorHandler)}catch(_){ }
+        try{adsgramController.removeEventListener("onBannerNotFound",errorHandler)}catch(_){ }
+      };
+      const finishReward=async()=>{
+        if(settled)return;
+        settled=true;
+        cleanup();
+        try{await onReward?.();resolve({done:true})}catch(error){onError?.(error);reject(error)}
+      };
+      const rewardHandler=()=>{void finishReward()};
+      const skipHandler=()=>{
+        if(settled)return;
+        settled=true;cleanup();
+        const error=new Error("The ad was not completed.");
+        onError?.(error);reject(error);
+      };
+      const errorHandler=()=>{
+        if(settled)return;
+        settled=true;cleanup();
+        const error=new Error("AdsGram could not complete the ad.");
+        onError?.(error);reject(error);
+      };
+      adsgramController.addEventListener("onReward",rewardHandler);
+      adsgramController.addEventListener("onSkip",skipHandler);
+      adsgramController.addEventListener("onError",errorHandler);
+      adsgramController.addEventListener("onBannerNotFound",errorHandler);
+      try{
+        await adsgramController.show();
+        if(!settled){
+          // Rewarded ads must be credited from AdsGram's real onReward event.
+          // A resolved show() promise alone is intentionally not treated as proof.
+        }
+      }catch(error){
+        if(settled)return;
+        settled=true;cleanup();onError?.(error);reject(error);
+      }
+    });
+  }
+
+  window.showAdsGramAd=showAdsGramAd;
+
+  async function startTask(id,b){const original=b.textContent;b.disabled=true;b.textContent=id==="daily_checkin"?"Claiming":id==="view_ads"?"Watch":"Starting";try{const r=await api(`/api/v2/tasks/${encodeURIComponent(id)}/start`,{method:"POST",body:"{}"});if(id==="view_ads"){const task=allTasks.find(t=>t.id==="view_ads");const blockId=task?.metadata?.adsgramBlockId||"";if(!blockId)throw new Error("Ads are not configured yet. Please try again later.");b.textContent="Watching…";await window.showAdsGramAd({blockId,onReward:()=>onAdComplete("AdsGram")});b.disabled=false;b.textContent=original;return}if(id==="daily_checkin"){const x=await api(`/api/v2/tasks/${id}/verify`,{method:"POST",body:JSON.stringify({source:"daily_checkin"})});alert(`Daily Check-in complete!\n+${int(x.reward?.coins)} Coins • +${dzx(x.reward?.dzx)} DZX`);await loadTasks();return}if(id==="check_updates"&&r.task?.metadata?.channelUrl)window.open(r.task.metadata.channelUrl,"_blank");b.textContent=id==="check_updates"?"Opened":id==="share_friends"?"Shared":id==="invite_1"||id==="invite_10"?"Invited":"Started";b.classList.add("is-started")}catch(e){b.disabled=false;b.textContent=original;alert(e.message||"Unable to start task.")}}
   async function onAdComplete(provider){try{const r=await api("/api/v2/tasks/view_ads/ad-complete",{method:"POST",body:JSON.stringify({provider,confirmed:true})});await loadTasks();if(r.completed)alert(`Daily ads complete!\n+${int(r.reward?.coins)} Coins • +${dzx(r.reward?.dzx)} DZX`)}catch(e){alert(e.message||"Unable to record ad view.")}}
   window.dzMoneyAdCompleted=onAdComplete;
   const originalOpenSection=window.openSection;window.openSection=function(page){if(page==="tasks"){renderShell();if(typeof window.setActiveNav==="function")window.setActiveNav("tasks");return}if(typeof originalOpenSection==="function")return originalOpenSection.apply(this,arguments)};
