@@ -34,8 +34,9 @@ async function listAvailableTasks(pool, userId) {
     if (row.id === "view_ads") {
       metadata.count = requiredCount;
       metadata.completedCount = Math.min(requiredCount, adProgress);
-      // 43650 is the currently approved/started DzMoney AdsGram UnitID.
-      // An existing Admin setting takes precedence when configured.
+    }
+    // Both Daily Check-in and View Ads use the same Admin-configurable AdsGram block.
+    if (row.id === "view_ads" || row.id === "daily_checkin") {
       metadata.adsgramBlockId = String(settings.adsgram_block_id || DEFAULT_ADSGRAM_BLOCK_ID);
     }
     if (row.id === "check_updates" && settings.updates_channel_url) metadata.channelUrl = settings.updates_channel_url;
@@ -43,7 +44,7 @@ async function listAvailableTasks(pool, userId) {
       id: row.id,
       type: row.type,
       title: row.id === "view_ads" ? `View ${requiredCount} Ads` : row.title,
-      description: row.id === "invite_1" || row.id === "invite_10" ? `${row.description || "Invite qualifying friends."} Earn a lifetime 20% referral share from eligible referred activity.` : row.description,
+      description: row.id === "daily_checkin" ? `${row.description || "Claim your daily reward."} Watch a rewarded ad to claim.` : row.id === "invite_1" || row.id === "invite_10" ? `${row.description || "Invite qualifying friends."} Earn a lifetime 20% referral share from eligible referred activity.` : row.description,
       rewardCoins: row.reward_coins,
       rewardDZX: row.reward_dzx,
       requiredCount,
@@ -67,7 +68,7 @@ async function startTask(pool, userId, taskId) {
   }
   const now = Date.now();
   const cooldown = task.cadence_seconds == null ? null : Number(task.cadence_seconds);
-  if (cooldown && task.id !== "view_ads") {
+  if (cooldown) {
     const recent = await pool.query(`SELECT created_at FROM task_completions WHERE user_id=$1 AND task_id=$2 AND status IN ('pending','verified','rewarded') ORDER BY created_at DESC LIMIT 1`, [String(userId), String(taskId)]);
     if (recent.rows.length && now < Number(recent.rows[0].created_at) + cooldown * 1000) {
       const error = new Error("Task is on cooldown."); error.code = "TASK_COOLDOWN"; error.nextAvailableAt = Number(recent.rows[0].created_at) + cooldown * 1000; throw error;
