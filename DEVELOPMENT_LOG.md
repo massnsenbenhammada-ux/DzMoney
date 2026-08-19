@@ -76,6 +76,16 @@ This file records implementation milestones and important architectural decision
 - Added `tests/ton-center-adapter.test.js` and `tests/ton-deposit-service.test.js` guards.
 - No public deposit endpoint or automatic production scanner has been enabled yet.
 
+## 2026-08-19 — Task Catalog Foundation
+
+- Added `services/task-catalog.js` with the canonical six Daily Tasks and agreed rewards.
+- Added `services/task-verification.js` with server-side verification methods for Daily, Game, Social, Web, Special, and Partner tasks.
+- Added `scripts/migrate-task-catalog.js` creating persistent `tasks` and `task_completions` tables.
+- Added `scripts/seed-task-catalog.js` to safely upsert the canonical Daily Tasks without duplicating them.
+- Updated startup to run task migrations/seeding before the existing server starts.
+- Existing legacy task routes remain untouched to avoid double rewards during migration.
+- `View Ads` stores an Admin setting key (`daily_ad_task_count`) rather than hardcoding the required ad count.
+
 ## Implementation Status
 
 - [ ] Phase 1 audit completed
@@ -86,6 +96,7 @@ This file records implementation milestones and important architectural decision
 - [x] DZX deposit crediting primitive added
 - [x] TON deposit verification gate added
 - [x] TON read adapter and deposit orchestration added
+- [x] Task catalog and verification foundation added
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into production server flow
 - [ ] Withdrawal rules integrated into production server flow
@@ -93,9 +104,9 @@ This file records implementation milestones and important architectural decision
 - [ ] Squad engine integrated
 - [ ] Rewards Pool implemented
 - [ ] Packages implemented
-- [ ] Task engine implemented
-- [ ] Anti-fraud implemented
+- [ ] Task completion API integrated
 - [ ] Admin controls implemented
+- [ ] Anti-fraud implemented
 - [ ] Full test suite completed
 
 ## Change Log Rules
