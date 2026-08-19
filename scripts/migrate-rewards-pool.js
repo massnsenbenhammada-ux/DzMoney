@@ -75,8 +75,6 @@ async function migrate() {
           RETURN NEW;
         END IF;
 
-        -- Ads are credited per confirmed view by the AdsGram trigger in migrate-dzp-rules.
-        -- Do not add the activity amount again when the multi-ad task closes.
         IF NEW.task_id IN ('view_ads','daily_checkin') THEN
           RETURN NEW;
         END IF;
@@ -100,10 +98,7 @@ async function migrate() {
         ON CONFLICT (user_id, source_type, source_id) DO NOTHING;
 
         IF FOUND THEN
-          UPDATE users
-          SET dzp = COALESCE(dzp,0) + dzp_amount
-          WHERE id = NEW.user_id;
-
+          UPDATE users SET dzp = COALESCE(dzp,0) + dzp_amount WHERE id = NEW.user_id;
           INSERT INTO economy_ledger(
             user_id, asset, direction, amount, balance_bucket,
             source_type, source_id, metadata, created_at
@@ -125,8 +120,83 @@ async function migrate() {
       FOR EACH ROW EXECUTE FUNCTION dzmoney_apply_task_dzp();
     `);
 
+    // A referred user qualifies on the first finalized task/ad reward.
+    // The referrer receives the Admin-defined DZP amount once, and never again
+    // from that referred user's future activity.
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION dzmoney_apply_referral_dzp()
+      RETURNS TRIGGER AS $$
+      DECLARE
+        sponsor_id TEXT;
+        reward_amount NUMERIC(30,8);
+        inserted_id BIGINT;
+      BEGIN
+        IF NEW.status <> 'credited' THEN
+          RETURN NEW;
+        END IF;
+
+        SELECT referred_by INTO sponsor_id
+        FROM users
+        WHERE id = NEW.user_id
+        FOR UPDATE;
+
+        IF sponsor_id IS NULL OR sponsor_id = NEW.user_id THEN
+          RETURN NEW;
+        END IF;
+
+        SELECT COALESCE(value,0) INTO reward_amount
+        FROM dzp_settings
+        WHERE key = 'referral_dzp_reward'
+        LIMIT 1;
+
+        IF reward_amount IS NULL OR reward_amount <= 0 THEN
+          RETURN NEW;
+        END IF;
+
+        IF EXISTS (
+          SELECT 1 FROM referral_dzp_rewards
+          WHERE referred_user_id = NEW.user_id
+        ) THEN
+          RETURN NEW;
+        END IF;
+
+        INSERT INTO referral_dzp_rewards(referrer_user_id,referred_user_id,amount,status)
+        VALUES(sponsor_id,NEW.user_id,reward_amount,'granted')
+        ON CONFLICT (referred_user_id) DO NOTHING
+        RETURNING id INTO inserted_id;
+
+        IF inserted_id IS NULL THEN
+          RETURN NEW;
+        END IF;
+
+        UPDATE users
+        SET dzp = COALESCE(dzp,0) + reward_amount,
+            referral_qualified_at = COALESCE(referral_qualified_at, EXTRACT(EPOCH FROM NOW())::BIGINT),
+            referral_lifetime_enabled = TRUE
+        WHERE id = sponsor_id;
+
+        INSERT INTO economy_ledger(
+          user_id, asset, direction, amount, balance_bucket,
+          source_type, source_id, metadata, created_at
+        ) VALUES (
+          sponsor_id, 'DZP', 'CREDIT', reward_amount, 'available',
+          'REFERRAL_DZP', inserted_id::text,
+          jsonb_build_object('referred_user_id',NEW.user_id,'one_time',true),
+          COALESCE(NEW.credited_at,NEW.created_at)
+        );
+
+        RETURN NEW;
+      END;
+      $$ LANGUAGE plpgsql;
+
+      DROP TRIGGER IF EXISTS referral_dzp_trigger ON task_reward_events;
+      CREATE TRIGGER referral_dzp_trigger
+      AFTER INSERT ON task_reward_events
+      FOR EACH ROW EXECUTE FUNCTION dzmoney_apply_referral_dzp();
+    `);
+
     await pool.query("COMMIT");
-    console.log("Rewards pool migration: OK (activity DZP + package DZP weights + pool/distribution ledger ready)");
+    console.log("Rewards pool migration: OK (activity DZP + package DZP weights + pool/distribution + one-time referral DZP ready)");
   } catch (error) {
     await pool.query("ROLLBACK").catch(() => {});
     console.error("Rewards pool migration failed:", error);
