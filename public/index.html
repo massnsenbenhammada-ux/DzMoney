@@ -17,13 +17,13 @@
     <button class="profile-button">👤</button>
   </header>
   <main>
-    <section class="balance-card"><div class="balance-top"><span>Total balance</span><span class="online-dot">● Online</span></div><div class="coins"><span class="coin-icon">💎</span><span id="coins">0</span></div><div class="balance-label">Coins</div><div class="balance-divider"></div><div class="mini-balances"><div class="mini-balance"><span class="mini-icon">💰</span><div><strong id="bux">0</strong><small>BUX</small></div></div><div class="mini-balance"><span class="mini-icon">TON</span><div><strong id="ton">0.000</strong><small>Estimated TON</small></div></div></div></section>
+    <section class="balance-card"><div class="balance-top"><span>Total balance</span><span class="online-dot">● Online</span></div><div class="coins"><span class="coin-icon">💎</span><span id="coins">0</span></div><div class="balance-label">DZP</div><div class="balance-divider"></div><div class="mini-balances"><div class="mini-balance"><span class="mini-icon">💰</span><div><strong id="bux">0</strong><small>DZX</small></div></div><div class="mini-balance"><span class="mini-icon">TON</span><div><strong id="ton">0.000</strong><small>Estimated TON</small></div></div></div></section>
     <section class="daily-card"><div class="daily-icon">🎁</div><div class="daily-content"><h3>Daily Reward</h3><p id="daily-text">Your reward is ready!</p></div><button id="daily-button" class="claim-button">Claim</button></section>
     <div class="section-heading"><div><h2>Earn more</h2><p>Complete activities and earn rewards</p></div></div>
     <section class="promo-card"><div class="promo-head"><div class="promo-icon">🎟️</div><div><h3>Promo Code</h3><p>Have a code? Enter it here.</p></div></div><div class="promo-form"><input id="promo-code" type="text" maxlength="64" autocomplete="off" placeholder="Enter promo code..."><button id="promo-button" type="button" disabled>Redeem</button></div><p class="promo-note">Promo codes will be activated through the secure backend.</p></section>
     <section class="squad-card" id="squad-card"><div class="squad-head"><div class="squad-icon">👥</div><div><h3>DzMoney Squad</h3><p>Grow your community together and unlock a team task bonus.</p></div></div><div class="squad-stat-row"><div><span>Members</span><strong id="home-squad-count">—</strong></div><div><span>Target</span><strong id="home-squad-target">—</strong></div></div><div class="squad-progress" aria-label="Squad progress"><span id="home-squad-progress"></span></div><div class="squad-meta"><span id="home-squad-status">Your Squad</span><strong id="home-squad-bonus">Bonus configured by admin</strong></div><button class="squad-action" type="button" onclick="openSquadPage()">View Squad →</button></section>
     <section class="coming-soon-card"><div class="coming-soon-icon">🚀</div><div><span class="coming-soon-label">COMING SOON</span><h3>Something new is coming</h3><p>A future DzMoney feature will appear here. Stay tuned.</p></div></section>
-    <section class="info-card"><div class="info-icon">💰</div><div><strong>BUX withdrawals</strong><p>Minimum withdrawal <b>2,000 BUX</b> = 0.2 TON</p></div></section>
+    <section class="info-card"><div class="info-icon">💰</div><div><strong>DZX withdrawals</strong><p>Minimum withdrawal is configured by the administrator.</p></div></section>
   </main>
   <nav class="bottom-nav">
     <button class="nav-item active" data-page="home" onclick="openSection('home')"><span>⌂</span><small>Home</small></button>
@@ -36,6 +36,6 @@
 <script src="/withdrawal-input-fix.js?v=1"></script>
 <script src="/wallet-reset-fix.js?v=1"></script>
 <script src="/squad-ui.js?v=2"></script>
-<script src="/task-v2-ui.js?v=1"></script>
+<script src="/task-v2-ui.js?v=2"></script>
 </body>
 </html>
