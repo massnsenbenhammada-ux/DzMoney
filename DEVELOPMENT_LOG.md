@@ -130,8 +130,8 @@ This file records implementation milestones and important architectural decision
 - Daily Check-in is rewarded only after AdsGram's Reward URL confirms the pending view.
 - The reward remains transactional: `task_completions` + `task_reward_events` + `users` balances + `economy_ledger` are updated together.
 - `Daily Check-in` keeps its existing 24-hour cadence; after successful reward it becomes unavailable until the cooldown expires.
-- `services/task-api.js` now exposes the same AdsGram `UnitID 43650` to both Daily Check-in and View Ads.
-- `public/task-v2-ui.js` now shows **Watch Ad** for Daily Check-in, registers the pending view before playback, opens AdsGram, and waits for server confirmation before showing the reward.
+- `services/task-api.js` exposes the same AdsGram `UnitID 43650` to both Daily Check-in and View Ads.
+- `public/task-v2-ui.js` shows **Watch Ad** for Daily Check-in, registers the pending view before playback, opens AdsGram, and waits for server confirmation before showing the reward.
 - The direct `/api/v2/tasks/daily_checkin/verify` path can no longer grant the reward and returns `EXTERNAL_VERIFICATION_REQUIRED`.
 
 ### Why
@@ -161,6 +161,39 @@ This file records implementation milestones and important architectural decision
 - AdsGram currently reports UnitID `43650` as `Created` / not active, so a real ad cannot yet be used to validate the final callback chain.
 - Once AdsGram activates the Unit, the Daily Check-in flow must be live-tested before the AdsGram task phase is marked fully complete.
 
+## 2026-08-19 — Daily Check-in UI/Cooldown Fix
+
+### What changed
+- Fixed the Daily Check-in action label so an available task shows **Watch Ad** instead of the misleading **Claim** label.
+- Removed the static `24h cooldown` message from the active/available state.
+- When the task is completed and unavailable, the UI now shows **Claimed** plus a live `Next reward in HH : MM : SS` countdown.
+- Added a live client timer that refreshes the task state automatically when the 24-hour cooldown expires.
+- Fixed the Daily Check-in client flow so it no longer calls the generic `/verify` reward endpoint after starting; it now uses the AdsGram pending-view endpoint before playback and waits for server-side Reward URL confirmation.
+- Added the generic `/api/v2/tasks/:taskId/ad-start` route required by both Daily Check-in and View Ads.
+
+### Why
+- The previous UI was confusing: the button looked frozen/claimed and the user saw a raw `24h cooldown` label instead of a professional countdown.
+- More importantly, the Daily Check-in must never reward directly from a frontend claim; it must follow the same trusted AdsGram verification path as View Ads.
+
+### Files affected
+- `public/task-v2-ui.js`
+- `routes/task-routes.js`
+
+### Migration/configuration impact
+- No database migration.
+- No new environment variable.
+- No new AdsGram configuration.
+
+### Tests performed
+- Static review of the updated UI and route flow.
+- Verified available Daily Check-in renders `Watch Ad`.
+- Verified completed Daily Check-in renders a live countdown based on `nextAvailableAt`.
+- Verified the Daily Check-in client no longer calls `/verify` as a reward mechanism.
+- Live AdsGram test remains pending until UnitID `43650` is active/approved.
+
+### Remaining risks
+- The live UI cannot be fully validated against a real rewarded advertisement while AdsGram UnitID `43650` remains `Created` / not active.
+
 ## Implementation Status
 
 - [ ] Phase 1 audit completed
@@ -176,6 +209,7 @@ This file records implementation milestones and important architectural decision
 - [x] AdsGram server-side Reward URL confirmation endpoint added
 - [x] AdsGram pending-view race removed by registering before playback
 - [x] Daily Check-in changed to AdsGram Rewarded + 24h cooldown
+- [x] Daily Check-in UI fixed to Watch Ad + live cooldown
 - [ ] DZX/DZP application-layer migration completed
 - [ ] Deposit rules integrated into production server flow
 - [ ] Withdrawal rules integrated into production server flow
