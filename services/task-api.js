@@ -7,6 +7,11 @@ async function getTaskSettings(pool) {
   return Object.fromEntries(rows.map(row => [row.key, row.value]));
 }
 
+async function getDzlActivityReward(pool) {
+  const { rows } = await pool.query(`SELECT value FROM dzp_settings WHERE key='default_activity_dzp' LIMIT 1`);
+  return rows.length ? String(rows[0].value || "0") : "0";
+}
+
 async function getAdProgress(pool, userId) {
   const { rows } = await pool.query(`SELECT verification FROM task_completions WHERE user_id=$1 AND task_id='view_ads' AND status IN ('pending','rewarded') ORDER BY created_at DESC LIMIT 1`, [String(userId)]);
   if (!rows.length) return 0;
@@ -16,6 +21,7 @@ async function getAdProgress(pool, userId) {
 
 async function listAvailableTasks(pool, userId) {
   const settings = await getTaskSettings(pool);
+  const defaultActivityD zp = await getDzlActivityReward(pool);
   const { rows } = await pool.query(`
     SELECT t.*, c.created_at AS last_completed_at, c.status AS last_status
     FROM tasks t
@@ -35,18 +41,16 @@ async function listAvailableTasks(pool, userId) {
       metadata.count = requiredCount;
       metadata.completedCount = Math.min(requiredCount, adProgress);
     }
-    // Both Daily Check-in and View Ads use the same Admin-configurable AdsGram block.
-    if (row.id === "view_ads" || row.id === "daily_checkin") {
-      metadata.adsgramBlockId = String(settings.adsgram_block_id || DEFAULT_ADSGRAM_BLOCK_ID);
-    }
+    if (row.id === "view_ads" || row.id === "daily_checkin") metadata.adsgramBlockId = String(settings.adsgram_block_id || DEFAULT_ADSGRAM_BLOCK_ID);
     if (row.id === "check_updates" && settings.updates_channel_url) metadata.channelUrl = settings.updates_channel_url;
     return {
       id: row.id,
       type: row.type,
       title: row.id === "view_ads" ? `View ${requiredCount} Ads` : row.title,
-      description: row.id === "daily_checkin" ? `${row.description || "Claim your daily reward."} Watch a rewarded ad to claim.` : row.id === "invite_1" || row.id === "invite_10" ? `${row.description || "Invite qualifying friends."} Earn a lifetime 20% referral share from eligible referred activity.` : row.description,
-      rewardCoins: row.reward_coins,
-      rewardDZX: row.reward_dzx,
+      description: row.id === "daily_checkin" ? `${row.description || "Claim your daily reward."} Watch a rewarded ad to claim.` : row.id === "invite_1" || row.id === "invite_10" ? `${row.description || "Invite qualifying friends."} Referral reward is granted once when the referral qualifies.` : row.description,
+      rewardCoins: String(row.reward_coins || "0"),
+      rewardDZP: String(row.reward_dzp || defaultActivityD zp || "0"),
+      rewardDZX: String(row.reward_dzx || "0"),
       requiredCount,
       progress: row.id === "view_ads" ? { completedCount: Math.min(requiredCount, adProgress), requiredCount } : null,
       verificationMethod: row.verification_method,
