@@ -8,6 +8,7 @@ async function migrate() {
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
   });
   try {
+    // Create the current schema for fresh databases.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
@@ -26,7 +27,39 @@ async function migrate() {
         created_at BIGINT NOT NULL,
         updated_at BIGINT NOT NULL
       );
+    `);
+
+    // Upgrade older installations non-destructively. CREATE TABLE IF NOT EXISTS
+    // does not add columns to an existing table, which caused the production
+    // seed failure when an earlier tasks table was already present.
+    await pool.query(`
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'daily';
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS title TEXT NOT NULL DEFAULT '';
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reward_coins BIGINT NOT NULL DEFAULT 0;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reward_dzx NUMERIC(30,9) NOT NULL DEFAULT 0;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS economic_budget_dzx NUMERIC(30,9) NOT NULL DEFAULT 0;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS verification_method TEXT NOT NULL DEFAULT 'server_checkin';
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS required_count INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS cadence_seconds INTEGER;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS admin_created BOOLEAN NOT NULL DEFAULT TRUE;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at BIGINT NOT NULL DEFAULT 0;
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at BIGINT NOT NULL DEFAULT 0;
+    `);
+
+    // Keep timestamps valid for rows introduced by an older schema.
+    await pool.query(`
+      UPDATE tasks
+      SET created_at = CASE WHEN created_at = 0 THEN EXTRACT(EPOCH FROM NOW())::BIGINT * 1000 ELSE created_at END,
+          updated_at = CASE WHEN updated_at = 0 THEN EXTRACT(EPOCH FROM NOW())::BIGINT * 1000 ELSE updated_at END
+      WHERE created_at = 0 OR updated_at = 0;
+    `);
+
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS tasks_type_active_idx ON tasks(type, active);
+
       CREATE TABLE IF NOT EXISTS task_completions (
         id BIGSERIAL PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
