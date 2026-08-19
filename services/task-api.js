@@ -8,8 +8,21 @@ async function getTaskSettings(pool) {
 }
 
 async function getDzpActivityReward(pool) {
-  const { rows } = await pool.query(`SELECT value FROM dzp_settings WHERE key='default_activity_dzp' LIMIT 1`);
-  return rows.length ? String(rows[0].value || "0") : "0";
+  const { rows } = await pool.query(`
+    SELECT value
+    FROM settings
+    WHERE key='dzp_default_activity'
+    LIMIT 1
+  `);
+  if (rows.length) return String(rows[0].value || "0");
+
+  const fallback = await pool.query(`
+    SELECT value
+    FROM dzp_settings
+    WHERE key='default_activity_dzp'
+    LIMIT 1
+  `);
+  return fallback.rows.length ? String(fallback.rows[0].value || "0") : "0";
 }
 
 async function getAdProgress(pool, userId) {
