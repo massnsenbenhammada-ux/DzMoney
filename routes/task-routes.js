@@ -2,7 +2,7 @@
 
 const { listAvailableTasks, startTask } = require("../services/task-api");
 const { telegramTaskAuth } = require("../services/telegram-task-auth");
-const { verifyAndRewardDailyTask } = require("../services/daily-task-service");
+const { verifyAndRewardDailyTask, recordAdCompletion } = require("../services/daily-task-service");
 
 function installTaskRoutes(app, pool, botToken) {
   if (!app || !pool) throw new Error("app and pool are required");
@@ -27,6 +27,25 @@ function installTaskRoutes(app, pool, botToken) {
       if (error.message === "Task not found or inactive.") return res.status(404).json({ ok: false, error: "TASK_NOT_FOUND" });
       console.error("POST /api/v2/tasks/:taskId/start failed:", error);
       return res.status(500).json({ ok: false, error: "TASK_START_FAILED" });
+    }
+  });
+
+  app.post("/api/v2/tasks/view_ads/ad-complete", auth, async (req, res) => {
+    try {
+      const result = await recordAdCompletion(pool, String(req.telegramUser.id), req.body || {});
+      res.json({
+        ok: true,
+        completedCount: result.completedCount,
+        requiredCount: result.requiredCount,
+        completed: result.completed,
+        reward: result.completed ? { coins: result.coins, dzx: result.dzx } : null,
+        completion: result.completion,
+        rewardEventId: result.rewardEventId || null
+      });
+    } catch (error) {
+      const status = error.code === "TASK_NOT_FOUND" ? 404 : 500;
+      if (status >= 500) console.error("POST /api/v2/tasks/view_ads/ad-complete failed:", error);
+      res.status(status).json({ ok: false, error: error.code || "AD_COMPLETION_FAILED", message: error.message });
     }
   });
 
