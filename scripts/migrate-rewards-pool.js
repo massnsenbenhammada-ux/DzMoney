@@ -69,32 +69,51 @@ async function migrate() {
       CREATE OR REPLACE FUNCTION dzmoney_apply_task_dzp()
       RETURNS TRIGGER AS $$
       DECLARE
-        dzp_amount BIGINT;
+        dzp_amount NUMERIC(30,8);
       BEGIN
         IF NEW.status <> 'credited' THEN
           RETURN NEW;
         END IF;
 
-        SELECT COALESCE(reward_dzp,0) INTO dzp_amount
-        FROM tasks WHERE id = NEW.task_id;
+        -- Ads are credited per confirmed view by the AdsGram trigger in migrate-dzp-rules.
+        -- Do not add the activity amount again when the multi-ad task closes.
+        IF NEW.task_id IN ('view_ads','daily_checkin') THEN
+          RETURN NEW;
+        END IF;
+
+        SELECT COALESCE(NULLIF(t.reward_dzp,0), s.value, 0)
+        INTO dzp_amount
+        FROM tasks t
+        LEFT JOIN dzp_settings s ON s.key = 'default_activity_dzp'
+        WHERE t.id = NEW.task_id;
 
         IF dzp_amount IS NULL OR dzp_amount <= 0 THEN
           RETURN NEW;
         END IF;
 
-        UPDATE users
-        SET dzp = COALESCE(dzp,0) + dzp_amount
-        WHERE id = NEW.user_id;
-
-        INSERT INTO economy_ledger(
-          user_id, asset, direction, amount, balance_bucket,
-          source_type, source_id, metadata, created_at
+        INSERT INTO dzp_activity_ledger(
+          user_id, source_type, source_id, amount, metadata
         ) VALUES (
-          NEW.user_id, 'DZP', 'CREDIT', dzp_amount, 'available',
-          'ACTIVITY_WEIGHT', NEW.id::text,
-          jsonb_build_object('task_id',NEW.task_id,'task_type',NEW.task_type),
-          COALESCE(NEW.credited_at,NEW.created_at)
-        );
+          NEW.user_id, 'TASK_COMPLETION', NEW.id::text, dzp_amount,
+          jsonb_build_object('task_id',NEW.task_id,'task_type',NEW.task_type)
+        )
+        ON CONFLICT (user_id, source_type, source_id) DO NOTHING;
+
+        IF FOUND THEN
+          UPDATE users
+          SET dzp = COALESCE(dzp,0) + dzp_amount
+          WHERE id = NEW.user_id;
+
+          INSERT INTO economy_ledger(
+            user_id, asset, direction, amount, balance_bucket,
+            source_type, source_id, metadata, created_at
+          ) VALUES (
+            NEW.user_id, 'DZP', 'CREDIT', dzp_amount, 'available',
+            'ACTIVITY_WEIGHT', NEW.id::text,
+            jsonb_build_object('task_id',NEW.task_id,'task_type',NEW.task_type),
+            COALESCE(NEW.credited_at,NEW.created_at)
+          );
+        END IF;
 
         RETURN NEW;
       END;
