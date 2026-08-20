@@ -2435,25 +2435,19 @@ app.put("/api/admin/settings", requireAdmin, async (req, res) => {
   try {
     const normalized = {};
     const allowedSettings = new Set([
-      "daily_reward_coins",
-      "daily_reward_bux",
-      "minimum_withdraw_bux",
-      "withdrawal_fee_bux",
-      "daily_ads_limit",
-      "daily_reward_ad_separate",
-      "referral_percentage",
-      "system_enabled"
+      "daily_reward_coins","daily_reward_bux","daily_reward_cooldown_seconds",
+      "minimum_withdraw_bux","withdrawal_fee_bux","daily_ads_limit","daily_ad_task_count",
+      "daily_task_reward_coins","daily_task_reward_dzx","minimum_withdrawal_coins",
+      "bux_per_ton","coins_per_bux","dzx_per_ton","coins_per_dzx","coins_per_ton",
+      "minimum_deposit_ton","minimum_withdrawal_ton","withdrawal_fee_dzx",
+      "referral_percentage","squad_activity_threshold_percent","squad_max_bonus_percent",
+      "dzp_default_activity","dzp_ad_reward","dzp_referral_reward",
+      "daily_reward_ad_separate","system_enabled","adsgram_block_id","updates_channel_url"
     ]);
 
     for (const [rawKey, rawValue] of Object.entries(values)) {
       const key = String(rawKey);
-      const value = String(rawValue).trim();
-
-      if (key === "coins_per_bux" || key === "bux_per_ton") {
-        return res.status(400).json({
-          success: false,
-          message: "BUX/Coins and BUX/TON conversion rates are fixed by the DzMoney economy."
-        });
+      const value = String(rawValue).trim(););
       }
 
       if (!allowedSettings.has(key)) {
