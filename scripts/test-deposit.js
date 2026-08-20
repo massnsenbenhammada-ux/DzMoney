@@ -10,7 +10,9 @@ async function setSetting(key, value) {
 async function main() {
   const marker = `phase1-deposit-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const telegramUserId = -Date.now();
+  const rollbackTelegramUserId = telegramUserId - 1;
   let user;
+  let rollbackUser;
   let originalLimit = null;
   let originalTimeout = null;
 
@@ -137,25 +139,30 @@ async function main() {
     const confirmedCount = Number(concurrentStatuses.rows.find(r => r.status === 'CONFIRMED')?.count || 0);
     assert.equal(confirmedCount, 1);
 
-    // 6) Rollback: if the economy posting fails during confirmation, the deposit remains PENDING.
+    // 6) Rollback: use a fresh user so removing its DZX wallet cannot conflict with prior ledger entries.
     await setSetting('deposit.daily_limit_ton', 10);
+    rollbackUser = await createUser({
+      telegramUserId: rollbackTelegramUserId,
+      username: `${marker}:rollback-user`,
+      firstName: 'Phase 1 Deposit Rollback Test',
+    });
     const rollbackKey = `${marker}:rollback`;
     const rollbackHash = `${marker}-rollback-ton-tx-1234567890`;
     await processDeposit({
       idempotencyKey: rollbackKey,
-      userId: user.id,
+      userId: rollbackUser.id,
       txHash: rollbackHash,
       tonAmount: 0.05,
       confirmationCount: 0,
     });
-    await query('DELETE FROM wallet_accounts WHERE user_id = $1 AND currency = \'DZX\'', [user.id]);
+    await query('DELETE FROM wallet_accounts WHERE user_id = $1 AND currency = \'DZX\'', [rollbackUser.id]);
     await assert.rejects(
       () => confirmDeposit({ idempotencyKey: rollbackKey, confirmationCount: 1 }),
       /Wallet not found|wallet|provision/i
     );
     const rollbackDeposit = await query('SELECT status FROM deposits WHERE idempotency_key = $1', [rollbackKey]);
     assert.equal(rollbackDeposit.rows[0].status, 'PENDING');
-    await withTransaction(client => ensureWallets(client, user.id));
+    await withTransaction(client => ensureWallets(client, rollbackUser.id));
 
     // 7) Audit: every confirmed deposit has one DEPOSIT ledger transaction.
     const ledger = await query(
@@ -187,12 +194,13 @@ async function main() {
   } finally {
     if (originalLimit !== null) await setSetting('deposit.daily_limit_ton', originalLimit);
     if (originalTimeout !== null) await setSetting('deposit.pending_timeout_hours', originalTimeout);
-    if (user) {
+    for (const testUser of [user, rollbackUser]) {
+      if (!testUser) continue;
       await withTransaction(async client => {
-        await client.query('DELETE FROM deposits WHERE user_id = $1', [user.id]);
-        await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)', [user.id]);
-        await client.query('DELETE FROM ledger_transactions WHERE user_id = $1', [user.id]);
-        await client.query('DELETE FROM users WHERE id = $1', [user.id]);
+        await client.query('DELETE FROM deposits WHERE user_id = $1', [testUser.id]);
+        await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)', [testUser.id]);
+        await client.query('DELETE FROM ledger_transactions WHERE user_id = $1', [testUser.id]);
+        await client.query('DELETE FROM users WHERE id = $1', [testUser.id]);
       });
     }
     await pool.end();
