@@ -3,8 +3,10 @@ const express = require("express");
 const { Pool } = require("pg");
 
 // Single authoritative Admin settings handler.
-// This module owns /api/admin/settings; economy-rate keys are stored in both
-// settings and economy_settings, while DZP rule keys are mirrored to dzp_settings.
+// Every editable Admin value is persisted in settings. Runtime modules that
+// use the newer economy_settings table are mirrored here as well, so changing
+// a value in Admin immediately affects the same database source used by the
+// corresponding runtime service.
 const originalPut = express.application.put;
 const originalPost = express.application.post;
 const originalGet = express.application.get;
@@ -28,6 +30,17 @@ const DZP_MAP = {
   dzp_default_activity: "default_activity_dzp",
   dzp_ad_reward: "ad_dzp_reward",
   dzp_referral_reward: "referral_dzp_reward"
+};
+
+// Keys consumed by the newer task/economy services. Keep their aliases in
+// economy_settings synchronized with the Admin names instead of leaving two
+// independent configuration stores.
+const ECONOMY_MIRRORS = {
+  daily_ads_limit: "daily_ad_task_count",
+  referral_percentage: "referral_percentage",
+  daily_reward_coins: "daily_task_reward_coins",
+  daily_reward_bux: "daily_task_reward_bux",
+  daily_reward_ad_separate: "daily_reward_ad_separate"
 };
 
 function validWhole(value, min = 0) {
@@ -114,6 +127,7 @@ async function saveSettings(req, res) {
          ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=EXCLUDED.updated_at`,
         [key,value,now]
       );
+
       if (DZP_MAP[key]) {
         await client.query(
           `INSERT INTO dzp_settings(key,value,updated_at) VALUES($1,$2,NOW())
@@ -121,11 +135,21 @@ async function saveSettings(req, res) {
           [DZP_MAP[key],value]
         );
       }
+
       if (ECONOMY_RATE_KEYS.has(key)) {
         await client.query(
           `INSERT INTO economy_settings(key,value,updated_at) VALUES($1,$2,$3)
            ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=EXCLUDED.updated_at`,
           [key,value,now]
+        );
+      }
+
+      const mirror = ECONOMY_MIRRORS[key];
+      if (mirror) {
+        await client.query(
+          `INSERT INTO economy_settings(key,value,updated_at) VALUES($1,$2,$3)
+           ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value,updated_at=EXCLUDED.updated_at`,
+          [mirror,value,now]
         );
       }
     }
@@ -141,7 +165,6 @@ async function saveSettings(req, res) {
   } finally { client.release(); }
 }
 
-// Preserve the server's real Admin authentication middleware as the first handler.
 function patchedPut(path, ...handlers) {
   if (path === "/api/admin/settings" && handlers.length >= 1) {
     return originalPut.call(this, path, handlers[0], saveSettings);
