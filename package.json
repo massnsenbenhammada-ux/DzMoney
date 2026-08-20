@@ -10,7 +10,8 @@
     "reconcile:economy": "node ./scripts/reconcile-economy.js",
     "test:phase1": "node ./scripts/test-phase1.js",
     "test:economy-ledger": "node ./scripts/test-economy-ledger.js",
-    "test:deposit": "node ./scripts/test-deposit.js"
+    "test:deposit": "node ./scripts/test-deposit.js",
+    "test:phase2": "node ./scripts/test-phase2.js"
   },
   "engines": {
     "node": ">=20"
