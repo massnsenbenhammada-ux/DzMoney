@@ -2447,8 +2447,7 @@ app.put("/api/admin/settings", requireAdmin, async (req, res) => {
 
     for (const [rawKey, rawValue] of Object.entries(values)) {
       const key = String(rawKey);
-      const value = String(rawValue).trim(););
-      }
+      const value = String(rawValue).trim();
 
       if (!allowedSettings.has(key)) {
         return res.status(400).json({
