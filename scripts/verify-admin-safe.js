@@ -6,6 +6,8 @@ const path = require("path");
 const root = path.join(__dirname, "..");
 const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
 const admin = fs.readFileSync(path.join(root, "public", "admin.html"), "utf8");
+const runtime = fs.readFileSync(path.join(root, "runtime-settings-service.js"), "utf8");
+const migration = fs.readFileSync(path.join(root, "scripts", "migrate-server-runtime-settings.js"), "utf8");
 
 const failures = [];
 const obsolete = [
@@ -36,8 +38,47 @@ for (const section of requiredAdminSections) {
   }
 }
 
-// These are intentionally forbidden in the production runtime. They were the
-// root cause of Admin values being saved but ignored by the application.
+for (const required of [
+  'require("./runtime-settings-service")',
+  'runtimeSettings.getCachedNumber("bux_per_ton", 10000)',
+  'runtimeSettings.getCachedNumber("coins_per_bux", 100)',
+  'runtimeSettings.getWholeNumber("daily_reward_coins", 1000)',
+  'runtimeSettings.getWholeNumber("daily_reward_bux", 1)',
+  'runtimeSettings.getWholeNumber("daily_reward_cooldown_seconds", 86400)',
+  'runtimeSettings.startAutoRefresh(2000)'
+]) {
+  if (!server.includes(required)) failures.push(`server runtime-settings contract missing: ${required}`);
+}
+
+for (const required of [
+  "async function refresh",
+  "async function getNumber",
+  "async function getWholeNumber",
+  "function getCachedNumber",
+  "function getCachedWholeNumber",
+  "function startAutoRefresh"
+]) {
+  if (!runtime.includes(required)) failures.push(`runtime-settings-service capability missing: ${required}`);
+}
+
+for (const required of [
+  '"dzx_per_ton"',
+  '"coins_per_dzx"',
+  '"coins_per_ton"',
+  '"bux_per_ton"',
+  '"coins_per_bux"',
+  '"daily_reward_coins"',
+  '"daily_reward_bux"',
+  '"daily_reward_cooldown_seconds"',
+  '"referral_percentage"',
+  '"system_enabled"'
+]) {
+  if (!migration.includes(required)) failures.push(`migration does not cover Admin setting: ${required}`);
+}
+
+// These are forbidden as runtime policy definitions. Fallback values inside
+// runtime-settings-service are allowed; the application must consume the DB
+// value through the service instead of defining its own economic rule.
 const forbiddenRuntimePatterns = [
   /const\s+ECONOMY\s*=\s*Object\.freeze\s*\(\s*\{[\s\S]*?BUX_PER_TON\s*:\s*10000[\s\S]*?COINS_PER_BUX\s*:\s*100/s,
   /const\s+coinsReward\s*=\s*1000\s*;/,
