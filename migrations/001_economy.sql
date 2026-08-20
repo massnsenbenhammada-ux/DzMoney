@@ -67,7 +67,7 @@ INSERT INTO admin_settings(key, value) VALUES
   ('economy.coin_per_dzx', '1000'::jsonb),
   ('economy.dzx_per_ton', '10000'::jsonb),
   ('economy.coin_per_ton', '10000000'::jsonb),
-  ('economy.coin_per_dzp', '1000'::jsonb),
+  ('economy.coin_per_dzp', '10000'::jsonb),
   ('economy.dzx_per_dzp', '10'::jsonb),
   ('activity.reward_coin', '1000'::jsonb),
   ('activity.reward_dzx', '1'::jsonb),
