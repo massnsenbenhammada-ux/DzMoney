@@ -2,7 +2,7 @@ name: Admin safe CI
 
 on:
   push:
-    branches: [admin-safe-migration]
+    branches: [admin-safe-migration, admin-safe-migration-v2]
   pull_request:
     branches: [main]
 
