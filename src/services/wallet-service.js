@@ -1,6 +1,6 @@
 const { query, withTransaction } = require('../db/pool');
 
-const CURRENCIES = ['COIN', 'DZX', 'DZP', 'TON'];
+const CURRENCIES = ['COIN', 'DZX', 'DZP'];
 
 async function ensureWallets(client, userId) {
   for (const currency of CURRENCIES) {
@@ -34,7 +34,7 @@ async function createUser({ telegramUserId, username = null, firstName = null, p
 
 async function getUserWallets(userId) {
   const result = await query(
-    `SELECT currency, balance, earned_dzp, purchased_dzp
+    `SELECT currency, balance, earned_dzp, converted_dzp, purchased_dzp
      FROM wallet_accounts
      WHERE user_id = $1
      ORDER BY currency`,
@@ -52,4 +52,4 @@ async function getBalance(userId, currency) {
   return result.rows[0] || null;
 }
 
-module.exports = { CURRENCIES, createUser, getUserWallets, getBalance };
+module.exports = { CURRENCIES, createUser, getUserWallets, getBalance, ensureWallets };
