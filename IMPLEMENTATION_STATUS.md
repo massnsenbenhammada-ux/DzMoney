@@ -24,17 +24,18 @@
 
 ## Phase 1 — Economy & Currency Core
 
-🟡 In progress
+🟡 In progress — implementation complete, runtime verification pending
 
 ### Implemented in repository
 
 - 🟢 Clean internal wallet currencies: COIN, DZX, DZP only.
 - 🟢 TON removed from internal wallet provisioning.
 - 🟢 Clean `001_economy.sql` migration for the new database.
-- 🟢 Forward `003_economy_phase1.sql` migration for an already-initialized database.
+- 🟢 `003_economy_phase1.sql` retained as forward compatibility for an already-initialized database.
 - 🟢 Removed obsolete `001_core.sql` migration from the clean source tree.
-- 🟢 Replaced `core-migrate.js` with `migrate.js`.
-- 🟢 Removed the old core migration command from `package.json`.
+- 🟢 Removed obsolete `core-migrate.js` runner.
+- 🟢 Replaced migration runner with `scripts/migrate.js`.
+- 🟢 Removed legacy core migration command from `package.json`.
 - 🟢 DZX source separation represented in ledger entries.
 - 🟢 DZP source buckets: earned / converted / purchased.
 - 🟢 Authoritative economy service with server-side constants and conversions.
@@ -43,21 +44,25 @@
 - 🟢 TON ↔ DZX reference helpers; TON is not stored internally.
 - 🟢 Activity reward posting foundation with idempotency.
 - 🟢 Ledger entries record currency, source, before balance and after balance.
-- 🟢 Phase 1 invariant test script added.
+- 🟢 Atomic idempotency handling hardened against concurrent duplicate requests.
+- 🟢 Economy integrity constraints and indexes added in `004_economy_integrity.sql`.
+- 🟢 Economy reconciliation script added: `npm run reconcile:economy`.
+- 🟢 Phase 1 invariant test script: `npm run test:phase1`.
 
-### Remaining before Phase 1 sign-off
+### Runtime verification required
 
-- ⬜ Run `npm run test:phase1` in the deployment environment.
-- ⬜ Run migrations against the new production PostgreSQL and verify schema.
-- ⬜ Run database-backed ledger/concurrency tests.
-- ⬜ Add reconciliation checks.
-- ⬜ Verify all balance invariants with real PostgreSQL.
+- ⬜ Deploy current repository to the new PostgreSQL-connected service.
+- ⬜ Run `npm run migrate` and confirm all migrations apply cleanly.
+- ⬜ Run `npm run test:phase1`.
+- ⬜ Run `npm run reconcile:economy`.
+- ⬜ Verify `/health` and `/health/db`.
+- ⬜ Run database-backed concurrent idempotency tests.
 - ⬜ Final Phase 1 sign-off.
 
 ## Later phases
 
 ### Phase 2 — Activity / Ads / Tasks
-⬜ Not started
+⬜ Not started — **requires user review and explicit approval before implementation**
 
 ### Phase 3 — Referral
 ⬜ Not started
@@ -98,12 +103,12 @@
 ## Change Log
 
 ### 2026-08-20
-- Replaced the roadmap with the latest agreed specification.
-- Corrected Reward Pool to distribute DZX, not TON.
-- Restricted TON to external reference/settlement use.
-- Started Phase 1 implementation.
-- Removed obsolete core migration naming from the clean source tree.
-- Added final economy schema, source-aware ledger fields, authoritative economy service, conversion functions and Phase 1 invariant tests.
+- Confirmed the latest economy specification: Reward Pool distributes DZX; TON is external reference/settlement only.
+- Removed obsolete Core migration files/runner from the clean rebuild path.
+- Hardened ledger transaction idempotency against concurrent duplicate requests.
+- Added economy integrity constraints and performance indexes.
+- Added economy reconciliation checks.
+- Phase 1 remains pending runtime verification; no Phase 2 Ads/Tasks code has been started.
 
 ## Update Rule
 
