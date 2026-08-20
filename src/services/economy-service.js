@@ -35,6 +35,16 @@ async function getEconomySettings() {
 
 async function walletForUpdate(client, userId, currency) {
   if (!INTERNAL_CURRENCIES.includes(currency)) throw new Error('Unsupported internal currency');
+
+  // Wallet provisioning is idempotent. This also repairs an incomplete wallet set
+  // for an existing user without introducing any legacy/TON compatibility logic.
+  await client.query(
+    `INSERT INTO wallet_accounts (user_id, currency)
+     VALUES ($1, $2)
+     ON CONFLICT (user_id, currency) DO NOTHING`,
+    [userId, currency]
+  );
+
   const result = await client.query(
     `SELECT id, balance, earned_dzp, converted_dzp, purchased_dzp
      FROM wallet_accounts
