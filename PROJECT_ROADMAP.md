@@ -1,0 +1,583 @@
+# DzMoney 2.0 — MASTER ROADMAP
+
+> **Single source of truth for the clean rebuild.** This roadmap replaces all previous roadmaps and old BUX-era assumptions. The project uses a new PostgreSQL database and must not reintroduce legacy BUX/core/compatibility business logic.
+
+## Global implementation rules
+
+- Backend/database is the source of truth; frontend never calculates authoritative balances or rewards.
+- Every balance movement is atomic, idempotent and recorded in an auditable ledger.
+- Admin settings must change real backend business rules, not only displayed values.
+- Referral, Squad and Reward Pool are completely independent systems.
+- Build and test one subsystem at a time.
+- Do not carry obsolete BUX names, legacy fields or unexplained settings into the new system.
+- Keep modules isolated so fixing one subsystem does not destabilize unrelated subsystems.
+
+---
+
+# Phase 1 — Economy & Currency Core 🔒 SPECIFICATION COMPLETE
+
+## Currencies
+
+### COIN
+Activity/reward currency. Earned from qualifying activity such as tasks and advertisements and from applicable referral rewards.
+
+### DZX
+Main economic currency. Used for the economic flows defined by the project, including withdrawals, deposits converted into DZX, campaign budgets and other approved spending.
+
+### DZP
+**Package currency.** DZP is used to buy packages. It is also the project's activity indicator where DZP is earned through qualifying activity.
+
+### TON
+External currency used for deposits, withdrawals and Reward Pool distributions.
+
+## Fixed economic relationship
+
+**1 TON = 10,000 DZX = 10,000,000 COIN**
+
+Therefore:
+
+**1 DZX = 1,000 COIN**
+
+## DZP conversion rates
+
+**1,000 COIN = 1 DZP**
+
+**10,000 COIN = 10 DZP**
+
+**10 DZX = 1 DZP**
+
+**100 DZX = 10 DZP**
+
+Therefore:
+
+**1 DZP = 1,000 COIN = 10 DZX**
+
+## Conversion direction
+
+Allowed:
+- COIN → DZP
+- DZX → DZP
+
+Not allowed:
+- DZP → COIN
+- DZP → DZX
+
+## DZP source separation
+
+The ledger must distinguish at least:
+- `earned_dzp` — obtained from qualifying activity;
+- `converted_dzp` — obtained through COIN/DZX conversion;
+- `purchased_dzp` — obtained through purchase.
+
+**Converted DZP and purchased DZP never increase Reward Pool weight.**
+
+This rule must be shown clearly in the user's Conversion area and enforced by the backend.
+
+## Admin economy
+
+Admin controls the configurable economic rates/settings. Changes affect the real backend/database logic. Historical transactions retain the rates that applied when they occurred; changing a rate must not rewrite past ledger records.
+
+---
+
+# Phase 2 — Activity, Ads & Tasks
+
+## Standard default reward
+
+**1,000 COIN + 1 DZX + 1 DZP**
+
+This is the default reward for qualifying standard task/ad activity and is Admin-configurable.
+
+Normal activity-earned DZP contributes to Daily Activity and the Reward Pool weighting system.
+
+## Advertisements
+
+Implement verified advertisement completion, reward idempotency, anti-duplicate protection and server-side reward issuance.
+
+Separate:
+- Tasks-page advertisements;
+- Reward Pool advertisements.
+
+Reward Pool ads must never be counted as Task ads and vice versa.
+
+## Daily Check-in
+
+Daily Check-in is advertisement-gated where configured: the user must complete the required advertisement before receiving the reward.
+
+## Task categories
+
+Strict category separation:
+- Daily Tasks
+- Game Tasks
+- Social Tasks
+- Web Tasks
+- Special/Partner Tasks
+
+A task cannot be created or validated under an incompatible category.
+
+## User-created tasks
+
+Available to normal users:
+- Game
+- Social
+- Web
+
+Partner/Special campaigns require contacting Admin.
+
+Creator pays the task campaign cost.
+
+Reference pricing:
+
+**1,000 valid visits/executions = 0.90 TON = 9,000 DZX**
+
+The pricing model scales from this reference and is Admin-configurable.
+
+Task lifecycle:
+
+Draft → Pending Review → Active → Paused → Completed/Expired → Closed/Refunded
+
+---
+
+# Phase 3 — Referral System
+
+Referral is a separate one-level lifetime system and is independent from Squad and Reward Pool.
+
+## Qualification
+
+A referred user qualifies after entering through the referral link and completing at least one qualifying activity:
+- one verified advertisement; OR
+- one verified task.
+
+## Activation reward
+
+**10,000 COIN + 10 DZX + 10 DZP**
+
+The 10 DZP is granted once only at referral qualification.
+
+## Lifetime earnings
+
+Referrer receives **20%** from the referred user's qualifying daily base activity rewards.
+
+The 20% applies only to the referred user's qualifying:
+- task activity;
+- advertisement activity.
+
+It does NOT apply to:
+- Squad bonuses;
+- Squad earnings;
+- Reward Pool distributions;
+- package multipliers;
+- referral earnings themselves;
+- other non-base activity income.
+
+The one-time 10 DZP activation reward is not included in the lifetime 20% calculation. The lifetime calculation uses the applicable COIN + DZX activity reward portion.
+
+---
+
+# Phase 4 — Hierarchical Squad System
+
+Squad is completely separate from Referral.
+
+## Hierarchy
+
+Membership follows a tree/hierarchical structure. A newly qualified member is automatically attached to the Squad hierarchy of the member through whom the structure was formed.
+
+Example:
+
+```text
+A ─── B ─── C
+│          │
+D ─── Y    X
+```
+
+B, C, D, Y and X can belong to A's hierarchical Squad according to the tree relationship.
+
+No artificial global Squad member cap.
+
+## Levels
+
+- 10 levels.
+- Admin defines the required member count for each level.
+- Admin defines the bonus percentage for each level.
+- Bonus is a percentage increase.
+- Each level may have a different percentage.
+
+## Daily activation
+
+For day D, the system checks two conditions:
+
+1. Required Squad member count for the relevant level is satisfied.
+2. At least **50% of eligible Squad members** are active that day, where activity means at least one verified advertisement OR one verified task.
+
+If and only if both conditions are satisfied, the Squad Bonus is activated for **the following day (D+1)**.
+
+If either condition fails, the bonus is inactive for D+1.
+
+Squad earnings never enter the Referral 20% calculation.
+
+---
+
+# Phase 5 — Reward Pool
+
+Reward Pool is independent from Referral and Squad.
+
+## Funding
+
+Reward Pool is funded from daily project revenue.
+
+Admin sets:
+
+**Daily Reward Pool Distribution Amount (TON)**
+
+This is the TON amount distributed to eligible users each day.
+
+## User activation
+
+The only activation condition is:
+
+**Watch 10 advertisements inside the Reward Pool page.**
+
+Important:
+- the 10 ads must be Reward Pool page ads;
+- Task ads do not count;
+- before completing the 10 ads, Reward Pool is locked for that user.
+
+The Reward Pool ads use the same standard activity reward as Tasks unless Admin changes the configured default.
+
+## Weight
+
+Daily eligible activity is represented by earned activity DZP.
+
+Example:
+- total eligible activity = 25,000 DZP;
+- user = 250 DZP;
+- base weight = 250 / 25,000 = 1%.
+
+If the user has an active 1.10x package:
+
+**effective weight = 1% × 1.10 = 1.10%**
+
+Purchased or converted DZP does not increase weight.
+
+## Distribution
+
+At the configured daily distribution time:
+
+**User TON Share = Daily Reward Pool TON × (User Effective Weight / Sum of all eligible Effective Weights)**
+
+Distribution begins at the start of each day at **UTC+1** using the finalized previous-day activity boundary.
+
+The system must create an auditable Reward Pool distribution record for every payout.
+
+## User explanation
+
+Reward Pool page must explain:
+- what Reward Pool is;
+- why it is locked;
+- the 10-ad activation requirement;
+- that only Reward Pool-page ads count;
+- how earned DZP affects weight;
+- that converted/purchased DZP does not increase weight;
+- that packages multiply weight;
+- that payouts are TON;
+- the daily distribution amount.
+
+Include a concise anti-manipulation warning.
+
+---
+
+# Phase 6 — Packages
+
+Packages are displayed on Home.
+
+Only **one active package** can exist per user. No stacking and no new package purchase while another package is active.
+
+When a package expires, the user becomes a normal activity-weight user again.
+
+## Durations
+
+- 30 days
+- 60 days
+- 90 days
+- 180 days
+- 360 days
+- Lifetime
+
+## Admin controls
+
+- name
+- price in DZP
+- duration
+- multiplier
+- availability
+- display order
+- status
+- package color
+
+Each package has a distinct professional name/color.
+
+Optional visual feature: active package color can be reflected in the user's profile until expiry.
+
+Package multiplier affects Reward Pool weight only.
+
+---
+
+# Phase 7 — Buying Points & Conversion UI
+
+Users can buy DZX using **TON only**.
+
+Admin defines prices, limits and available purchase options.
+
+Purchase-derived balances must be separated from earned activity balances.
+
+Conversion UI must support:
+- COIN → DZP
+- DZX → DZP
+
+It must explicitly warn users that converted/purchased DZP does not increase Reward Pool weight.
+
+---
+
+# Phase 8 — Deposit System
+
+Deposit currency: **TON**.
+
+Flow:
+
+**TON deposit → blockchain confirmation → automatic TON→DZX conversion → DZX credit**
+
+Initial economic conversion:
+
+**1 TON → 10,000 DZX**
+
+Deposited DZX is not directly withdrawable until used according to the internal-use rules.
+
+Every deposit requires:
+- unique blockchain transaction reference;
+- confirmation status;
+- idempotency protection;
+- immutable ledger entry.
+
+---
+
+# Phase 9 — Withdrawal System
+
+Initial minimum withdrawal:
+
+**0.2 TON**
+
+Initial eligibility requirements:
+
+**2,000,000 COIN + 2,000 DZX**
+
+These are configurable by Admin.
+
+The COIN and DZX requirements are deducted and converted economically into the withdrawal value as part of the withdrawal flow.
+
+Withdrawal fees, if enabled, are charged to the user and are Admin-configurable.
+
+Non-withdrawable/deposit-locked DZX cannot satisfy withdrawable DZX requirements.
+
+Withdrawal processing must be atomic, idempotent and ledger-backed.
+
+---
+
+# Phase 10 — Promo Codes
+
+Home includes a Promo Code field.
+
+Flow:
+
+**Enter code → Claim/Redeem → verified advertisement → reward**
+
+The reward is granted only after verified ad completion.
+
+Admin controls code, reward, limits, expiry, eligibility and ad-gating.
+
+---
+
+# Phase 11 — User App UI
+
+## Home
+
+Show:
+- COIN balance
+- DZX balance
+- DZP balance
+- Promo Code
+- Squad summary
+- Squad member count
+- Squad level
+- Reward Pool status
+- Package section
+- Daily Activity DZP
+- Daily Total Activity
+- Coming Soon
+
+Bottom navigation:
+
+**Home — Tasks — Referral — Wallet**
+
+Packages remain on Home.
+
+## User drawer
+
+A right-to-left drawer/modal covering approximately 85% of the screen.
+
+Show:
+- username
+- profile photo
+- three balances
+- Squad membership/status
+- Reward Pool status
+- Daily Activity DZP
+- Daily Total Activity
+
+## Squad page
+
+Explain hierarchy, member count, level, requirements, 50% activity condition, next level and next-day activation, plus anti-manipulation warning.
+
+## Reward Pool page
+
+Explain activation, 10 Reward Pool ads, DZP weighting, package multiplier, TON distribution and exclusions.
+
+---
+
+# Phase 12 — Admin Panel
+
+Admin Panel is an operational control system, not a decorative interface.
+
+Required sections:
+
+### Dashboard
+Real-time:
+- total members;
+- advertisements watched;
+- tasks completed.
+
+Seven-day **bar charts**, not line/curve charts, with different colors for the three metrics.
+
+Bottom lists:
+- Top 10 most active members;
+- Top 10 members who brought the most referrals.
+
+### Economy
+- TON→DZX
+- COIN→DZP
+- DZX→DZP
+- activity reward defaults
+- purchase prices
+- conversion settings
+
+### Users
+- search
+- user profile
+- balances
+- account status
+- manual balance adjustments with mandatory reason/audit
+- explicit DZP source separation
+
+### Referral
+- qualification
+- activation reward
+- lifetime percentage
+
+### Squad
+- 10 level member requirements
+- 10 bonus percentages
+- 50% activity requirement
+
+### Reward Pool
+- daily TON distribution amount
+- 10-ad activation requirement
+- weighting settings
+- package multipliers
+
+### Packages
+- six durations
+- names
+- colors
+- prices
+- multipliers
+- availability/status
+
+### Tasks
+- category management
+- default rewards
+- ad requirements
+- user-created task controls
+- campaign fee reference
+- review/approval
+- Partner/Special workflow
+
+### Wallet
+- deposit configuration
+- withdrawal minimum
+- COIN requirement
+- DZX requirement
+- withdrawal fees
+
+No obsolete BUX terminology. No unexplained empty legacy fields.
+
+---
+
+# Phase 13 — Ledger, Security & Anti-Fraud
+
+All financial/activity events must be auditable.
+
+Separate accounting for:
+- earned COIN;
+- earned DZX;
+- purchased/deposited DZX;
+- withdrawable/locked DZX;
+- earned DZP;
+- converted DZP;
+- purchased DZP;
+- referral rewards;
+- Squad Bonus;
+- Reward Pool TON;
+- package purchases;
+- task campaign budgets;
+- fees;
+- deposits;
+- withdrawals.
+
+Implement:
+- atomic transactions;
+- idempotency keys;
+- duplicate reward protection;
+- server-side verification;
+- balance invariants;
+- audit logs;
+- anti-manipulation controls.
+
+---
+
+# Phase 14 — Testing & Release
+
+Before production:
+
+1. Economy conversion tests.
+2. Activity reward tests.
+3. Advertisement verification tests.
+4. Task-category isolation tests.
+5. Referral qualification/lifetime tests.
+6. Squad hierarchy and next-day activation tests.
+7. Reward Pool 10-ad activation tests.
+8. Reward Pool weight/distribution tests.
+9. Package single-active/multiplier/expiry tests.
+10. Deposit confirmation/idempotency tests.
+11. Withdrawal eligibility/deduction/fee tests.
+12. Admin setting propagation tests.
+13. Dashboard real-time metric tests.
+14. Security and anti-fraud tests.
+15. End-to-end Telegram Mini App tests.
+
+Only after these pass should production deployment be considered complete.
+
+---
+
+# Current implementation order
+
+**1. Economy & Currency Core → 2. Activity/Ads/Tasks → 3. Referral → 4. Squad → 5. Reward Pool → 6. Packages → 7. Buying Points/Conversions → 8. Deposit → 9. Withdrawal → 10. Promo Codes → 11. User UI → 12. Admin Panel → 13. Ledger/Security hardening → 14. Final testing/release.**
+
+The execution log must be updated after each completed phase. No phase should be marked complete unless its backend behavior and tests are actually implemented.
