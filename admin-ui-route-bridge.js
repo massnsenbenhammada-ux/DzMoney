@@ -4,8 +4,9 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 
-// Adds the same Admin economy controls to the /admin route (not only the
-// static /admin.html route). Loaded after the other Admin middleware modules.
+// The production Admin Panel is rendered from one authoritative UI layer.
+// The legacy HTML remains as a safe fallback, while admin-v2.js replaces the
+// visible UI after authentication and talks directly to the real Admin APIs.
 const currentUse = express.application.use;
 let useCount = 0;
 
@@ -19,8 +20,11 @@ express.application.use = function(...args) {
           if (path.basename(String(filePath)) !== "admin.html") return originalSendFile(filePath, ...sendArgs);
           fs.readFile(filePath, "utf8", (error, html) => {
             if (error) return originalSendFile(filePath, ...sendArgs);
-            const script = `<script src="/admin-economy-ui.js?v=2"></script>`;
-            const output = html.includes("</body>") ? html.replace("</body>", `${script}</body>`) : `${html}${script}`;
+            const scripts = `<script src="/admin-economy-ui.js?v=3"></script><script src="/admin-v2.js?v=1"></script>`;
+            const output = html.includes("</body>") ? html.replace("</body>", `${scripts}</body>`) : `${html}${scripts}`;
+            res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+            res.setHeader("Pragma", "no-cache");
+            res.setHeader("Expires", "0");
             res.type("html").send(output);
           });
         };
