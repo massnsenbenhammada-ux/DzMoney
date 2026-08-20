@@ -14,7 +14,7 @@
 
 - Final currency model locked: COIN / DZX / DZP with TON as external reference/settlement only.
 - Fixed relationship locked: `1 TON = 10,000 DZX = 10,000,000 COIN`.
-- DZP relationship locked: `1 DZP = 1,000 COIN = 10 DZX`.
+- DZP relationship locked: `1 DZP = 10,000 COIN = 10 DZX`.
 - DZX sources locked: advertisements, tasks, referral, Reward Pool and deposits.
 - Referral, Squad and Reward Pool are separate systems.
 - Package model locked: one active package, six durations.
@@ -30,12 +30,10 @@
 
 - 🟢 Clean internal wallet currencies: COIN, DZX, DZP only.
 - 🟢 TON removed from internal wallet provisioning.
-- 🟢 Clean `001_economy.sql` migration for the new database.
-- 🟢 `003_economy_phase1.sql` retained as forward compatibility for an already-initialized database.
-- 🟢 Removed obsolete `001_core.sql` migration from the clean source tree.
-- 🟢 Removed obsolete `core-migrate.js` runner.
-- 🟢 Replaced migration runner with `scripts/migrate.js`.
-- 🟢 Removed legacy core migration command from `package.json`.
+- 🟢 Clean economy migrations for the new database.
+- 🟢 Finalized DZP conversion migration: `1 DZP = 10 DZX = 10,000 COIN`.
+- 🟢 Removed obsolete legacy core test.
+- 🟢 Replaced legacy migration runner with `scripts/migrate.js`.
 - 🟢 DZX source separation represented in ledger entries.
 - 🟢 DZP source buckets: earned / converted / purchased.
 - 🟢 Authoritative economy service with server-side constants and conversions.
@@ -44,19 +42,20 @@
 - 🟢 TON ↔ DZX reference helpers; TON is not stored internally.
 - 🟢 Activity reward posting foundation with idempotency.
 - 🟢 Ledger entries record currency, source, before balance and after balance.
-- 🟢 Atomic idempotency handling hardened against concurrent duplicate requests.
-- 🟢 Economy integrity constraints and indexes added in `004_economy_integrity.sql`.
-- 🟢 Economy reconciliation script added: `npm run reconcile:economy`.
-- 🟢 Phase 1 invariant test script: `npm run test:phase1`.
+- 🟢 Economy integrity constraints and indexes.
+- 🟢 Economy reconciliation script: `npm run reconcile:economy`.
+- 🟢 Phase 1 invariant test: `npm run test:phase1`.
+- 🟢 Database-backed Economy + Ledger integration test added: `npm run test:economy-ledger`.
 
-### Runtime verification required
+### Runtime verification
 
-- ⬜ Deploy current repository to the new PostgreSQL-connected service.
-- ⬜ Run `npm run migrate` and confirm all migrations apply cleanly.
-- ⬜ Run `npm run test:phase1`.
+- 🟢 New PostgreSQL database connected successfully.
+- 🟢 `npm run migrate` previously applied the clean economy migrations successfully.
+- 🟢 `npm run test:phase1` passed after the finalized currency correction.
+- ⬜ Run `npm run migrate` again so the new `003_economy_rates.sql` correction is applied to the current database.
+- ⬜ Run `npm run test:economy-ledger`.
 - ⬜ Run `npm run reconcile:economy`.
 - ⬜ Verify `/health` and `/health/db`.
-- ⬜ Run database-backed concurrent idempotency tests.
 - ⬜ Final Phase 1 sign-off.
 
 ## Later phases
@@ -104,11 +103,11 @@
 
 ### 2026-08-20
 - Confirmed the latest economy specification: Reward Pool distributes DZX; TON is external reference/settlement only.
-- Removed obsolete Core migration files/runner from the clean rebuild path.
-- Hardened ledger transaction idempotency against concurrent duplicate requests.
-- Added economy integrity constraints and performance indexes.
-- Added economy reconciliation checks.
-- Phase 1 remains pending runtime verification; no Phase 2 Ads/Tasks code has been started.
+- Finalized DZP relationship at `1 DZP = 10 DZX = 10,000 COIN`.
+- Added migration `003_economy_rates.sql` to correct the database setting on already-initialized deployments.
+- Added database-backed Economy + Ledger integration tests.
+- Removed obsolete `scripts/test-core.js` that referenced the old Core/TON wallet system.
+- Phase 1 remains pending final runtime integration verification; no Phase 2 Ads/Tasks implementation has started.
 
 ## Update Rule
 
