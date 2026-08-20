@@ -8,7 +8,8 @@
     "start": "node server.js",
     "migrate": "node ./scripts/migrate.js",
     "reconcile:economy": "node ./scripts/reconcile-economy.js",
-    "test:phase1": "node ./scripts/test-phase1.js"
+    "test:phase1": "node ./scripts/test-phase1.js",
+    "test:economy-ledger": "node ./scripts/test-economy-ledger.js"
   },
   "engines": {
     "node": ">=20"
