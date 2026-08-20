@@ -16,7 +16,7 @@ async function main() {
   try {
     user = await createUser({ telegramUserId, username: marker, firstName: 'Phase 1 Ledger Test' });
     const wallets = await getUserWallets(user.id);
-    assert.deepEqual(wallets.map(w => w.currency).sort(), ['COIN', 'DZX', 'DZP']);
+    assert.deepEqual(wallets.map(w => w.currency).sort(), ['COIN', 'DZP', 'DZX']);
     assert.ok(wallets.every(w => Number(w.balance) === 0));
 
     const rewardKey = `${marker}:reward`;
