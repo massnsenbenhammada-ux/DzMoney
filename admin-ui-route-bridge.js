@@ -21,7 +21,7 @@ express.application.use = function(...args) {
           if (path.basename(String(filePath)) !== "admin.html") return originalSendFile(filePath, ...sendArgs);
           fs.readFile(filePath, "utf8", (error, html) => {
             if (error) return originalSendFile(filePath, ...sendArgs);
-            const scripts = `<script src="/admin-economy-ui.js?v=6"></script><script src="/admin-v2.js?v=4"></script><script src="/admin-dashboard.js?v=3"></script><script src="/admin-live-refresh.js?v=3"></script><script src="/admin-settings-save-fix.js?v=1"></script>`;
+            const scripts = `<script src="/admin-economy-ui.js?v=7"></script><script src="/admin-v2.js?v=5"></script><script src="/admin-dashboard.js?v=4"></script><script src="/admin-live-refresh.js?v=4"></script><script src="/admin-settings-save-fix.js?v=2"></script><script src="/admin-state-fix.js?v=1"></script>`;
             const output = html.includes("</body>") ? html.replace("</body>", `${scripts}</body>`) : `${html}${scripts}`;
             res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
             res.setHeader("Pragma", "no-cache");
