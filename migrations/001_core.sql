@@ -1,11 +1,11 @@
 -- DzMoney 2.0 core schema
 -- PostgreSQL
--- This migration intentionally contains only foundation tables.
--- Feature-specific tables belong to later migrations.
+-- Core tables use the `core_` prefix deliberately so the new system cannot
+-- collide with legacy tables that may exist in a shared Railway database.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE IF NOT EXISTS core_users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   telegram_user_id BIGINT NOT NULL UNIQUE,
   username TEXT,
@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS wallet_accounts (
+CREATE TABLE IF NOT EXISTS core_wallet_accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES core_users(id) ON DELETE CASCADE,
   currency TEXT NOT NULL CHECK (currency IN ('COIN', 'DZX', 'DZP', 'TON')),
   balance BIGINT NOT NULL DEFAULT 0 CHECK (balance >= 0),
   earned_balance BIGINT NOT NULL DEFAULT 0 CHECK (earned_balance >= 0),
@@ -30,11 +30,11 @@ CREATE TABLE IF NOT EXISTS wallet_accounts (
   UNIQUE (user_id, currency)
 );
 
-CREATE TABLE IF NOT EXISTS ledger_transactions (
+CREATE TABLE IF NOT EXISTS core_ledger_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   idempotency_key TEXT NOT NULL,
   operation_type TEXT NOT NULL,
-  actor_user_id UUID REFERENCES users(id),
+  actor_user_id UUID REFERENCES core_users(id),
   reference_type TEXT,
   reference_id TEXT,
   status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('pending', 'posted', 'reversed', 'failed')),
@@ -43,10 +43,10 @@ CREATE TABLE IF NOT EXISTS ledger_transactions (
   UNIQUE (operation_type, actor_user_id, idempotency_key)
 );
 
-CREATE TABLE IF NOT EXISTS ledger_entries (
+CREATE TABLE IF NOT EXISTS core_ledger_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  transaction_id UUID NOT NULL REFERENCES ledger_transactions(id) ON DELETE RESTRICT,
-  wallet_account_id UUID NOT NULL REFERENCES wallet_accounts(id) ON DELETE RESTRICT,
+  transaction_id UUID NOT NULL REFERENCES core_ledger_transactions(id) ON DELETE RESTRICT,
+  wallet_account_id UUID NOT NULL REFERENCES core_wallet_accounts(id) ON DELETE RESTRICT,
   currency TEXT NOT NULL CHECK (currency IN ('COIN', 'DZX', 'DZP', 'TON')),
   amount BIGINT NOT NULL CHECK (amount <> 0),
   balance_before BIGINT NOT NULL CHECK (balance_before >= 0),
@@ -55,24 +55,24 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_ledger_entries_wallet_created
-  ON ledger_entries(wallet_account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_core_ledger_entries_wallet_created
+  ON core_ledger_entries(wallet_account_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_ledger_transactions_reference
-  ON ledger_transactions(reference_type, reference_id);
+CREATE INDEX IF NOT EXISTS idx_core_ledger_transactions_reference
+  ON core_ledger_transactions(reference_type, reference_id);
 
-CREATE TABLE IF NOT EXISTS admin_settings (
+CREATE TABLE IF NOT EXISTS core_admin_settings (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL,
   description TEXT,
   is_public BOOLEAN NOT NULL DEFAULT false,
-  updated_by UUID REFERENCES users(id),
+  updated_by UUID REFERENCES core_users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS audit_log (
+CREATE TABLE IF NOT EXISTS core_audit_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  actor_user_id UUID REFERENCES users(id),
+  actor_user_id UUID REFERENCES core_users(id),
   action TEXT NOT NULL,
   resource_type TEXT,
   resource_id TEXT,
@@ -82,12 +82,12 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_core_audit_log_created ON core_audit_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_core_audit_log_resource ON core_audit_log(resource_type, resource_id);
 
-CREATE TABLE IF NOT EXISTS idempotency_records (
+CREATE TABLE IF NOT EXISTS core_idempotency_records (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
+  user_id UUID REFERENCES core_users(id),
   operation_type TEXT NOT NULL,
   idempotency_key TEXT NOT NULL,
   request_hash TEXT NOT NULL,
@@ -97,8 +97,7 @@ CREATE TABLE IF NOT EXISTS idempotency_records (
   UNIQUE (operation_type, user_id, idempotency_key)
 );
 
--- Prevent modification/deletion of posted ledger history.
-CREATE OR REPLACE FUNCTION prevent_posted_ledger_mutation()
+CREATE OR REPLACE FUNCTION core_prevent_posted_ledger_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -110,12 +109,12 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_ledger_transaction_immutable ON ledger_transactions;
-CREATE TRIGGER trg_ledger_transaction_immutable
-BEFORE UPDATE OR DELETE ON ledger_transactions
-FOR EACH ROW EXECUTE FUNCTION prevent_posted_ledger_mutation();
+DROP TRIGGER IF EXISTS trg_core_ledger_transaction_immutable ON core_ledger_transactions;
+CREATE TRIGGER trg_core_ledger_transaction_immutable
+BEFORE UPDATE OR DELETE ON core_ledger_transactions
+FOR EACH ROW EXECUTE FUNCTION core_prevent_posted_ledger_mutation();
 
-CREATE OR REPLACE FUNCTION prevent_ledger_entry_mutation()
+CREATE OR REPLACE FUNCTION core_prevent_ledger_entry_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -124,13 +123,12 @@ BEGIN
 END;
 $$;
 
-DROP TRIGGER IF EXISTS trg_ledger_entry_immutable ON ledger_entries;
-CREATE TRIGGER trg_ledger_entry_immutable
-BEFORE UPDATE OR DELETE ON ledger_entries
-FOR EACH ROW EXECUTE FUNCTION prevent_ledger_entry_mutation();
+DROP TRIGGER IF EXISTS trg_core_ledger_entry_immutable ON core_ledger_entries;
+CREATE TRIGGER trg_core_ledger_entry_immutable
+BEFORE UPDATE OR DELETE ON core_ledger_entries
+FOR EACH ROW EXECUTE FUNCTION core_prevent_ledger_entry_mutation();
 
--- Default economic settings. These are seed values, not hard-coded application behavior.
-INSERT INTO admin_settings(key, value, description, is_public)
+INSERT INTO core_admin_settings(key, value, description, is_public)
 VALUES
   ('economy.ton_to_dzx', '10000'::jsonb, 'Default DZX units per TON', true),
   ('economy.ton_to_coin', '1000000'::jsonb, 'Default COIN units per TON', true),
