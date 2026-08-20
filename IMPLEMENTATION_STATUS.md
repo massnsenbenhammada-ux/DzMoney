@@ -44,7 +44,6 @@
 - 🟢 UTC+1 daily-cycle rule documented.
 - 🟢 Idempotency strategy documented.
 - 🟢 Authorization model documented.
-- 🟢 Ledger immutability rules documented and represented in the schema.
 
 ### Validation
 - 🟢 Architecture reviewed against the agreed business rules.
@@ -52,19 +51,14 @@
 - 🟢 Earned/Purchased DZP accounting is explicitly separated.
 - 🟢 Reward Pool and Referral/Squad accounting are architecturally separated.
 
-### Evidence / commits
-- `0b56fa2cf2599ee3c114d4fb1bd27db30ef09982` — architecture and module boundaries.
-- `341c901f0678b4ae7ec5d12cd633133e5b43310a` — foundation API contracts.
-- `d04e5fd5817b8db951ed3e32bd8bba88a1f433cc` — core PostgreSQL schema foundation.
-
 ---
 
 ## Phase 1 — Core Database & Ledger
 
 **Status:** 🟡 In progress
 
-### Completed
-- 🟢 Initial PostgreSQL core schema.
+### Implemented
+- 🟢 PostgreSQL core schema and ledger foundation.
 - 🟢 Users and Telegram identity table.
 - 🟢 COIN/DZX/DZP/TON wallet accounts.
 - 🟢 Earned/Purchased DZP balance fields.
@@ -75,17 +69,31 @@
 - 🟢 Admin audit log.
 - 🟢 Idempotency record store.
 - 🟢 Default economy/operational settings seeded as database settings.
+- 🟢 Transactional migration runner: `src/db/migration-runner.js`.
+- 🟢 PostgreSQL connection/transaction helper: `src/db/pool.js`.
+- 🟢 Atomic wallet ledger service: `src/core/ledger-service.js`.
+- 🟢 Telegram user provisioning and four-wallet creation: `src/core/user-service.js`.
+- 🟢 Wallet provisioning, summary and reconciliation primitives: `src/core/wallet-service.js`.
+- 🟢 Core integrity migration: `migrations/002_core_integrity.sql`.
+- 🟢 Dedicated core migration/check scripts.
+- 🟢 PostgreSQL CI workflow: `.github/workflows/core-db.yml`.
 
-### Remaining
-- ⬜ Implement server-side transaction service.
-- ⬜ Implement atomic wallet mutation service.
-- ⬜ Implement reconciliation service.
-- ⬜ Implement database migration runner/bootstrapping.
-- ⬜ Add automated database tests.
-- ⬜ Validate migration against a real PostgreSQL instance.
+### Remaining before completion
+- ⬜ Observe a successful PostgreSQL CI run for the current commit.
+- ⬜ Add automated transaction/ledger behavior tests, including duplicate idempotency and insufficient-balance cases.
+- ⬜ Review reconciliation math against seeded ledger scenarios.
+- ⬜ Confirm production PostgreSQL compatibility and migration repeatability.
+- ⬜ Only after the above, mark Phase 1 complete and start Phase 2.
 
 ### Evidence / commits
-- `d04e5fd5817b8db951ed3e32bd8bba88a1f433cc` — core schema and ledger foundation.
+- `914dc4845876c6d2b5b536f5593ef95a452b1020` — migration runner.
+- `ea44d1f577ce0db020197eb440f4e32adedb67cb` — PostgreSQL pool/transaction helper.
+- `d9be5a41282b8bb801d7211a7533274f944ebbd3` — atomic ledger service.
+- `ef2c92cb1d93d24405287d07991e0133badd2d21` — user/wallet provisioning.
+- `0a97d907d2b34c59ae96d934a7b86463f13a8564` — database integrity hardening.
+- `b4d2a7ae43aafa8f8c804838be567184ca949891` — core migration command.
+- `0eb589d0f57b7c15d7874183da45b18d98ddf194` — core database verification.
+- `05b1f276b101b1d43dbc9b1d04cf0c93edbdaa4d` — PostgreSQL CI validation workflow.
 
 ---
 
@@ -96,20 +104,11 @@
 ### Completed
 - None.
 
-### Evidence / commits
-- None.
-
 ---
 
 ## Phase 3 — Tasks, Ads & Activity Engine
 
 **Status:** ⬜ Not started
-
-### Completed
-- None.
-
-### Evidence / commits
-- None.
 
 ---
 
@@ -117,23 +116,11 @@
 
 **Status:** ⬜ Not started
 
-### Completed
-- None.
-
-### Evidence / commits
-- None.
-
 ---
 
 ## Phase 5 — Hierarchical Squad Engine
 
 **Status:** ⬜ Not started
-
-### Completed
-- None.
-
-### Evidence / commits
-- None.
 
 ---
 
@@ -141,23 +128,11 @@
 
 **Status:** ⬜ Not started
 
-### Completed
-- None.
-
-### Evidence / commits
-- None.
-
 ---
 
 ## Phase 7 — Reward Pool
 
 **Status:** ⬜ Not started
-
-### Completed
-- None.
-
-### Evidence / commits
-- None.
 
 ---
 
@@ -165,23 +140,11 @@
 
 **Status:** ⬜ Not started
 
-### Completed
-- None.
-
-### Evidence / commits
-- None.
-
 ---
 
 ## Phase 9 — User App UI/UX
 
 **Status:** ⬜ Not started
-
-### Completed
-- None.
-
-### Evidence / commits
-- None.
 
 ---
 
@@ -189,35 +152,17 @@
 
 **Status:** ⬜ Not started
 
-### Completed
-- None.
-
-### Evidence / commits
-- None.
-
 ---
 
 ## Phase 11 — Security, Anti-Fraud & Reliability
 
 **Status:** ⬜ Not started
 
-### Completed
-- None.
-
-### Evidence / commits
-- None.
-
 ---
 
 ## Phase 12 — Testing, Integration & Production
 
 **Status:** ⬜ Not started
-
-### Completed
-- None.
-
-### Evidence / commits
-- None.
 
 ---
 
@@ -226,8 +171,10 @@
 ### 2026-08-20
 - Created the new implementation roadmap and status tracker.
 - Completed Phase 0 architecture documentation.
-- Added the first PostgreSQL core schema/ledger foundation.
-- Started Phase 1. No database migration has been marked fully validated yet because a real PostgreSQL execution/test environment has not been run through the repository tooling.
+- Added PostgreSQL core schema and ledger foundation.
+- Implemented migration runner, DB transaction helper, atomic ledger service and wallet/user provisioning.
+- Added database integrity hardening and a CI workflow using PostgreSQL 16.
+- Phase 1 remains in progress until the CI run and automated transaction tests validate the implementation.
 
 ## Update Rule
 
