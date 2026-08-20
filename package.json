@@ -1,10 +1,10 @@
 {
   "name": "dzmoney",
-  "version": "1.3.22",
+  "version": "1.3.23",
   "description": "DzMoney Telegram Mini App with PostgreSQL and testnet TON payout engine",
   "main": "server.js",
   "scripts": {
-    "start": "node ./scripts/migrate-economy.js && node ./scripts/migrate-dzx-withdrawals.js && node ./scripts/migrate-task-engine.js && node ./scripts/migrate-task-catalog.js && node ./scripts/migrate-dzp-rules.js && node ./scripts/migrate-rewards-pool.js && node ./scripts/seed-task-catalog.js && node -r ./economy-integration.js -r ./task-route-bootstrap.js -r ./withdrawal-network-migration.js -r ./withdrawal-dzx.js -r ./manual-wallet-server.js -r ./ton-rpc-guard.js -r ./ton-wallet-compat.js -r ./payout-worker.js server.js",
+    "start": "node ./scripts/migrate-economy.js && node ./scripts/migrate-dzx-withdrawals.js && node ./scripts/migrate-task-engine.js && node ./scripts/migrate-task-catalog.js && node ./scripts/migrate-dzp-rules.js && node ./scripts/migrate-rewards-pool.js && node ./scripts/seed-task-catalog.js && node -r ./admin-settings-compat.js -r ./economy-integration.js -r ./task-route-bootstrap.js -r ./withdrawal-network-migration.js -r ./withdrawal-dzx.js -r ./manual-wallet-server.js -r ./ton-rpc-guard.js -r ./ton-wallet-compat.js -r ./payout-worker.js server.js",
     "ton:diagnostic": "node ./ton-diagnostic.js",
     "ton:forensic": "node ./ton-forensic-diagnostic.js",
     "ton:wallet-org": "node ./ton-wallet-org-diagnostic.js"
