@@ -9,10 +9,14 @@ const {
   dzxToTON,
 } = require('../src/services/economy-service');
 
+// Finalized Phase 1 economy relationships:
+// 1 TON = 10,000 DZX = 10,000,000 COIN
+// 1 DZX = 1,000 COIN
+// 1 DZP = 10 DZX = 10,000 COIN
 assert.equal(TON_DZX, 10000);
 assert.equal(TON_COIN, 10000000);
 assert.equal(DZX_COIN, 1000);
-assert.equal(DZP_COIN, 1000);
+assert.equal(DZP_COIN, 10000);
 assert.equal(DZP_DZX, 10);
 
 assert.equal(tonToDZX(1), 10000);
