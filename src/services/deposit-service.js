@@ -119,7 +119,15 @@ async function processDeposit({
         [idempotencyKey]
       );
       if (!existing.rowCount) throw new Error('Unable to resolve idempotent deposit');
-      return { deposit: existing.rows[0], duplicate: true, credited: existing.rows[0].status === 'CONFIRMED' };
+      const previous = existing.rows[0];
+      if (
+        Number(previous.user_id) !== Number(userId)
+        || previous.tx_hash !== hash
+        || Number(previous.ton_amount) !== amount
+      ) {
+        throw new Error('Idempotency key was already used with different deposit data');
+      }
+      return { deposit: previous, duplicate: true, credited: previous.status === 'CONFIRMED' };
     }
 
     const deposit = inserted.rows[0];
