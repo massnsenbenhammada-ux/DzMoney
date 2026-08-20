@@ -127,8 +127,8 @@ async function postEconomyTransaction({ idempotencyKey, userId, type, movements,
 /**
  * Post an activity reward from a real source. A reward may contain any subset
  * of COIN/DZX/DZP; sources are never forced to mint all three currencies.
- * Squad is deliberately not a source: it is represented as a modifier on the
- * originating task/ad reward and is applied by the caller before posting.
+ * Squad is a modifier, not a standalone reward source. Its rate is supplied
+ * by the Squad subsystem/Admin configuration; no percentage is hard-coded here.
  */
 async function creditActivityReward({
   idempotencyKey,
@@ -143,20 +143,30 @@ async function creditActivityReward({
     throw new Error('Invalid activity reward source');
   }
 
-  const reward = { coin: Number(coin), dzx: Number(dzx), dzp: Number(dzp) };
-  for (const [currency, amount] of Object.entries(reward)) {
+  const baseReward = { coin: Number(coin), dzx: Number(dzx), dzp: Number(dzp) };
+  for (const [currency, amount] of Object.entries(baseReward)) {
     if (!Number.isFinite(amount) || amount < 0) throw new Error(`${currency} must be a non-negative number`);
   }
-  if (reward.coin === 0 && reward.dzx === 0 && reward.dzp === 0) {
+  if (baseReward.coin === 0 && baseReward.dzx === 0 && baseReward.dzp === 0) {
     throw new Error('At least one reward currency is required');
   }
 
   if (!Array.isArray(modifiers)) throw new Error('modifiers must be an array');
+  let multiplier = 1;
+  const normalizedModifiers = [];
   for (const modifier of modifiers) {
     if (!modifier || modifier.type !== 'squad') throw new Error('Unsupported reward modifier');
     const rate = Number(modifier.rate);
     if (!Number.isFinite(rate) || rate < 0) throw new Error('Invalid squad modifier rate');
+    multiplier *= 1 + rate;
+    normalizedModifiers.push({ type: 'squad', rate });
   }
+
+  const reward = {
+    coin: baseReward.coin * multiplier,
+    dzx: baseReward.dzx * multiplier,
+    dzp: baseReward.dzp * multiplier,
+  };
 
   const movements = [];
   if (reward.coin > 0) movements.push({ currency: 'COIN', amount: reward.coin, source });
@@ -167,7 +177,12 @@ async function creditActivityReward({
     idempotencyKey,
     userId,
     type: 'REWARD',
-    metadata: { source, modifiers },
+    metadata: {
+      source,
+      base_reward: baseReward,
+      final_reward: reward,
+      modifiers: normalizedModifiers,
+    },
     movements,
   });
 }
