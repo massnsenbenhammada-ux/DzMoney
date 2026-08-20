@@ -1,103 +1,104 @@
 # DzMoney 2.0 — Implementation Status
 
-## Current Overall Status
+## Current state
 
-**Current phase:** Phase 1 — Core Database & Ledger
+**Current phase:** Phase 1 — Core Foundation
 
-**Overall completion:** Phase 0 completed; Phase 1 in progress
+**Specification:** `PROJECT_ROADMAP.md` is now the latest agreed DzMoney 2.0 specification.
 
-**Repository state:** Clean rebuild. Legacy application code is intentionally excluded.
+**Repository:** clean rebuild on the new PostgreSQL database. Legacy BUX/core compatibility architecture is not part of the new system.
 
-## Phase 0 — Specification & Architecture
+## Phase 0 — Specification Lock
 
-**Status:** 🟢 Completed
+🟢 Completed
 
-The agreed business rules and roadmap are preserved in `PROJECT_ROADMAP.md`.
+- Final currency model agreed: COIN / DZX / DZP / TON.
+- Final referral model agreed: one level, lifetime 20% from base activity only, separate from Squad.
+- Final hierarchical Squad model agreed: 10 Admin-defined levels and next-day activation after both member-count and 50% activity conditions.
+- Final Reward Pool model agreed: daily TON pool, 10 Reward Pool-page ads required, DZP-based weight, package multiplier, purchased DZP excluded from weight.
+- Package model agreed: one active package, six durations.
+- User-created task model agreed: Game/Social/Web available; Partner/Special requires Admin contact.
+- Deposit, purchase and withdrawal direction agreed.
+- Home/user drawer/UI structure agreed.
+- Admin operational-control requirements agreed.
 
-## Phase 1 — Core Database & Ledger
+## Phase 1 — Core Foundation
 
-**Status:** 🟡 In progress
+🟡 In progress
 
-### Implemented in clean rebuild
-- 🟢 Minimal Node/Express runtime.
-- 🟢 PostgreSQL connection and transaction helper.
-- 🟢 Migration runner with migration tracking.
-- 🟢 Production start now applies clean migrations before starting the server.
-- 🟢 Users and Telegram identity.
-- 🟢 COIN, DZX, DZP and TON wallet accounts.
-- 🟢 Earned DZP and purchased DZP separation.
-- 🟢 Wallet provisioning service.
-- 🟢 Atomic ledger transaction service with row locking.
-- 🟢 Ledger transactions with idempotency key.
-- 🟢 Ledger entries with balance-before/balance-after.
-- 🟢 Admin settings stored in PostgreSQL.
-- 🟢 Admin audit log foundation.
-- 🟢 Idempotency record store.
-- 🟢 Default economic and operational settings seeded in the database.
+### Implemented
+
+- 🟢 Clean Node/Express runtime.
+- 🟢 PostgreSQL connection/transaction helper.
+- 🟢 Clean migration runner.
+- 🟢 Core user/wallet/ledger schema foundation.
+- 🟢 Wallet provisioning service foundation.
+- 🟢 Atomic ledger transaction service foundation.
+- 🟢 Idempotency foundation.
 - 🟢 `/health` runtime endpoint.
-- 🟢 `/health/db` database connectivity endpoint.
-- 🟢 Core smoke-test script for database, migrations and wallet provisioning.
+- 🟢 `/health/db` database diagnostic endpoint.
+- 🟢 Core smoke-test foundation.
 
-### Remaining before Phase 1 completion
-- ⬜ Add dedicated ledger reconciliation checks.
-- ⬜ Expand automated ledger tests, including insufficient-balance and idempotency cases.
-- ⬜ Run the smoke tests against the production PostgreSQL deployment.
-- ⬜ Verify production `/health` and `/health/db` after redeploy.
+### Remaining
 
-## Phase 2 — Economy & Conversion Engine
+- ⬜ Complete automated ledger tests.
+- ⬜ Add reconciliation checks.
+- ⬜ Validate all migrations against the new production PostgreSQL.
+- ⬜ Validate wallet and ledger concurrency behavior.
+- ⬜ Final Phase 1 sign-off.
 
-**Status:** ⬜ Not started
+## Phase 2 — Economy & Conversion
 
-## Phase 3 — Tasks, Ads & Activity Engine
+⬜ Not started
 
-**Status:** ⬜ Not started
+## Phase 3 — Activity / Ads / Tasks
 
-## Phase 4 — Referral System
+⬜ Not started
 
-**Status:** ⬜ Not started
+## Phase 4 — Referral
 
-## Phase 5 — Hierarchical Squad Engine
+⬜ Not started
 
-**Status:** ⬜ Not started
+## Phase 5 — Squad
 
-## Phase 6 — Packages & Weight Engine
+⬜ Not started
 
-**Status:** ⬜ Not started
+## Phase 6 — Packages & Weight
+
+⬜ Not started
 
 ## Phase 7 — Reward Pool
 
-**Status:** ⬜ Not started
+⬜ Not started
 
-## Phase 8 — Wallet, Deposit & Withdrawal
+## Phase 8 — User-Created Tasks & Commercial Engine
 
-**Status:** ⬜ Not started
+⬜ Not started
 
-## Phase 9 — User App UI/UX
+## Phase 9 — Deposit / Purchase / Withdrawal
 
-**Status:** ⬜ Not started
+⬜ Not started
 
-## Phase 10 — Admin Panel
+## Phase 10 — User UI/UX
 
-**Status:** ⬜ Not started
+⬜ Not started
 
-## Phase 11 — Security, Anti-Fraud & Reliability
+## Phase 11 — Admin Panel
 
-**Status:** ⬜ Not started
+⬜ Not started
 
-## Phase 12 — Testing, Integration & Production
+## Phase 12 — Security / Testing / Production
 
-**Status:** ⬜ Not started
+⬜ Not started
 
 ## Change Log
 
 ### 2026-08-20
-- Reset the repository to a clean 2.0 rebuild.
-- Removed legacy application code and compatibility layers.
-- Started Phase 1 again from the clean repository.
-- Added the minimal runtime, PostgreSQL layer, migration runner and core schema.
-- Added wallet provisioning and atomic ledger services.
-- Added database health checking and core smoke tests.
-- Production start command now runs the clean migration runner before `server.js`.
+- Replaced the old roadmap with the latest agreed DzMoney 2.0 specification.
+- Explicitly removed legacy BUX/core architecture from the project specification.
+- Added the final agreed currency, conversion, referral, Squad, Reward Pool, package, task, user-created-task, deposit, purchase, withdrawal, UI and Admin requirements.
+- Clarified that unresolved business rules must not be invented during implementation.
+- Phase 1 remains in progress; no later phase is marked complete without implementation and testing.
 
 ## Update Rule
 
