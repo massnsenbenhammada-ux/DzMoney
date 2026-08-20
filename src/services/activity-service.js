@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
-const { creditActivityReward } = require('./economy-service');
+const { creditActivityRewardOnClient } = require('./economy-service');
 
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
 const TASK_STATUSES = ['draft', 'pending_review', 'active', 'paused', 'completed', 'expired', 'closed', 'refunded'];
@@ -9,13 +9,11 @@ function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
   return value;
 }
-
 function normalizeReward(value, name) {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n) || n < 0) throw new Error(`${name} must be a non-negative number`);
   return n;
 }
-
 async function getActivitySetting(client, key, fallback) {
   const result = await client.query('SELECT value FROM admin_settings WHERE key = $1', [key]);
   if (!result.rowCount) return fallback;
@@ -23,44 +21,17 @@ async function getActivitySetting(client, key, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-async function createTask({
-  taskType,
-  title,
-  description = null,
-  rewardCoin,
-  rewardDzx,
-  rewardDzp,
-  verificationAdSeconds = null,
-  config = {},
-}) {
+async function createTask({ taskType, title, description = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
   if (!TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
   if (!title) throw new Error('title is required');
-
   return withTransaction(async client => {
-    const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(
-      client,
-      'activity.verification_ad_seconds',
-      5
-    );
-    if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) {
-      throw new Error('verification ad duration must be 5 or 10 seconds');
-    }
-
-    const rewards = {
-      coin: normalizeReward(rewardCoin, 'rewardCoin'),
-      dzx: normalizeReward(rewardDzx, 'rewardDzx'),
-      dzp: normalizeReward(rewardDzp, 'rewardDzp'),
-    };
-    if (!rewards.coin && !rewards.dzx && !rewards.dzp) {
-      throw new Error('At least one task reward is required');
-    }
-
+    const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(client, 'activity.verification_ad_seconds', 5);
+    if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) throw new Error('verification ad duration must be 5 or 10 seconds');
+    const rewards = { coin: normalizeReward(rewardCoin, 'rewardCoin'), dzx: normalizeReward(rewardDzx, 'rewardDzx'), dzp: normalizeReward(rewardDzp, 'rewardDzp') };
+    if (!rewards.coin && !rewards.dzx && !rewards.dzp) throw new Error('At least one task reward is required');
     const result = await client.query(
-      `INSERT INTO activity_tasks
-        (task_type, title, description, reward_coin, reward_dzx, reward_dzp,
-         verification_ad_seconds, status, config)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'draft',$8)
-       RETURNING *`,
+      `INSERT INTO activity_tasks (task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds, status, config)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'draft',$8) RETURNING *`,
       [taskType, title, description, rewards.coin, rewards.dzx, rewards.dzp, Number(configuredSeconds), config]
     );
     return result.rows[0];
@@ -68,17 +39,10 @@ async function createTask({
 }
 
 async function activateTask(taskId) {
-  const result = await query(
-    `UPDATE activity_tasks
-     SET status = 'active', updated_at = NOW()
-     WHERE id = $1 AND status IN ('draft', 'pending_review', 'paused')
-     RETURNING *`,
-    [requiredId(taskId, 'taskId')]
-  );
+  const result = await query(`UPDATE activity_tasks SET status = 'active', updated_at = NOW() WHERE id = $1 AND status IN ('draft','pending_review','paused') RETURNING *`, [requiredId(taskId, 'taskId')]);
   if (!result.rowCount) throw new Error('Task cannot be activated from its current state');
   return result.rows[0];
 }
-
 async function getTask(taskId) {
   const result = await query('SELECT * FROM activity_tasks WHERE id = $1', [requiredId(taskId, 'taskId')]);
   if (!result.rowCount) throw new Error('Task not found');
@@ -86,82 +50,46 @@ async function getTask(taskId) {
 }
 
 async function executeTask({ taskId, userId, idempotencyKey, metadata = {} }) {
-  requiredId(taskId, 'taskId');
-  requiredId(userId, 'userId');
-  requiredId(idempotencyKey, 'idempotencyKey');
-
+  requiredId(taskId, 'taskId'); requiredId(userId, 'userId'); requiredId(idempotencyKey, 'idempotencyKey');
   return withTransaction(async client => {
-    const taskResult = await client.query(
-      `SELECT * FROM activity_tasks WHERE id = $1 FOR SHARE`,
-      [taskId]
-    );
+    const taskResult = await client.query('SELECT * FROM activity_tasks WHERE id = $1 FOR SHARE', [taskId]);
     if (!taskResult.rowCount) throw new Error('Task not found');
     const task = taskResult.rows[0];
     if (task.status !== 'active') throw new Error('Task is not active');
-
-    const existing = await client.query(
-      `SELECT * FROM task_attempts WHERE execute_idempotency_key = $1 FOR SHARE`,
-      [idempotencyKey]
-    );
+    const existing = await client.query('SELECT * FROM task_attempts WHERE execute_idempotency_key = $1 FOR SHARE', [idempotencyKey]);
     if (existing.rowCount) return { attempt: existing.rows[0], duplicate: true };
-
     const attempt = await client.query(
-      `INSERT INTO task_attempts
-        (task_id, user_id, status, execute_idempotency_key, metadata)
-       VALUES ($1,$2,'verification_pending',$3,$4)
-       RETURNING *`,
+      `INSERT INTO task_attempts (task_id, user_id, status, execute_idempotency_key, metadata)
+       VALUES ($1,$2,'verification_pending',$3,$4) RETURNING *`,
       [taskId, userId, idempotencyKey, metadata]
     );
-
-    const gateKey = `verification:${attempt.rows[0].id}`;
     const gate = await client.query(
-      `INSERT INTO task_verification_gates
-        (attempt_id, required_seconds, idempotency_key, metadata)
-       VALUES ($1,$2,$3,$4)
-       RETURNING *`,
-      [attempt.rows[0].id, task.verification_ad_seconds, gateKey, { task_id: taskId }]
+      `INSERT INTO task_verification_gates (attempt_id, required_seconds, idempotency_key, metadata)
+       VALUES ($1,$2,$3,$4) RETURNING *`,
+      [attempt.rows[0].id, task.verification_ad_seconds, `verification:${attempt.rows[0].id}`, { task_id: taskId }]
     );
-
     return { task, attempt: attempt.rows[0], gate: gate.rows[0], duplicate: false };
   });
 }
 
 async function startVerificationAd({ attemptId, idempotencyKey, externalAdId = null }) {
-  requiredId(attemptId, 'attemptId');
-  requiredId(idempotencyKey, 'idempotencyKey');
-
+  requiredId(attemptId, 'attemptId'); requiredId(idempotencyKey, 'idempotencyKey');
   return withTransaction(async client => {
     const gateResult = await client.query(
-      `SELECT g.*, a.user_id, a.status AS attempt_status
-       FROM task_verification_gates g
-       JOIN task_attempts a ON a.id = g.attempt_id
-       WHERE g.attempt_id = $1
-       FOR UPDATE`,
-      [attemptId]
+      `SELECT g.*, a.user_id, a.status AS attempt_status FROM task_verification_gates g
+       JOIN task_attempts a ON a.id = g.attempt_id WHERE g.attempt_id = $1 FOR UPDATE`, [attemptId]
     );
     if (!gateResult.rowCount) throw new Error('Verification gate not found');
     const gate = gateResult.rows[0];
     if (gate.attempt_status !== 'verification_pending') throw new Error('Task attempt is not awaiting verification');
-
-    const existing = await client.query(
-      `SELECT * FROM activity_ad_events WHERE idempotency_key = $1 FOR SHARE`,
-      [idempotencyKey]
-    );
+    const existing = await client.query('SELECT * FROM activity_ad_events WHERE idempotency_key = $1 FOR SHARE', [idempotencyKey]);
     if (existing.rowCount) return { gate, adEvent: existing.rows[0], duplicate: true };
-
     const adEvent = await client.query(
-      `INSERT INTO activity_ad_events
-        (user_id, context, external_ad_id, idempotency_key, metadata)
-       VALUES ($1,'verification',$2,$3,$4)
-       RETURNING *`,
+      `INSERT INTO activity_ad_events (user_id, context, external_ad_id, idempotency_key, metadata)
+       VALUES ($1,'verification',$2,$3,$4) RETURNING *`,
       [gate.user_id, externalAdId, idempotencyKey, { attempt_id: attemptId, required_seconds: gate.required_seconds }]
     );
-
-    await client.query(
-      `UPDATE task_verification_gates SET ad_event_id = $1, metadata = metadata || $2::jsonb WHERE id = $3`,
-      [adEvent.rows[0].id, JSON.stringify({ verification_ad_id: adEvent.rows[0].id }), gate.id]
-    );
-
+    await client.query(`UPDATE task_verification_gates SET ad_event_id = $1, metadata = metadata || $2::jsonb WHERE id = $3`, [adEvent.rows[0].id, JSON.stringify({ verification_ad_id: adEvent.rows[0].id }), gate.id]);
     return { gate: { ...gate, ad_event_id: adEvent.rows[0].id }, adEvent: adEvent.rows[0], duplicate: false };
   });
 }
@@ -169,68 +97,37 @@ async function startVerificationAd({ attemptId, idempotencyKey, externalAdId = n
 async function completeVerificationAd({ adEventId, completed = true }) {
   requiredId(adEventId, 'adEventId');
   if (!completed) throw new Error('Verification advertisement was not completed');
-
   return withTransaction(async client => {
-    const ad = await client.query(
-      `SELECT * FROM activity_ad_events WHERE id = $1 AND context = 'verification' FOR UPDATE`,
-      [adEventId]
-    );
+    const ad = await client.query(`SELECT * FROM activity_ad_events WHERE id = $1 AND context = 'verification' FOR UPDATE`, [adEventId]);
     if (!ad.rowCount) throw new Error('Verification ad event not found');
     if (ad.rows[0].verified) return { adEvent: ad.rows[0], duplicate: true };
-
-    const updated = await client.query(
-      `UPDATE activity_ad_events
-       SET completed_at = NOW(), verified = TRUE
-       WHERE id = $1
-       RETURNING *`,
-      [adEventId]
-    );
-    await client.query(
-      `UPDATE task_verification_gates
-       SET status = 'ad_completed', ad_completed_at = NOW()
-       WHERE ad_event_id = $1 AND status = 'pending'`,
-      [adEventId]
-    );
+    const updated = await client.query(`UPDATE activity_ad_events SET completed_at = NOW(), verified = TRUE WHERE id = $1 RETURNING *`, [adEventId]);
+    await client.query(`UPDATE task_verification_gates SET status = 'ad_completed', ad_completed_at = NOW() WHERE ad_event_id = $1 AND status = 'pending'`, [adEventId]);
     return { adEvent: updated.rows[0], duplicate: false };
   });
 }
 
 async function finalizeTaskVerification({ attemptId, idempotencyKey, taskSatisfied }) {
-  requiredId(attemptId, 'attemptId');
-  requiredId(idempotencyKey, 'idempotencyKey');
-
+  requiredId(attemptId, 'attemptId'); requiredId(idempotencyKey, 'idempotencyKey');
   return withTransaction(async client => {
-    const attemptResult = await client.query(
+    const result = await client.query(
       `SELECT a.*, t.reward_coin, t.reward_dzx, t.reward_dzp, t.id AS task_id,
-              g.id AS gate_id, g.status AS gate_status, g.required_seconds, g.ad_event_id
-       FROM task_attempts a
-       JOIN activity_tasks t ON t.id = a.task_id
+              g.id AS gate_id, g.status AS gate_status
+       FROM task_attempts a JOIN activity_tasks t ON t.id = a.task_id
        JOIN task_verification_gates g ON g.attempt_id = a.id
-       WHERE a.id = $1
-       FOR UPDATE`,
-      [attemptId]
+       WHERE a.id = $1 FOR UPDATE`, [attemptId]
     );
-    if (!attemptResult.rowCount) throw new Error('Task attempt not found');
-    const row = attemptResult.rows[0];
-
-    if (row.status === 'verified') {
-      return { duplicate: true, status: 'verified' };
-    }
+    if (!result.rowCount) throw new Error('Task attempt not found');
+    const row = result.rows[0];
+    if (row.status === 'verified') return { duplicate: true, status: 'verified' };
     if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
     if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be completed first');
     if (taskSatisfied !== true) {
-      await client.query(
-        `UPDATE task_attempts SET status = 'rejected', rejected_at = NOW() WHERE id = $1`,
-        [attemptId]
-      );
-      await client.query(
-        `UPDATE task_verification_gates SET status = 'rejected' WHERE id = $1`,
-        [row.gate_id]
-      );
+      await client.query(`UPDATE task_attempts SET status = 'rejected', rejected_at = NOW() WHERE id = $1`, [attemptId]);
+      await client.query(`UPDATE task_verification_gates SET status = 'rejected' WHERE id = $1`, [row.gate_id]);
       return { duplicate: false, status: 'rejected', rewarded: false };
     }
-
-    const reward = await creditActivityReward({
+    const reward = await creditActivityRewardOnClient(client, {
       idempotencyKey,
       userId: row.user_id,
       source: 'task',
@@ -239,33 +136,18 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, taskSatisfi
       dzp: Number(row.reward_dzp),
       modifiers: [],
     });
-
-    await client.query(
-      `UPDATE task_attempts
-       SET status = 'verified', verify_idempotency_key = $1, verified_at = NOW()
-       WHERE id = $2`,
-      [idempotencyKey, attemptId]
-    );
-    await client.query(
-      `UPDATE task_verification_gates SET status = 'verified', verified_at = NOW() WHERE id = $1`,
-      [row.gate_id]
-    );
-
+    await client.query(`UPDATE task_attempts SET status = 'verified', verify_idempotency_key = $1, verified_at = NOW() WHERE id = $2`, [idempotencyKey, attemptId]);
+    await client.query(`UPDATE task_verification_gates SET status = 'verified', verified_at = NOW() WHERE id = $1`, [row.gate_id]);
     return { duplicate: false, status: 'verified', rewarded: true, reward };
   });
 }
 
 async function recordAdvertisementCompletion({ userId, context, idempotencyKey, externalAdId = null, metadata = {} }) {
-  requiredId(userId, 'userId');
-  requiredId(idempotencyKey, 'idempotencyKey');
+  requiredId(userId, 'userId'); requiredId(idempotencyKey, 'idempotencyKey');
   if (!['task', 'reward_pool', 'daily_checkin', 'verification'].includes(context)) throw new Error('Invalid advertisement context');
-
   const result = await query(
-    `INSERT INTO activity_ad_events
-      (user_id, context, external_ad_id, idempotency_key, started_at, completed_at, verified, metadata)
-     VALUES ($1,$2,$3,$4,NOW(),NOW(),TRUE,$5)
-     ON CONFLICT (idempotency_key) DO NOTHING
-     RETURNING *`,
+    `INSERT INTO activity_ad_events (user_id, context, external_ad_id, idempotency_key, started_at, completed_at, verified, metadata)
+     VALUES ($1,$2,$3,$4,NOW(),NOW(),TRUE,$5) ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`,
     [userId, context, externalAdId, idempotencyKey, metadata]
   );
   if (result.rowCount) return { adEvent: result.rows[0], duplicate: false };
@@ -273,15 +155,4 @@ async function recordAdvertisementCompletion({ userId, context, idempotencyKey, 
   return { adEvent: existing.rows[0], duplicate: true };
 }
 
-module.exports = {
-  TASK_TYPES,
-  TASK_STATUSES,
-  createTask,
-  activateTask,
-  getTask,
-  executeTask,
-  startVerificationAd,
-  completeVerificationAd,
-  finalizeTaskVerification,
-  recordAdvertisementCompletion,
-};
+module.exports = { TASK_TYPES, TASK_STATUSES, createTask, activateTask, getTask, executeTask, startVerificationAd, completeVerificationAd, finalizeTaskVerification, recordAdvertisementCompletion };
