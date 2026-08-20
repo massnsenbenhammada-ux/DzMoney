@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
-const { tonToDZX, postEconomyTransaction } = require('./economy-service');
+const { tonToDZX, postEconomyTransactionOnClient } = require('./economy-service');
 
 function positiveNumber(value, name) {
   const n = Number(value);
@@ -40,12 +40,31 @@ function assertTxHash(txHash) {
   return txHash.trim();
 }
 
+async function creditConfirmedDeposit(client, deposit, confirmationCount, extraMetadata = {}) {
+  return postEconomyTransactionOnClient(client, {
+    idempotencyKey: `deposit:${deposit.id}`,
+    userId: deposit.user_id,
+    type: 'DEPOSIT',
+    metadata: {
+      source: 'deposit',
+      deposit_id: deposit.id,
+      blockchain: deposit.blockchain,
+      tx_hash: deposit.tx_hash,
+      ton_amount: Number(deposit.ton_amount),
+      dzx_amount: Number(deposit.dzx_amount),
+      confirmation_count: confirmationCount,
+      required_confirmations: Number(deposit.required_confirmations),
+      ...extraMetadata,
+    },
+    movements: [{ currency: 'DZX', amount: Number(deposit.dzx_amount), source: 'deposit' }],
+  });
+}
+
 /**
  * Record a blockchain deposit observation. Funds are credited only when the
  * supplied confirmation count reaches the configured threshold.
- * This service intentionally does not pretend to verify TON on-chain data;
- * the blockchain adapter is responsible for supplying a verified tx hash,
- * amount, and confirmation count.
+ * The blockchain adapter is responsible for supplying a verified tx hash,
+ * amount, and confirmation count; this service never pretends to query TON.
  */
 async function processDeposit({
   idempotencyKey,
@@ -106,23 +125,7 @@ async function processDeposit({
     const deposit = inserted.rows[0];
     if (!confirmed) return { deposit, duplicate: false, credited: false };
 
-    const economy = await postEconomyTransaction({
-      idempotencyKey: `deposit:${deposit.id}`,
-      userId,
-      type: 'DEPOSIT',
-      metadata: {
-        source: 'deposit',
-        deposit_id: deposit.id,
-        blockchain: 'TON',
-        tx_hash: hash,
-        ton_amount: amount,
-        dzx_amount: dzxAmount,
-        confirmation_count: confirmations,
-        required_confirmations: requiredConfirmations,
-      },
-      movements: [{ currency: 'DZX', amount: dzxAmount, source: 'deposit' }],
-    });
-
+    const economy = await creditConfirmedDeposit(client, deposit, confirmations);
     return { deposit, economy, duplicate: false, credited: true };
   });
 }
@@ -143,9 +146,7 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
 
     const deposit = row.rows[0];
     if (deposit.status === 'REJECTED') throw new Error('Rejected deposit cannot be confirmed');
-    if (deposit.status === 'CONFIRMED') {
-      return { deposit, duplicate: true, credited: true };
-    }
+    if (deposit.status === 'CONFIRMED') return { deposit, duplicate: true, credited: true };
 
     const requiredConfirmations = Number(deposit.required_confirmations);
     if (confirmations < requiredConfirmations) {
@@ -174,23 +175,7 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
     );
 
     const confirmedDeposit = updated.rows[0];
-    const economy = await postEconomyTransaction({
-      idempotencyKey: `deposit:${confirmedDeposit.id}`,
-      userId: confirmedDeposit.user_id,
-      type: 'DEPOSIT',
-      metadata: {
-        source: 'deposit',
-        deposit_id: confirmedDeposit.id,
-        blockchain: confirmedDeposit.blockchain,
-        tx_hash: confirmedDeposit.tx_hash,
-        ton_amount: Number(confirmedDeposit.ton_amount),
-        dzx_amount: Number(confirmedDeposit.dzx_amount),
-        confirmation_count: confirmations,
-        required_confirmations: requiredConfirmations,
-      },
-      movements: [{ currency: 'DZX', amount: Number(confirmedDeposit.dzx_amount), source: 'deposit' }],
-    });
-
+    const economy = await creditConfirmedDeposit(client, confirmedDeposit, confirmations, metadata);
     return { deposit: confirmedDeposit, economy, duplicate: false, credited: true };
   });
 }
