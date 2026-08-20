@@ -1,4 +1,4 @@
-const { withTransaction, query } = require('../db/pool');
+const { withTransaction, withSerializableTransaction, query } = require('../db/pool');
 const { postEconomyTransactionOnClient, TON_DZX } = require('./economy-service');
 
 function positiveNumber(value, name) {
@@ -41,8 +41,6 @@ function assertTxHash(txHash) {
 }
 
 async function lockUserDeposits(client, userId) {
-  // Lock the canonical user row. This serializes all deposit operations for one
-  // user on PostgreSQL and makes the daily-limit check race-safe across clients.
   const result = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
   if (!result.rowCount) throw new Error('User not found');
 }
@@ -203,7 +201,10 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
     throw new Error('confirmationCount must be a non-negative integer');
   }
 
-  return withTransaction(async client => {
+  // The daily-limit decision and the confirmation/credit are one serializable
+  // unit. Concurrent confirmations for the same user are retried after a
+  // serialization conflict and therefore observe the committed prior deposit.
+  return withSerializableTransaction(async client => {
     const row = await client.query(
       `SELECT * FROM deposits WHERE idempotency_key = $1 FOR UPDATE`,
       [idempotencyKey]
