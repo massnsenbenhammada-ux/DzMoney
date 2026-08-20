@@ -1,6 +1,7 @@
 const { withTransaction, query } = require('../db/pool');
 
 const INTERNAL_CURRENCIES = ['COIN', 'DZX', 'DZP'];
+const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'reward_pool', 'promo'];
 const TON_DZX = 10000;
 const TON_COIN = 10000000;
 const DZX_COIN = 1000;
@@ -123,20 +124,51 @@ async function postEconomyTransaction({ idempotencyKey, userId, type, movements,
   });
 }
 
-async function creditActivityReward({ idempotencyKey, userId, source = 'advertisement', coin, dzx, dzp }) {
-  if (!['advertisement', 'task', 'referral', 'reward_pool', 'promo', 'squad'].includes(source)) {
+/**
+ * Post an activity reward from a real source. A reward may contain any subset
+ * of COIN/DZX/DZP; sources are never forced to mint all three currencies.
+ * Squad is deliberately not a source: it is represented as a modifier on the
+ * originating task/ad reward and is applied by the caller before posting.
+ */
+async function creditActivityReward({
+  idempotencyKey,
+  userId,
+  source = 'advertisement',
+  coin = 0,
+  dzx = 0,
+  dzp = 0,
+  modifiers = [],
+}) {
+  if (!ACTIVITY_REWARD_SOURCES.includes(source)) {
     throw new Error('Invalid activity reward source');
   }
+
+  const reward = { coin: Number(coin), dzx: Number(dzx), dzp: Number(dzp) };
+  for (const [currency, amount] of Object.entries(reward)) {
+    if (!Number.isFinite(amount) || amount < 0) throw new Error(`${currency} must be a non-negative number`);
+  }
+  if (reward.coin === 0 && reward.dzx === 0 && reward.dzp === 0) {
+    throw new Error('At least one reward currency is required');
+  }
+
+  if (!Array.isArray(modifiers)) throw new Error('modifiers must be an array');
+  for (const modifier of modifiers) {
+    if (!modifier || modifier.type !== 'squad') throw new Error('Unsupported reward modifier');
+    const rate = Number(modifier.rate);
+    if (!Number.isFinite(rate) || rate < 0) throw new Error('Invalid squad modifier rate');
+  }
+
+  const movements = [];
+  if (reward.coin > 0) movements.push({ currency: 'COIN', amount: reward.coin, source });
+  if (reward.dzx > 0) movements.push({ currency: 'DZX', amount: reward.dzx, source });
+  if (reward.dzp > 0) movements.push({ currency: 'DZP', amount: reward.dzp, source, dzpBucket: 'earned_dzp' });
+
   return postEconomyTransaction({
     idempotencyKey,
     userId,
     type: 'REWARD',
-    metadata: { source },
-    movements: [
-      { currency: 'COIN', amount: positiveNumber(coin, 'coin'), source },
-      { currency: 'DZX', amount: positiveNumber(dzx, 'dzx'), source },
-      { currency: 'DZP', amount: positiveNumber(dzp, 'dzp'), source, dzpBucket: 'earned_dzp' },
-    ],
+    metadata: { source, modifiers },
+    movements,
   });
 }
 
@@ -210,6 +242,7 @@ function dzxToTON(dzx) {
 
 module.exports = {
   INTERNAL_CURRENCIES,
+  ACTIVITY_REWARD_SOURCES,
   TON_DZX,
   TON_COIN,
   DZX_COIN,
