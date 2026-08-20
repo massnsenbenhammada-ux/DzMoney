@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS task_attempts (
 );
 CREATE INDEX IF NOT EXISTS idx_task_attempts_user_task ON task_attempts(user_id, task_id, executed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_task_attempts_status ON task_attempts(status);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_task_attempt_active ON task_attempts(task_id, user_id) WHERE status IN ('executed', 'verification_pending');
 
 CREATE TABLE IF NOT EXISTS activity_ad_events (
   id BIGSERIAL PRIMARY KEY,
