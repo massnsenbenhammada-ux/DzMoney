@@ -22,6 +22,27 @@ async function balance(userId, currency) {
   return Number(result.rows[0].balance);
 }
 
+async function cleanupTestData(userId, taskId) {
+  await withTransaction(async client => {
+    // Ledger entries intentionally RESTRICT wallet deletion. Remove test ledger data first.
+    await client.query(
+      `DELETE FROM ledger_entries
+       WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)
+          OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)`,
+      [userId]
+    );
+    await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
+
+    await client.query('DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)', [userId]);
+    await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
+    await client.query('DELETE FROM task_attempts WHERE user_id=$1', [userId]);
+    if (taskId) {
+      await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+    }
+    await client.query('DELETE FROM users WHERE id=$1', [userId]);
+  });
+}
+
 async function main() {
   let userId;
   let taskId;
@@ -66,6 +87,7 @@ async function main() {
 
     const ads = await pool.query(`SELECT context, verified FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
     assert.ok(ads.rows.length === 2 && ads.rows.every(row => row.context === 'verification' && row.verified));
+
     const ledger = await pool.query(
       `SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`,
       [userId]
@@ -73,22 +95,26 @@ async function main() {
     assert.strictEqual(ledger.rows[0].count, 3);
 
     console.log('Phase 2 task verification invariants: PASS');
+  } catch (error) {
+    console.error('Phase 2 task verification invariants: FAIL');
+    console.error(error);
+    process.exitCode = 1;
   } finally {
     if (userId) {
-      await withTransaction(async client => {
-        await client.query(`DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)`, [userId]);
-        await client.query(`DELETE FROM activity_ad_events WHERE user_id=$1`, [userId]);
-        await client.query(`DELETE FROM task_attempts WHERE user_id=$1`, [userId]);
-        if (taskId) await client.query(`DELETE FROM activity_tasks WHERE id=$1`, [taskId]);
-        await client.query(`DELETE FROM users WHERE id=$1`, [userId]);
-      });
+      try {
+        await cleanupTestData(userId, taskId);
+      } catch (cleanupError) {
+        console.error('Phase 2 test cleanup: FAIL');
+        console.error(cleanupError);
+        process.exitCode = 1;
+      }
     }
     await pool.end();
   }
 }
 
 main().catch(error => {
-  console.error('Phase 2 task verification invariants: FAIL');
+  console.error('Phase 2 test runner: FAIL');
   console.error(error);
   process.exit(1);
 });
