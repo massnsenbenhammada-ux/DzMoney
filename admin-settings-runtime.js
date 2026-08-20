@@ -1,8 +1,9 @@
 "use strict";
 
 // Final runtime authority for Admin Settings.
-// This is deliberately installed after the legacy compatibility layers and
-// before server.listen() so /api/admin/settings has one deterministic writer.
+// Accept both the current Admin Panel payload ({settings:{...}}) and the
+// legacy/direct payload ({key:value,...}) so the backend contract stays
+// compatible without changing the Admin UI.
 const express = require("express");
 const { Pool } = require("pg");
 
@@ -45,12 +46,21 @@ function validNum(v) { const s=String(v), n=Number(s); return /^\d+(\.\d+)?$/.te
 async function save(req,res) {
   const id = await adminId(req);
   if (!id) return res.status(401).json({success:false,message:"Admin session expired."});
-  const body=req.body?.settings;
-  if (!body || typeof body !== "object" || Array.isArray(body)) return res.status(400).json({success:false,message:"settings object is required."});
+
+  // Current Admin UI sends the settings as a flat JSON object. Some older
+  // clients send { settings: {...} }. Support both without touching the UI.
+  const body = req.body?.settings && typeof req.body.settings === "object" && !Array.isArray(req.body.settings)
+    ? req.body.settings
+    : req.body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return res.status(400).json({success:false,message:"settings object is required."});
+  }
+
   const values={};
   for (const [key,raw] of Object.entries(body)) {
-    if (!EDITABLE.has(key)) return res.status(400).json({success:false,message:`Unknown or protected setting: ${key}`});
-    const v=String(raw).trim(); if(!v) return res.status(400).json({success:false,message:`${key} cannot be empty.`});
+    if (!EDITABLE.has(key)) continue;
+    const v=String(raw).trim();
+    if(!v) return res.status(400).json({success:false,message:`${key} cannot be empty.`});
     if (["daily_reward_coins","daily_reward_bux","minimum_withdraw_bux","withdrawal_fee_bux","daily_ads_limit"].includes(key) && !validInt(v,key==="minimum_withdraw_bux")) return res.status(400).json({success:false,message:`Invalid ${key}.`});
     if (["referral_percentage","dzp_default_activity","dzp_ad_reward","dzp_referral_reward"].includes(key) && !validNum(v)) return res.status(400).json({success:false,message:`Invalid ${key}.`});
     if (key==="referral_percentage" && Number(v)>100) return res.status(400).json({success:false,message:"Referral percentage must be between 0 and 100."});
@@ -58,6 +68,7 @@ async function save(req,res) {
     if (RATE_KEYS.has(key) && !validNum(v)) return res.status(400).json({success:false,message:`Invalid ${key}.`});
     values[key]=v;
   }
+  if (!Object.keys(values).length) return res.status(400).json({success:false,message:"No editable settings were supplied."});
 
   const client=await pool.connect();
   try {
