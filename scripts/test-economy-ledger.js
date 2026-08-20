@@ -110,7 +110,9 @@ async function main() {
        WHERE lt.user_id = $1`,
       [user.id]
     );
-    assert.ok(Number(ledger.rows[0].count) >= 9);
+    // Phase 1 creates 8 ledger entries: 3 reward + 2 COIN conversion + 2 DZX conversion + 1 purchase.
+    // The overspend transaction is rolled back, so it must not leave a ledger entry behind.
+    assert.equal(Number(ledger.rows[0].count), 8);
 
     const badBalances = await query(
       `SELECT COUNT(*)::int AS count
