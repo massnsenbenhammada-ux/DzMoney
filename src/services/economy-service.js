@@ -34,17 +34,8 @@ async function getEconomySettings() {
 }
 
 async function walletForUpdate(client, userId, currency) {
+  if (!userId) throw new Error('userId is required');
   if (!INTERNAL_CURRENCIES.includes(currency)) throw new Error('Unsupported internal currency');
-
-  // Wallet provisioning is idempotent. This also repairs an incomplete wallet set
-  // for an existing user without introducing any legacy/TON compatibility logic.
-  await client.query(
-    `INSERT INTO wallet_accounts (user_id, currency)
-     VALUES ($1, $2)
-     ON CONFLICT (user_id, currency) DO NOTHING`,
-    [userId, currency]
-  );
-
   const result = await client.query(
     `SELECT id, balance, earned_dzp, converted_dzp, purchased_dzp
      FROM wallet_accounts
@@ -83,6 +74,7 @@ async function applyMovement(client, { userId, currency, amount, source, dzpBuck
 
 async function createTransaction(client, { idempotencyKey, userId, type, metadata }) {
   if (!idempotencyKey) throw new Error('idempotencyKey is required');
+  if (!userId) throw new Error('userId is required');
 
   const inserted = await client.query(
     `INSERT INTO ledger_transactions (idempotency_key, user_id, transaction_type, metadata)
@@ -103,6 +95,7 @@ async function createTransaction(client, { idempotencyKey, userId, type, metadat
 }
 
 async function postEconomyTransaction({ idempotencyKey, userId, type, movements, metadata = {} }) {
+  if (!userId) throw new Error('userId is required');
   if (!Array.isArray(movements) || movements.length === 0) throw new Error('movements are required');
 
   return withTransaction(async client => {
@@ -115,7 +108,7 @@ async function postEconomyTransaction({ idempotencyKey, userId, type, movements,
       if (!Number.isFinite(Number(movement.amount)) || Number(movement.amount) === 0) {
         throw new Error('Invalid economy movement amount');
       }
-      const entry = await applyMovement(client, { ...movement });
+      const entry = await applyMovement(client, { userId, ...movement });
       const row = await client.query(
         `INSERT INTO ledger_entries
            (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency)
