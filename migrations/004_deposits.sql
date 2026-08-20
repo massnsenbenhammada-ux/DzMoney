@@ -18,8 +18,11 @@ CREATE TABLE IF NOT EXISTS deposits (
 CREATE INDEX IF NOT EXISTS deposits_user_id_idx ON deposits(user_id);
 CREATE INDEX IF NOT EXISTS deposits_status_idx ON deposits(status);
 CREATE INDEX IF NOT EXISTS deposits_tx_hash_idx ON deposits(tx_hash);
+CREATE INDEX IF NOT EXISTS deposits_user_status_created_idx ON deposits(user_id, status, created_at);
 
 INSERT INTO admin_settings(key, value) VALUES
   ('deposit.required_confirmations', '1'::jsonb),
-  ('deposit.enabled', 'true'::jsonb)
+  ('deposit.enabled', 'true'::jsonb),
+  ('deposit.daily_limit_ton', '10'::jsonb),
+  ('deposit.pending_timeout_hours', '24'::jsonb)
 ON CONFLICT (key) DO NOTHING;
