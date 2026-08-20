@@ -11,9 +11,9 @@
 
 ## Current Overall Status
 
-**Current phase:** Phase 0 — Specification & Architecture
+**Current phase:** Phase 1 — Core Database & Ledger
 
-**Overall completion:** 0 completed implementation phases
+**Overall completion:** Phase 0 completed; Phase 1 in progress
 
 **Repository state:** New rebuild foundation. No legacy code is considered part of the new core unless explicitly ported, reviewed and validated.
 
@@ -21,7 +21,7 @@
 
 ## Phase 0 — Specification & Architecture
 
-**Status:** 🟡 In progress
+**Status:** 🟢 Completed
 
 ### Completed
 - 🟢 Core business rules collected and documented.
@@ -38,27 +38,54 @@
 - 🟢 User Home, User Drawer and Packages navigation requirements recorded.
 - 🟢 Admin Dashboard requirements recorded.
 - 🟢 Anti-fraud, notifications and audit responsibilities assigned to the architecture.
-- 🟢 `ROADMAP.md` created as the implementation contract.
+- 🟢 Module/service boundaries documented in `ARCHITECTURE.md`.
+- 🟢 Foundation API contracts documented in `docs/API_CONTRACTS.md`.
+- 🟢 PostgreSQL foundation schema defined in `migrations/001_core.sql`.
+- 🟢 UTC+1 daily-cycle rule documented.
+- 🟢 Idempotency strategy documented.
+- 🟢 Authorization model documented.
+- 🟢 Ledger immutability rules documented and represented in the schema.
 
-### Remaining before Phase 0 completion
-- ⬜ Final database ERD/schema.
-- ⬜ Final module/service boundaries.
-- ⬜ API contracts.
-- ⬜ Authorization model.
-- ⬜ Daily-cycle implementation design.
-- ⬜ Idempotency strategy documentation.
+### Validation
+- 🟢 Architecture reviewed against the agreed business rules.
+- 🟢 Admin-controlled values are represented as database settings rather than frontend constants.
+- 🟢 Earned/Purchased DZP accounting is explicitly separated.
+- 🟢 Reward Pool and Referral/Squad accounting are architecturally separated.
+
+### Evidence / commits
+- `0b56fa2cf2599ee3c114d4fb1bd27db30ef09982` — architecture and module boundaries.
+- `341c901f0678b4ae7ec5d12cd633133e5b43310a` — foundation API contracts.
+- `d04e5fd5817b8db951ed3e32bd8bba88a1f433cc` — core PostgreSQL schema foundation.
 
 ---
 
 ## Phase 1 — Core Database & Ledger
 
-**Status:** ⬜ Not started
+**Status:** 🟡 In progress
 
 ### Completed
-- None.
+- 🟢 Initial PostgreSQL core schema.
+- 🟢 Users and Telegram identity table.
+- 🟢 COIN/DZX/DZP/TON wallet accounts.
+- 🟢 Earned/Purchased DZP balance fields.
+- 🟢 Ledger transaction table with idempotency constraint.
+- 🟢 Immutable ledger entry table.
+- 🟢 Balance-before/balance-after audit fields.
+- 🟢 Admin settings store.
+- 🟢 Admin audit log.
+- 🟢 Idempotency record store.
+- 🟢 Default economy/operational settings seeded as database settings.
+
+### Remaining
+- ⬜ Implement server-side transaction service.
+- ⬜ Implement atomic wallet mutation service.
+- ⬜ Implement reconciliation service.
+- ⬜ Implement database migration runner/bootstrapping.
+- ⬜ Add automated database tests.
+- ⬜ Validate migration against a real PostgreSQL instance.
 
 ### Evidence / commits
-- None.
+- `d04e5fd5817b8db951ed3e32bd8bba88a1f433cc` — core schema and ledger foundation.
 
 ---
 
@@ -197,9 +224,10 @@
 ## Change Log
 
 ### 2026-08-20
-- Created the new implementation roadmap.
-- Created this implementation status tracker.
-- No implementation phase has been falsely marked as complete.
+- Created the new implementation roadmap and status tracker.
+- Completed Phase 0 architecture documentation.
+- Added the first PostgreSQL core schema/ledger foundation.
+- Started Phase 1. No database migration has been marked fully validated yet because a real PostgreSQL execution/test environment has not been run through the repository tooling.
 
 ## Update Rule
 
