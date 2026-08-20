@@ -19,13 +19,14 @@ const {
   WalletContractV5R1
 } = require("@ton/ton");
 const nacl = require("tweetnacl");
+const runtimeSettings = require("./runtime-settings-service");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const ECONOMY = Object.freeze({
-  BUX_PER_TON: 10000,
-  COINS_PER_BUX: 100
+  get BUX_PER_TON() { return runtimeSettings.getCachedNumber("bux_per_ton", 10000); },
+  get COINS_PER_BUX() { return runtimeSettings.getCachedNumber("coins_per_bux", 100); }
 });
 
 app.set("trust proxy", 1);
@@ -330,19 +331,6 @@ async function initDatabase() {
     );
   }
 
-  // Fixed DzMoney economy: never allow legacy settings to change these rates.
-  await pool.query(
-    `INSERT INTO settings (key,value,updated_at)
-     VALUES ('coins_per_bux',$1,$2)
-     ON CONFLICT (key) DO UPDATE SET value=$1, updated_at=$2`,
-    [String(ECONOMY.COINS_PER_BUX), Date.now()]
-  );
-  await pool.query(
-    `INSERT INTO settings (key,value,updated_at)
-     VALUES ('bux_per_ton',$1,$2)
-     ON CONFLICT (key) DO UPDATE SET value=$1, updated_at=$2`,
-    [String(ECONOMY.BUX_PER_TON), Date.now()]
-  );
 
   for (const task of DEFAULT_TASKS) {
     await pool.query(
@@ -800,14 +788,7 @@ async function creditReferral(client, userId, earnedBux) {
 }
 
 async function getSettingValue(key, fallback = "") {
-  if (key === "coins_per_bux") return String(ECONOMY.COINS_PER_BUX);
-  if (key === "bux_per_ton") return String(ECONOMY.BUX_PER_TON);
-
-  const result = await pool.query(
-    "SELECT value FROM settings WHERE key=$1 LIMIT 1",
-    [key]
-  );
-  return result.rowCount ? String(result.rows[0].value) : fallback;
+  return runtimeSettings.get(key, fallback);
 }
 
 // ============================
@@ -3357,7 +3338,8 @@ app.post("/api/daily/claim", requireTelegramAuth, requireSystemEnabled, rateLimi
     }
 
     const now = Date.now();
-    const cooldown = 24 * 60 * 60 * 1000;
+    const cooldownSeconds = await runtimeSettings.getWholeNumber("daily_reward_cooldown_seconds", 86400);
+    const cooldown = cooldownSeconds * 1000;
     const last = Number(user.daily_claim_at) || 0;
 
     if (last && now - last < cooldown) {
@@ -3372,8 +3354,8 @@ app.post("/api/daily/claim", requireTelegramAuth, requireSystemEnabled, rateLimi
       });
     }
 
-    const coinsReward = 1000;
-    const buxReward = 1;
+    const coinsReward = await runtimeSettings.getWholeNumber("daily_reward_coins", 1000);
+    const buxReward = await runtimeSettings.getWholeNumber("daily_reward_bux", 1);
 
     const updated = await client.query(
       `UPDATE users
@@ -3496,7 +3478,10 @@ async function start() {
     console.log("TON withdrawal network:", process.env.TON_WITHDRAWAL_NETWORK || "-3");
 
     await initDatabase();
+    await runtimeSettings.refresh(true);
+    runtimeSettings.startAutoRefresh(2000);
     console.log("PostgreSQL schema/settings/tasks: OK");
+    console.log("Runtime settings service: ENABLED");
 
     await migrateLegacyData();
     console.log("Legacy migration: OK");
