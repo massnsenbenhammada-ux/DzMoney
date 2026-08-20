@@ -49,7 +49,10 @@ async function dashboardHandler(req, res) {
       dailyTasks,
       topActive,
       topReferrers,
-      poolDistributed
+      poolDistributed,
+      bannedUsers,
+      buxTotal,
+      pendingWithdrawals
     ] = await Promise.all([
       pool.query("SELECT COUNT(*)::int AS count FROM users"),
       pool.query("SELECT COUNT(*)::int AS count FROM users WHERE created_at >= $1 AND created_at < $2", [todayStart, tomorrowStart]),
@@ -101,7 +104,10 @@ async function dashboardHandler(req, res) {
         ORDER BY referrals DESC, qualified DESC
         LIMIT 10
       `),
-      pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS total FROM economy_ledger WHERE asset='DZP' AND direction='CREDIT' AND source_type IN ('REWARDS_POOL','POOL_DISTRIBUTION')")
+      pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS total FROM economy_ledger WHERE asset='DZP' AND direction='CREDIT' AND source_type IN ('REWARDS_POOL','POOL_DISTRIBUTION')"),
+      pool.query("SELECT COUNT(*)::int AS count FROM users WHERE COALESCE(is_banned,false)=true"),
+      pool.query("SELECT COALESCE(SUM(bux),0)::numeric AS total FROM users"),
+      pool.query("SELECT COUNT(*)::int AS count FROM withdrawals WHERE LOWER(COALESCE(status,''))='pending'")
     ]);
 
     const labels = dayLabels();
@@ -120,6 +126,9 @@ async function dashboardHandler(req, res) {
       totalDZP: Number(dzpTotal.rows[0].total),
       totalDZX: Number(dzxTotal.rows[0].total),
       totalCoins: Number(coinsTotal.rows[0].total),
+      totalBUX: Number(buxTotal.rows[0].total),
+      bannedUsers: Number(bannedUsers.rows[0].count),
+      pendingWithdrawals: Number(pendingWithdrawals.rows[0].count),
       rewardsPoolDistributedDZP: Number(poolDistributed.rows[0].total)
     };
 
@@ -150,8 +159,12 @@ async function dashboardHandler(req, res) {
     // older dashboard renderer cannot break while the live renderer loads.
     const legacyStats = {
       users: metrics.members,
+      bannedUsers: metrics.bannedUsers,
+      totalBux: metrics.totalBUX,
+      totalCoins: metrics.totalCoins,
       activeTasks: 0,
       totalClaims: metrics.tasksCompleted,
+      pendingWithdrawals: metrics.pendingWithdrawals,
       referrals: topReferrerRows.reduce((sum, row) => sum + row.referrals, 0),
       systemEnabled: true
     };
