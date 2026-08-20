@@ -7,6 +7,7 @@ const { Pool } = require("pg");
 const originalPut = express.application.put;
 const originalPost = express.application.post;
 const originalGet = express.application.get;
+const originalDelete = express.application.delete;
 
 const pool = process.env.DATABASE_URL ? new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -108,6 +109,9 @@ function patchedPut(path, ...handlers) {
   if (path === "/api/admin/settings" && handlers.length >= 2) {
     return originalPut.call(this, path, handlers[0], saveSettings);
   }
+  if (typeof path === "string" && path.startsWith("/api/admin/tasks/") && handlers.length >= 2) {
+    return originalPut.call(this, path, handlers[0], adminTaskUpdate);
+  }
   return originalPut.call(this, path, ...handlers);
 }
 express.application.put = patchedPut;
@@ -151,6 +155,46 @@ async function adminTasksPost(req,res){
   }catch(e){console.error("Admin catalog task create error:",e);return res.status(500).json({success:false,message:"Unable to create task."});}
 }
 
+async function adminTaskUpdate(req,res){
+  const id=String(req.params.id||"").trim();
+  if(!id)return res.status(400).json({success:false,message:"Task id is required."});
+  const b=req.body||{};
+  const title=String(b.title||"").trim();
+  const description=String(b.description||"");
+  const rewardCoins=Number.isSafeInteger(Number(b.rewardCoins))?Number(b.rewardCoins):Number(b.reward||0);
+  const rewardDZP=Number(b.rewardDZP??b.reward_dzp??0);
+  const rewardDZX=Number(b.rewardDZX??b.reward_dzx??0);
+  const duration=b.duration==null?null:Number(b.duration);
+  if(!title||!Number.isSafeInteger(rewardCoins)||rewardCoins<0||!Number.isFinite(rewardDZP)||rewardDZP<0||!Number.isFinite(rewardDZX)||rewardDZX<0||duration!==null&&(!Number.isFinite(duration)||duration<0)){
+    return res.status(400).json({success:false,message:"Invalid task settings."});
+  }
+  try{
+    const result=await pool.query(`UPDATE tasks SET title=$1,description=$2,reward_coins=$3,reward_dzp=$4,reward_dzx=$5,economic_budget_dzx=$5,cadence_seconds=$6,active=$7,updated_at=$8 WHERE id=$9 RETURNING *`,[
+      title,description,rewardCoins,rewardDZP,rewardDZX,duration,b.active===undefined?true:Boolean(b.active),Date.now(),id
+    ]);
+    if(!result.rowCount)return res.status(404).json({success:false,message:"Task not found."});
+    await writeAudit(req.admin?.adminId,"update_task",id,JSON.stringify({rewardCoins,rewardDZP,rewardDZX}));
+    const t=result.rows[0];
+    return res.json({success:true,task:{id:t.id,title:t.title,rewardCoins:Number(t.reward_coins),rewardDZP:Number(t.reward_dzp),rewardDZX:Number(t.reward_dzx)}});
+  }catch(e){console.error("Admin catalog task update error:",e);return res.status(500).json({success:false,message:"Unable to update task."});}
+}
+
+async function adminTaskDelete(req,res){
+  const id=String(req.params.id||"").trim();
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    await client.query("DELETE FROM task_completions WHERE task_id=$1",[id]);
+    await client.query("DELETE FROM task_claims WHERE task_id=$1",[id]);
+    const result=await client.query("DELETE FROM tasks WHERE id=$1 RETURNING id",[id]);
+    if(!result.rowCount){await client.query("ROLLBACK");return res.status(404).json({success:false,message:"Task not found."});}
+    await client.query("COMMIT");
+    await writeAudit(req.admin?.adminId,"delete_task",id,"");
+    return res.json({success:true});
+  }catch(e){await client.query("ROLLBACK");console.error("Admin catalog task delete error:",e);return res.status(500).json({success:false,message:"Unable to delete task."});}
+  finally{client.release();}
+}
+
 express.application.get=function(path,...handlers){
   if(path==="/api/admin/tasks" && handlers.length>=1)return originalGet.call(this,path,handlers[0],adminTasksGet);
   return originalGet.call(this,path,...handlers);
@@ -158,6 +202,10 @@ express.application.get=function(path,...handlers){
 express.application.post=function(path,...handlers){
   if(path==="/api/admin/tasks" && handlers.length>=1)return originalPost.call(this,path,handlers[0],adminTasksPost);
   return originalPost.call(this,path,...handlers);
+};
+express.application.delete=function(path,...handlers){
+  if(typeof path === "string" && path.startsWith("/api/admin/tasks/") && handlers.length>=1)return originalDelete.call(this,path,handlers[0],adminTaskDelete);
+  return originalDelete.call(this,path,...handlers);
 };
 
 process.on("exit",()=>{ if(pool) pool.end().catch(()=>{}); });
