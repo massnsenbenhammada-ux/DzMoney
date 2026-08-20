@@ -1,0 +1,29 @@
+name: Admin safe CI
+
+on:
+  push:
+    branches: [admin-safe-migration, admin-safe-migration-v2]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Syntax check critical runtime files
+        run: |
+          node --check server.js
+          node --check runtime-settings-service.js
+          node --check admin-panel-core-v2.js
+          node --check scripts/migrate-server-runtime-settings.js
+      - name: Admin safe audit
+        run: npm run admin:safe-audit
