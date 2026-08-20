@@ -8,7 +8,6 @@ const { Pool } = require("pg");
 // This module is loaded after admin-settings-compat.js and before server.js.
 // It adds authoritative DZP balance controls and dynamic TON/DZX/COIN rates
 // without replacing the existing authentication middleware.
-
 const currentPut = express.application.put;
 const currentPost = express.application.post;
 const currentGet = express.application.get;
@@ -180,12 +179,16 @@ async function adminBalanceDelta(req, res) {
 }
 
 async function adminBalanceExact(req, res) {
-  const userId = String(req.params.id);
-  const dzp = Number(req.body?.dzp);
+  const raw = req.body?.dzp;
+  if (raw === undefined || raw === null || String(raw).trim() === "") {
+    return res.status(400).json({ success: false, message: "DZP value is required." });
+  }
+  const dzp = Number(raw);
   if (!nonNegativeSafeInteger(dzp)) {
     return res.status(400).json({ success: false, message: "DZP must be a non-negative whole number." });
   }
 
+  const userId = String(req.params.id);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -242,7 +245,11 @@ function cryptoRandom() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// Keep existing Admin authentication as the first handler.
+// IMPORTANT: /balance is shared with the legacy BUX/Coins Admin control in
+// server.js. Only intercept requests that explicitly contain DZP fields.
+// Legacy {bux,coins} and {buxDelta,coinsDelta} requests must continue to the
+// original server handler. This prevents a missing DZP field from producing
+// the misleading "DZP must be a non-negative whole number" error.
 const oldPut = express.application.put;
 const oldPost = express.application.post;
 const oldGet = express.application.get;
@@ -252,7 +259,14 @@ express.application.put = function(pathname, ...handlers) {
     return oldPut.call(this, pathname, handlers[0], saveEconomySettingsOrContinue);
   }
   if (pathname === "/api/admin/users/:id/balance" && handlers.length >= 1) {
-    return oldPut.call(this, pathname, handlers[0], adminBalanceExact);
+    const authHandler = handlers[0];
+    const balanceDispatcher = (req, res, next) => {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, "dzp")) {
+        return adminBalanceExact(req, res);
+      }
+      return next();
+    };
+    return oldPut.call(this, pathname, authHandler, balanceDispatcher);
   }
   return oldPut.call(this, pathname, ...handlers);
 };
@@ -266,7 +280,14 @@ async function saveEconomySettingsOrContinue(req, res, next) {
 
 express.application.post = function(pathname, ...handlers) {
   if (pathname === "/api/admin/users/:id/balance" && handlers.length >= 1) {
-    return oldPost.call(this, pathname, handlers[0], adminBalanceDelta);
+    const authHandler = handlers[0];
+    const balanceDispatcher = (req, res, next) => {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, "dzpDelta")) {
+        return adminBalanceDelta(req, res);
+      }
+      return next();
+    };
+    return oldPost.call(this, pathname, authHandler, balanceDispatcher);
   }
   return oldPost.call(this, pathname, ...handlers);
 };
