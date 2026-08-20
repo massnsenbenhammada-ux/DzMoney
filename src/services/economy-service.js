@@ -73,19 +73,23 @@ async function applyMovement(client, { userId, currency, amount, source, dzpBuck
 
 async function createTransaction(client, { idempotencyKey, userId, type, metadata }) {
   if (!idempotencyKey) throw new Error('idempotencyKey is required');
+
+  const inserted = await client.query(
+    `INSERT INTO ledger_transactions (idempotency_key, user_id, transaction_type, metadata)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (idempotency_key) DO NOTHING
+     RETURNING *`,
+    [idempotencyKey, userId, type, metadata || {}]
+  );
+
+  if (inserted.rowCount) return { transaction: inserted.rows[0], duplicate: false };
+
   const existing = await client.query(
     'SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE',
     [idempotencyKey]
   );
-  if (existing.rowCount) return { transaction: existing.rows[0], duplicate: true };
-
-  const result = await client.query(
-    `INSERT INTO ledger_transactions (idempotency_key, user_id, transaction_type, metadata)
-     VALUES ($1, $2, $3, $4)
-     RETURNING *`,
-    [idempotencyKey, userId, type, metadata || {}]
-  );
-  return { transaction: result.rows[0], duplicate: false };
+  if (!existing.rowCount) throw new Error('Unable to resolve idempotent transaction');
+  return { transaction: existing.rows[0], duplicate: true };
 }
 
 async function postEconomyTransaction({ idempotencyKey, userId, type, movements, metadata = {} }) {
@@ -136,17 +140,17 @@ async function creditActivityReward({ idempotencyKey, userId, source = 'advertis
 async function convertCoinToDzp({ idempotencyKey, userId, coin }) {
   const amount = positiveNumber(coin, 'coin');
   return withTransaction(async client => {
-    const existing = await client.query('SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE', [idempotencyKey]);
-    if (existing.rowCount) return { transaction: existing.rows[0], duplicate: true };
+    const created = await createTransaction(client, {
+      idempotencyKey, userId, type: 'CONVERSION',
+      metadata: { direction: 'COIN_TO_DZP' },
+    });
+    if (created.duplicate) return created;
+
     const rate = await settingNumber(client, 'economy.coin_per_dzp', DZP_COIN);
     if (amount < rate) throw new Error(`Minimum conversion is ${rate} COIN`);
     const dzp = amount / rate;
     if (!Number.isInteger(dzp)) throw new Error('COIN amount must match the configured DZP conversion rate');
 
-    const created = await createTransaction(client, {
-      idempotencyKey, userId, type: 'CONVERSION',
-      metadata: { direction: 'COIN_TO_DZP', rate },
-    });
     const coinEntry = await applyMovement(client, { userId, currency: 'COIN', amount: -amount, source: 'conversion' });
     const dzpEntry = await applyMovement(client, { userId, currency: 'DZP', amount: dzp, source: 'conversion', dzpBucket: 'converted_dzp' });
     const entries = [];
@@ -166,17 +170,17 @@ async function convertCoinToDzp({ idempotencyKey, userId, coin }) {
 async function convertDzxToDzp({ idempotencyKey, userId, dzx }) {
   const amount = positiveNumber(dzx, 'dzx');
   return withTransaction(async client => {
-    const existing = await client.query('SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE', [idempotencyKey]);
-    if (existing.rowCount) return { transaction: existing.rows[0], duplicate: true };
+    const created = await createTransaction(client, {
+      idempotencyKey, userId, type: 'CONVERSION',
+      metadata: { direction: 'DZX_TO_DZP' },
+    });
+    if (created.duplicate) return created;
+
     const rate = await settingNumber(client, 'economy.dzx_per_dzp', DZP_DZX);
     if (amount < rate) throw new Error(`Minimum conversion is ${rate} DZX`);
     const dzp = amount / rate;
     if (!Number.isInteger(dzp)) throw new Error('DZX amount must match the configured DZP conversion rate');
 
-    const created = await createTransaction(client, {
-      idempotencyKey, userId, type: 'CONVERSION',
-      metadata: { direction: 'DZX_TO_DZP', rate },
-    });
     const dzxEntry = await applyMovement(client, { userId, currency: 'DZX', amount: -amount, source: 'conversion' });
     const dzpEntry = await applyMovement(client, { userId, currency: 'DZP', amount: dzp, source: 'conversion', dzpBucket: 'converted_dzp' });
     const entries = [];
