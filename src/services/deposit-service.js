@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
-const { tonToDZX, postEconomyTransactionOnClient } = require('./economy-service');
+const { postEconomyTransactionOnClient, TON_DZX } = require('./economy-service');
 
 function positiveNumber(value, name) {
   const n = Number(value);
@@ -40,6 +40,40 @@ function assertTxHash(txHash) {
   return txHash.trim();
 }
 
+async function lockUserDeposits(client, userId) {
+  // Serialize deposits for one user so daily-limit checks cannot race.
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:deposit:${userId}`]);
+}
+
+async function expireStalePendingDeposits(client, userId, timeoutHours) {
+  await client.query(
+    `UPDATE deposits
+     SET status = 'REJECTED',
+         metadata = metadata || jsonb_build_object(
+           'rejection_reason', 'PENDING_TIMEOUT',
+           'rejected_at', NOW()
+         ),
+         updated_at = NOW()
+     WHERE user_id = $1
+       AND status = 'PENDING'
+       AND created_at <= NOW() - ($2::numeric * INTERVAL '1 hour')`,
+    [userId, timeoutHours]
+  );
+}
+
+async function getDailyConfirmedTon(client, userId, excludeDepositId = null) {
+  const result = await client.query(
+    `SELECT COALESCE(SUM(ton_amount), 0) AS total
+     FROM deposits
+     WHERE user_id = $1
+       AND status = 'CONFIRMED'
+       AND created_at >= CURRENT_DATE
+       AND ($2::bigint IS NULL OR id <> $2)`,
+    [userId, excludeDepositId]
+  );
+  return Number(result.rows[0].total || 0);
+}
+
 async function creditConfirmedDeposit(client, deposit, confirmationCount, extraMetadata = {}) {
   return postEconomyTransactionOnClient(client, {
     idempotencyKey: `deposit:${deposit.id}`,
@@ -60,12 +94,20 @@ async function creditConfirmedDeposit(client, deposit, confirmationCount, extraM
   });
 }
 
-/**
- * Record a blockchain deposit observation. Funds are credited only when the
- * supplied confirmation count reaches the configured threshold.
- * The blockchain adapter is responsible for supplying a verified tx hash,
- * amount, and confirmation count; this service never pretends to query TON.
- */
+async function calculateDZX(client, tonAmount) {
+  const rate = await settingNumber(client, 'economy.dzx_per_ton', TON_DZX);
+  return { rate, dzxAmount: tonAmount * rate };
+}
+
+async function assertDailyLimit(client, userId, tonAmount, excludeDepositId = null) {
+  const limit = await settingNumber(client, 'deposit.daily_limit_ton', 10);
+  const used = await getDailyConfirmedTon(client, userId, excludeDepositId);
+  if (used + tonAmount > limit + 1e-12) {
+    throw new Error(`Daily deposit limit exceeded: ${limit} TON`);
+  }
+  return { limit, used, remaining: Math.max(0, limit - used) };
+}
+
 async function processDeposit({
   idempotencyKey,
   userId,
@@ -87,11 +129,25 @@ async function processDeposit({
     const enabled = await settingBoolean(client, 'deposit.enabled', true);
     if (!enabled) throw new Error('Deposits are disabled');
 
-    const requiredConfirmations = Math.floor(await settingNumber(client, 'deposit.required_confirmations', 1));
-    const dzxAmount = tonToDZX(amount);
-    const confirmed = confirmations >= requiredConfirmations;
-    const status = confirmed ? 'CONFIRMED' : 'PENDING';
+    await lockUserDeposits(client, userId);
+    const timeoutHours = await settingNumber(client, 'deposit.pending_timeout_hours', 24);
+    await expireStalePendingDeposits(client, userId, timeoutHours);
 
+    const existingTx = await client.query('SELECT * FROM deposits WHERE tx_hash = $1 FOR SHARE', [hash]);
+    if (existingTx.rowCount) {
+      const previous = existingTx.rows[0];
+      if (previous.idempotency_key !== idempotencyKey) {
+        throw new Error('Blockchain transaction has already been recorded');
+      }
+    }
+
+    const requiredConfirmations = Math.floor(await settingNumber(client, 'deposit.required_confirmations', 1));
+    const { rate, dzxAmount } = await calculateDZX(client, amount);
+    const confirmed = confirmations >= requiredConfirmations;
+
+    if (confirmed) await assertDailyLimit(client, userId, amount);
+
+    const status = confirmed ? 'CONFIRMED' : 'PENDING';
     const inserted = await client.query(
       `INSERT INTO deposits
          (idempotency_key, user_id, blockchain, tx_hash, ton_amount, dzx_amount,
@@ -108,7 +164,7 @@ async function processDeposit({
         confirmations,
         requiredConfirmations,
         status,
-        { ...metadata, source: 'deposit' },
+        { ...metadata, source: 'deposit', rate_dzx_per_ton: rate },
         confirmed ? new Date() : null,
       ]
     );
@@ -133,7 +189,7 @@ async function processDeposit({
     const deposit = inserted.rows[0];
     if (!confirmed) return { deposit, duplicate: false, credited: false };
 
-    const economy = await creditConfirmedDeposit(client, deposit, confirmations);
+    const economy = await creditConfirmedDeposit(client, deposit, confirmations, { rate_dzx_per_ton: rate });
     return { deposit, economy, duplicate: false, credited: true };
   });
 }
@@ -153,8 +209,28 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
     if (!row.rowCount) throw new Error('Deposit not found');
 
     const deposit = row.rows[0];
+    await lockUserDeposits(client, deposit.user_id);
+    const timeoutHours = await settingNumber(client, 'deposit.pending_timeout_hours', 24);
+
     if (deposit.status === 'REJECTED') throw new Error('Rejected deposit cannot be confirmed');
     if (deposit.status === 'CONFIRMED') return { deposit, duplicate: true, credited: true };
+
+    const ageExpired = new Date(deposit.created_at).getTime() <= Date.now() - timeoutHours * 60 * 60 * 1000;
+    if (ageExpired) {
+      const rejected = await client.query(
+        `UPDATE deposits
+         SET status = 'REJECTED',
+             metadata = metadata || jsonb_build_object(
+               'rejection_reason', 'PENDING_TIMEOUT',
+               'rejected_at', NOW()
+             ),
+             updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [deposit.id]
+      );
+      return { deposit: rejected.rows[0], duplicate: false, credited: false, expired: true };
+    }
 
     const requiredConfirmations = Number(deposit.required_confirmations);
     if (confirmations < requiredConfirmations) {
@@ -169,6 +245,8 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
       );
       return { deposit: updated.rows[0], duplicate: false, credited: false };
     }
+
+    await assertDailyLimit(client, deposit.user_id, Number(deposit.ton_amount), deposit.id);
 
     const updated = await client.query(
       `UPDATE deposits
