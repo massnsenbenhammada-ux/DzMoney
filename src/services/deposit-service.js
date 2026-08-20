@@ -41,8 +41,10 @@ function assertTxHash(txHash) {
 }
 
 async function lockUserDeposits(client, userId) {
-  // Serialize deposits for one user so daily-limit checks cannot race.
-  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:deposit:${userId}`]);
+  // Lock the canonical user row. This serializes all deposit operations for one
+  // user on PostgreSQL and makes the daily-limit check race-safe across clients.
+  const result = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+  if (!result.rowCount) throw new Error('User not found');
 }
 
 async function expireStalePendingDeposits(client, userId, timeoutHours) {
@@ -248,10 +250,11 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
 
     await assertDailyLimit(client, deposit.user_id, Number(deposit.ton_amount), deposit.id);
 
+    const economy = await creditConfirmedDeposit(client, deposit, confirmations, metadata);
     const updated = await client.query(
       `UPDATE deposits
-       SET confirmation_count = $1,
-           status = 'CONFIRMED',
+       SET status = 'CONFIRMED',
+           confirmation_count = $1,
            confirmed_at = NOW(),
            metadata = metadata || $2::jsonb,
            updated_at = NOW()
@@ -259,16 +262,8 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
        RETURNING *`,
       [confirmations, JSON.stringify(metadata), deposit.id]
     );
-
-    const confirmedDeposit = updated.rows[0];
-    const economy = await creditConfirmedDeposit(client, confirmedDeposit, confirmations, metadata);
-    return { deposit: confirmedDeposit, economy, duplicate: false, credited: true };
+    return { deposit: updated.rows[0], economy, duplicate: false, credited: true };
   });
-}
-
-async function getDepositByIdempotencyKey(idempotencyKey) {
-  const result = await query('SELECT * FROM deposits WHERE idempotency_key = $1', [idempotencyKey]);
-  return result.rows[0] || null;
 }
 
 async function getDepositByTxHash(txHash) {
@@ -280,6 +275,5 @@ module.exports = {
   getDepositSettings,
   processDeposit,
   confirmDeposit,
-  getDepositByIdempotencyKey,
   getDepositByTxHash,
 };
