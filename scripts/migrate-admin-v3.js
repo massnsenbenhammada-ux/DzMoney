@@ -23,7 +23,7 @@ function patch(file, replacements, label) {
 patch(corePath, [
   [
     'const input=req.body?.settings;if(!input||typeof input!=="object"||Array.isArray(input))return res.status(400).json({success:false,message:"settings object is required."});const n={};try{for(const[k,v]of Object.entries(input))n[k]=normalize(k,v);}',
-    'const input=req.body?.settings;if(!input||typeof input!=="object"||Array.isArray(input))return res.status(400).json({success:false,message:"settings object is required."});const n={};try{const currentResult=await pool.query("SELECT key,value FROM settings");const current=Object.fromEntries(currentResult.rows.map(x=>[x.key,x.value]));for(const[k,v]of Object.entries(input)){const raw=(String(v??"").trim()===""&&!STRINGS.has(k))?current[k]:v;if(raw===undefined)throw Error(`${k} has no stored value; enter a value before saving.`);n[k]=normalize(k,raw);}}',
+    'const input=req.body?.settings;if(!input||typeof input!=="object"||Array.isArray(input))return res.status(400).json({success:false,message:"settings object is required."});const n={};try{const currentResult=await pool.query("SELECT key,value FROM settings");const current=Object.fromEntries(currentResult.rows.map(x=>[x.key,x.value]));for(const[k,v]of Object.entries(input)){const raw=(String(v??"").trim()===""&&!STRINGS.has(k))?current[k]:v;if(raw===undefined)throw Error(`${k} has no stored value; enter a value before saving.`);n[k]=normalize(k,raw);}}'
   ],
   [
     'async function dzp(req,res,delta){',
@@ -38,8 +38,8 @@ async function dzp(req,res,delta){'
 
 patch(uiPath, [
   [
-    'async function saveKeys(keys){const payload={};keys.forEach(k=>payload[k]=document.querySelector(`[data-s="${k}"]`)?.value??settings[k]);await api(\'/api/admin/settings\',{method:\'PUT\',body:JSON.stringify({settings:payload})});toast(\'Saved to PostgreSQL\');await loadSettings()}',
-    'async function saveKeys(keys){const payload={};keys.forEach(k=>{const el=document.querySelector(`[data-s="${k}"]`);payload[k]=el?el.value:settings[k]});const buttons=[document.activeElement].filter(Boolean);try{buttons.forEach(b=>{if(b.tagName===\'BUTTON\'){b.disabled=true;b.dataset.oldText=b.textContent;b.textContent=\'Saving…\'}});const result=await api(\'/api/admin/settings\',{method:\'PUT\',body:JSON.stringify({settings:payload})});await loadSettings();toast(`Saved ${Object.keys(result.settings||payload).length} setting(s) to PostgreSQL`);await go(page)}catch(e){toast(`Save failed: ${e.message}`)}finally{buttons.forEach(b=>{if(b.tagName===\'BUTTON\'){b.disabled=false;if(b.dataset.oldText)b.textContent=b.dataset.oldText}})}}'
+    "async function saveKeys(keys){const payload={};keys.forEach(k=>payload[k]=document.querySelector(`[data-s=\"${k}\"]`)?.value??settings[k]);await api('/api/admin/settings',{method:'PUT',body:JSON.stringify({settings:payload})});toast('Saved to PostgreSQL');await loadSettings()}",
+    "async function saveKeys(keys){const payload={};keys.forEach(k=>{const el=document.querySelector(`[data-s=\"${k}\"]`);payload[k]=el?el.value:settings[k]});const buttons=[document.activeElement].filter(Boolean);try{buttons.forEach(b=>{if(b.tagName==='BUTTON'){b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Saving…'}});const result=await api('/api/admin/settings',{method:'PUT',body:JSON.stringify({settings:payload})});await loadSettings();toast(`Saved ${Object.keys(result.settings||payload).length} setting(s) to PostgreSQL`);await go(page)}catch(e){toast(`Save failed: ${e.message}`)}finally{buttons.forEach(b=>{if(b.tagName==='BUTTON'){b.disabled=false;if(b.dataset.oldText)b.textContent=b.dataset.oldText}})}}"
   ],
   [
     '<div class="section"><h3>DZP control</h3><div class="form"><div class="field"><label>Exact DZP</label><input id="dzpExact" type="number" min="0" step="1" value="${Number(z.dzp||0)}"></div>',
