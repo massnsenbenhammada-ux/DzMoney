@@ -24,8 +24,8 @@ async function main() {
       idempotencyKey: rewardKey,
       userId: user.id,
       source: 'advertisement',
-      coin: 1000,
-      dzx: 1,
+      coin: 10000,
+      dzx: 10,
       dzp: 1,
     });
     assert.equal(firstReward.duplicate, false);
@@ -34,43 +34,43 @@ async function main() {
       idempotencyKey: rewardKey,
       userId: user.id,
       source: 'advertisement',
-      coin: 1000,
-      dzx: 1,
+      coin: 10000,
+      dzx: 10,
       dzp: 1,
     });
     assert.equal(duplicateReward.duplicate, true);
 
     let state = await getUserWallets(user.id);
     const balancesAfterReward = Object.fromEntries(state.map(w => [w.currency, Number(w.balance)]));
-    assert.equal(balancesAfterReward.COIN, 1000);
-    assert.equal(balancesAfterReward.DZX, 1);
+    assert.equal(balancesAfterReward.COIN, 10000);
+    assert.equal(balancesAfterReward.DZX, 10);
     assert.equal(balancesAfterReward.DZP, 1);
     assert.equal(Number(state.find(w => w.currency === 'DZP').earned_dzp), 1);
 
     const coinConversion = await convertCoinToDzp({
       idempotencyKey: `${marker}:coin-to-dzp`,
       userId: user.id,
-      coin: 1000,
+      coin: 10000,
     });
-    assert.equal(coinConversion.dzp, 0.1);
+    assert.equal(coinConversion.dzp, 1);
 
     state = await getUserWallets(user.id);
     const afterCoinConversion = state.find(w => w.currency === 'DZP');
-    assert.equal(Number(afterCoinConversion.balance), 1.1);
+    assert.equal(Number(afterCoinConversion.balance), 2);
     assert.equal(Number(afterCoinConversion.earned_dzp), 1);
-    assert.equal(Number(afterCoinConversion.converted_dzp), 0.1);
+    assert.equal(Number(afterCoinConversion.converted_dzp), 1);
 
     const dzxConversion = await convertDzxToDzp({
       idempotencyKey: `${marker}:dzx-to-dzp`,
       userId: user.id,
-      dzx: 1,
+      dzx: 10,
     });
-    assert.equal(dzxConversion.dzp, 0.1);
+    assert.equal(dzxConversion.dzp, 1);
 
     state = await getUserWallets(user.id);
     const afterDzxConversion = state.find(w => w.currency === 'DZP');
-    assert.equal(Number(afterDzxConversion.balance), 1.2);
-    assert.equal(Number(afterDzxConversion.converted_dzp), 0.2);
+    assert.equal(Number(afterDzxConversion.balance), 3);
+    assert.equal(Number(afterDzxConversion.converted_dzp), 2);
     assert.equal(Number(afterDzxConversion.earned_dzp), 1);
 
     await postEconomyTransaction({
@@ -88,10 +88,10 @@ async function main() {
 
     state = await getUserWallets(user.id);
     const afterPurchase = state.find(w => w.currency === 'DZP');
-    assert.equal(Number(afterPurchase.balance), 6.2);
+    assert.equal(Number(afterPurchase.balance), 8);
     assert.equal(Number(afterPurchase.purchased_dzp), 5);
     assert.equal(Number(afterPurchase.earned_dzp), 1);
-    assert.equal(Number(afterPurchase.converted_dzp), 0.2);
+    assert.equal(Number(afterPurchase.converted_dzp), 2);
 
     await assert.rejects(
       () => postEconomyTransaction({
