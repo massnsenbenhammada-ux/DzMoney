@@ -4,7 +4,7 @@ const INTERNAL_CURRENCIES = ['COIN', 'DZX', 'DZP'];
 const TON_DZX = 10000;
 const TON_COIN = 10000000;
 const DZX_COIN = 1000;
-const DZP_COIN = 1000;
+const DZP_COIN = 10000;
 const DZP_DZX = 10;
 
 function positiveNumber(value, name) {
