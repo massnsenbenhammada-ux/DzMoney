@@ -1,0 +1,39 @@
+name: Safe server runtime migration
+
+on:
+  push:
+    branches:
+      - admin-safe-migration
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout migration branch
+        uses: actions/checkout@v4
+        with:
+          ref: admin-safe-migration
+          fetch-depth: 0
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Apply guarded server migration
+        run: node ./scripts/migrate-server-runtime-settings.js
+
+      - name: Commit generated migration only when changed
+        run: |
+          if git diff --quiet -- server.js; then
+            echo "No server.js changes were generated."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.js
+          git commit -m "Migrate server to canonical runtime settings"
+          git push origin HEAD:admin-safe-migration
