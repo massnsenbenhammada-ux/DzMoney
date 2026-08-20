@@ -5,9 +5,9 @@
   "description": "DzMoney 2.0 — clean rebuild",
   "main": "server.js",
   "scripts": {
-    "start": "node ./scripts/core-migrate.js && node server.js",
-    "migrate": "node ./scripts/core-migrate.js",
-    "test:core": "node ./scripts/test-core.js"
+    "start": "node server.js",
+    "migrate": "node ./scripts/migrate.js",
+    "test:phase1": "node ./scripts/test-phase1.js"
   },
   "engines": {
     "node": ">=20"
