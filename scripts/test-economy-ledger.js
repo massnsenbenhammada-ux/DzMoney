@@ -76,7 +76,7 @@ async function main() {
     assert.equal(afterPromo.DZX, 17);
     assert.equal(afterPromo.DZP, 1.5);
 
-    assert.throws(
+    await assert.rejects(
       () => creditActivityReward({
         idempotencyKey: `${marker}:squad-source`,
         userId: user.id,
