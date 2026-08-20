@@ -9,10 +9,11 @@ async function query(text, params) {
   return pool.query(text, params);
 }
 
-async function withTransaction(work) {
+async function withTransaction(work, options = {}) {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
+    const isolation = options.isolationLevel;
+    await client.query(isolation ? `BEGIN ISOLATION LEVEL ${isolation}` : 'BEGIN');
     const result = await work(client);
     await client.query('COMMIT');
     return result;
@@ -24,4 +25,15 @@ async function withTransaction(work) {
   }
 }
 
-module.exports = { pool, query, withTransaction };
+async function withSerializableTransaction(work, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+    try {
+      return await withTransaction(work, { isolationLevel: 'SERIALIZABLE' });
+    } catch (error) {
+      if (error?.code !== '40001' || attempt === maxRetries - 1) throw error;
+    }
+  }
+  throw new Error('Serializable transaction failed after retries');
+}
+
+module.exports = { pool, query, withTransaction, withSerializableTransaction };
