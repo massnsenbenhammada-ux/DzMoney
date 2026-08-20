@@ -27,6 +27,7 @@ async function main() {
       coin: 10000,
       dzx: 10,
       dzp: 1,
+      modifiers: [{ type: 'squad', rate: 0.5 }],
     });
     assert.equal(firstReward.duplicate, false);
 
@@ -37,6 +38,7 @@ async function main() {
       coin: 10000,
       dzx: 10,
       dzp: 1,
+      modifiers: [{ type: 'squad', rate: 0.5 }],
     });
     assert.equal(duplicateReward.duplicate, true);
 
@@ -46,6 +48,41 @@ async function main() {
     assert.equal(balancesAfterReward.DZX, 10);
     assert.equal(balancesAfterReward.DZP, 1);
     assert.equal(Number(state.find(w => w.currency === 'DZP').earned_dzp), 1);
+
+    const rewardTx = await query(
+      `SELECT transaction_type, metadata
+       FROM ledger_transactions
+       WHERE idempotency_key = $1`,
+      [rewardKey]
+    );
+    assert.equal(rewardTx.rows[0].transaction_type, 'REWARD');
+    assert.equal(rewardTx.rows[0].metadata.source, 'advertisement');
+    assert.equal(rewardTx.rows[0].metadata.modifiers[0].type, 'squad');
+    assert.equal(Number(rewardTx.rows[0].metadata.modifiers[0].rate), 0.5);
+
+    const promoReward = await creditActivityReward({
+      idempotencyKey: `${marker}:promo`,
+      userId: user.id,
+      source: 'promo',
+      dzx: 2,
+    });
+    assert.equal(promoReward.duplicate, false);
+
+    state = await getUserWallets(user.id);
+    const afterPromo = Object.fromEntries(state.map(w => [w.currency, Number(w.balance)]));
+    assert.equal(afterPromo.COIN, 10000);
+    assert.equal(afterPromo.DZX, 12);
+    assert.equal(afterPromo.DZP, 1);
+
+    assert.throws(
+      () => creditActivityReward({
+        idempotencyKey: `${marker}:squad-source`,
+        userId: user.id,
+        source: 'squad',
+        dzx: 1,
+      }),
+      /Invalid activity reward source/
+    );
 
     const coinConversion = await convertCoinToDzp({
       idempotencyKey: `${marker}:coin-to-dzp`,
@@ -110,9 +147,9 @@ async function main() {
        WHERE lt.user_id = $1`,
       [user.id]
     );
-    // Phase 1 creates 8 ledger entries: 3 reward + 2 COIN conversion + 2 DZX conversion + 1 purchase.
+    // 3 activity reward entries + 1 promo entry + 2 COIN conversion + 2 DZX conversion + 1 purchase.
     // The overspend transaction is rolled back, so it must not leave a ledger entry behind.
-    assert.equal(Number(ledger.rows[0].count), 8);
+    assert.equal(Number(ledger.rows[0].count), 9);
 
     const badBalances = await query(
       `SELECT COUNT(*)::int AS count
