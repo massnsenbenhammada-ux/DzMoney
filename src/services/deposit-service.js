@@ -1,4 +1,4 @@
-const { withTransaction, withSerializableTransaction, query } = require('../db/pool');
+const { withTransaction, query } = require('../db/pool');
 const { postEconomyTransactionOnClient, TON_DZX } = require('./economy-service');
 
 function positiveNumber(value, name) {
@@ -40,11 +40,6 @@ function assertTxHash(txHash) {
   return txHash.trim();
 }
 
-async function lockUserDeposits(client, userId) {
-  const result = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
-  if (!result.rowCount) throw new Error('User not found');
-}
-
 async function expireStalePendingDeposits(client, userId, timeoutHours) {
   await client.query(
     `UPDATE deposits
@@ -61,17 +56,36 @@ async function expireStalePendingDeposits(client, userId, timeoutHours) {
   );
 }
 
-async function getDailyConfirmedTon(client, userId, excludeDepositId = null) {
-  const result = await client.query(
-    `SELECT COALESCE(SUM(ton_amount), 0) AS total
-     FROM deposits
-     WHERE user_id = $1
-       AND status = 'CONFIRMED'
-       AND created_at >= CURRENT_DATE
-       AND ($2::bigint IS NULL OR id <> $2)`,
-    [userId, excludeDepositId]
+async function reserveDailyDepositQuota(client, userId, tonAmount) {
+  const limit = await settingNumber(client, 'deposit.daily_limit_ton', 10);
+
+  // A single per-user/per-day row is the serialization point for the quota.
+  // The conditional UPDATE is atomic under PostgreSQL row locking, so two
+  // concurrent confirmations cannot both consume the same remaining quota.
+  await client.query(
+    `INSERT INTO deposit_daily_usage (user_id, usage_date, ton_used)
+     VALUES ($1, CURRENT_DATE, 0)
+     ON CONFLICT (user_id, usage_date) DO NOTHING`,
+    [userId]
   );
-  return Number(result.rows[0].total || 0);
+
+  const result = await client.query(
+    `UPDATE deposit_daily_usage
+     SET ton_used = ton_used + $2,
+         updated_at = NOW()
+     WHERE user_id = $1
+       AND usage_date = CURRENT_DATE
+       AND ton_used + $2 <= $3
+     RETURNING ton_used`,
+    [userId, tonAmount, limit]
+  );
+
+  if (!result.rowCount) {
+    throw new Error(`Daily deposit limit exceeded: ${limit} TON`);
+  }
+
+  const used = Number(result.rows[0].ton_used);
+  return { limit, used, remaining: Math.max(0, limit - used) };
 }
 
 async function creditConfirmedDeposit(client, deposit, confirmationCount, extraMetadata = {}) {
@@ -99,15 +113,6 @@ async function calculateDZX(client, tonAmount) {
   return { rate, dzxAmount: tonAmount * rate };
 }
 
-async function assertDailyLimit(client, userId, tonAmount, excludeDepositId = null) {
-  const limit = await settingNumber(client, 'deposit.daily_limit_ton', 10);
-  const used = await getDailyConfirmedTon(client, userId, excludeDepositId);
-  if (used + tonAmount > limit + 1e-12) {
-    throw new Error(`Daily deposit limit exceeded: ${limit} TON`);
-  }
-  return { limit, used, remaining: Math.max(0, limit - used) };
-}
-
 async function processDeposit({
   idempotencyKey,
   userId,
@@ -129,7 +134,6 @@ async function processDeposit({
     const enabled = await settingBoolean(client, 'deposit.enabled', true);
     if (!enabled) throw new Error('Deposits are disabled');
 
-    await lockUserDeposits(client, userId);
     const timeoutHours = await settingNumber(client, 'deposit.pending_timeout_hours', 24);
     await expireStalePendingDeposits(client, userId, timeoutHours);
 
@@ -144,8 +148,6 @@ async function processDeposit({
     const requiredConfirmations = Math.floor(await settingNumber(client, 'deposit.required_confirmations', 1));
     const { rate, dzxAmount } = await calculateDZX(client, amount);
     const confirmed = confirmations >= requiredConfirmations;
-
-    if (confirmed) await assertDailyLimit(client, userId, amount);
 
     const status = confirmed ? 'CONFIRMED' : 'PENDING';
     const inserted = await client.query(
@@ -189,6 +191,7 @@ async function processDeposit({
     const deposit = inserted.rows[0];
     if (!confirmed) return { deposit, duplicate: false, credited: false };
 
+    await reserveDailyDepositQuota(client, userId, amount);
     const economy = await creditConfirmedDeposit(client, deposit, confirmations, { rate_dzx_per_ton: rate });
     return { deposit, economy, duplicate: false, credited: true };
   });
@@ -201,10 +204,7 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
     throw new Error('confirmationCount must be a non-negative integer');
   }
 
-  // The daily-limit decision and the confirmation/credit are one serializable
-  // unit. Concurrent confirmations for the same user are retried after a
-  // serialization conflict and therefore observe the committed prior deposit.
-  return withSerializableTransaction(async client => {
+  return withTransaction(async client => {
     const row = await client.query(
       `SELECT * FROM deposits WHERE idempotency_key = $1 FOR UPDATE`,
       [idempotencyKey]
@@ -212,7 +212,6 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
     if (!row.rowCount) throw new Error('Deposit not found');
 
     const deposit = row.rows[0];
-    await lockUserDeposits(client, deposit.user_id);
     const timeoutHours = await settingNumber(client, 'deposit.pending_timeout_hours', 24);
 
     if (deposit.status === 'REJECTED') throw new Error('Rejected deposit cannot be confirmed');
@@ -249,8 +248,7 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
       return { deposit: updated.rows[0], duplicate: false, credited: false };
     }
 
-    await assertDailyLimit(client, deposit.user_id, Number(deposit.ton_amount), deposit.id);
-
+    await reserveDailyDepositQuota(client, deposit.user_id, Number(deposit.ton_amount));
     const economy = await creditConfirmedDeposit(client, deposit, confirmations, metadata);
     const updated = await client.query(
       `UPDATE deposits
