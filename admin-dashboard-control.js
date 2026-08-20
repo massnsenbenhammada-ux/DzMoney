@@ -107,7 +107,7 @@ async function dashboardHandler(req, res) {
       pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS total FROM economy_ledger WHERE asset='DZP' AND direction='CREDIT' AND source_type IN ('REWARDS_POOL','POOL_DISTRIBUTION')"),
       pool.query("SELECT COUNT(*)::int AS count FROM users WHERE COALESCE(is_banned,false)=true"),
       pool.query("SELECT COALESCE(SUM(bux),0)::numeric AS total FROM users"),
-      pool.query("SELECT COUNT(*)::int AS count FROM withdrawals WHERE LOWER(COALESCE(status,''))='pending'")
+      pool.query("SELECT COUNT(*)::int AS count FROM economy_withdrawals WHERE UPPER(COALESCE(status,''))='PENDING'")
     ]);
 
     const labels = dayLabels();
