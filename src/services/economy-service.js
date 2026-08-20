@@ -95,33 +95,37 @@ async function createTransaction(client, { idempotencyKey, userId, type, metadat
   return { transaction: existing.rows[0], duplicate: true };
 }
 
-async function postEconomyTransaction({ idempotencyKey, userId, type, movements, metadata = {} }) {
+async function postEconomyTransactionOnClient(client, { idempotencyKey, userId, type, movements, metadata = {} }) {
   if (!userId) throw new Error('userId is required');
   if (!Array.isArray(movements) || movements.length === 0) throw new Error('movements are required');
 
-  return withTransaction(async client => {
-    const created = await createTransaction(client, { idempotencyKey, userId, type, metadata });
-    if (created.duplicate) return created;
+  const created = await createTransaction(client, { idempotencyKey, userId, type, metadata });
+  if (created.duplicate) return created;
 
-    const entries = [];
-    for (const movement of movements) {
-      if (!INTERNAL_CURRENCIES.includes(movement.currency)) throw new Error('Unsupported internal currency');
-      if (!Number.isFinite(Number(movement.amount)) || Number(movement.amount) === 0) {
-        throw new Error('Invalid economy movement amount');
-      }
-      const entry = await applyMovement(client, { userId, ...movement });
-      const row = await client.query(
-        `INSERT INTO ledger_entries
-           (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING *`,
-        [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source || null, entry.currency]
-      );
-      entries.push(row.rows[0]);
+  const entries = [];
+  for (const movement of movements) {
+    if (!INTERNAL_CURRENCIES.includes(movement.currency)) throw new Error('Unsupported internal currency');
+    if (!Number.isFinite(Number(movement.amount)) || Number(movement.amount) === 0) {
+      throw new Error('Invalid economy movement amount');
     }
+    const entry = await applyMovement(client, { userId, ...movement });
+    const row = await client.query(
+      `INSERT INTO ledger_entries
+         (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source || null, entry.currency]
+    );
+    entries.push(row.rows[0]);
+  }
 
-    return { transaction: created.transaction, entries, duplicate: false };
-  });
+  return { transaction: created.transaction, entries, duplicate: false };
+}
+
+async function postEconomyTransaction({ idempotencyKey, userId, type, movements, metadata = {} }) {
+  return withTransaction(client => postEconomyTransactionOnClient(client, {
+    idempotencyKey, userId, type, movements, metadata,
+  }));
 }
 
 /**
@@ -265,6 +269,7 @@ module.exports = {
   DZP_DZX,
   getEconomySettings,
   postEconomyTransaction,
+  postEconomyTransactionOnClient,
   creditActivityReward,
   convertCoinToDzp,
   convertDzxToDzp,
