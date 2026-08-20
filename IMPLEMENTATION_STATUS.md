@@ -22,23 +22,27 @@ The agreed business rules and roadmap are preserved in `PROJECT_ROADMAP.md`.
 - 🟢 Minimal Node/Express runtime.
 - 🟢 PostgreSQL connection and transaction helper.
 - 🟢 Migration runner with migration tracking.
+- 🟢 Production start now applies clean migrations before starting the server.
 - 🟢 Users and Telegram identity.
 - 🟢 COIN, DZX, DZP and TON wallet accounts.
 - 🟢 Earned DZP and purchased DZP separation.
+- 🟢 Wallet provisioning service.
+- 🟢 Atomic ledger transaction service with row locking.
 - 🟢 Ledger transactions with idempotency key.
-- 🟢 Immutable ledger entries with balance-before/balance-after.
+- 🟢 Ledger entries with balance-before/balance-after.
 - 🟢 Admin settings stored in PostgreSQL.
 - 🟢 Admin audit log foundation.
 - 🟢 Idempotency record store.
 - 🟢 Default economic and operational settings seeded in the database.
+- 🟢 `/health` runtime endpoint.
+- 🟢 `/health/db` database connectivity endpoint.
+- 🟢 Core smoke-test script for database, migrations and wallet provisioning.
 
 ### Remaining before Phase 1 completion
-- ⬜ Add wallet provisioning/service layer.
-- ⬜ Add ledger service with atomic balance mutations.
-- ⬜ Add reconciliation checks.
-- ⬜ Add automated database/ledger tests.
-- ⬜ Validate migrations against the new PostgreSQL deployment.
-- ⬜ Validate `/health` in production.
+- ⬜ Add dedicated ledger reconciliation checks.
+- ⬜ Expand automated ledger tests, including insufficient-balance and idempotency cases.
+- ⬜ Run the smoke tests against the production PostgreSQL deployment.
+- ⬜ Verify production `/health` and `/health/db` after redeploy.
 
 ## Phase 2 — Economy & Conversion Engine
 
@@ -91,6 +95,9 @@ The agreed business rules and roadmap are preserved in `PROJECT_ROADMAP.md`.
 - Removed legacy application code and compatibility layers.
 - Started Phase 1 again from the clean repository.
 - Added the minimal runtime, PostgreSQL layer, migration runner and core schema.
+- Added wallet provisioning and atomic ledger services.
+- Added database health checking and core smoke tests.
+- Production start command now runs the clean migration runner before `server.js`.
 
 ## Update Rule
 
