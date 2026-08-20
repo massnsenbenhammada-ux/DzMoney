@@ -3,8 +3,9 @@
 const express = require("express");
 const { Pool } = require("pg");
 
-// Live, authoritative Admin Dashboard API. The existing admin authentication
-// handler remains the first middleware for /api/admin/stats.
+// Authoritative live Admin Dashboard API.
+// The legacy admin authentication middleware remains the first handler for
+// /api/admin/stats; this layer only supplies the database-backed payload.
 const originalGet = express.application.get;
 const pool = process.env.DATABASE_URL
   ? new Pool({
@@ -26,6 +27,8 @@ function dayLabels() {
 }
 
 async function dashboardHandler(req, res) {
+  if (!pool) return res.status(503).json({ success: false, message: "Database unavailable." });
+
   try {
     const todayStart = dayStartUtc(0);
     const tomorrowStart = dayStartUtc(-1);
@@ -107,44 +110,64 @@ async function dashboardHandler(req, res) {
       return labels.map(day => ({ day, value: map[day] || 0 }));
     };
 
+    const metrics = {
+      members: Number(users.rows[0].count),
+      newMembersToday: Number(newUsersToday.rows[0].count),
+      adsWatched: Number(adsTotal.rows[0].count),
+      adsWatchedToday: Number(adsToday.rows[0].count),
+      tasksCompleted: Number(tasksTotal.rows[0].count),
+      tasksCompletedToday: Number(tasksToday.rows[0].count),
+      totalDZP: Number(dzpTotal.rows[0].total),
+      totalDZX: Number(dzxTotal.rows[0].total),
+      totalCoins: Number(coinsTotal.rows[0].total),
+      rewardsPoolDistributedDZP: Number(poolDistributed.rows[0].total)
+    };
+
+    const charts = {
+      members: fill(dailyUsers),
+      ads: fill(dailyAds),
+      tasks: fill(dailyTasks)
+    };
+
+    const topActiveRows = topActive.rows.map(row => ({
+      id: row.id,
+      username: row.username,
+      firstName: row.first_name,
+      tasks: Number(row.tasks),
+      ads: Number(row.ads),
+      activity: Number(row.activity)
+    }));
+
+    const topReferrerRows = topReferrers.rows.map(row => ({
+      id: row.id,
+      username: row.username,
+      firstName: row.first_name,
+      referrals: Number(row.referrals),
+      qualified: Number(row.qualified)
+    }));
+
+    // Keep both the new authoritative shape and the legacy shape so the
+    // older dashboard renderer cannot break while the live renderer loads.
+    const legacyStats = {
+      users: metrics.members,
+      activeTasks: 0,
+      totalClaims: metrics.tasksCompleted,
+      referrals: topReferrerRows.reduce((sum, row) => sum + row.referrals, 0),
+      systemEnabled: true
+    };
+
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.json({
       success: true,
       live: true,
       generatedAt: Date.now(),
-      metrics: {
-        members: Number(users.rows[0].count),
-        newMembersToday: Number(newUsersToday.rows[0].count),
-        adsWatched: Number(adsTotal.rows[0].count),
-        adsWatchedToday: Number(adsToday.rows[0].count),
-        tasksCompleted: Number(tasksTotal.rows[0].count),
-        tasksCompletedToday: Number(tasksToday.rows[0].count),
-        totalDZP: Number(dzpTotal.rows[0].total),
-        totalDZX: Number(dzxTotal.rows[0].total),
-        totalCoins: Number(coinsTotal.rows[0].total),
-        rewardsPoolDistributedDZP: Number(poolDistributed.rows[0].total)
-      },
-      charts: {
-        members: fill(dailyUsers),
-        ads: fill(dailyAds),
-        tasks: fill(dailyTasks)
-      },
-      topActive: topActive.rows.map(row => ({
-        id: row.id,
-        username: row.username,
-        firstName: row.first_name,
-        tasks: Number(row.tasks),
-        ads: Number(row.ads),
-        activity: Number(row.activity)
-      })),
-      topReferrers: topReferrers.rows.map(row => ({
-        id: row.id,
-        username: row.username,
-        firstName: row.first_name,
-        referrals: Number(row.referrals),
-        qualified: Number(row.qualified)
-      }))
+      metrics,
+      charts,
+      topActive: topActiveRows,
+      topReferrers: topReferrerRows,
+      stats: legacyStats
     });
   } catch (error) {
     console.error("Admin dashboard error:", error);
