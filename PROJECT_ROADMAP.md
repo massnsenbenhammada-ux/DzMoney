@@ -11,6 +11,7 @@
 - Build and test one subsystem at a time.
 - Do not carry obsolete BUX names, legacy fields or unexplained settings into the new system.
 - Keep modules isolated so fixing one subsystem does not destabilize unrelated subsystems.
+- **TON is an external reference/settlement currency only. The internal DzMoney economic reward/distribution currency is DZX.**
 
 ---
 
@@ -22,17 +23,19 @@
 Activity/reward currency. Earned from qualifying activity such as tasks and advertisements and from applicable referral rewards.
 
 ### DZX
-Main economic currency. Used for the economic flows defined by the project, including withdrawals, deposits converted into DZX, campaign budgets and other approved spending.
+**Main internal economic currency.** DZX is the currency used for economic rewards, Reward Pool distributions, deposits after conversion, campaign budgets and withdrawal accounting.
 
 ### DZP
-**Package currency.** DZP is used to buy packages. It is also the project's activity indicator where DZP is earned through qualifying activity.
+**Package currency and activity indicator.** DZP is used to buy packages and earned DZP is used to measure activity/Reward Pool weight.
 
 ### TON
-External currency used for deposits, withdrawals and Reward Pool distributions.
+External blockchain currency. TON is **not** the internal Reward Pool payout currency. It is used only as the external value/reference for deposits and withdrawals.
 
 ## Fixed economic relationship
 
 **1 TON = 10,000 DZX = 10,000,000 COIN**
+
+TON is displayed as the external reference value of the DZX economy. The system should avoid using TON as an internal reward balance or Reward Pool distribution unit.
 
 Therefore:
 
@@ -72,6 +75,17 @@ The ledger must distinguish at least:
 **Converted DZP and purchased DZP never increase Reward Pool weight.**
 
 This rule must be shown clearly in the user's Conversion area and enforced by the backend.
+
+## DZX source separation
+
+The ledger must identify DZX by source:
+- advertisements;
+- tasks;
+- referral earnings;
+- Reward Pool distributions;
+- deposits converted from TON.
+
+These sources are economically DZX. Source metadata must remain immutable in the ledger.
 
 ## Admin economy
 
@@ -226,9 +240,11 @@ Reward Pool is funded from daily project revenue.
 
 Admin sets:
 
-**Daily Reward Pool Distribution Amount (TON)**
+**Daily Reward Pool Distribution Amount (DZX)**
 
-This is the TON amount distributed to eligible users each day.
+This is the **DZX amount** distributed to eligible users each day.
+
+TON is only shown as an external reference value. It is not used as the Reward Pool payout unit.
 
 ## User activation
 
@@ -245,7 +261,7 @@ The Reward Pool ads use the same standard activity reward as Tasks unless Admin 
 
 ## Weight
 
-Daily eligible activity is represented by earned activity DZP.
+Daily eligible activity is represented by **earned activity DZP only**.
 
 Example:
 - total eligible activity = 25,000 DZP;
@@ -262,11 +278,19 @@ Purchased or converted DZP does not increase weight.
 
 At the configured daily distribution time:
 
-**User TON Share = Daily Reward Pool TON × (User Effective Weight / Sum of all eligible Effective Weights)**
+**User Share (DZX) = Daily Reward Pool DZX × (User Effective Weight / Sum of all eligible Effective Weights)**
 
 Distribution begins at the start of each day at **UTC+1** using the finalized previous-day activity boundary.
 
-The system must create an auditable Reward Pool distribution record for every payout.
+The system must create an auditable Reward Pool distribution record for every DZX payout.
+
+### TON reference display
+
+Where the interface shows the value of a Reward Pool distribution in TON, it is a calculated reference only:
+
+**TON reference = DZX amount / 10,000**
+
+No TON is credited to the user's internal Reward Pool balance.
 
 ## User explanation
 
@@ -278,7 +302,8 @@ Reward Pool page must explain:
 - how earned DZP affects weight;
 - that converted/purchased DZP does not increase weight;
 - that packages multiply weight;
-- that payouts are TON;
+- that payouts are **DZX**;
+- that TON is shown only as an external value reference;
 - the daily distribution amount.
 
 Include a concise anti-manipulation warning.
@@ -339,7 +364,9 @@ It must explicitly warn users that converted/purchased DZP does not increase Rew
 
 # Phase 8 — Deposit System
 
-Deposit currency: **TON**.
+External deposit currency: **TON**.
+
+TON is not kept as an internal reward balance.
 
 Flow:
 
@@ -349,21 +376,26 @@ Initial economic conversion:
 
 **1 TON → 10,000 DZX**
 
+The deposited TON itself is not credited as TON inside the application; the user's internal balance receives DZX after confirmation.
+
 Deposited DZX is not directly withdrawable until used according to the internal-use rules.
 
 Every deposit requires:
 - unique blockchain transaction reference;
 - confirmation status;
 - idempotency protection;
-- immutable ledger entry.
+- immutable ledger entry;
+- exact TON amount and resulting DZX amount recorded for audit.
 
 ---
 
 # Phase 9 — Withdrawal System
 
-Initial minimum withdrawal:
+Initial minimum withdrawal value:
 
 **0.2 TON**
+
+TON is the external settlement value. Internally, the withdrawal requirement is represented by DZX/COIN economics.
 
 Initial eligibility requirements:
 
@@ -371,7 +403,14 @@ Initial eligibility requirements:
 
 These are configurable by Admin.
 
-The COIN and DZX requirements are deducted and converted economically into the withdrawal value as part of the withdrawal flow.
+At withdrawal:
+
+1. Verify the user satisfies the COIN and withdrawable DZX requirements.
+2. Deduct **2,000,000 COIN + 2,000 DZX** atomically.
+3. Treat the deducted economic value as the configured **0.2 TON** withdrawal value.
+4. Send the external TON settlement to the user's wallet.
+
+Thus the user sees the external withdrawal as **0.2 TON**, while the internal accounting is COIN + DZX.
 
 Withdrawal fees, if enabled, are charged to the user and are Admin-configurable.
 
@@ -438,7 +477,7 @@ Explain hierarchy, member count, level, requirements, 50% activity condition, ne
 
 ## Reward Pool page
 
-Explain activation, 10 Reward Pool ads, DZP weighting, package multiplier, TON distribution and exclusions.
+Explain activation, 10 Reward Pool ads, DZP weighting, package multiplier, **DZX distribution**, TON reference value and exclusions.
 
 ---
 
@@ -461,12 +500,13 @@ Bottom lists:
 - Top 10 members who brought the most referrals.
 
 ### Economy
-- TON→DZX
+- TON→DZX reference rate
 - COIN→DZP
 - DZX→DZP
 - activity reward defaults
 - purchase prices
 - conversion settings
+- withdrawal economic value
 
 ### Users
 - search
@@ -475,6 +515,7 @@ Bottom lists:
 - account status
 - manual balance adjustments with mandatory reason/audit
 - explicit DZP source separation
+- explicit DZX source separation
 
 ### Referral
 - qualification
@@ -487,10 +528,11 @@ Bottom lists:
 - 50% activity requirement
 
 ### Reward Pool
-- daily TON distribution amount
+- daily DZX distribution amount
 - 10-ad activation requirement
 - weighting settings
 - package multipliers
+- TON reference display rate
 
 ### Packages
 - six durations
@@ -511,7 +553,8 @@ Bottom lists:
 
 ### Wallet
 - deposit configuration
-- withdrawal minimum
+- TON→DZX conversion rate
+- withdrawal minimum TON reference value
 - COIN requirement
 - DZX requirement
 - withdrawal fees
@@ -534,12 +577,13 @@ Separate accounting for:
 - purchased DZP;
 - referral rewards;
 - Squad Bonus;
-- Reward Pool TON;
+- Reward Pool DZX;
 - package purchases;
 - task campaign budgets;
 - fees;
 - deposits;
-- withdrawals.
+- withdrawals;
+- TON external settlement references.
 
 Implement:
 - atomic transactions;
@@ -563,10 +607,10 @@ Before production:
 5. Referral qualification/lifetime tests.
 6. Squad hierarchy and next-day activation tests.
 7. Reward Pool 10-ad activation tests.
-8. Reward Pool weight/distribution tests.
+8. Reward Pool DZX weight/distribution tests.
 9. Package single-active/multiplier/expiry tests.
-10. Deposit confirmation/idempotency tests.
-11. Withdrawal eligibility/deduction/fee tests.
+10. Deposit TON→DZX conversion and idempotency tests.
+11. Withdrawal eligibility/deduction/0.2 TON settlement tests.
 12. Admin setting propagation tests.
 13. Dashboard real-time metric tests.
 14. Security and anti-fraud tests.
