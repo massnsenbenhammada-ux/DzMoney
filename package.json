@@ -1,10 +1,10 @@
 {
   "name": "dzmoney",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "DzMoney Telegram Mini App with PostgreSQL and testnet TON payout engine",
   "main": "server.js",
   "scripts": {
-    "start": "node ./scripts/migrate-economy.js && node ./scripts/migrate-dzx-withdrawals.js && node ./scripts/migrate-task-engine.js && node ./scripts/migrate-task-catalog.js && node ./scripts/migrate-dzp-rules.js && node ./scripts/migrate-rewards-pool.js && node ./scripts/migrate-economy-rates.js && node ./scripts/migrate-admin-safe.js && node ./scripts/migrate-server-runtime-settings.js && node ./scripts/seed-task-catalog.js && node -r ./admin-panel-core-v2.js -r ./economy-integration.js -r ./task-route-bootstrap.js -r ./withdrawal-network-migration.js -r ./withdrawal-dzx.js -r ./manual-wallet-server.js -r ./ton-rpc-guard.js -r ./ton-wallet-compat.js -r ./payout-worker.js server.js",
+    "start": "node ./scripts/migrate-economy.js && node ./scripts/migrate-dzx-withdrawals.js && node ./scripts/migrate-task-engine.js && node ./scripts/migrate-task-catalog.js && node ./scripts/migrate-dzp-rules.js && node ./scripts/migrate-rewards-pool.js && node ./scripts/migrate-economy-rates.js && node ./scripts/migrate-admin-safe.js && node ./scripts/migrate-server-runtime-settings.js && node ./scripts/migrate-admin-v3.js && node ./scripts/seed-task-catalog.js && node -r ./admin-panel-core-v2.js -r ./economy-integration.js -r ./task-route-bootstrap.js -r ./withdrawal-network-migration.js -r ./withdrawal-dzx.js -r ./manual-wallet-server.js -r ./ton-rpc-guard.js -r ./ton-wallet-compat.js -r ./payout-worker.js server.js",
     "admin:safe-audit": "node ./scripts/verify-admin-safe.js",
     "ton:diagnostic": "node ./ton-diagnostic.js",
     "ton:forensic": "node ./ton-forensic-diagnostic.js",
@@ -16,9 +16,9 @@
     "pg": "^8.16.3",
     "@ton/ton": "^16.3.0",
     "@ton/crypto": "^3.3.0",
+    "micro-key-producer": "^0.9.0",
     "tweetnacl": "^1.0.3",
     "@scure/bip39": "^1.6.0",
-    "micro-key-producer": "^0.9.0",
     "axios": "^1.19.0"
   }
 }
