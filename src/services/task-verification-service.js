@@ -1,6 +1,7 @@
 const { withTransaction } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
+const { verifyWithProvider } = require('./ad-provider-service');
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -23,17 +24,17 @@ async function startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId
   });
 }
 
-async function verifyTaskAdvertisement({ adEventId, provider, providerPayload }) {
+async function verifyTaskAdvertisement({ adEventId, providerRegistry, providerId = null, providerPayload }) {
   requiredId(adEventId, 'adEventId');
-  if (!provider || typeof provider.verifyCompletion !== 'function') throw new Error('A trusted advertisement provider is required');
-  const verification = await provider.verifyCompletion(providerPayload);
-  if (!verification || verification.verified !== true || !verification.reference) throw new Error('Advertisement provider verification failed');
-  const result = await markAdvertisementVerified({ adEventId, providerReference: verification.reference, verificationMetadata: verification.metadata || {} });
-  if (result.duplicate) return result;
+  if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
+  const result = await verifyWithProvider(providerRegistry, { context: 'verification', providerId, payload: providerPayload });
+  if (!result.verification.verified) throw new Error('Advertisement provider verification failed');
+  const marked = await markAdvertisementVerified({ adEventId, providerReference: result.verification.reference, verificationMetadata: { ...result.verification.metadata, provider_id: result.providerId } });
+  if (marked.duplicate) return marked;
   await withTransaction(async client => {
     await client.query(`UPDATE task_verification_gates SET status='ad_completed',ad_completed_at=NOW() WHERE ad_event_id=$1 AND status='pending'`, [adEventId]);
   });
-  return result;
+  return marked;
 }
 
 async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskCompletion }) {
