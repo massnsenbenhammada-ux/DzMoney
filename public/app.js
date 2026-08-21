@@ -36,7 +36,6 @@ function renderDaily(data) {
   state.adEventId = data.status === 'ad_pending' ? data.pendingAdEventId : null;
   const reward = $('dailyReward'); const status = $('dailyStatus'); const note = $('dailyNote');
   if (reward) reward.textContent = formatReward(data.reward);
-
   if (data.status === 'cooldown') {
     const tick = () => {
       if (state.daily?.status !== 'cooldown') return;
@@ -46,12 +45,10 @@ function renderDaily(data) {
     };
     tick(); return;
   }
-
   if (data.status === 'ad_pending') {
     if (status) status.textContent = 'Advertisement completed — claim your reward';
     setDailyView('Claim Reward', false); return;
   }
-
   if (status) status.textContent = state.adsgram.enabled ? 'Watch an ad to unlock today’s reward' : 'AdsGram is not configured yet.';
   if (note) note.textContent = state.adsgram.enabled ? 'The reward is issued only after a verified advertisement completion.' : 'AdsGram Block ID is required before an advertisement can be started.';
   setDailyView('Daily Check-in', false);
@@ -68,9 +65,7 @@ async function loadDaily() {
       if ($('dailyStatus')) $('dailyStatus').textContent = e.status === 401 ? 'Authentication required' : 'Daily activity unavailable';
       setDailyView('Daily Check-in', false);
       throw e;
-    } finally {
-      state.dailyLoading = null;
-    }
+    } finally { state.dailyLoading = null; }
   })();
   return state.dailyLoading;
 }
@@ -80,9 +75,7 @@ async function loadAdsgramConfig() {
     const config = await api('/api/config');
     state.adsgram = config.adsgram || { enabled: false, blockId: null };
     if (state.adsgram.enabled && state.adsgram.blockId && window.Adsgram) state.adController = window.Adsgram.init({ blockId: state.adsgram.blockId });
-  } catch {
-    state.adsgram = { enabled: false, blockId: null }; state.adController = null;
-  }
+  } catch { state.adsgram = { enabled: false, blockId: null }; state.adController = null; }
   await loadDaily().catch(() => {});
 }
 
@@ -127,6 +120,15 @@ function renderSquad(d) { const s = d.squad || {}; if ($('members')) $('members'
 async function loadSquad() { try { renderSquad(await api('/api/squad')); await loadGoals(); } catch (e) { if ($('accountText')) $('accountText').textContent = e.status === 401 ? 'Open DzMoney inside Telegram to authenticate your account.' : 'The Squad service is temporarily unavailable.'; } }
 async function loadGoals() { const g = $('goals'); if (!g) return; try { const d = await api('/api/squad/goals'); if (!d.inSquad || !d.goals?.length) { g.innerHTML = '<article class="info-card"><strong>Squad goals</strong><p>No active goals are published for your squad.</p></article>'; return; } g.innerHTML = d.goals.map((x) => { const p = Math.min(100, Number(x.progress || 0) / Math.max(1, Number(x.target_quantity || 1)) * 100); return `<article class="goal-card"><div class="goal-top"><span>${escapeHtml(x.target_type || 'Goal')}</span><strong>${escapeHtml(x.title || 'Squad goal')}</strong></div><p>${escapeHtml(x.description || 'Contribute qualifying activity to this goal.')}</p><div class="progress"><i style="width:${p}%"></i></div><div class="goal-meta"><span>${Number(x.progress || 0).toLocaleString()} / ${Number(x.target_quantity || 0).toLocaleString()}</span><span>${p.toFixed(0)}%</span></div></article>`; }).join(''); } catch { g.innerHTML = '<article class="info-card"><strong>Squad goals</strong><p>Goals are temporarily unavailable.</p></article>'; } }
 function showPage(page) { document.querySelectorAll('.page').forEach((e) => e.classList.toggle('active', e.dataset.page === page)); document.querySelectorAll('.nav-item').forEach((e) => e.classList.toggle('active', e.dataset.go === page)); if (page === 'home') loadDaily().catch(() => {}); if (page === 'squad') loadSquad(); }
-document.addEventListener('click', (event) => { const daily = event.target.closest('#dailyAction'); if (daily) { event.preventDefault(); handleDailyAction(); return; } const nav = event.target.closest('[data-go]'); if (nav) { event.preventDefault(); showPage(nav.dataset.go); } });
-const user = tg?.initDataUnsafe?.user; if (user) { if ($('welcomeLabel')) $('welcomeLabel').textContent = `WELCOME, ${String(user.first_name || '').toUpperCase()}`; if ($('accountText')) $('accountText').textContent = `Connected as ${user.first_name || ''}${user.last_name ? ` ${user.last_name}` : ''}.`; }
-loadSquad(); loadAdsgramConfig();
+
+// Bind the Daily Check-in directly to the real button. This avoids relying on event delegation and keeps this control isolated.
+const dailyAction = $('dailyAction');
+if (dailyAction) dailyAction.addEventListener('click', (event) => { event.preventDefault(); void handleDailyAction(); });
+
+document.querySelectorAll('[data-go]').forEach((element) => element.addEventListener('click', (event) => { event.preventDefault(); showPage(element.dataset.go); }));
+
+const user = tg?.initDataUnsafe?.user;
+if (user) { if ($('welcomeLabel')) $('welcomeLabel').textContent = `WELCOME, ${String(user.first_name || '').toUpperCase()}`; if ($('accountText')) $('accountText').textContent = `Connected as ${user.first_name || ''}${user.last_name ? ` ${user.last_name}` : ''}.`; }
+
+loadSquad();
+loadAdsgramConfig();
