@@ -72,6 +72,7 @@ async function main() {
     );
     const pending = await pool.query('SELECT status FROM task_attempts WHERE id=$1', [execution3.attempt.id]);
     assert.strictEqual(pending.rows[0].status, 'verification_pending');
+    await finalizeTaskVerification({ attemptId: execution3.attempt.id, idempotencyKey: `phase2-rejected-after-contract-${Date.now()}`, verifyTaskCompletion: async () => false });
 
     const execution2 = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-2-${Date.now()}` });
     const ad2 = await startTaskVerificationAd({ attemptId: execution2.attempt.id, idempotencyKey: `phase2-ad-2-${Date.now()}`, externalAdId: 'phase2-test-ad-2' });
