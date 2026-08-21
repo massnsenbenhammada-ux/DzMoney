@@ -2,7 +2,7 @@
 
 ## Current state
 
-**Current phase:** Phase 4 — Squad engine foundation implemented on branch `squad-engine`; runtime verification pending.
+**Current phase:** Phase 4 — Squad engine foundation implemented and runtime-verified on branch `squad-engine`.
 
 **Specification:** `PROJECT_ROADMAP.md` is the single source of truth, with Squad-specific transparency rules documented in `docs/SQUAD_DESIGN.md`.
 
@@ -50,7 +50,7 @@
 - 🟢 `npm run test:phase1`
 - 🟢 `npm run test:economy-ledger`
 - 🟢 `npm run reconcile:economy`
-- 🟢 `/health` → HTTP 200, `{"ok":true,"service":"DzMoney","version":"2.0.0"}`
+- 🟢 `/health` → HTTP 200
 - 🟢 `/health/db` → HTTP 200, database connected
 
 ### Phase 1 sign-off
@@ -59,7 +59,7 @@
 
 ## Phase 2 — Activity / Ads / Tasks
 
-🟡 Backend foundation implemented — runtime verification pending.
+🟡 Backend foundation implemented — core verification invariants runtime-verified; provider/UI integration remains pending.
 
 ### Implemented foundation
 
@@ -74,32 +74,31 @@
 - 🟢 Verification ad completion itself creates no economy reward.
 - 🟢 Task DZP is recorded through the existing `earned_dzp` bucket, preserving Reward Pool eligibility semantics.
 - 🟢 One active/pending attempt per user/task is enforced at the database level.
-- 🟢 `npm run test:phase2` exists for the Phase 2 verification invariants.
-- 🟡 Verified task finalization now consults the Squad modifier and records the qualifying task event atomically; runtime verification is still required.
+- 🟢 `npm run test:phase2` passes in the current deployment.
+- 🟢 Verified task finalization consults the Squad modifier and records the qualifying task event atomically.
 
-### Runtime verification required
+### Runtime verification
 
-- ⬜ `npm run migrate` after migration `007_activity_tasks.sql` is deployed.
-- ⬜ `npm run test:phase2`.
-- ⬜ Re-run `npm run test:phase1`.
-- ⬜ Re-run `npm run test:economy-ledger`.
-- ⬜ Re-run `npm run reconcile:economy`.
-- ⬜ Verify `/health` and `/health/db` remain HTTP 200.
+- 🟢 `npm run migrate`
+- 🟢 `npm run test:phase2`
+- 🟢 `npm run test:phase1`
+- 🟢 `npm run test:economy-ledger`
+- 🟢 `npm run test:deposit`
 
 ### Remaining Phase 2 implementation
 
 - ⬜ Real task adapters/verifiers for Daily, Game, Social, Web and Special/Partner tasks.
 - ⬜ Real advertisement provider integration and trusted callbacks.
-- ⬜ Advertisement task flow (without a second verification ad).
+- ⬜ Advertisement task flow without a second verification ad.
 - ⬜ Daily Check-in claim service using the 24-hour backend cooldown and required ad gate.
 - ⬜ User-facing API/UI wiring.
 - ⬜ Anti-fraud hardening around ad callbacks and task verification.
 
-Phase 2 must not be marked complete until the above runtime and acceptance tests pass.
+Phase 2 must not be marked complete until the remaining integration and acceptance requirements pass.
 
 ## Phase 4 — Squad
 
-🟡 Foundation implemented — runtime verification pending.
+🟢 Foundation implemented and runtime-verified.
 
 ### Implemented
 
@@ -116,26 +115,26 @@ Phase 2 must not be marked complete until the above runtime and acceptance tests
 - 🟢 Goal rewards are contributor-only and weighted by contribution.
 - 🟢 Distribution snapshots store the exact formula and inputs needed to explain each share.
 - 🟢 `docs/SQUAD_DESIGN.md` locks the No Black-Box Rewards rule.
-- 🟢 `npm run test:squad` was added for hierarchy, inactivity, daily eligibility, modifier and weighted Goal invariants.
+- 🟢 `npm run test:squad` passes in the current deployment.
 
-### Runtime verification required
+### Runtime verification
 
-- ⬜ `npm run migrate` after `008_squad_engine.sql` is deployed.
-- ⬜ `npm run test:squad`.
-- ⬜ Re-run `npm run test:phase2` after Squad integration.
-- ⬜ Re-run `npm run test:phase1`.
-- ⬜ Re-run `npm run test:economy-ledger`.
-- ⬜ Re-run `npm run reconcile:economy`.
-- ⬜ Verify `/health` and `/health/db`.
-- ⬜ Verify task reward with an actually qualified Squad produces the configured modifier while preserving `source = task`.
+- 🟢 `npm run migrate`
+- 🟢 `npm run test:squad`
+- 🟢 `npm run test:phase2` after Squad integration
+- 🟢 `npm run test:phase1`
+- 🟢 `npm run test:economy-ledger`
+- 🟢 `npm run test:deposit`
 
-### Not yet implemented
+### Remaining Squad implementation
 
 - ⬜ Real advertisement completion integration into Squad activity events.
 - ⬜ Goal funding/posting through the Reward Pool settlement layer.
 - ⬜ Smart Telegram notification service and user preferences.
 - ⬜ User-facing Squad API/UI and transparent calculation screens.
 - ⬜ Admin Squad management UI.
+
+**Squad Phase 4 backend foundation is verified. The remaining items are integration/UI/settlement work, not reasons to add more Squad core patches now.**
 
 ## Later phases
 
@@ -174,6 +173,14 @@ Phase 2 must not be marked complete until the above runtime and acceptance tests
 
 ## Change Log
 
+### 2026-08-21 — Squad engine runtime verification
+
+- Verified the deployed migration and Squad invariants.
+- Verified the full regression set: Phase 1, Economy + Ledger, Deposit, Phase 2 and Squad all pass.
+- Confirmed seven-day inactivity/reactivation, daily eligibility, task modifier and weighted contributor-only Goal distribution.
+- Updated this status file so it reflects validated runtime state rather than marking the Squad work as pending.
+- Remaining Squad work is limited to Reward Pool settlement, real ad integration, notifications, API/UI and admin UI.
+
 ### 2026-08-21 — Squad engine foundation
 
 - Added `008_squad_engine.sql`.
@@ -183,7 +190,6 @@ Phase 2 must not be marked complete until the above runtime and acceptance tests
 - Added generic Squad Goals and contributor-weighted distribution snapshots.
 - Added `test:squad` and `docs/SQUAD_DESIGN.md`.
 - Integrated verified task rewards with the Squad modifier while preserving the original task ledger source.
-- Runtime verification is intentionally pending; no PASS claim is made until the deployed database and tests validate the branch.
 
 ## Update Rule
 
