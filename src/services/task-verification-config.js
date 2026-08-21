@@ -11,16 +11,24 @@ function validateReferral(referral = {}) {
   }
 }
 
-function rejectSecrets(config) {
-  for (const key of Object.keys(config)) {
+function rejectSecrets(value) {
+  if (!value || typeof value !== 'object') return;
+  for (const [key, child] of Object.entries(value)) {
     if (SECRET_KEYS.has(key)) throw new Error('credentials must not be stored in task config');
+    rejectSecrets(child);
   }
 }
 
 /** Validate task verification configuration without accessing external providers. */
 function validateVerificationConfig(config = {}) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('verification config must be an object');
-  rejectSecrets(config.verification || {});
+  rejectSecrets(config);
+  const verification = config.verification || {};
+  if (typeof verification !== 'object' || Array.isArray(verification)) {
+    throw new Error('verification config must be an object');
+  }
+  const mode = verification.mode || 'automatic';
+  if (!VERIFICATION_MODES.includes(mode)) throw new Error('Invalid verification mode');
   validateReferral(config.referral);
   return true;
 }
