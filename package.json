@@ -11,13 +11,9 @@
     "test:phase1": "node ./scripts/test-phase1.js",
     "test:economy-ledger": "node ./scripts/test-economy-ledger.js",
     "test:deposit": "node ./scripts/test-deposit.js",
-    "test:phase2": "node ./scripts/test-phase2.js"
+    "test:phase2": "node ./scripts/test-phase2.js",
+    "test:squad": "node ./scripts/test-squad.js"
   },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "express": "^5.2.1",
-    "pg": "^8.16.3"
-  }
+  "engines": { "node": ">=20" },
+  "dependencies": { "express": "^5.2.1", "pg": "^8.16.3" }
 }
