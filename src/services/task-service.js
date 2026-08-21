@@ -1,4 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
+const { validateVerificationConfig } = require('./task-verification-config');
 
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
 const TASK_STATUSES = ['draft', 'pending_review', 'active', 'paused', 'completed', 'expired', 'closed', 'refunded'];
@@ -47,6 +48,7 @@ async function listActiveTasks({ taskType = null } = {}) {
 async function createTask({ taskType, title, description = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
   if (!TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
   if (!title) throw new Error('title is required');
+  validateVerificationConfig(config);
   return withTransaction(async client => {
     const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(client, 'activity.verification_ad_seconds', 5);
     if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) throw new Error('verification ad duration must be 5 or 10 seconds');
