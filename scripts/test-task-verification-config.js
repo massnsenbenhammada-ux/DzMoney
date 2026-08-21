@@ -8,8 +8,20 @@ const {
 function testReferralModes() {
   assert.deepStrictEqual(REFERRAL_MODES, ['disabled', 'link_only', 'link_and_owner_verification']);
   assert.strictEqual(resolveVerificationConfig({ taskType: 'web', config: {} }).referral.mode, 'disabled');
-  assert.strictEqual(resolveVerificationConfig({ taskType: 'social', config: { referral: { mode: 'link_only' } } }).referral.mode, 'link_only');
-  assert.strictEqual(resolveVerificationConfig({ taskType: 'social', config: { referral: { mode: 'link_and_owner_verification' } } }).referral.mode, 'link_and_owner_verification');
+  assert.strictEqual(resolveVerificationConfig({
+    taskType: 'social',
+    config: { referral: { mode: 'link_only', referralUrlTemplate: 'https://example.test/register?ref={code}' } }
+  }).referral.mode, 'link_only');
+  assert.strictEqual(resolveVerificationConfig({
+    taskType: 'social',
+    config: {
+      referral: {
+        mode: 'link_and_owner_verification',
+        referralUrlTemplate: 'https://example.test/register?ref={code}',
+        ownerVerification: { provider: 'partner' }
+      }
+    }
+  }).referral.mode, 'link_and_owner_verification');
 }
 
 function testAutomaticDefaults() {
