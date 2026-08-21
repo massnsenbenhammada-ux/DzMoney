@@ -41,6 +41,7 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
   requiredId(idempotencyKey, 'idempotencyKey');
   if (typeof verifyTaskCompletion !== 'function') throw new Error('A trusted task verifier is required');
   const verifiedByTaskRule = await verifyTaskCompletion({ attemptId });
+  if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
   return withTransaction(async client => {
     const result = await client.query(`SELECT a.*,t.reward_coin,t.reward_dzx,t.reward_dzp,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 FOR UPDATE`, [attemptId]);
     if (!result.rowCount) throw new Error('Task attempt not found');
