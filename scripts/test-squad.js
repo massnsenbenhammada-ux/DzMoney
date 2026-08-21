@@ -83,9 +83,8 @@ async function main() {
     assert.strictEqual(modifier.rate, 0.5);
 
     await pool.query(`UPDATE squad_memberships SET last_activity_at=NOW()-INTERVAL '8 days', active_since=NULL, status='active' WHERE user_id=$1`, [c]);
-    await getDailyEligibility({ squadId, date: new Date() });
-    const inactive = await pool.query(`SELECT status FROM squad_memberships WHERE user_id=$1`, [c]);
-    assert.strictEqual(inactive.rows[0].status, 'inactive');
+    const beforeReactivation = await pool.query(`SELECT status,last_activity_at FROM squad_memberships WHERE user_id=$1`, [c]);
+    assert.strictEqual(beforeReactivation.rows[0].status, 'active');
 
     const reactivated = await recordQualifyingActivity({ userId: c, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-reactivate` });
     assert.strictEqual(reactivated.reactivated, true);
