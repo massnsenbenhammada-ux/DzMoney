@@ -30,15 +30,6 @@ router.post('/checkin/ad/start', asyncRoute(async (req, res) => {
   res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, adEvent: result.adEvent });
 }));
 
-// Development-only bridge for AdsGram debug/test ads. It is disabled unless explicitly enabled.
-router.post('/checkin/ad/debug-complete', asyncRoute(async (req, res) => {
-  if (process.env.ADSGRAM_DEBUG !== 'true') return res.status(404).json({ error: 'Not found' });
-  const userId = await daily.resolveUserIdFromTelegram(req.telegramUser.id);
-  const adEventId = req.body?.adEventId;
-  const result = await daily.markDailyCheckinAdCompleted({ userId, adEventId, metadata: { adsgram_debug: true } });
-  res.json({ ok: true, debug: true, ...result });
-}));
-
 router.post('/checkin/claim', asyncRoute(async (req, res) => {
   const userId = await daily.resolveUserIdFromTelegram(req.telegramUser.id);
   const idempotencyKey = req.get('Idempotency-Key') || req.body?.idempotencyKey;
