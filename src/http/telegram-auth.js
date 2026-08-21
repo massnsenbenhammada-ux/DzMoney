@@ -1,9 +1,11 @@
 const crypto = require('crypto');
 
 const MAX_AGE_SECONDS = 24 * 60 * 60;
+const BOT_TOKEN = () => process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
 
 function verifyTelegramInitData(initData) {
-  if (!initData || !process.env.BOT_TOKEN) return null;
+  const botToken = BOT_TOKEN();
+  if (!initData || !botToken) return null;
 
   const params = new URLSearchParams(initData);
   const receivedHash = params.get('hash');
@@ -19,7 +21,7 @@ function verifyTelegramInitData(initData) {
     .map(([key, value]) => `${key}=${value}`)
     .join('\n');
 
-  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN).digest();
+  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
   const calculatedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
   const received = Buffer.from(receivedHash, 'hex');
