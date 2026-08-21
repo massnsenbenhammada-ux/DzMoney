@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const { query } = require('./src/db/pool');
 const squadRoutes = require('./src/http/squad-routes');
+const meRoutes = require('./src/http/me-routes');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -25,6 +26,7 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
+app.use('/api/me', meRoutes);
 app.use('/api/squad', squadRoutes);
 
 app.get('/', (_req, res) => {
