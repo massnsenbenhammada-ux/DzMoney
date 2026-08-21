@@ -8,7 +8,7 @@ function asyncRoute(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
 
-// AdsGram Reward URL server confirmation. AdsGram supplies the user's Telegram ID.
+// Production confirmation endpoint. AdsGram Reward URL supplies the Telegram user ID.
 router.get('/adsgram/reward', asyncRoute(async (req, res) => {
   const telegramUserId = req.query.userid || req.query.userId;
   if (!telegramUserId) return res.status(400).json({ ok: false, error: 'userid is required' });
@@ -28,6 +28,15 @@ router.post('/checkin/ad/start', asyncRoute(async (req, res) => {
   const idempotencyKey = req.get('Idempotency-Key') || req.body?.idempotencyKey;
   const result = await daily.startDailyCheckinAd({ userId, idempotencyKey, externalAdId: req.body?.externalAdId || null });
   res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, adEvent: result.adEvent });
+}));
+
+// Development-only bridge for AdsGram debug/test ads. It is disabled unless explicitly enabled.
+router.post('/checkin/ad/debug-complete', asyncRoute(async (req, res) => {
+  if (process.env.ADSGRAM_DEBUG !== 'true') return res.status(404).json({ error: 'Not found' });
+  const userId = await daily.resolveUserIdFromTelegram(req.telegramUser.id);
+  const adEventId = req.body?.adEventId;
+  const result = await daily.markDailyCheckinAdCompleted({ userId, adEventId, metadata: { adsgram_debug: true } });
+  res.json({ ok: true, debug: true, ...result });
 }));
 
 router.post('/checkin/claim', asyncRoute(async (req, res) => {
