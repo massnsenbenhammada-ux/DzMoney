@@ -22,6 +22,28 @@ async function getActivitySetting(client, key, fallback) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+/** Return active tasks for the catalog, optionally restricted to one category. */
+async function listActiveTasks({ taskType = null } = {}) {
+  if (taskType !== null && !TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
+  const params = taskType ? [taskType] : [];
+  const filter = taskType ? 'AND task_type=$1' : '';
+  const result = await query(
+    `SELECT id, task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds
+     FROM activity_tasks WHERE status='active' ${filter} ORDER BY id`,
+    params
+  );
+  return result.rows.map(row => ({
+    id: row.id,
+    taskType: row.task_type,
+    title: row.title,
+    description: row.description,
+    rewardCoin: Number(row.reward_coin),
+    rewardDzx: Number(row.reward_dzx),
+    rewardDzp: Number(row.reward_dzp),
+    verificationAdSeconds: row.verification_ad_seconds
+  }));
+}
+
 async function createTask({ taskType, title, description = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
   if (!TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
   if (!title) throw new Error('title is required');
@@ -86,4 +108,4 @@ async function executeTask({ taskId, userId, idempotencyKey, metadata = {} }) {
   });
 }
 
-module.exports = { TASK_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, activateTask, getTask, executeTask };
+module.exports = { TASK_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, activateTask, getTask, listActiveTasks, executeTask };
