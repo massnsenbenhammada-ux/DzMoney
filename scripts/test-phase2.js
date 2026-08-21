@@ -42,6 +42,14 @@ async function cleanupTestData(userId, taskId) {
   });
 }
 
+async function startVerificationAd(attemptId, idempotencyKey, externalAdId) {
+  return startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId, providerRegistry: adProviderRegistry });
+}
+
+async function verifyAd(adEventId, providerPayload) {
+  return verifyTaskAdvertisement({ adEventId, providerRegistry: adProviderRegistry, providerPayload });
+}
+
 async function main() {
   let userId;
   let taskId;
@@ -60,17 +68,18 @@ async function main() {
       /Verification advertisement must be verified first/
     );
 
-    const ad = await startTaskVerificationAd({ attemptId: execution.attempt.id, idempotencyKey: `phase2-ad-${Date.now()}`, externalAdId: 'phase2-test-ad' });
-    await assert.rejects(() => verifyTaskAdvertisement({ adEventId: ad.adEvent.id, providerRegistry: adProviderRegistry, providerPayload: { accepted: false } }), /Advertisement provider verification failed/);
-    await verifyTaskAdvertisement({ adEventId: ad.adEvent.id, providerRegistry: adProviderRegistry, providerPayload: { accepted: true, reference: 'test-provider-ref-1' } });
+    const ad = await startVerificationAd(execution.attempt.id, `phase2-ad-${Date.now()}`, 'phase2-test-ad');
+    assert.strictEqual(ad.providerId, 'test-ads');
+    await assert.rejects(() => verifyAd(ad.adEvent.id, { accepted: false }), /Advertisement provider verification failed/);
+    await verifyAd(ad.adEvent.id, { accepted: true, reference: 'test-provider-ref-1' });
 
     const rejected = await finalizeTaskVerification({ attemptId: execution.attempt.id, idempotencyKey: `phase2-rejected-${Date.now()}`, verifyTaskCompletion: async () => false });
     assert.strictEqual(rejected.rewarded, false);
     assert.strictEqual(await balance(userId, 'COIN'), 0);
 
     const execution3 = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-3-${Date.now()}` });
-    const ad3 = await startTaskVerificationAd({ attemptId: execution3.attempt.id, idempotencyKey: `phase2-ad-3-${Date.now()}`, externalAdId: 'phase2-test-ad-3' });
-    await verifyTaskAdvertisement({ adEventId: ad3.adEvent.id, providerRegistry: adProviderRegistry, providerPayload: { accepted: true, reference: 'test-provider-ref-3' } });
+    const ad3 = await startVerificationAd(execution3.attempt.id, `phase2-ad-3-${Date.now()}`, 'phase2-test-ad-3');
+    await verifyAd(ad3.adEvent.id, { accepted: true, reference: 'test-provider-ref-3' });
     await assert.rejects(
       () => finalizeTaskVerification({ attemptId: execution3.attempt.id, idempotencyKey: `phase2-invalid-verifier-${Date.now()}`, verifyTaskCompletion: async () => ({ verified: true }) }),
       /Task verifier must return a boolean/
@@ -80,8 +89,8 @@ async function main() {
     await finalizeTaskVerification({ attemptId: execution3.attempt.id, idempotencyKey: `phase2-rejected-after-contract-${Date.now()}`, verifyTaskCompletion: async () => false });
 
     const execution2 = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-2-${Date.now()}` });
-    const ad2 = await startTaskVerificationAd({ attemptId: execution2.attempt.id, idempotencyKey: `phase2-ad-2-${Date.now()}`, externalAdId: 'phase2-test-ad-2' });
-    await verifyTaskAdvertisement({ adEventId: ad2.adEvent.id, providerRegistry: adProviderRegistry, providerPayload: { accepted: true, reference: 'test-provider-ref-2' } });
+    const ad2 = await startVerificationAd(execution2.attempt.id, `phase2-ad-2-${Date.now()}`, 'phase2-test-ad-2');
+    await verifyAd(ad2.adEvent.id, { accepted: true, reference: 'test-provider-ref-2' });
 
     const verificationKey = `phase2-reward-${Date.now()}`;
     const verified = await finalizeTaskVerification({ attemptId: execution2.attempt.id, idempotencyKey: verificationKey, verifyTaskCompletion: async () => true });
@@ -96,8 +105,8 @@ async function main() {
     assert.strictEqual(await balance(userId, 'DZX'), 1);
     assert.strictEqual(await balance(userId, 'DZP'), 1);
 
-    const ads = await pool.query(`SELECT context, verified FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
-    assert.ok(ads.rows.length === 3 && ads.rows.every(row => row.context === 'verification' && row.verified));
+    const ads = await pool.query(`SELECT context, verified, metadata->>'provider_id' AS provider_id FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
+    assert.ok(ads.rows.length === 3 && ads.rows.every(row => row.context === 'verification' && row.verified && row.provider_id === 'test-ads'));
 
     const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`, [userId]);
     assert.strictEqual(ledger.rows[0].count, 3);
