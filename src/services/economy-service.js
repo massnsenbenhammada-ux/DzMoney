@@ -1,7 +1,7 @@
 const { withTransaction, query } = require('../db/pool');
 
 const INTERNAL_CURRENCIES = ['COIN', 'DZX', 'DZP'];
-const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'reward_pool', 'promo'];
+const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'reward_pool', 'promo', 'daily_checkin'];
 const TON_DZX = 10000;
 const TON_COIN = 10000000;
 const DZX_COIN = 1000;
@@ -22,21 +22,14 @@ async function settingNumber(client, key, fallback) {
 }
 
 async function getEconomySettings() {
-  const result = await query(
-    `SELECT key, value FROM admin_settings
-     WHERE key LIKE 'economy.%' OR key LIKE 'activity.%' OR key LIKE 'reward_pool.%' OR key LIKE 'withdrawal.%'
-     ORDER BY key`
-  );
+  const result = await query(`SELECT key, value FROM admin_settings WHERE key LIKE 'economy.%' OR key LIKE 'activity.%' OR key LIKE 'reward_pool.%' OR key LIKE 'withdrawal.%' ORDER BY key`);
   return Object.fromEntries(result.rows.map(row => [row.key, row.value]));
 }
 
 async function walletForUpdate(client, userId, currency) {
   if (!userId) throw new Error('userId is required');
   if (!INTERNAL_CURRENCIES.includes(currency)) throw new Error('Unsupported internal currency');
-  const result = await client.query(
-    `SELECT id, balance, earned_dzp, converted_dzp, purchased_dzp FROM wallet_accounts
-     WHERE user_id = $1 AND currency = $2 FOR UPDATE`, [userId, currency]
-  );
+  const result = await client.query(`SELECT id, balance, earned_dzp, converted_dzp, purchased_dzp FROM wallet_accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`, [userId, currency]);
   if (!result.rowCount) throw new Error(`Wallet ${currency} not provisioned`);
   return result.rows[0];
 }
@@ -61,11 +54,7 @@ async function applyMovement(client, { userId, currency, amount, source, dzpBuck
 async function createTransaction(client, { idempotencyKey, userId, type, metadata }) {
   if (!idempotencyKey) throw new Error('idempotencyKey is required');
   if (!userId) throw new Error('userId is required');
-  const inserted = await client.query(
-    `INSERT INTO ledger_transactions (idempotency_key, user_id, transaction_type, metadata)
-     VALUES ($1, $2, $3, $4) ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`,
-    [idempotencyKey, userId, type, metadata || {}]
-  );
+  const inserted = await client.query(`INSERT INTO ledger_transactions (idempotency_key, user_id, transaction_type, metadata) VALUES ($1, $2, $3, $4) ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`, [idempotencyKey, userId, type, metadata || {}]);
   if (inserted.rowCount) return { transaction: inserted.rows[0], duplicate: false };
   const existing = await client.query('SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE', [idempotencyKey]);
   if (!existing.rowCount) throw new Error('Unable to resolve idempotent transaction');
@@ -82,19 +71,13 @@ async function postEconomyTransactionOnClient(client, { idempotencyKey, userId, 
     if (!INTERNAL_CURRENCIES.includes(movement.currency)) throw new Error('Unsupported internal currency');
     if (!Number.isFinite(Number(movement.amount)) || Number(movement.amount) === 0) throw new Error('Invalid economy movement amount');
     const entry = await applyMovement(client, { userId, ...movement });
-    const row = await client.query(
-      `INSERT INTO ledger_entries (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source || null, entry.currency]
-    );
+    const row = await client.query(`INSERT INTO ledger_entries (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`, [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source || null, entry.currency]);
     entries.push(row.rows[0]);
   }
   return { transaction: created.transaction, entries, duplicate: false };
 }
 
-async function postEconomyTransaction(args) {
-  return withTransaction(client => postEconomyTransactionOnClient(client, args));
-}
+async function postEconomyTransaction(args) { return withTransaction(client => postEconomyTransactionOnClient(client, args)); }
 
 function normalizeActivityReward({ source, coin, dzx, dzp, modifiers }) {
   if (!ACTIVITY_REWARD_SOURCES.includes(source)) throw new Error('Invalid activity reward source');
@@ -113,11 +96,7 @@ function normalizeActivityReward({ source, coin, dzx, dzp, modifiers }) {
     multiplier *= 1 + rate;
     normalizedModifiers.push({ type: 'squad', rate });
   }
-  const reward = {
-    coin: baseReward.coin * multiplier,
-    dzx: baseReward.dzx * multiplier,
-    dzp: baseReward.dzp * multiplier,
-  };
+  const reward = { coin: baseReward.coin * multiplier, dzx: baseReward.dzx * multiplier, dzp: baseReward.dzp * multiplier };
   return { baseReward, reward, normalizedModifiers };
 }
 
@@ -128,16 +107,10 @@ async function creditActivityRewardOnClient(client, args) {
   if (reward.coin > 0) movements.push({ currency: 'COIN', amount: reward.coin, source });
   if (reward.dzx > 0) movements.push({ currency: 'DZX', amount: reward.dzx, source });
   if (reward.dzp > 0) movements.push({ currency: 'DZP', amount: reward.dzp, source, dzpBucket: 'earned_dzp' });
-  return postEconomyTransactionOnClient(client, {
-    idempotencyKey, userId, type: 'REWARD',
-    metadata: { source, base_reward: baseReward, final_reward: reward, modifiers: normalizedModifiers },
-    movements,
-  });
+  return postEconomyTransactionOnClient(client, { idempotencyKey, userId, type: 'REWARD', metadata: { source, base_reward: baseReward, final_reward: reward, modifiers: normalizedModifiers }, movements });
 }
 
-async function creditActivityReward(args) {
-  return withTransaction(client => creditActivityRewardOnClient(client, args));
-}
+async function creditActivityReward(args) { return withTransaction(client => creditActivityRewardOnClient(client, args)); }
 
 async function convertCoinToDzp({ idempotencyKey, userId, coin }) {
   const amount = positiveNumber(coin, 'coin');
@@ -149,13 +122,8 @@ async function convertCoinToDzp({ idempotencyKey, userId, coin }) {
     const dzp = amount / rate;
     if (!Number.isInteger(dzp)) throw new Error('COIN amount must match the configured DZP conversion rate');
     const entries = [];
-    for (const entry of [
-      await applyMovement(client, { userId, currency: 'COIN', amount: -amount, source: 'conversion' }),
-      await applyMovement(client, { userId, currency: 'DZP', amount: dzp, source: 'conversion', dzpBucket: 'converted_dzp' }),
-    ]) {
-      const row = await client.query(`INSERT INTO ledger_entries (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency)
-        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source, entry.currency]);
+    for (const entry of [await applyMovement(client, { userId, currency: 'COIN', amount: -amount, source: 'conversion' }), await applyMovement(client, { userId, currency: 'DZP', amount: dzp, source: 'conversion', dzpBucket: 'converted_dzp' })]) {
+      const row = await client.query(`INSERT INTO ledger_entries (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source, entry.currency]);
       entries.push(row.rows[0]);
     }
     return { transaction: created.transaction, entries, duplicate: false, dzp };
@@ -172,13 +140,8 @@ async function convertDzxToDzp({ idempotencyKey, userId, dzx }) {
     const dzp = amount / rate;
     if (!Number.isInteger(dzp)) throw new Error('DZX amount must match the configured DZP conversion rate');
     const entries = [];
-    for (const entry of [
-      await applyMovement(client, { userId, currency: 'DZX', amount: -amount, source: 'conversion' }),
-      await applyMovement(client, { userId, currency: 'DZP', amount: dzp, source: 'conversion', dzpBucket: 'converted_dzp' }),
-    ]) {
-      const row = await client.query(`INSERT INTO ledger_entries (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency)
-        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source, entry.currency]);
+    for (const entry of [await applyMovement(client, { userId, currency: 'DZX', amount: -amount, source: 'conversion' }), await applyMovement(client, { userId, currency: 'DZP', amount: dzp, source: 'conversion', dzpBucket: 'converted_dzp' })]) {
+      const row = await client.query(`INSERT INTO ledger_entries (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source, entry.currency]);
       entries.push(row.rows[0]);
     }
     return { transaction: created.transaction, entries, duplicate: false, dzp };
@@ -188,8 +151,4 @@ async function convertDzxToDzp({ idempotencyKey, userId, dzx }) {
 function tonToDZX(ton) { return positiveNumber(ton, 'ton') * TON_DZX; }
 function dzxToTON(dzx) { return positiveNumber(dzx, 'dzx') / TON_DZX; }
 
-module.exports = {
-  INTERNAL_CURRENCIES, ACTIVITY_REWARD_SOURCES, TON_DZX, TON_COIN, DZX_COIN, DZP_COIN, DZP_DZX,
-  getEconomySettings, postEconomyTransaction, postEconomyTransactionOnClient,
-  creditActivityReward, creditActivityRewardOnClient, convertCoinToDzp, convertDzxToDzp, tonToDZX, dzxToTON,
-};
+module.exports = { INTERNAL_CURRENCIES, ACTIVITY_REWARD_SOURCES, TON_DZX, TON_COIN, DZX_COIN, DZP_COIN, DZP_DZX, getEconomySettings, postEconomyTransaction, postEconomyTransactionOnClient, creditActivityReward, creditActivityRewardOnClient, convertCoinToDzp, convertDzxToDzp, tonToDZX, dzxToTON };
