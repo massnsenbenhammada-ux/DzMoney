@@ -78,30 +78,19 @@ async function recordQualifyingActivity({ userId, activityType, activityId = nul
     const row = membership.rows[0];
     const existing = await client.query('SELECT * FROM squad_activity_events WHERE idempotency_key = $1', [idempotencyKey]);
     if (existing.rowCount) return { recorded: true, duplicate: true, event: existing.rows[0] };
-
     const inactivityDays = await settingNumber(client, 'squad.inactivity_days', 7);
     if (!Number.isInteger(inactivityDays) || inactivityDays <= 0) throw new Error('squad.inactivity_days must be a positive integer');
     const cutoff = new Date(occurredAt.getTime() - inactivityDays * DAY_MS);
-    const wasInactive = row.status === 'inactive' ||
-      (row.last_activity_at !== null && row.last_activity_at < cutoff) ||
-      (row.last_activity_at === null && row.joined_at < cutoff);
-
-    const event = await client.query(
-      `INSERT INTO squad_activity_events
-        (squad_id,user_id,activity_type,activity_id,quantity,occurred_at,idempotency_key,metadata)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [row.squad_id, userId, activityType, activityId, amount, occurredAt, idempotencyKey, metadata]
-    );
-    await client.query(
-      `UPDATE squad_memberships
-          SET last_activity_at = $1, active_since = CASE WHEN $3 THEN $1 ELSE active_since END,
-              status = CASE WHEN $3 THEN 'active' ELSE status END,
-              updated_at = NOW()
-        WHERE id = $2`,
-      [occurredAt, row.id, wasInactive]
-    );
+    const wasInactive = row.status === 'inactive' || (row.last_activity_at !== null && row.last_activity_at < cutoff) || (row.last_activity_at === null && row.joined_at < cutoff);
+    const event = await client.query(`INSERT INTO squad_activity_events (squad_id,user_id,activity_type,activity_id,quantity,occurred_at,idempotency_key,metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [row.squad_id, userId, activityType, activityId, amount, occurredAt, idempotencyKey, metadata]);
+    await client.query(`UPDATE squad_memberships SET last_activity_at=$1, active_since=CASE WHEN $3 THEN $1 ELSE active_since END, status=CASE WHEN $3 THEN 'active' ELSE status END, updated_at=NOW() WHERE id=$2`, [occurredAt, row.id, wasInactive]);
     return { recorded: true, duplicate: false, reactivated: wasInactive, event: event.rows[0] };
   });
+}
+
+async function getMembershipForUser(userId) {
+  const result = await query(`SELECT * FROM squad_memberships WHERE user_id = $1 AND status <> 'removed'`, [required(userId, 'userId')]);
+  return result.rows[0] || null;
 }
 
 async function getSquad(squadId) {
@@ -122,19 +111,19 @@ async function getDailyEligibility({ squadId, date = new Date() }) {
     const threshold = await settingNumber(client, 'squad.daily_activity_threshold_percent', 80);
     const bonusRate = await settingNumber(client, 'squad.daily_bonus_rate', 0);
     if (minMembers < 0 || threshold < 0 || threshold > 100 || bonusRate < 0) throw new Error('Invalid Squad daily settings');
-    const counts = await client.query(`SELECT COUNT(*) FILTER (WHERE status = 'active')::int AS active_member_count, COUNT(*) FILTER (WHERE status = 'active' AND EXISTS (SELECT 1 FROM squad_activity_events e WHERE e.squad_id = m.squad_id AND e.user_id = m.user_id AND e.occurred_at >= $2::date AND e.occurred_at < ($2::date + INTERVAL '1 day')))::int AS active_today_count FROM squad_memberships m WHERE m.squad_id = $1 AND m.status IN ('active','inactive')`, [squadId, date]);
+    const counts = await client.query(`SELECT COUNT(*) FILTER (WHERE status='active')::int AS active_member_count, COUNT(*) FILTER (WHERE status='active' AND EXISTS (SELECT 1 FROM squad_activity_events e WHERE e.squad_id=m.squad_id AND e.user_id=m.user_id AND e.occurred_at >= $2::date AND e.occurred_at < ($2::date + INTERVAL '1 day')))::int AS active_today_count FROM squad_memberships m WHERE m.squad_id=$1 AND m.status IN ('active','inactive')`, [squadId, date]);
     const activeMembers = Number(counts.rows[0].active_member_count);
     const activeToday = Number(counts.rows[0].active_today_count);
     const activityPercent = activeMembers ? (activeToday / activeMembers) * 100 : 0;
     const qualified = activeMembers >= minMembers && activeMembers > 0 && activityPercent >= threshold;
     const bonusDate = new Date(date).toISOString().slice(0, 10);
-    const saved = await client.query(`INSERT INTO squad_daily_bonus_days (squad_id,bonus_date,qualified,active_member_count,active_today_count,activity_percent,bonus_rate) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (squad_id,bonus_date) DO UPDATE SET qualified=EXCLUDED.qualified, active_member_count=EXCLUDED.active_member_count, active_today_count=EXCLUDED.active_today_count, activity_percent=EXCLUDED.activity_percent, bonus_rate=EXCLUDED.bonus_rate, calculated_at=NOW() RETURNING *`, [squadId, bonusDate, qualified, activeMembers, activeToday, activityPercent, qualified ? bonusRate : 0]);
+    const saved = await client.query(`INSERT INTO squad_daily_bonus_days (squad_id,bonus_date,qualified,active_member_count,active_today_count,activity_percent,bonus_rate) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (squad_id,bonus_date) DO UPDATE SET qualified=EXCLUDED.qualified,active_member_count=EXCLUDED.active_member_count,active_today_count=EXCLUDED.active_today_count,activity_percent=EXCLUDED.activity_percent,bonus_rate=EXCLUDED.bonus_rate,calculated_at=NOW() RETURNING *`, [squadId, bonusDate, qualified, activeMembers, activeToday, qualified ? bonusRate : 0]);
     return { snapshot: saved.rows[0], nextDayBonusActive: qualified, explanation: { activeMembers, activeToday, activityPercent, threshold, minMembers, bonusRate } };
   });
 }
 
 async function getApplicableModifier({ userId, date = new Date() }) {
-  const result = await query(`SELECT m.squad_id, b.bonus_date, b.bonus_rate FROM squad_memberships m JOIN squad_daily_bonus_days b ON b.squad_id = m.squad_id WHERE m.user_id = $1 AND m.status = 'active' AND b.bonus_date = ($2::date - INTERVAL '1 day')::date AND b.qualified = TRUE`, [userId, date]);
+  const result = await query(`SELECT m.squad_id,b.bonus_date,b.bonus_rate FROM squad_memberships m JOIN squad_daily_bonus_days b ON b.squad_id=m.squad_id WHERE m.user_id=$1 AND m.status='active' AND b.bonus_date=($2::date-INTERVAL '1 day')::date AND b.qualified=TRUE`, [userId, date]);
   if (!result.rowCount) return { type: 'squad', rate: 0, eligible: false };
   return { type: 'squad', rate: Number(result.rows[0].bonus_rate), eligible: true, squadId: result.rows[0].squad_id, sourceDate: result.rows[0].bonus_date };
 }
@@ -144,7 +133,7 @@ async function createGoal({ squadId, title, description = null, targetType, targ
   const target = positiveNumber(targetQuantity, 'targetQuantity');
   const pool = positiveNumber(rewardPool, 'rewardPool');
   return withTransaction(async client => {
-    const result = await client.query(`INSERT INTO squad_goals (squad_id,title,description,target_type,target_quantity,reward_currency,reward_pool,starts_at,expires_at,status) VALUES ($1,$2,$3,$4,$5,'DZX',$6,$7,$8,$9) RETURNING *`, [squadId, title, description, targetType, target, pool, startsAt, expiresAt, status]);
+    const result = await client.query(`INSERT INTO squad_goals (squad_id,title,description,target_type,target_quantity,reward_currency,reward_pool,starts_at,expires_at,status) VALUES ($1,$2,$3,$4,$5,'DZX',$6,$7,$8,$9) RETURNING *`, [squadId,title,description,targetType,target,pool,startsAt,expiresAt,status]);
     return result.rows[0];
   });
 }
@@ -152,23 +141,23 @@ async function createGoal({ squadId, title, description = null, targetType, targ
 async function recordGoalContribution({ goalId, activityEventId, userId, quantity }) {
   const amount = positiveNumber(quantity, 'quantity');
   return withTransaction(async client => {
-    const goalResult = await client.query('SELECT * FROM squad_goals WHERE id = $1 FOR UPDATE', [required(goalId, 'goalId')]);
+    const goalResult = await client.query('SELECT * FROM squad_goals WHERE id=$1 FOR UPDATE', [required(goalId, 'goalId')]);
     if (!goalResult.rowCount) throw new Error('Goal not found');
     const goal = goalResult.rows[0];
     if (goal.status !== 'active') throw new Error('Goal is not active');
-    const eventResult = await client.query(`SELECT * FROM squad_activity_events WHERE id = $1 AND user_id = $2 AND squad_id = $3 FOR SHARE`, [required(activityEventId, 'activityEventId'), userId, goal.squad_id]);
+    const eventResult = await client.query(`SELECT * FROM squad_activity_events WHERE id=$1 AND user_id=$2 AND squad_id=$3 FOR SHARE`, [required(activityEventId, 'activityEventId'),userId,goal.squad_id]);
     if (!eventResult.rowCount) throw new Error('Activity event does not belong to this Squad/user');
     const event = eventResult.rows[0];
     if (event.occurred_at < goal.starts_at || (goal.expires_at && event.occurred_at >= goal.expires_at)) throw new Error('Activity event is outside the Goal window');
-    const existing = await client.query('SELECT * FROM squad_goal_contributions WHERE goal_id = $1 AND activity_event_id = $2', [goalId, activityEventId]);
+    const existing = await client.query('SELECT * FROM squad_goal_contributions WHERE goal_id=$1 AND activity_event_id=$2', [goalId,activityEventId]);
     if (existing.rowCount) return { contribution: existing.rows[0], duplicate: true };
-    const contribution = await client.query(`INSERT INTO squad_goal_contributions (goal_id,user_id,activity_event_id,contribution_quantity,weight) VALUES ($1,$2,$3,$4,$4) RETURNING *`, [goalId, userId, activityEventId, amount]);
+    const contribution = await client.query(`INSERT INTO squad_goal_contributions (goal_id,user_id,activity_event_id,contribution_quantity,weight) VALUES ($1,$2,$3,$4,$4) RETURNING *`, [goalId,userId,activityEventId,amount]);
     return { contribution: contribution.rows[0], duplicate: false };
   });
 }
 
 async function getGoalProgress(goalId) {
-  const result = await query(`SELECT g.*, COALESCE(SUM(c.contribution_quantity),0) AS progress, COUNT(DISTINCT c.user_id)::int AS contributor_count FROM squad_goals g LEFT JOIN squad_goal_contributions c ON c.goal_id = g.id WHERE g.id = $1 GROUP BY g.id`, [required(goalId, 'goalId')]);
+  const result = await query(`SELECT g.*,COALESCE(SUM(c.contribution_quantity),0) AS progress,COUNT(DISTINCT c.user_id)::int AS contributor_count FROM squad_goals g LEFT JOIN squad_goal_contributions c ON c.goal_id=g.id WHERE g.id=$1 GROUP BY g.id`, [required(goalId, 'goalId')]);
   if (!result.rowCount) throw new Error('Goal not found');
   const row = result.rows[0];
   const progress = Number(row.progress);
@@ -177,19 +166,15 @@ async function getGoalProgress(goalId) {
 
 async function calculateGoalDistribution(goalId) {
   return withTransaction(async client => {
-    const goalResult = await client.query('SELECT * FROM squad_goals WHERE id = $1 FOR UPDATE', [required(goalId, 'goalId')]);
+    const goalResult = await client.query('SELECT * FROM squad_goals WHERE id=$1 FOR UPDATE', [required(goalId, 'goalId')]);
     if (!goalResult.rowCount) throw new Error('Goal not found');
     const goal = goalResult.rows[0];
-    const contributions = await client.query('SELECT user_id, SUM(weight) AS weight FROM squad_goal_contributions WHERE goal_id = $1 GROUP BY user_id ORDER BY user_id', [goalId]);
+    const contributions = await client.query('SELECT user_id,SUM(weight) AS weight FROM squad_goal_contributions WHERE goal_id=$1 GROUP BY user_id ORDER BY user_id', [goalId]);
     if (!contributions.rowCount) throw new Error('Goal has no contributors');
-    const totalWeight = contributions.rows.reduce((sum, row) => sum + Number(row.weight), 0);
+    const totalWeight = contributions.rows.reduce((sum,row)=>sum+Number(row.weight),0);
     if (totalWeight <= 0) throw new Error('Goal total weight must be positive');
     const pool = Number(goal.reward_pool);
-    const distributions = contributions.rows.map(row => {
-      const weight = Number(row.weight);
-      const reward = pool * weight / totalWeight;
-      return { userId: row.user_id, weight, totalWeight, rewardAmount: reward, calculation: { formula: 'reward_pool * member_weight / total_weight', reward_pool: pool, member_weight: weight, total_weight: totalWeight } };
-    });
+    const distributions = contributions.rows.map(row => { const weight=Number(row.weight); const reward=pool*weight/totalWeight; return { userId:row.user_id, weight, totalWeight, rewardAmount:reward, calculation:{ formula:'reward_pool * member_weight / total_weight', reward_pool:pool, member_weight:weight, total_weight:totalWeight } }; });
     return { goal, distributions };
   });
 }
@@ -197,24 +182,44 @@ async function calculateGoalDistribution(goalId) {
 async function snapshotGoalDistribution(goalId) {
   const calculated = await calculateGoalDistribution(goalId);
   return withTransaction(async client => {
-    const goal = await client.query('SELECT * FROM squad_goals WHERE id = $1 FOR UPDATE', [goalId]);
+    const goal = await client.query('SELECT * FROM squad_goals WHERE id=$1 FOR UPDATE', [goalId]);
     if (!goal.rowCount) throw new Error('Goal not found');
-    if (goal.rows[0].status === 'cancelled' || goal.rows[0].status === 'expired') throw new Error('Goal cannot be rewarded');
-    const progress = await client.query('SELECT COALESCE(SUM(contribution_quantity),0) AS progress FROM squad_goal_contributions WHERE goal_id = $1', [goalId]);
+    if (['cancelled','expired'].includes(goal.rows[0].status)) throw new Error('Goal cannot be rewarded');
+    const progress = await client.query('SELECT COALESCE(SUM(contribution_quantity),0) AS progress FROM squad_goal_contributions WHERE goal_id=$1', [goalId]);
     if (Number(progress.rows[0].progress) < Number(goal.rows[0].target_quantity)) throw new Error('Goal target has not been reached');
-    const existing = await client.query('SELECT COUNT(*)::int AS count FROM squad_goal_distributions WHERE goal_id = $1', [goalId]);
-    if (Number(existing.rows[0].count) > 0) {
-      const rows = await client.query('SELECT * FROM squad_goal_distributions WHERE goal_id = $1 ORDER BY user_id', [goalId]);
-      return { goal: goal.rows[0], distributions: rows.rows, duplicate: true };
-    }
-    const inserted = [];
+    const existing = await client.query('SELECT COUNT(*)::int AS count FROM squad_goal_distributions WHERE goal_id=$1', [goalId]);
+    if (Number(existing.rows[0].count)>0) { const rows=await client.query('SELECT * FROM squad_goal_distributions WHERE goal_id=$1 ORDER BY user_id',[goalId]); return {goal:goal.rows[0],distributions:rows.rows,duplicate:true}; }
+    const inserted=[];
     for (const item of calculated.distributions) {
-      const result = await client.query(`INSERT INTO squad_goal_distributions (goal_id,user_id,weight,total_weight,reward_amount,calculation,idempotency_key) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [goalId, item.userId, item.weight, item.totalWeight, item.rewardAmount, item.calculation, `squad-goal:${goalId}:user:${item.userId}`]);
+      const result=await client.query(`INSERT INTO squad_goal_distributions (goal_id,user_id,weight,total_weight,reward_amount,calculation,idempotency_key) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [goalId,item.userId,item.weight,item.totalWeight,item.rewardAmount,item.calculation,`squad-goal:${goalId}:user:${item.userId}`]);
       inserted.push(result.rows[0]);
     }
-    await client.query(`UPDATE squad_goals SET status='rewarded', completed_at=COALESCE(completed_at,NOW()), rewarded_at=NOW(), updated_at=NOW() WHERE id=$1`, [goalId]);
-    return { goal: { ...goal.rows[0], status: 'rewarded' }, distributions: inserted, duplicate: false };
+    await client.query(`UPDATE squad_goals SET status='rewarded',completed_at=COALESCE(completed_at,NOW()),rewarded_at=NOW(),updated_at=NOW() WHERE id=$1`,[goalId]);
+    return {goal:{...goal.rows[0],status:'rewarded'},distributions:inserted,duplicate:false};
   });
 }
 
-module.exports = { createSquad, addMember, recordQualifyingActivity, getSquad, getMembers, refreshMembershipStatuses, getDailyEligibility, getApplicableModifier, createGoal, recordGoalContribution, getGoalProgress, calculateGoalDistribution, snapshotGoalDistribution };
+async function getActiveGoals(squadId) {
+  const result = await query(`SELECT g.*, COALESCE(SUM(c.contribution_quantity),0) AS progress, COUNT(DISTINCT c.user_id)::int AS contributor_count FROM squad_goals g LEFT JOIN squad_goal_contributions c ON c.goal_id=g.id WHERE g.squad_id=$1 AND g.status='active' AND g.starts_at <= NOW() AND (g.expires_at IS NULL OR g.expires_at > NOW()) GROUP BY g.id ORDER BY g.expires_at NULLS LAST, g.id`, [required(squadId, 'squadId')]);
+  return result.rows.map(row => ({ ...row, progress: Number(row.progress), contributorCount: Number(row.contributor_count), completed: Number(row.progress) >= Number(row.target_quantity) }));
+}
+
+async function getGoalForUser(goalId, squadId) {
+  const result = await query(`SELECT g.*, COALESCE(SUM(c.contribution_quantity),0) AS progress, COUNT(DISTINCT c.user_id)::int AS contributor_count FROM squad_goals g LEFT JOIN squad_goal_contributions c ON c.goal_id=g.id WHERE g.id=$1 AND g.squad_id=$2 GROUP BY g.id`, [required(goalId, 'goalId'), required(squadId, 'squadId')]);
+  if (!result.rowCount) return null;
+  const row=result.rows[0];
+  return { ...row, progress:Number(row.progress), contributorCount:Number(row.contributor_count), completed:Number(row.progress)>=Number(row.target_quantity) };
+}
+
+async function getGoalContribution({ goalId, userId }) {
+  const result = await query(`SELECT COALESCE(SUM(weight),0) AS weight, COALESCE(SUM(contribution_quantity),0) AS quantity, COUNT(*)::int AS event_count FROM squad_goal_contributions WHERE goal_id=$1 AND user_id=$2`, [required(goalId,'goalId'),required(userId,'userId')]);
+  const row=result.rows[0];
+  const weight=Number(row.weight);
+  const quantity=Number(row.quantity);
+  const eventCount=Number(row.event_count);
+  const total=await query('SELECT COALESCE(SUM(weight),0) AS total_weight FROM squad_goal_contributions WHERE goal_id=$1',[goalId]);
+  const totalWeight=Number(total.rows[0].total_weight);
+  return { quantity, weight, eventCount, totalWeight, share: totalWeight > 0 ? weight / totalWeight : 0 };
+}
+
+module.exports = { createSquad, addMember, recordQualifyingActivity, getMembershipForUser, getSquad, getMembers, refreshMembershipStatuses, getDailyEligibility, getApplicableModifier, createGoal, recordGoalContribution, getGoalProgress, calculateGoalDistribution, snapshotGoalDistribution, getActiveGoals, getGoalForUser, getGoalContribution };
