@@ -12,7 +12,8 @@
     "test:economy-ledger": "node ./scripts/test-economy-ledger.js",
     "test:deposit": "node ./scripts/test-deposit.js",
     "test:phase2": "node ./scripts/test-phase2.js",
-    "test:squad": "node ./scripts/test-squad.js"
+    "test:squad": "node ./scripts/test-squad.js",
+    "test:daily-checkin": "node ./scripts/test-daily-checkin.js"
   },
   "engines": {
     "node": ">=20"
