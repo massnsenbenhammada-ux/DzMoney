@@ -1,8 +1,5 @@
 const tg = window.Telegram?.WebApp;
-if (tg) {
-  tg.ready();
-  tg.expand();
-}
+if (tg) { tg.ready(); tg.expand(); }
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -24,22 +21,15 @@ async function api(path, options = {}) {
     ...options,
     headers: headers(options.headers || {}),
   });
-
   const text = await response.text();
   let data = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    data = {};
-  }
-
+  try { data = text ? JSON.parse(text) : {}; } catch { data = {}; }
   if (!response.ok) {
     throw Object.assign(new Error(data.error || `HTTP ${response.status}`), {
       status: response.status,
       data,
     });
   }
-
   return data;
 }
 
@@ -60,81 +50,72 @@ function formatReward(reward) {
 }
 
 function formatCountdown(date) {
-  const ms = Math.max(0, new Date(date).getTime() - Date.now());
-  const total = Math.ceil(ms / 1000);
+  const total = Math.ceil(Math.max(0, new Date(date).getTime() - Date.now()) / 1000);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function setDailyAction(text, disabled, handler) {
+  const action = $('dailyAction');
+  if (!action) return;
+  action.textContent = text;
+  action.disabled = Boolean(disabled);
+  action.onclick = typeof handler === 'function' ? handler : null;
+}
+
 function renderDaily(data) {
   state.daily = data;
+  state.adEventId = data.status === 'ad_pending' ? data.pendingAdEventId : null;
 
   const reward = $('dailyReward');
   const status = $('dailyStatus');
-  const action = $('dailyAction');
   const note = $('dailyNote');
-
-  if (!reward || !status || !action) return;
-
-  reward.textContent = formatReward(data.reward);
-  action.disabled = false;
-  action.onclick = null;
+  if (reward) reward.textContent = formatReward(data.reward);
 
   if (data.status === 'cooldown') {
     const tick = () => {
       if (state.daily?.status !== 'cooldown') return;
-      status.textContent = `Available in ${formatCountdown(data.nextAvailableAt)}`;
-      action.textContent = '24H COOLDOWN';
-      action.disabled = true;
-      if (Date.now() < new Date(data.nextAvailableAt).getTime()) {
-        setTimeout(tick, 1000);
-      } else {
-        loadDaily();
-      }
+      if (status) status.textContent = `Available in ${formatCountdown(data.nextAvailableAt)}`;
+      setDailyAction('24H COOLDOWN', true);
+      if (Date.now() < new Date(data.nextAvailableAt).getTime()) setTimeout(tick, 1000);
+      else loadDaily();
     };
     tick();
     return;
   }
 
   if (data.status === 'ad_pending') {
-    state.adEventId = data.pendingAdEventId;
-    status.textContent = 'Advertisement completed — claim your reward';
-    action.textContent = 'Claim Reward';
-    action.disabled = false;
-    action.onclick = claimDaily;
+    if (status) status.textContent = 'Advertisement completed — claim your reward';
+    setDailyAction('Claim Reward', false, claimDaily);
     return;
   }
 
-  state.adEventId = null;
-  status.textContent = state.adsgram.enabled
-    ? 'Watch an ad to unlock today’s reward'
-    : 'AdsGram is not configured yet.';
-  action.textContent = 'Daily Check-in';
-  action.disabled = false;
-  action.onclick = startDailyAd;
-
+  if (status) {
+    status.textContent = state.adsgram.enabled
+      ? 'Watch an ad to unlock today’s reward'
+      : 'AdsGram is not configured yet.';
+  }
   if (note) {
     note.textContent = state.adsgram.enabled
       ? 'The reward is issued only after a verified advertisement completion.'
       : 'AdsGram Block ID is required before an advertisement can be started.';
   }
+  setDailyAction('Daily Check-in', false, startDailyAd);
 }
 
 async function loadDaily() {
   try {
-    const data = await api('/api/daily/checkin');
-    renderDaily(data);
+    renderDaily(await api('/api/daily/checkin'));
   } catch (error) {
     const status = $('dailyStatus');
-    const action = $('dailyAction');
     if (status) status.textContent = error.status === 401 ? 'Authentication required' : 'Daily activity unavailable';
-    if (action) {
-      action.textContent = 'Daily Check-in';
-      action.disabled = false;
-      action.onclick = () => toast(error.status === 401 ? 'Open DzMoney inside Telegram to authenticate.' : 'Daily activity is temporarily unavailable.');
-    }
+    setDailyAction('Daily Check-in', false, () => toast(
+      error.status === 401
+        ? 'Open DzMoney inside Telegram to authenticate.'
+        : 'Daily activity is temporarily unavailable.'
+    ));
   }
 }
 
@@ -142,17 +123,13 @@ async function loadAdsgramConfig() {
   try {
     const config = await api('/api/config');
     state.adsgram = config.adsgram || { enabled: false, blockId: null };
-
     if (state.adsgram.enabled && state.adsgram.blockId && window.Adsgram) {
-      state.adController = window.Adsgram.init({
-        blockId: state.adsgram.blockId,
-      });
+      state.adController = window.Adsgram.init({ blockId: state.adsgram.blockId });
     }
   } catch {
     state.adsgram = { enabled: false, blockId: null };
     state.adController = null;
   }
-
   await loadDaily();
 }
 
@@ -161,25 +138,20 @@ async function startDailyAd() {
     toast('AdsGram is not configured yet. Add the official Block ID first.');
     return;
   }
-
   if (!state.adController) {
     toast('AdsGram could not be initialized.');
     return;
   }
 
   const action = $('dailyAction');
-  const key = `daily-ad-${crypto.randomUUID()}`;
-  if (action) {
-    action.disabled = true;
-    action.textContent = 'Preparing…';
-  }
+  if (action) { action.disabled = true; action.textContent = 'Preparing…'; }
 
   try {
     const started = await api('/api/daily/checkin/ad/start', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': key,
+        'Idempotency-Key': `daily-ad-${crypto.randomUUID()}`,
       },
       body: JSON.stringify({}),
     });
@@ -189,16 +161,12 @@ async function startDailyAd() {
 
     if (action) action.textContent = 'Watching…';
     await state.adController.show();
-
     if (action) action.textContent = 'Waiting for verification…';
     toast('Ad finished. Waiting for verified reward confirmation.');
     await loadDaily();
   } catch (error) {
     toast(error.message || 'Advertisement could not be completed.');
-    if (action) {
-      action.disabled = false;
-      action.textContent = 'Daily Check-in';
-    }
+    setDailyAction('Daily Check-in', false, startDailyAd);
   }
 }
 
@@ -207,9 +175,7 @@ async function claimDaily() {
     toast('No active daily advertisement.');
     return;
   }
-
   const action = $('dailyAction');
-  const key = `daily-claim-${crypto.randomUUID()}`;
   if (action) action.disabled = true;
 
   try {
@@ -217,11 +183,10 @@ async function claimDaily() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': key,
+        'Idempotency-Key': `daily-claim-${crypto.randomUUID()}`,
       },
       body: JSON.stringify({ adEventId: state.adEventId }),
     });
-
     if (result.status === 'claimed') {
       toast('Daily reward claimed successfully.');
       state.adEventId = null;
@@ -230,7 +195,7 @@ async function claimDaily() {
     }
   } catch (error) {
     toast(error.message || 'Reward could not be claimed.');
-    if (action) action.disabled = false;
+    setDailyAction('Claim Reward', false, claimDaily);
   }
 }
 
@@ -259,7 +224,6 @@ function renderSquad(data) {
   const memberCount = Number(squad.memberCount || 0);
   const activeCount = Number(squad.activeMemberCount || 0);
   const activityPercent = Number(squad.activityPercent || 0);
-
   if (members) members.textContent = memberCount.toLocaleString();
   if (active) active.textContent = activeCount.toLocaleString();
   if (activity) activity.textContent = `${activityPercent}%`;
@@ -274,12 +238,11 @@ async function loadSquad() {
     renderSquad(data);
     await loadGoals();
   } catch (error) {
+    const account = $('accountText');
     if (error.status === 401) {
-      const account = $('accountText');
       if (account) account.textContent = 'Open DzMoney inside Telegram to authenticate your account.';
       return;
     }
-    const account = $('accountText');
     if (account) account.textContent = 'The Squad service is temporarily unavailable.';
   }
 }
@@ -303,22 +266,18 @@ async function loadGoals() {
 }
 
 function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>\'\"]/g, (char) => ({
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;',
     '<': '&lt;',
     '>': '&gt;',
-    "'": '&#39;',
     '"': '&quot;',
+    "'": '&#39;',
   }[char]));
 }
 
 function showPage(page) {
-  document.querySelectorAll('.page').forEach((element) => {
-    element.classList.toggle('active', element.dataset.page === page);
-  });
-  document.querySelectorAll('.nav-item').forEach((element) => {
-    element.classList.toggle('active', element.dataset.go === page);
-  });
+  document.querySelectorAll('.page').forEach((element) => element.classList.toggle('active', element.dataset.page === page));
+  document.querySelectorAll('.nav-item').forEach((element) => element.classList.toggle('active', element.dataset.go === page));
   if (page === 'squad') loadSquad();
   if (page === 'home') loadDaily();
 }
