@@ -1,9 +1,23 @@
 const assert = require('assert');
 const {
   REFERRAL_MODES,
+  VERIFICATION_MODES,
   resolveVerificationConfig,
   validateVerificationConfig
 } = require('../src/services/task-verification-config');
+
+function testVerificationModes() {
+  assert.deepStrictEqual(VERIFICATION_MODES, ['automatic', 'custom']);
+  assert.strictEqual(resolveVerificationConfig({ taskType: 'web', config: {} }).verification.mode, 'automatic');
+  assert.strictEqual(resolveVerificationConfig({
+    taskType: 'web',
+    config: { verification: { mode: 'custom', provider: 'partner' } }
+  }).verification.mode, 'custom');
+  assert.throws(
+    () => validateVerificationConfig({ verification: { mode: 'unknown' } }),
+    /Invalid verification mode/
+  );
+}
 
 function testReferralModes() {
   assert.deepStrictEqual(REFERRAL_MODES, ['disabled', 'link_only', 'link_and_owner_verification']);
@@ -46,9 +60,16 @@ function testNoSecretsInTaskConfig() {
     () => validateVerificationConfig({ verification: { apiKey: 'secret' } }),
     /credentials must not be stored in task config/
   );
+  assert.throws(
+    () => validateVerificationConfig({
+      referral: { ownerVerification: { provider: 'partner', credentials: { token: 'secret' } } }
+    }),
+    /credentials must not be stored in task config/
+  );
 }
 
 try {
+  testVerificationModes();
   testReferralModes();
   testAutomaticDefaults();
   testReferralTemplateRules();
