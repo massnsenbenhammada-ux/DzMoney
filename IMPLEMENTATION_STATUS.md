@@ -2,9 +2,9 @@
 
 ## Current state
 
-**Current phase:** Phase 2 — Activity / Ads / Tasks — backend foundation implemented; runtime verification pending.
+**Current phase:** Phase 4 — Squad engine foundation implemented on branch `squad-engine`; runtime verification pending.
 
-**Specification:** `PROJECT_ROADMAP.md` is the single source of truth, with the latest confirmed decisions synchronized here and in `docs/PHASE2_DESIGN_REVIEW.md` and `docs/PHASE2_TASK_VERIFICATION_RULES.md`.
+**Specification:** `PROJECT_ROADMAP.md` is the single source of truth, with Squad-specific transparency rules documented in `docs/SQUAD_DESIGN.md`.
 
 **Repository:** clean DzMoney 2.0 rebuild. No BUX, no legacy Core business logic, and no TON internal wallet.
 
@@ -22,6 +22,7 @@
 - Referral, Squad and Reward Pool are separate systems.
 - Purchased/deposited/transferred/converted value must not be reclassified as earned activity for Reward Pool weight.
 - Withdrawal economics locked: `2,000,000 COIN + 2,000 DZX = 0.2 TON` external settlement value.
+- Squad transparency is mandatory: every activity percentage, modifier, Goal contribution and weighted distribution must be explainable from persisted data.
 
 ## Phase 1 — Economy & Currency Core
 
@@ -73,7 +74,8 @@
 - 🟢 Verification ad completion itself creates no economy reward.
 - 🟢 Task DZP is recorded through the existing `earned_dzp` bucket, preserving Reward Pool eligibility semantics.
 - 🟢 One active/pending attempt per user/task is enforced at the database level.
-- 🟢 `npm run test:phase2` was added for the Phase 2 verification invariants.
+- 🟢 `npm run test:phase2` exists for the Phase 2 verification invariants.
+- 🟡 Verified task finalization now consults the Squad modifier and records the qualifying task event atomically; runtime verification is still required.
 
 ### Runtime verification required
 
@@ -95,13 +97,50 @@
 
 Phase 2 must not be marked complete until the above runtime and acceptance tests pass.
 
+## Phase 4 — Squad
+
+🟡 Foundation implemented — runtime verification pending.
+
+### Implemented
+
+- 🟢 Migration `008_squad_engine.sql` adds hierarchical Squad membership, activity events, daily bonus snapshots, generic Goals, contribution records and weighted distribution snapshots.
+- 🟢 Membership is independent from Referral and a user belongs to at most one Squad.
+- 🟢 Hierarchy uses an explicit `parent_user_id` and has no hardcoded member-count cap.
+- 🟢 Seven-day inactivity is Admin-configurable; inactive members remain in the hierarchy and are reactivated by their first qualifying activity.
+- 🟢 Daily Squad activity is calculated as active-today members divided by currently active Squad members.
+- 🟢 Minimum active members, activity threshold and bonus percentage are Admin settings, not hardcoded constants.
+- 🟢 Daily eligibility is persisted as an auditable snapshot and applies to the following day.
+- 🟢 Squad modifier is applied to verified task rewards without changing the original ledger source.
+- 🟢 Generic Goals can target activity types such as tasks, advertisements, member activity or future qualifying events.
+- 🟢 Goal contributions are event-backed, idempotent and restricted to the Goal's Squad/window.
+- 🟢 Goal rewards are contributor-only and weighted by contribution.
+- 🟢 Distribution snapshots store the exact formula and inputs needed to explain each share.
+- 🟢 `docs/SQUAD_DESIGN.md` locks the No Black-Box Rewards rule.
+- 🟢 `npm run test:squad` was added for hierarchy, inactivity, daily eligibility, modifier and weighted Goal invariants.
+
+### Runtime verification required
+
+- ⬜ `npm run migrate` after `008_squad_engine.sql` is deployed.
+- ⬜ `npm run test:squad`.
+- ⬜ Re-run `npm run test:phase2` after Squad integration.
+- ⬜ Re-run `npm run test:phase1`.
+- ⬜ Re-run `npm run test:economy-ledger`.
+- ⬜ Re-run `npm run reconcile:economy`.
+- ⬜ Verify `/health` and `/health/db`.
+- ⬜ Verify task reward with an actually qualified Squad produces the configured modifier while preserving `source = task`.
+
+### Not yet implemented
+
+- ⬜ Real advertisement completion integration into Squad activity events.
+- ⬜ Goal funding/posting through the Reward Pool settlement layer.
+- ⬜ Smart Telegram notification service and user preferences.
+- ⬜ User-facing Squad API/UI and transparent calculation screens.
+- ⬜ Admin Squad management UI.
+
 ## Later phases
 
 ### Phase 3 — Referral
 ⬜ Not started.
-
-### Phase 4 — Squad
-⬜ Not started. Squad will be implemented as a reward modifier, not a direct DZX minting source.
 
 ### Phase 5 — Reward Pool
 ⬜ Not started.
@@ -113,7 +152,7 @@ Phase 2 must not be marked complete until the above runtime and acceptance tests
 ⬜ Not started.
 
 ### Phase 8 — Deposit
-🟡 Foundation exists ahead of phase order; final phase implementation/verification is pending.
+🟡 Foundation exists ahead of phase order; runtime checklist has passed in the current deployment history.
 
 ### Phase 9 — Withdrawal
 ⬜ Not started.
@@ -135,34 +174,16 @@ Phase 2 must not be marked complete until the above runtime and acceptance tests
 
 ## Change Log
 
-### 2026-08-20 — Phase 2 backend foundation
+### 2026-08-21 — Squad engine foundation
 
-- Added the Phase 2 task/attempt/ad-verification schema.
-- Added the task Execute → Verify service flow.
-- Added the 5/10-second verification-ad gate.
-- Kept verification rewards inside the existing atomic economy transaction primitive.
-- Added `test:phase2` acceptance/invariant coverage.
-- Did not implement real ad-provider integration or user-facing Ads/Tasks UI yet.
-
-### 2026-08-20 — Phase 1 runtime sign-off and Phase 2 design review
-
-- Confirmed `test:phase1` PASS.
-- Confirmed `test:economy-ledger` PASS.
-- Confirmed `reconcile:economy` PASS with zero negative wallets, source mismatches and ledger mismatches.
-- Confirmed `/health` and `/health/db` return HTTP 200.
-- Closed Phase 1 as verified.
-- Completed the Phase 2 design review.
-- Locked the Execute → Verify → short verification ad → server verification → reward flow for all non-ad tasks.
-- Locked Daily Check-in as advertisement-gated with backend cooldown enforcement.
-- Locked explicit ad contexts and idempotency boundaries.
-
-### 2026-08-20 — Squad rule synchronization audit
-
-- Confirmed from the latest user decision that Squad is a **modifier only**.
-- Squad increases an underlying qualifying reward by a configured percentage; it does not constitute an independent DZX mint/source.
-- Direct DZX sources are therefore: advertisements, tasks, referral, Reward Pool, deposits, and Promo-DZX.
-- Promo remains capable of rewarding either COIN or DZX.
-- No Ads/Tasks code was implemented during that audit.
+- Added `008_squad_engine.sql`.
+- Added isolated `squad-service.js` and atomic task-to-Squad activity bridge.
+- Added seven-day inactivity/reactivation behavior.
+- Added next-day daily Squad eligibility and configurable modifier settings.
+- Added generic Squad Goals and contributor-weighted distribution snapshots.
+- Added `test:squad` and `docs/SQUAD_DESIGN.md`.
+- Integrated verified task rewards with the Squad modifier while preserving the original task ledger source.
+- Runtime verification is intentionally pending; no PASS claim is made until the deployed database and tests validate the branch.
 
 ## Update Rule
 
