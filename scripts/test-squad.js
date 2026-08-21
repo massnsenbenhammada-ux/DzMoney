@@ -2,7 +2,7 @@ const assert = require('assert');
 const { pool, withTransaction } = require('../src/db/pool');
 const {
   createSquad, addMember, recordQualifyingActivity, getDailyEligibility,
-  getApplicableModifier, createGoal, getGoalProgress, snapshotGoalDistribution,
+  getApplicableModifier, createGoal, recordGoalContribution, getGoalProgress, snapshotGoalDistribution,
 } = require('../src/services/squad-service');
 
 async function createUser(marker) {
@@ -94,9 +94,14 @@ async function main() {
 
     const goal = await createGoal({ squadId, title: 'Weighted task goal', targetType: 'task', targetQuantity: 4, rewardPool: 10000 });
     goalId = goal.id;
-    await recordQualifyingActivity({ userId: owner, activityType: 'task', quantity: 2, idempotencyKey: `squad-test-${marker}-goal-1` });
-    await recordQualifyingActivity({ userId: a, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-goal-2` });
-    await recordQualifyingActivity({ userId: b, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-goal-3` });
+    const goalOwnerActivity = await recordQualifyingActivity({ userId: owner, activityType: 'task', quantity: 2, idempotencyKey: `squad-test-${marker}-goal-1` });
+    const goalAActivity = await recordQualifyingActivity({ userId: a, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-goal-2` });
+    const goalBActivity = await recordQualifyingActivity({ userId: b, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-goal-3` });
+
+    await recordGoalContribution({ goalId, activityEventId: goalOwnerActivity.event.id, userId: owner, quantity: 2 });
+    await recordGoalContribution({ goalId, activityEventId: goalAActivity.event.id, userId: a, quantity: 1 });
+    await recordGoalContribution({ goalId, activityEventId: goalBActivity.event.id, userId: b, quantity: 1 });
+
     const progress = await getGoalProgress(goalId);
     assert.strictEqual(progress.completed, true);
     assert.strictEqual(progress.contributorCount, 3);
