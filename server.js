@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const { query } = require('./src/db/pool');
 const squadRoutes = require('./src/http/squad-routes');
+const dailyRoutes = require('./src/http/daily-routes');
 const { telegramAuth } = require('./src/http/telegram-auth');
 
 const app = express();
@@ -28,19 +29,17 @@ app.get('/health/db', async (_req, res) => {
 
 app.get('/api/me', telegramAuth, (req, res) => {
   const user = req.telegramUser;
-  res.json({
-    ok: true,
-    user: {
-      id: String(user.id),
-      firstName: user.first_name || '',
-      lastName: user.last_name || '',
-      username: user.username || null,
-      languageCode: user.language_code || null
-    }
-  });
+  res.json({ ok: true, user: {
+    id: String(user.id),
+    firstName: user.first_name || '',
+    lastName: user.last_name || '',
+    username: user.username || null,
+    languageCode: user.language_code || null
+  }});
 });
 
 app.use('/api/squad', squadRoutes);
+app.use('/api/daily', dailyRoutes);
 
 app.get('/', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
