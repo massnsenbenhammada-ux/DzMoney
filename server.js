@@ -1,5 +1,6 @@
 const express = require('express');
 const { query } = require('./src/db/pool');
+const squadRoutes = require('./src/http/squad-routes');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -18,6 +19,14 @@ app.get('/health/db', async (_req, res) => {
     console.error('Database health check failed:', error);
     res.status(503).json({ ok: false, database: 'disconnected' });
   }
+});
+
+app.use('/api/squad', squadRoutes);
+
+app.use((error, _req, res, _next) => {
+  console.error('Unhandled request error:', error);
+  const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
+  res.status(status).json({ error: status === 500 ? 'Internal server error' : error.message });
 });
 
 app.listen(port, '0.0.0.0', () => {
