@@ -3,6 +3,7 @@ const path = require('path');
 const { query } = require('./src/db/pool');
 const squadRoutes = require('./src/http/squad-routes');
 const dailyRoutes = require('./src/http/daily-routes');
+const taskRoutes = require('./src/http/task-routes');
 const { telegramAuth } = require('./src/http/telegram-auth');
 
 const app = express();
@@ -49,6 +50,7 @@ app.get('/api/me', telegramAuth, (req, res) => {
 
 app.use('/api/squad', squadRoutes);
 app.use('/api/daily', dailyRoutes);
+app.use('/api/tasks', taskRoutes);
 
 app.get('/', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
