@@ -23,8 +23,12 @@ async function startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId
   });
 }
 
-async function verifyTaskAdvertisement({ adEventId, providerReference, verificationMetadata = {} }) {
-  const result = await markAdvertisementVerified({ adEventId, providerReference, verificationMetadata });
+async function verifyTaskAdvertisement({ adEventId, provider, providerPayload }) {
+  requiredId(adEventId, 'adEventId');
+  if (!provider || typeof provider.verifyCompletion !== 'function') throw new Error('A trusted advertisement provider is required');
+  const verification = await provider.verifyCompletion(providerPayload);
+  if (!verification || verification.verified !== true || !verification.reference) throw new Error('Advertisement provider verification failed');
+  const result = await markAdvertisementVerified({ adEventId, providerReference: verification.reference, verificationMetadata: verification.metadata || {} });
   if (result.duplicate) return result;
   await withTransaction(async client => {
     await client.query(`UPDATE task_verification_gates SET status='ad_completed',ad_completed_at=NOW() WHERE ad_event_id=$1 AND status='pending'`, [adEventId]);
@@ -36,7 +40,6 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
   requiredId(attemptId, 'attemptId');
   requiredId(idempotencyKey, 'idempotencyKey');
   if (typeof verifyTaskCompletion !== 'function') throw new Error('A trusted task verifier is required');
-
   const verifiedByTaskRule = await verifyTaskCompletion({ attemptId });
   return withTransaction(async client => {
     const result = await client.query(`SELECT a.*,t.reward_coin,t.reward_dzx,t.reward_dzp,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 FOR UPDATE`, [attemptId]);
