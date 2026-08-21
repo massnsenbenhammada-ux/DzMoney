@@ -1,5 +1,6 @@
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
+const { getSquadModifierOnClient, recordSquadActivityOnClient } = require('./squad-activity-bridge');
 
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
 const TASK_STATUSES = ['draft', 'pending_review', 'active', 'paused', 'completed', 'expired', 'closed', 'refunded'];
@@ -127,6 +128,9 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, taskSatisfi
       await client.query(`UPDATE task_verification_gates SET status = 'rejected' WHERE id = $1`, [row.gate_id]);
       return { duplicate: false, status: 'rejected', rewarded: false };
     }
+
+    const modifier = await getSquadModifierOnClient(client, row.user_id);
+    const modifiers = modifier.eligible ? [modifier] : [];
     const reward = await creditActivityRewardOnClient(client, {
       idempotencyKey,
       userId: row.user_id,
@@ -134,11 +138,22 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, taskSatisfi
       coin: Number(row.reward_coin),
       dzx: Number(row.reward_dzx),
       dzp: Number(row.reward_dzp),
-      modifiers: [],
+      modifiers,
     });
+
+    await recordSquadActivityOnClient(client, {
+      userId: row.user_id,
+      activityType: 'task',
+      activityId: String(row.task_id),
+      quantity: 1,
+      occurredAt: new Date(),
+      idempotencyKey: `squad:task:${row.id}`,
+      metadata: { task_attempt_id: row.id, reward_transaction_id: reward.transaction.id },
+    });
+
     await client.query(`UPDATE task_attempts SET status = 'verified', verify_idempotency_key = $1, verified_at = NOW() WHERE id = $2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status = 'verified', verified_at = NOW() WHERE id = $1`, [row.gate_id]);
-    return { duplicate: false, status: 'verified', rewarded: true, reward };
+    return { duplicate: false, status: 'verified', rewarded: true, reward, squadModifier: modifier };
   });
 }
 
