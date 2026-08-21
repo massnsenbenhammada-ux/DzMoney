@@ -5,6 +5,7 @@ const $ = (id) => document.getElementById(id);
 const state = {
   squad: null,
   daily: null,
+  dailyTask: null,
   adsgram: { enabled: false, blockId: null },
   adController: null,
   adEventId: null,
@@ -31,24 +32,29 @@ function formatReward(r) { const p = []; if (Number(r?.coin) > 0) p.push(`${Numb
 function formatCountdown(d) { const t = Math.ceil(Math.max(0, new Date(d).getTime() - Date.now()) / 1000); return `${String(Math.floor(t / 3600)).padStart(2, '0')}:${String(Math.floor((t % 3600) / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
 function setDailyView(text, disabled = false) { const a = $('dailyAction'); if (!a) return; a.textContent = text; a.disabled = disabled; }
 
-function renderDaily(data) {
-  state.daily = data;
-  state.adEventId = data.status === 'ad_pending' ? data.pendingAdEventId : null;
-  const reward = $('dailyReward'); const status = $('dailyStatus'); const note = $('dailyNote');
-  if (reward) reward.textContent = formatReward(data.reward);
-  if (data.status === 'cooldown') {
+function renderDailyTask(task) {
+  state.dailyTask = task;
+  const reward = $('dailyReward');
+  const status = $('dailyStatus');
+  const note = $('dailyNote');
+  if (reward) reward.textContent = formatReward(task.reward);
+  if (task.status === 'cooldown') {
     const tick = () => {
-      if (state.daily?.status !== 'cooldown') return;
-      if (status) status.textContent = `Available in ${formatCountdown(data.nextAvailableAt)}`;
+      if (state.dailyTask?.status !== 'cooldown') return;
+      if (status) status.textContent = `Available in ${formatCountdown(task.nextAvailableAt)}`;
       setDailyView('24H COOLDOWN', true);
-      if (Date.now() < new Date(data.nextAvailableAt).getTime()) setTimeout(tick, 1000); else loadDaily();
+      if (Date.now() < new Date(task.nextAvailableAt).getTime()) setTimeout(tick, 1000); else loadDaily();
     };
-    tick(); return;
+    tick();
+    return;
   }
-  if (data.status === 'ad_pending') {
+  if (task.status === 'ad_pending') {
+    state.adEventId = task.pendingAdEventId;
     if (status) status.textContent = 'Advertisement completed — claim your reward';
-    setDailyView('Claim Reward', false); return;
+    setDailyView('Claim Reward', false);
+    return;
   }
+  state.adEventId = null;
   if (status) status.textContent = state.adsgram.enabled ? 'Watch an ad to unlock today’s reward' : 'AdsGram is not configured yet.';
   if (note) note.textContent = state.adsgram.enabled ? 'The reward is issued only after a verified advertisement completion.' : 'AdsGram Block ID is required before an advertisement can be started.';
   setDailyView('Daily Check-in', false);
@@ -58,9 +64,14 @@ async function loadDaily() {
   if (state.dailyLoading) return state.dailyLoading;
   state.dailyLoading = (async () => {
     try {
-      const data = await api('/api/daily/checkin');
-      renderDaily(data);
-      return data;
+      // Daily Check-in is discovered through the unified Tasks API.
+      // Its handler delegates cooldown state to the existing daily_checkins service.
+      const data = await api('/api/tasks');
+      const task = (data.tasks || []).find((item) => item.handler === 'daily_checkin');
+      if (!task) throw new Error('Daily Check-in task is not registered');
+      state.daily = task;
+      renderDailyTask(task);
+      return task;
     } catch (e) {
       if ($('dailyStatus')) $('dailyStatus').textContent = e.status === 401 ? 'Authentication required' : 'Daily activity unavailable';
       setDailyView('Daily Check-in', false);
@@ -119,9 +130,8 @@ function escapeHtml(v) { return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&
 function renderSquad(d) { const s = d.squad || {}; if ($('members')) $('members').textContent = Number(s.memberCount || 0).toLocaleString(); if ($('active')) $('active').textContent = Number(s.activeMemberCount || 0).toLocaleString(); if ($('activity')) $('activity').textContent = `${Number(s.activityPercent || 0)}%`; if ($('squadMembers')) $('squadMembers').textContent = Number(s.memberCount || 0).toLocaleString(); if ($('squadActive')) $('squadActive').textContent = Number(s.activeMemberCount || 0).toLocaleString(); if ($('squadActivity')) $('squadActivity').textContent = `${Number(s.activityPercent || 0)}%`; if (!d.inSquad && $('goals')) $('goals').innerHTML = '<article class="info-card"><strong>No squad yet</strong><p>Your account is not currently assigned to a squad.</p></article>'; }
 async function loadSquad() { try { renderSquad(await api('/api/squad')); await loadGoals(); } catch (e) { if ($('accountText')) $('accountText').textContent = e.status === 401 ? 'Open DzMoney inside Telegram to authenticate your account.' : 'The Squad service is temporarily unavailable.'; } }
 async function loadGoals() { const g = $('goals'); if (!g) return; try { const d = await api('/api/squad/goals'); if (!d.inSquad || !d.goals?.length) { g.innerHTML = '<article class="info-card"><strong>Squad goals</strong><p>No active goals are published for your squad.</p></article>'; return; } g.innerHTML = d.goals.map((x) => { const p = Math.min(100, Number(x.progress || 0) / Math.max(1, Number(x.target_quantity || 1)) * 100); return `<article class="goal-card"><div class="goal-top"><span>${escapeHtml(x.target_type || 'Goal')}</span><strong>${escapeHtml(x.title || 'Squad goal')}</strong></div><p>${escapeHtml(x.description || 'Contribute qualifying activity to this goal.')}</p><div class="progress"><i style="width:${p}%"></i></div><div class="goal-meta"><span>${Number(x.progress || 0).toLocaleString()} / ${Number(x.target_quantity || 0).toLocaleString()}</span><span>${p.toFixed(0)}%</span></div></article>`; }).join(''); } catch { g.innerHTML = '<article class="info-card"><strong>Squad goals</strong><p>Goals are temporarily unavailable.</p></article>'; } }
-function showPage(page) { document.querySelectorAll('.page').forEach((e) => e.classList.toggle('active', e.dataset.page === page)); document.querySelectorAll('.nav-item').forEach((e) => e.classList.toggle('active', e.dataset.go === page)); if (page === 'home') loadDaily().catch(() => {}); if (page === 'squad') loadSquad(); }
+function showPage(page) { document.querySelectorAll('.page').forEach((e) => e.classList.toggle('active', e.dataset.page === page)); document.querySelectorAll('.nav-item').forEach((e) => e.classList.toggle('active', e.dataset.go === page)); if (page === 'tasks') loadDaily().catch(() => {}); if (page === 'squad') loadSquad(); }
 
-// Bind the Daily Check-in directly to the real button. This avoids relying on event delegation and keeps this control isolated.
 const dailyAction = $('dailyAction');
 if (dailyAction) dailyAction.addEventListener('click', (event) => { event.preventDefault(); void handleDailyAction(); });
 
