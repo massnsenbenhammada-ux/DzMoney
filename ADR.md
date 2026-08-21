@@ -25,3 +25,22 @@ The following rules are additive to the existing architecture rules:
 ### Consequences
 
 These rules reduce architectural drift and uncontrolled cleanup while making feature work reproducible. They do not override the existing phase, migration, economy, testing, or source-of-truth rules; they supplement them.
+
+## ADR-0002 — Active task catalog remains a service read model
+
+**Status:** Accepted  
+**Date:** 2026-08-21
+
+### Context
+
+Phase 2 already owns the `activity_tasks` schema and `task-service.js`. The first task feature needs a safe catalog of user-visible active tasks without introducing another repository, table, or task-specific service.
+
+### Decision
+
+Expose the active task catalog through `task-service.js` as a read operation. It returns only active tasks and the fields required by the catalog: category, title, description, configured rewards and verification-ad duration. Optional category filtering is validated against the existing task type set.
+
+No new database table, migration, provider, or service is introduced for the catalog.
+
+### Consequences
+
+The existing `activity_tasks` table remains the single persistence source for tasks, while `task-service.js` remains the business boundary. Draft and inactive tasks cannot leak into the user catalog. Future HTTP/UI work can consume this service without duplicating task selection rules.
