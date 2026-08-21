@@ -1,7 +1,6 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const express = require('express');
-const { createAdminProviderRouter } = require('../src/http/admin-provider-routes');
 
 process.env.BOT_TOKEN = 'test-bot-token';
 process.env.ADMIN_TELEGRAM_USER_IDS = '123';
@@ -17,14 +16,17 @@ function buildInitData(userId) {
 }
 
 async function run() {
-  const original = require('../src/services/admin-provider-config-service');
-  const calls = [];
   const servicePath = require.resolve('../src/services/admin-provider-config-service');
+  const original = require(servicePath);
+  const calls = [];
   require.cache[servicePath].exports = {
     ...original,
     loadProviderConfigurations: async () => [{ providerId: 'test-provider', enabled: true, priority: 1, contexts: ['task'], timeoutMs: 5000 }],
     saveProviderConfiguration: async args => { calls.push(args); return args.configurations; }
   };
+
+  // Load the router only after the persistence service is stubbed so its destructured imports use the test doubles.
+  const { createAdminProviderRouter } = require('../src/http/admin-provider-routes');
 
   const app = express();
   app.use(express.json());
