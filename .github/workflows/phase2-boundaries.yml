@@ -10,7 +10,9 @@ on:
       - 'package.json'
       - '.github/workflows/phase2-boundaries.yml'
   push:
-    branches: [main]
+    branches:
+      - main
+      - refactor/phase2-task-boundaries
 
 jobs:
   test-all:
