@@ -34,9 +34,14 @@ function setDailyView(text, disabled = false) { const a = $('dailyAction'); if (
 
 function renderDailyTask(task) {
   state.dailyTask = task;
+  state.daily = task;
+  const title = $('dailyTitle');
+  const category = $('dailyCategory');
   const reward = $('dailyReward');
   const status = $('dailyStatus');
   const note = $('dailyNote');
+  if (title) title.textContent = task.title;
+  if (category) category.textContent = String(task.category || 'daily_activity').replace(/_/g, ' ').toUpperCase();
   if (reward) reward.textContent = formatReward(task.reward);
   if (task.status === 'cooldown') {
     const tick = () => {
@@ -51,12 +56,13 @@ function renderDailyTask(task) {
   if (task.status === 'ad_pending') {
     state.adEventId = task.pendingAdEventId;
     if (status) status.textContent = 'Advertisement completed — claim your reward';
+    if (note) note.textContent = task.description || 'Claim the verified daily reward.';
     setDailyView('Claim Reward', false);
     return;
   }
   state.adEventId = null;
   if (status) status.textContent = state.adsgram.enabled ? 'Watch an ad to unlock today’s reward' : 'AdsGram is not configured yet.';
-  if (note) note.textContent = state.adsgram.enabled ? 'The reward is issued only after a verified advertisement completion.' : 'AdsGram Block ID is required before an advertisement can be started.';
+  if (note) note.textContent = state.adsgram.enabled ? (task.description || 'The reward is issued only after a verified advertisement completion.') : 'AdsGram Block ID is required before an advertisement can be started.';
   setDailyView('Daily Check-in', false);
 }
 
@@ -64,12 +70,9 @@ async function loadDaily() {
   if (state.dailyLoading) return state.dailyLoading;
   state.dailyLoading = (async () => {
     try {
-      // Daily Check-in is discovered through the unified Tasks API.
-      // Its handler delegates cooldown state to the existing daily_checkins service.
       const data = await api('/api/tasks');
       const task = (data.tasks || []).find((item) => item.handler === 'daily_checkin');
       if (!task) throw new Error('Daily Check-in task is not registered');
-      state.daily = task;
       renderDailyTask(task);
       return task;
     } catch (e) {
