@@ -1,14 +1,19 @@
 const assert = require('assert');
 const { pool, withTransaction } = require('../src/db/pool');
 const { createTask, activateTask, executeTask } = require('../src/services/task-service');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const { startTaskVerificationAd, verifyTaskAdvertisement, finalizeTaskVerification } = require('../src/services/task-verification-service');
 
 const testAdsProvider = {
+  id: 'test-ads',
+  contexts: ['verification'],
   async verifyCompletion(payload) {
     if (!payload || payload.accepted !== true) return { verified: false };
     return { verified: true, reference: payload.reference, metadata: { test: true } };
   }
 };
+
+const adProviderRegistry = new AdProviderRegistry([testAdsProvider]);
 
 async function createTestUser() {
   const marker = Date.now();
@@ -56,8 +61,8 @@ async function main() {
     );
 
     const ad = await startTaskVerificationAd({ attemptId: execution.attempt.id, idempotencyKey: `phase2-ad-${Date.now()}`, externalAdId: 'phase2-test-ad' });
-    await assert.rejects(() => verifyTaskAdvertisement({ adEventId: ad.adEvent.id, provider: testAdsProvider, providerPayload: { accepted: false } }), /Advertisement provider verification failed/);
-    await verifyTaskAdvertisement({ adEventId: ad.adEvent.id, provider: testAdsProvider, providerPayload: { accepted: true, reference: 'test-provider-ref-1' } });
+    await assert.rejects(() => verifyTaskAdvertisement({ adEventId: ad.adEvent.id, providerRegistry: adProviderRegistry, providerPayload: { accepted: false } }), /Advertisement provider verification failed/);
+    await verifyTaskAdvertisement({ adEventId: ad.adEvent.id, providerRegistry: adProviderRegistry, providerPayload: { accepted: true, reference: 'test-provider-ref-1' } });
 
     const rejected = await finalizeTaskVerification({ attemptId: execution.attempt.id, idempotencyKey: `phase2-rejected-${Date.now()}`, verifyTaskCompletion: async () => false });
     assert.strictEqual(rejected.rewarded, false);
@@ -65,7 +70,7 @@ async function main() {
 
     const execution3 = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-3-${Date.now()}` });
     const ad3 = await startTaskVerificationAd({ attemptId: execution3.attempt.id, idempotencyKey: `phase2-ad-3-${Date.now()}`, externalAdId: 'phase2-test-ad-3' });
-    await verifyTaskAdvertisement({ adEventId: ad3.adEvent.id, provider: testAdsProvider, providerPayload: { accepted: true, reference: 'test-provider-ref-3' } });
+    await verifyTaskAdvertisement({ adEventId: ad3.adEvent.id, providerRegistry: adProviderRegistry, providerPayload: { accepted: true, reference: 'test-provider-ref-3' } });
     await assert.rejects(
       () => finalizeTaskVerification({ attemptId: execution3.attempt.id, idempotencyKey: `phase2-invalid-verifier-${Date.now()}`, verifyTaskCompletion: async () => ({ verified: true }) }),
       /Task verifier must return a boolean/
@@ -76,7 +81,7 @@ async function main() {
 
     const execution2 = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-2-${Date.now()}` });
     const ad2 = await startTaskVerificationAd({ attemptId: execution2.attempt.id, idempotencyKey: `phase2-ad-2-${Date.now()}`, externalAdId: 'phase2-test-ad-2' });
-    await verifyTaskAdvertisement({ adEventId: ad2.adEvent.id, provider: testAdsProvider, providerPayload: { accepted: true, reference: 'test-provider-ref-2' } });
+    await verifyTaskAdvertisement({ adEventId: ad2.adEvent.id, providerRegistry: adProviderRegistry, providerPayload: { accepted: true, reference: 'test-provider-ref-2' } });
 
     const verificationKey = `phase2-reward-${Date.now()}`;
     const verified = await finalizeTaskVerification({ attemptId: execution2.attempt.id, idempotencyKey: verificationKey, verifyTaskCompletion: async () => true });
