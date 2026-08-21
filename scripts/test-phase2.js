@@ -1,13 +1,11 @@
 const assert = require('assert');
 const { pool, withTransaction } = require('../src/db/pool');
-const { createTask, activateTask, executeTask, startVerificationAd, completeVerificationAd, finalizeTaskVerification } = require('../src/services/activity-service');
+const { createTask, activateTask, executeTask } = require('../src/services/task-service');
+const { startTaskVerificationAd, verifyTaskAdvertisement, finalizeTaskVerification } = require('../src/services/task-verification-service');
 
 async function createTestUser() {
   const marker = Date.now();
-  const result = await pool.query(
-    `INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id`,
-    [String(marker), `phase2_${marker}`, 'Phase 2 Test']
-  );
+  const result = await pool.query(`INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id`, [String(marker), `phase2_${marker}`, 'Phase 2 Test']);
   const userId = result.rows[0].id;
   await withTransaction(async client => {
     for (const currency of ['COIN', 'DZX', 'DZP']) {
@@ -24,21 +22,12 @@ async function balance(userId, currency) {
 
 async function cleanupTestData(userId, taskId) {
   await withTransaction(async client => {
-    // Ledger entries intentionally RESTRICT wallet deletion. Remove test ledger data first.
-    await client.query(
-      `DELETE FROM ledger_entries
-       WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)
-          OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)`,
-      [userId]
-    );
+    await client.query(`DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)`, [userId]);
     await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
-
     await client.query('DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)', [userId]);
     await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM task_attempts WHERE user_id=$1', [userId]);
-    if (taskId) {
-      await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
-    }
+    if (taskId) await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
     await client.query('DELETE FROM users WHERE id=$1', [userId]);
   });
 }
@@ -57,29 +46,41 @@ async function main() {
     assert.strictEqual(execution.gate.required_seconds, 5);
 
     await assert.rejects(
-      () => finalizeTaskVerification({ attemptId: execution.attempt.id, idempotencyKey: `phase2-verify-before-ad-${Date.now()}`, taskSatisfied: true }),
-      /Verification advertisement must be completed first/
+      () => finalizeTaskVerification({ attemptId: execution.attempt.id, idempotencyKey: `phase2-before-ad-${Date.now()}`, verifyTaskCompletion: async () => true }),
+      /Verification advertisement must be verified first/
     );
 
-    const ad = await startVerificationAd({ attemptId: execution.attempt.id, idempotencyKey: `phase2-ad-${Date.now()}`, externalAdId: 'phase2-test-ad' });
-    await completeVerificationAd({ adEventId: ad.adEvent.id });
+    const ad = await startTaskVerificationAd({ attemptId: execution.attempt.id, idempotencyKey: `phase2-ad-${Date.now()}`, externalAdId: 'phase2-test-ad' });
+    await verifyTaskAdvertisement({ adEventId: ad.adEvent.id, providerReference: 'test-provider-ref-1', verificationMetadata: { test: true } });
 
-    const rejected = await finalizeTaskVerification({ attemptId: execution.attempt.id, idempotencyKey: `phase2-rejected-${Date.now()}`, taskSatisfied: false });
+    const rejected = await finalizeTaskVerification({
+      attemptId: execution.attempt.id,
+      idempotencyKey: `phase2-rejected-${Date.now()}`,
+      verifyTaskCompletion: async () => false
+    });
     assert.strictEqual(rejected.rewarded, false);
     assert.strictEqual(await balance(userId, 'COIN'), 0);
 
     const execution2 = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-2-${Date.now()}` });
-    const ad2 = await startVerificationAd({ attemptId: execution2.attempt.id, idempotencyKey: `phase2-ad-2-${Date.now()}`, externalAdId: 'phase2-test-ad-2' });
-    await completeVerificationAd({ adEventId: ad2.adEvent.id });
+    const ad2 = await startTaskVerificationAd({ attemptId: execution2.attempt.id, idempotencyKey: `phase2-ad-2-${Date.now()}`, externalAdId: 'phase2-test-ad-2' });
+    await verifyTaskAdvertisement({ adEventId: ad2.adEvent.id, providerReference: 'test-provider-ref-2', verificationMetadata: { test: true } });
 
     const verificationKey = `phase2-reward-${Date.now()}`;
-    const verified = await finalizeTaskVerification({ attemptId: execution2.attempt.id, idempotencyKey: verificationKey, taskSatisfied: true });
+    const verified = await finalizeTaskVerification({
+      attemptId: execution2.attempt.id,
+      idempotencyKey: verificationKey,
+      verifyTaskCompletion: async () => true
+    });
     assert.strictEqual(verified.rewarded, true);
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
     assert.strictEqual(await balance(userId, 'DZX'), 1);
     assert.strictEqual(await balance(userId, 'DZP'), 1);
 
-    const duplicate = await finalizeTaskVerification({ attemptId: execution2.attempt.id, idempotencyKey: verificationKey, taskSatisfied: true });
+    const duplicate = await finalizeTaskVerification({
+      attemptId: execution2.attempt.id,
+      idempotencyKey: verificationKey,
+      verifyTaskCompletion: async () => true
+    });
     assert.strictEqual(duplicate.duplicate, true);
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
     assert.strictEqual(await balance(userId, 'DZX'), 1);
@@ -88,10 +89,7 @@ async function main() {
     const ads = await pool.query(`SELECT context, verified FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
     assert.ok(ads.rows.length === 2 && ads.rows.every(row => row.context === 'verification' && row.verified));
 
-    const ledger = await pool.query(
-      `SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`,
-      [userId]
-    );
+    const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`, [userId]);
     assert.strictEqual(ledger.rows[0].count, 3);
 
     console.log('Phase 2 task verification invariants: PASS');
@@ -101,20 +99,11 @@ async function main() {
     process.exitCode = 1;
   } finally {
     if (userId) {
-      try {
-        await cleanupTestData(userId, taskId);
-      } catch (cleanupError) {
-        console.error('Phase 2 test cleanup: FAIL');
-        console.error(cleanupError);
-        process.exitCode = 1;
-      }
+      try { await cleanupTestData(userId, taskId); }
+      catch (cleanupError) { console.error('Phase 2 test cleanup: FAIL'); console.error(cleanupError); process.exitCode = 1; }
     }
     await pool.end();
   }
 }
 
-main().catch(error => {
-  console.error('Phase 2 test runner: FAIL');
-  console.error(error);
-  process.exit(1);
-});
+main().catch(error => { console.error('Phase 2 test runner: FAIL'); console.error(error); process.exit(1); });
