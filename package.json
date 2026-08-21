@@ -12,8 +12,9 @@
     "test:economy-ledger": "node ./scripts/test-economy-ledger.js",
     "test:deposit": "node ./scripts/test-deposit.js",
     "test:phase2": "node ./scripts/test-phase2.js",
+    "test:task-catalog": "node ./scripts/test-task-catalog.js",
     "test:frontend": "node ./scripts/validate-frontend.js",
-    "test:all": "npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run reconcile:economy"
+    "test:all": "npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:task-catalog && npm run reconcile:economy"
   },
   "engines": { "node": ">=20" },
   "dependencies": { "express": "^5.2.1", "pg": "^8.16.3" }
