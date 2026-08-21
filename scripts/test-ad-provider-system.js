@@ -53,7 +53,7 @@ async function testVerifiedResult() {
 
 async function testInvalidProviderResultFailsClosed() {
   const registry = new AdProviderRegistry([provider('malformed', ['verification'], { verifyCompletion: async () => ({ verified: true }) })]);
-  await assert.rejects(() => verifyWithProvider(registry, { context: 'verification', providerId: 'malformed', payload: {} }), /invalid verification result/);
+  await assert.rejects(() => verifyWithProvider(registry, { context: 'verification', providerId: 'malformed', payload: {} }), /requires a provider reference/);
 }
 
 async function testUnavailableProviderCanFailOver() {
