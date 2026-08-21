@@ -41,6 +41,20 @@ CREATE INDEX IF NOT EXISTS idx_squad_activity_squad_time ON squad_activity_event
 CREATE INDEX IF NOT EXISTS idx_squad_activity_user_time ON squad_activity_events(user_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_squad_activity_type ON squad_activity_events(squad_id, activity_type, occurred_at DESC);
 
+CREATE TABLE IF NOT EXISTS squad_daily_bonus_days (
+  id BIGSERIAL PRIMARY KEY,
+  squad_id BIGINT NOT NULL REFERENCES squads(id) ON DELETE RESTRICT,
+  bonus_date DATE NOT NULL,
+  qualified BOOLEAN NOT NULL DEFAULT FALSE,
+  active_member_count INTEGER NOT NULL DEFAULT 0,
+  active_today_count INTEGER NOT NULL DEFAULT 0,
+  activity_percent NUMERIC(9,4) NOT NULL DEFAULT 0,
+  bonus_rate NUMERIC(18,9) NOT NULL DEFAULT 0 CHECK (bonus_rate >= 0),
+  calculated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(squad_id, bonus_date)
+);
+CREATE INDEX IF NOT EXISTS idx_squad_daily_bonus_date ON squad_daily_bonus_days(bonus_date, qualified);
+
 CREATE TABLE IF NOT EXISTS squad_goals (
   id BIGSERIAL PRIMARY KEY,
   squad_id BIGINT NOT NULL REFERENCES squads(id) ON DELETE RESTRICT,
