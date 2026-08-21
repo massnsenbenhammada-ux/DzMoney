@@ -18,6 +18,7 @@ jobs:
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
+      DATABASE_SSL: 'false'
     services:
       postgres:
         image: postgres:16
