@@ -31,6 +31,10 @@ class AdProviderRegistry {
     return this.providers.get(providerId) || null;
   }
 
+  listRegistered() {
+    return [...this.providers.keys()];
+  }
+
   listAvailable(context) {
     if (!AD_PROVIDER_CONTEXTS.includes(context)) throw new Error('Invalid advertisement context');
     return [...this.providers.values()]
