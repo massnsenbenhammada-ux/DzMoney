@@ -34,13 +34,25 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
+
+      - name: Verify toolchain
+        run: |
+          node --version
+          npm --version
+          test -f package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Run migrations
         run: npm run migrate
+
       - name: Run full test suite
         run: npm run test:all
