@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS squad_goal_distributions (
 
 INSERT INTO admin_settings(key, value) VALUES
   ('squad.inactivity_days', '7'::jsonb),
+  ('squad.daily_min_active_members', '0'::jsonb),
   ('squad.daily_bonus_rate', '0'::jsonb),
   ('squad.daily_activity_threshold_percent', '80'::jsonb),
   ('squad.daily_activity_window_days', '1'::jsonb)
