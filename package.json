@@ -17,8 +17,9 @@
     "test:task-verification-config": "node ./scripts/test-task-verification-config.js",
     "test:ad-provider-system": "node ./scripts/test-ad-provider-system.js",
     "test:admin-provider-config": "node ./scripts/test-admin-provider-config.js",
+    "test:admin-provider-persistence": "node ./scripts/test-admin-provider-config-persistence.js",
     "test:frontend": "node ./scripts/validate-frontend.js",
-    "test:all": "npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:task-catalog && npm run test:task-execution && npm run test:task-verification-config && npm run test:ad-provider-system && npm run test:admin-provider-config && npm run reconcile:economy"
+    "test:all": "npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:task-catalog && npm run test:task-execution && npm run test:task-verification-config && npm run test:ad-provider-system && npm run test:admin-provider-config && npm run test:admin-provider-persistence && npm run reconcile:economy"
   },
   "engines": { "node": ">=20" },
   "dependencies": { "express": "^5.2.1", "pg": "^8.16.3" }
