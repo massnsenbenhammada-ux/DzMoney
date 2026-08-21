@@ -48,7 +48,7 @@ async function testDisabledAndExplicitSelection() {
 async function testVerifiedResult() {
   const registry = new AdProviderRegistry([provider('trusted', ['verification'])]);
   const result = await verifyWithProvider(registry, { context: 'verification', providerId: 'trusted', payload: { externalId: 'x' } });
-  assert.deepStrictEqual(result, { verified: true, reference: 'trusted-ref' });
+  assert.deepStrictEqual(result, { providerId: 'trusted', verification: { verified: true, reference: 'trusted-ref' } });
 }
 
 async function testInvalidProviderResultFailsClosed() {
