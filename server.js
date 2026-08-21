@@ -27,6 +27,16 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
+app.get('/api/config', (_req, res) => {
+  res.json({
+    adsgram: {
+      enabled: Boolean(process.env.ADSGRAM_BLOCK_ID),
+      blockId: process.env.ADSGRAM_BLOCK_ID || null,
+      debug: process.env.ADSGRAM_DEBUG === 'true',
+    },
+  });
+});
+
 app.get('/api/me', telegramAuth, (req, res) => {
   const user = req.telegramUser;
   res.json({ ok: true, user: {
