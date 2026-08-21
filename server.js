@@ -32,7 +32,6 @@ app.get('/api/config', (_req, res) => {
     adsgram: {
       enabled: Boolean(process.env.ADSGRAM_BLOCK_ID),
       blockId: process.env.ADSGRAM_BLOCK_ID || null,
-      debug: process.env.ADSGRAM_DEBUG === 'true',
     },
   });
 });
