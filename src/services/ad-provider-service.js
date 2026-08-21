@@ -58,16 +58,28 @@ function validateVerificationResult(result) {
   if (result.verified && (typeof result.reference !== 'string' || !result.reference.trim())) throw new Error('Verified advertisement result requires a provider reference');
 }
 
+async function verifyProviderWithTimeout(provider, payload, timeoutMs) {
+  let timer;
+  try {
+    return await Promise.race([
+      provider.verifyCompletion(payload),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new ProviderUnavailableError(`Advertisement provider ${provider.id} timed out`)), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function verifyWithProvider(registry, { context, providerId = null, payload, timeoutMs = 10000 }) {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Advertisement provider timeout must be positive');
   const attempted = [];
   while (true) {
     const provider = selectProvider(registry, { context, providerId, excludedProviderIds: attempted });
     attempted.push(provider.id);
     try {
-      const verification = await Promise.race([
-        provider.verifyCompletion(payload),
-        new Promise((_, reject) => setTimeout(() => reject(new ProviderUnavailableError(`Advertisement provider ${provider.id} timed out`)), timeoutMs))
-      ]);
+      const verification = await verifyProviderWithTimeout(provider, payload, timeoutMs);
       validateVerificationResult(verification);
       return { providerId: provider.id, verification };
     } catch (error) {
