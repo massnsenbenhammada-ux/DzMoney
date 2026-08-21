@@ -2,8 +2,7 @@ const assert = require('assert');
 const { pool, withTransaction } = require('../src/db/pool');
 const {
   createSquad, addMember, recordQualifyingActivity, getDailyEligibility,
-  getApplicableModifier, createGoal, recordGoalContribution, getGoalProgress,
-  snapshotGoalDistribution,
+  getApplicableModifier, createGoal, getGoalProgress, snapshotGoalDistribution,
 } = require('../src/services/squad-service');
 
 async function createUser(marker) {
@@ -13,16 +12,13 @@ async function createUser(marker) {
   );
   return result.rows[0].id;
 }
-
 async function setSetting(key, value) {
   await pool.query(`UPDATE admin_settings SET value=$2::jsonb, updated_at=NOW() WHERE key=$1`, [key, JSON.stringify(value)]);
 }
-
 async function getSetting(key) {
   const result = await pool.query(`SELECT value FROM admin_settings WHERE key=$1`, [key]);
   return result.rows[0]?.value;
 }
-
 async function cleanup(userIds, squadId, goalId) {
   await withTransaction(async client => {
     if (goalId) {
@@ -64,8 +60,8 @@ async function main() {
     await addMember({ squadId, userId: b, parentUserId: a });
     await addMember({ squadId, userId: c, parentUserId: b });
 
-    const e1 = await recordQualifyingActivity({ userId: owner, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-1` });
-    const e2 = await recordQualifyingActivity({ userId: a, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-2` });
+    await recordQualifyingActivity({ userId: owner, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-1` });
+    await recordQualifyingActivity({ userId: a, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-2` });
     const duplicate = await recordQualifyingActivity({ userId: a, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-2` });
     assert.strictEqual(duplicate.duplicate, true);
 
@@ -74,8 +70,8 @@ async function main() {
     assert.strictEqual(Number(daily.snapshot.active_member_count), 4);
     assert.strictEqual(Number(daily.snapshot.active_today_count), 2);
 
-    const e3 = await recordQualifyingActivity({ userId: b, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-3` });
-    const e4 = await recordQualifyingActivity({ userId: c, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-4` });
+    await recordQualifyingActivity({ userId: b, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-3` });
+    await recordQualifyingActivity({ userId: c, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-4` });
     daily = await getDailyEligibility({ squadId, date: new Date() });
     assert.strictEqual(daily.nextDayBonusActive, true);
     assert.strictEqual(Number(daily.snapshot.active_today_count), 4);
@@ -86,9 +82,7 @@ async function main() {
     assert.strictEqual(modifier.eligible, true);
     assert.strictEqual(modifier.rate, 0.5);
 
-    await pool.query(
-      `UPDATE squad_memberships SET last_activity_at=NOW()-INTERVAL '8 days', active_since=NULL, status='active' WHERE user_id=$1`, [c]
-    );
+    await pool.query(`UPDATE squad_memberships SET last_activity_at=NOW()-INTERVAL '8 days', active_since=NULL, status='active' WHERE user_id=$1`, [c]);
     await getDailyEligibility({ squadId, date: new Date() });
     const inactive = await pool.query(`SELECT status FROM squad_memberships WHERE user_id=$1`, [c]);
     assert.strictEqual(inactive.rows[0].status, 'inactive');
@@ -100,9 +94,9 @@ async function main() {
 
     const goal = await createGoal({ squadId, title: 'Weighted task goal', targetType: 'task', targetQuantity: 4, rewardPool: 10000 });
     goalId = goal.id;
-    await recordGoalContribution({ goalId, activityEventId: e1.event.id, userId: owner, quantity: 2 });
-    await recordGoalContribution({ goalId, activityEventId: e2.event.id, userId: a, quantity: 1 });
-    await recordGoalContribution({ goalId, activityEventId: e3.event.id, userId: b, quantity: 1 });
+    await recordQualifyingActivity({ userId: owner, activityType: 'task', quantity: 2, idempotencyKey: `squad-test-${marker}-goal-1` });
+    await recordQualifyingActivity({ userId: a, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-goal-2` });
+    await recordQualifyingActivity({ userId: b, activityType: 'task', quantity: 1, idempotencyKey: `squad-test-${marker}-goal-3` });
     const progress = await getGoalProgress(goalId);
     assert.strictEqual(progress.completed, true);
     assert.strictEqual(progress.contributorCount, 3);
