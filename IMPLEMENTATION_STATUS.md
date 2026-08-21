@@ -95,6 +95,20 @@
 
 Phase 2 must not be marked complete until the above runtime and acceptance tests pass.
 
+## UI Foundation — Initial Mini App Shell
+
+🟡 Implemented as a frontend foundation; not a Phase 11 sign-off.
+
+- 🟢 Telegram Mini App shell added under `public/`.
+- 🟢 Responsive dark DzMoney visual system and bottom navigation added.
+- 🟢 Home, Tasks, Squad, Friends and Wallet views are present as the first UI shell.
+- 🟢 Telegram WebApp SDK is initialized on the client.
+- 🟢 `/health` is consumed by the client for server connectivity status.
+- 🟢 Authenticated `/api/me` bootstrap now verifies Telegram `initData`, upserts the user, ensures COIN/DZX/DZP wallets and returns live balances.
+- 🟢 `/api/squad` and `/api/squad/goals` are consumed with the same authenticated Telegram header.
+- 🟡 Task, advertisement, referral and withdrawal actions remain UI placeholders until their corresponding backend services/providers are completed and verified.
+- ⬜ Full Phase 11 UI/UX implementation and acceptance testing.
+
 ## Later phases
 
 ### Phase 3 — Referral
@@ -122,7 +136,7 @@ Phase 2 must not be marked complete until the above runtime and acceptance tests
 ⬜ Not started.
 
 ### Phase 11 — User UI/UX
-⬜ Not started.
+⬜ Not started. Initial UI foundation exists; full UI/UX remains pending.
 
 ### Phase 12 — Admin Panel
 ⬜ Not started.
@@ -134,6 +148,15 @@ Phase 2 must not be marked complete until the above runtime and acceptance tests
 ⬜ Not started.
 
 ## Change Log
+
+### 2026-08-21 — Initial Mini App UI + authenticated bootstrap
+
+- Added the first DzMoney Mini App frontend under `public/`.
+- Added responsive Home / Tasks / Squad / Friends / Wallet navigation and visual shell.
+- Added authenticated `/api/me` bootstrap using the existing Telegram `initData` verification middleware.
+- `/api/me` creates/updates the Telegram user, ensures COIN/DZX/DZP wallet accounts and returns current balances.
+- Connected the frontend to `/health`, `/api/me`, `/api/squad` and `/api/squad/goals`.
+- Kept task/ad/referral/withdrawal actions visibly non-final until their backend implementations are ready.
 
 ### 2026-08-20 — Phase 2 backend foundation
 
