@@ -1,39 +1,48 @@
-const { withTransaction } = require('../db/pool');
+const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
+const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
   return value;
 }
 
-async function startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId = null }) {
+async function startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId = null, providerRegistry, providerId = null }) {
   requiredId(attemptId, 'attemptId');
   requiredId(idempotencyKey, 'idempotencyKey');
+  if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
+  const provider = selectProvider(providerRegistry, { context: 'verification', providerId });
   return withTransaction(async client => {
     const gateResult = await client.query(`SELECT g.*,a.user_id,a.status AS attempt_status FROM task_verification_gates g JOIN task_attempts a ON a.id=g.attempt_id WHERE g.attempt_id=$1 FOR UPDATE`, [attemptId]);
     if (!gateResult.rowCount) throw new Error('Verification gate not found');
     const gate = gateResult.rows[0];
     if (gate.attempt_status !== 'verification_pending') throw new Error('Task attempt is not awaiting verification');
     const existing = await client.query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE', [idempotencyKey]);
-    if (existing.rowCount) return { gate, adEvent: existing.rows[0], duplicate: true };
-    const adEvent = await client.query(`INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,metadata) VALUES($1,'verification',$2,$3,$4) RETURNING *`, [gate.user_id, externalAdId, idempotencyKey, { attempt_id: attemptId, required_seconds: gate.required_seconds }]);
-    await client.query(`UPDATE task_verification_gates SET ad_event_id=$1,metadata=metadata||$2::jsonb WHERE id=$3`, [adEvent.rows[0].id, JSON.stringify({ verification_ad_id: adEvent.rows[0].id }), gate.id]);
-    return { gate: { ...gate, ad_event_id: adEvent.rows[0].id }, adEvent: adEvent.rows[0], duplicate: false };
+    if (existing.rowCount) return { gate, adEvent: existing.rows[0], providerId: existing.rows[0].metadata?.provider_id, duplicate: true };
+    const metadata = { attempt_id: attemptId, required_seconds: gate.required_seconds, provider_id: provider.id };
+    const adEvent = await client.query(`INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,metadata) VALUES($1,'verification',$2,$3,$4) RETURNING *`, [gate.user_id, externalAdId, idempotencyKey, metadata]);
+    await client.query(`UPDATE task_verification_gates SET ad_event_id=$1,metadata=metadata||$2::jsonb WHERE id=$3`, [adEvent.rows[0].id, JSON.stringify({ verification_ad_id: adEvent.rows[0].id, provider_id: provider.id }), gate.id]);
+    return { gate: { ...gate, ad_event_id: adEvent.rows[0].id }, adEvent: adEvent.rows[0], providerId: provider.id, duplicate: false };
   });
 }
 
-async function verifyTaskAdvertisement({ adEventId, provider, providerPayload }) {
+async function verifyTaskAdvertisement({ adEventId, providerRegistry, providerId = null, providerPayload }) {
   requiredId(adEventId, 'adEventId');
-  if (!provider || typeof provider.verifyCompletion !== 'function') throw new Error('A trusted advertisement provider is required');
-  const verification = await provider.verifyCompletion(providerPayload);
-  if (!verification || verification.verified !== true || !verification.reference) throw new Error('Advertisement provider verification failed');
-  const result = await markAdvertisementVerified({ adEventId, providerReference: verification.reference, verificationMetadata: verification.metadata || {} });
-  if (result.duplicate) return result;
+  if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
+  const eventResult = await query(`SELECT context,metadata FROM activity_ad_events WHERE id=$1`, [adEventId]);
+  if (!eventResult.rowCount || eventResult.rows[0].context !== 'verification') throw new Error('Verification advertisement event not found');
+  const recordedProviderId = eventResult.rows[0].metadata?.provider_id;
+  if (!recordedProviderId) throw new Error('Verification advertisement provider is not recorded');
+  if (providerId && providerId !== recordedProviderId) throw new Error('Advertisement provider does not match the selected provider');
+  const result = await verifyWithProvider(providerRegistry, { context: 'verification', providerId: recordedProviderId, payload: providerPayload });
+  if (!result.verification.verified) throw new Error('Advertisement provider verification failed');
+  const marked = await markAdvertisementVerified({ adEventId, providerReference: result.verification.reference, verificationMetadata: { ...result.verification.metadata, provider_id: result.providerId } });
+  if (marked.duplicate) return marked;
   await withTransaction(async client => {
     await client.query(`UPDATE task_verification_gates SET status='ad_completed',ad_completed_at=NOW() WHERE ad_event_id=$1 AND status='pending'`, [adEventId]);
   });
-  return result;
+  return marked;
 }
 
 async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskCompletion }) {
