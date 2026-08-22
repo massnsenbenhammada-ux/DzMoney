@@ -1,9 +1,18 @@
 const assert = require('assert');
 const { pool } = require('../src/db/pool');
-const { createTask, activateTask, listActiveTasks } = require('../src/services/task-service');
+const {
+  createTask,
+  transitionTaskStatus,
+  listActiveTasks
+} = require('../src/services/task-service');
 
 async function cleanup(taskIds) {
   await pool.query('DELETE FROM activity_tasks WHERE id = ANY($1::bigint[])', [taskIds]);
+}
+
+async function activateTask(taskId) {
+  await transitionTaskStatus(taskId, 'pending_review');
+  await transitionTaskStatus(taskId, 'active');
 }
 
 async function main() {
@@ -53,6 +62,5 @@ async function main() {
 
 main().catch(error => {
   console.error('Task catalog test runner: FAIL');
-  console.error(error);
   process.exit(1);
 });
