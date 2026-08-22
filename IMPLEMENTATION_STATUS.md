@@ -75,6 +75,16 @@
 - 🟢 One active/pending attempt per user/task is enforced at the database level.
 - 🟢 `npm run test:phase2` exists for Phase 2 verification invariants.
 
+### Daily Check-in — implemented boundary
+
+- 🟢 Existing Daily Check-in service enforces the 24-hour backend cooldown and required advertisement gate.
+- 🟢 Existing Daily Check-in reward path uses the canonical economy/ledger primitive and idempotency.
+- 🟢 Authenticated HTTP endpoints now expose the existing service: `POST /api/daily-checkin/claim`, `POST /api/daily-checkin/verify`, and `POST /api/daily-checkin/finalize`.
+- 🟢 HTTP boundary authenticates Telegram `initData` server-side.
+- 🟢 HTTP boundary verifies that advertisement events belong to the authenticated user before verification/finalization.
+- 🟢 Daily Check-in HTTP integration tests are included in `test:all` and passed in the CI run used for PR #25.
+- 🟢 PR #25 was merged into `main` at commit `8e00670086688006249ac5090c43ef4308cdd032` after CI PASS.
+
 ### Runtime verification required
 
 - ⬜ `npm run migrate` after the cleanup migration is deployed.
@@ -90,8 +100,8 @@
 - ⬜ Real task adapters/verifiers for Daily, Game, Social, Web and Special/Partner tasks.
 - ⬜ Real advertisement provider integration and trusted callbacks.
 - ⬜ Advertisement task flow without a second verification ad.
-- ⬜ Daily Check-in claim service using the 24-hour backend cooldown and required ad gate.
-- ⬜ User-facing API/UI wiring.
+- ⬜ User-facing Daily Check-in UI wiring to the authenticated HTTP boundary.
+- ⬜ User-facing Task/Advertisement API/UI wiring for the remaining task flows.
 - ⬜ Anti-fraud hardening around ad callbacks and task verification.
 
 Phase 2 must not be marked complete until the runtime and acceptance tests pass.
@@ -107,6 +117,7 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - 🟢 Telegram WebApp SDK is initialized on the client.
 - 🟢 `/health` is consumed by the client for server connectivity status.
 - 🟢 Authenticated `/api/me` bootstrap verifies Telegram `initData`, upserts the user, ensures COIN/DZX/DZP wallets and returns live balances.
+- 🟡 Daily Check-in backend HTTP boundary exists; client action remains pending until a verified advertisement provider is connected.
 - 🟡 Task, advertisement, referral and withdrawal actions remain explicit placeholders until their corresponding backend services/providers are completed and verified.
 - ⬜ Full Phase 11 UI/UX implementation and acceptance testing.
 
@@ -159,6 +170,15 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - Tightened the JSON body limit to 64 KB in the HTTP layer.
 
 ## Change Log
+
+### 2026-08-22 — Daily Check-in HTTP boundary
+
+- Reconciled implementation status with merged PR #25.
+- Exposed the existing Daily Check-in service through authenticated HTTP routes.
+- Added server-side ad-event ownership checks at the HTTP boundary.
+- Added Daily Check-in HTTP integration coverage to the full test suite.
+- Did not add a new service, economy, ledger, migration, provider or fake callback.
+- Real advertisement provider integration and client UI wiring remain pending.
 
 ### 2026-08-21 — Architecture stabilization
 
