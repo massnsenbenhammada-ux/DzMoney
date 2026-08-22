@@ -1,6 +1,8 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 
 process.env.BOT_TOKEN = 'test-bot-token';
 
@@ -14,7 +16,19 @@ function buildInitData(userId) {
   return params.toString();
 }
 
+function assertMonetagFrontendContract() {
+  const index = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+  assert.match(index, /data-zone=['"]11627577['"]/);
+  assert.match(index, /data-sdk=['"]show_11627577['"]/);
+  assert.match(index, /libtl\.com\/sdk\.js/);
+  assert.match(app, /daily-checkin\/claim/);
+  assert.match(app, /show_11627577/);
+  assert.match(app, /ymid/);
+}
+
 async function run() {
+  assertMonetagFrontendContract();
   const servicePath = require.resolve('../src/services/daily-checkin-service');
   const walletPath = require.resolve('../src/services/wallet-service');
   const originalService = require(servicePath);
@@ -38,10 +52,10 @@ async function run() {
   await new Promise(resolve => server.listen(0, resolve));
   const port = server.address().port;
 
-  const request = (method, path, body, initData) => new Promise((resolve, reject) => {
+  const request = (method, requestPath, body, initData) => new Promise((resolve, reject) => {
     const headers = { 'content-type': 'application/json' };
     if (initData) headers['X-Telegram-Init-Data'] = initData;
-    const req = http.request({ hostname: '127.0.0.1', port, path, method, headers }, res => {
+    const req = http.request({ hostname: '127.0.0.1', port, path: requestPath, method, headers }, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(data) }));
