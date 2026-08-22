@@ -74,6 +74,15 @@ function setDailyButton(button, text, disabled) {
   button.textContent = text;
 }
 
+/** Wait for the Monetag SDK to expose the configured rewarded-ad function. */
+async function waitForMonetagSdk(timeoutMs = 5000, intervalMs = 100) {
+  const startedAt = Date.now();
+  while (typeof window.show_11627577 !== 'function') {
+    if (Date.now() - startedAt >= timeoutMs) throw new Error('Monetag SDK is not ready');
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+  }
+}
+
 async function showDailyCheckinAd(ymid) {
   if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
   if (typeof window.show_11627577 !== 'function') throw new Error('Monetag SDK is not ready');
@@ -88,6 +97,7 @@ async function startDailyCheckinAd() {
   state.dailyBusy = true;
   setDailyButton(button, 'Loading…', true);
   try {
+    await waitForMonetagSdk();
     const claim = await api('/api/daily-checkin/claim', { method: 'POST', body: JSON.stringify({ idempotencyKey: `daily:${crypto.randomUUID()}` }) });
     await showDailyCheckinAd(claim.adEvent?.external_ad_id);
     $('dailyText').textContent = 'Advertisement completed. Waiting for server verification.';
