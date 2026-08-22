@@ -1,3 +1,4 @@
+const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
@@ -26,8 +27,8 @@ async function getDailyCheckinSettings(client) {
   return { cooldownHours, reward: { coin, dzx, dzp } };
 }
 
-/** Start the Daily Check-in ad gate without consuming the reward opportunity. */
-async function startDailyCheckinClaim({ userId, idempotencyKey, externalAdId = null, providerRegistry, providerId = null }) {
+/** Start the Daily Check-in ad gate and generate its trusted external event id. */
+async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry, providerId = null }) {
   requiredId(userId, 'userId');
   requiredId(idempotencyKey, 'idempotencyKey');
   if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
@@ -44,6 +45,7 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, externalAdId = n
       const event = await client.query('SELECT * FROM activity_ad_events WHERE id=$1', [existing.ad_event_id]);
       if (event.rowCount && !event.rows[0].verified) return { claimIdempotencyKey: existing.claim_idempotency_key, adEvent: event.rows[0], providerId: event.rows[0].metadata?.provider_id, duplicate: true };
     }
+    const externalAdId = randomUUID();
     const adInsert = await client.query(
       `INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,metadata)
        VALUES($1,'daily_checkin',$2,$3,NOW(),$4)

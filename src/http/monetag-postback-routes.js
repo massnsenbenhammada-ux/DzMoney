@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/pool');
 const { markAdvertisementVerified } = require('../services/ad-event-service');
+const { finalizeDailyCheckin } = require('../services/daily-checkin-service');
 const { verifyWithProvider } = require('../services/ad-provider-service');
 const { MONETAG_PROVIDER_ID } = require('../services/monetag-adapter');
 
@@ -13,8 +14,10 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
       if (req.query.token !== secret) return res.status(401).json({ ok: false, error: 'Unauthorized' });
       const payload = req.query;
       const eventResult = await query(
-        `SELECT a.id,a.user_id,a.context,a.external_ad_id,a.verified,u.telegram_user_id
-         FROM activity_ad_events a JOIN users u ON u.id=a.user_id
+        `SELECT a.id,a.user_id,a.context,a.external_ad_id,a.verified,u.telegram_user_id,d.claim_idempotency_key
+         FROM activity_ad_events a
+         JOIN users u ON u.id=a.user_id
+         JOIN daily_checkins d ON d.ad_event_id=a.id
          WHERE a.context='daily_checkin' AND a.external_ad_id=$1`,
         [String(payload.ymid || '')]
       );
@@ -32,7 +35,8 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
         providerReference: result.verification.reference,
         verificationMetadata: result.verification.metadata
       });
-      return res.json({ ok: true, verified: true, duplicate: verified.duplicate });
+      const reward = await finalizeDailyCheckin({ userId: event.user_id, claimIdempotencyKey: event.claim_idempotency_key });
+      return res.json({ ok: true, verified: true, duplicate: verified.duplicate || reward.duplicate, rewarded: reward.rewarded });
     } catch (error) {
       return next(error);
     }

@@ -16,12 +16,12 @@ async function run() {
 
   require.cache[poolPath].exports = {
     ...originalPool,
-    query: async () => ({ rowCount: 1, rows: [{ id: 9, user_id: 7, context: 'daily_checkin', external_ad_id: 'attempt-1', verified: false, telegram_user_id: '123' }] })
+    query: async () => ({ rowCount: 1, rows: [{ id: 9, user_id: 7, context: 'daily_checkin', external_ad_id: 'attempt-1', verified: false, telegram_user_id: '123', claim_idempotency_key: 'claim-1' }] })
   };
   require.cache[adEventPath].exports = { ...originalAdEvent, markAdvertisementVerified: async args => ({ duplicate: false, verified: true, args }) };
   require.cache[providerPath].exports = { ...originalProvider, verifyWithProvider: async () => ({ providerId: 'monetag', verification: { verified: true, reference: 'attempt-1', metadata: {} } }) };
   require.cache[adapterPath].exports = { ...originalAdapter, MONETAG_PROVIDER_ID: 'monetag' };
-  require.cache[dailyCheckinPath].exports = { ...originalDailyCheckin, finalizeDailyCheckin: async () => ({ duplicate: false, rewarded: true }) };
+  require.cache[dailyCheckinPath].exports = { ...originalDailyCheckin, finalizeDailyCheckin: async ({ userId, claimIdempotencyKey }) => ({ duplicate: false, rewarded: true, userId, claimIdempotencyKey }) };
 
   delete require.cache[require.resolve('../src/http/monetag-postback-routes')];
   const { createMonetagPostbackRouter } = require('../src/http/monetag-postback-routes');
@@ -37,9 +37,10 @@ async function run() {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         try {
-          resolve({ status: res.statusCode, body: JSON.parse(data) });
+          const body = JSON.parse(data);
+          resolve({ status: res.statusCode, body });
         } catch (error) {
-          reject(new Error(`Expected JSON response, received HTTP ${res.statusCode}: ${data.slice(0, 200)}`));
+          reject(new Error(`Expected JSON response, received HTTP ${res.statusCode}: ${data.slice(0, 500)}`));
         }
       });
     }).on('error', reject);
