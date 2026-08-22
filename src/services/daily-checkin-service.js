@@ -42,6 +42,7 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry
       if (nextEligibleAt.getTime() > Date.now()) {
         const error = new Error('Daily Check-in is on cooldown');
         error.statusCode = 429;
+        error.nextEligibleAt = nextEligibleAt.toISOString();
         throw error;
       }
     }
@@ -62,7 +63,7 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry
     await client.query(
       `INSERT INTO daily_checkins(user_id,ad_event_id,claim_idempotency_key,updated_at)
        VALUES($1,$2,$3,NOW())
-       ON CONFLICT(user_id) DO UPDATE SET ad_event_id=EXCLUDED.ad_event_id,claim_idempotency_key=EXCLUDED.claim_idempotency_key,updated_at=NOW()`,
+       ON CONFLICT(user_id) DO UPDATE SET ad_event_id=EXCLUDED.ad_event_id,claim_id_idempotency_key=EXCLUDED.claim_idempotency_key,updated_at=NOW()`,
       [userId, adEvent.id, idempotencyKey]
     );
     return { claimIdempotencyKey: idempotencyKey, adEvent, providerId: provider.id, duplicate: !adInsert.rowCount };
