@@ -88,10 +88,10 @@
 ### Remaining Phase 2 implementation
 
 - ⬜ Real task adapters/verifiers for Daily, Game, Social, Web and Special/Partner tasks.
-- ⬜ Real advertisement provider integration and trusted callbacks.
+- 🟢 Real advertisement provider integration and trusted callbacks — Monetag Rewarded Interstitial integration is merged in `main` via PR #28 and PR #29; the current provider flow is server-authoritative and postback-driven.
 - ⬜ Advertisement task flow without a second verification ad.
-- ⬜ Daily Check-in claim service using the 24-hour backend cooldown and required ad gate.
-- ⬜ User-facing API/UI wiring.
+- 🟢 Daily Check-in claim service using the 24-hour backend cooldown and required ad gate — implemented and connected to Monetag Rewarded Interstitial in PR #29.
+- 🟢 User-facing Daily Check-in Monetag wiring — merged in PR #29 and covered by the existing Daily Check-in HTTP boundary test.
 - ⬜ Anti-fraud hardening around ad callbacks and task verification.
 
 Phase 2 must not be marked complete until the runtime and acceptance tests pass.
@@ -107,7 +107,7 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - 🟢 Telegram WebApp SDK is initialized on the client.
 - 🟢 `/health` is consumed by the client for server connectivity status.
 - 🟢 Authenticated `/api/me` bootstrap verifies Telegram `initData`, upserts the user, ensures COIN/DZX/DZP wallets and returns live balances.
-- 🟡 Task, advertisement, referral and withdrawal actions remain explicit placeholders until their corresponding backend services/providers are completed and verified.
+- 🟢 Daily Check-in user-facing Monetag integration is present; other Task, advertisement, referral and withdrawal actions remain explicit placeholders until their corresponding backend services/providers are completed and verified.
 - ⬜ Full Phase 11 UI/UX implementation and acceptance testing.
 
 ## Later phases
@@ -159,6 +159,15 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - Tightened the JSON body limit to 64 KB in the HTTP layer.
 
 ## Change Log
+
+### 2026-08-22 — Monetag Rewarded Interstitial integration
+
+- Merged PR #28 for server-side Monetag YMID generation, postback verification and finalization.
+- Merged PR #29 for the user-facing Daily Check-in Monetag Rewarded Interstitial flow.
+- Verified PR #29 with CI on its final head commit before merge.
+- Daily Check-in now obtains the server-generated advertisement identifier, invokes the configured Monetag SDK, and leaves reward finalization to the server-side postback flow.
+- No new database migration, economy, ledger, reward system or duplicate test source was introduced by the integration.
+- Remaining limitation: broader Phase 2 runtime/acceptance verification and anti-fraud hardening are still pending.
 
 ### 2026-08-21 — Architecture stabilization
 
