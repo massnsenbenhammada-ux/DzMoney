@@ -4,11 +4,13 @@ const { query } = require('./src/db/pool');
 const meRoutes = require('./src/http/me-routes');
 const { createAdminProviderRouter } = require('./src/http/admin-provider-routes');
 const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
+const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, 'public');
+const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '64kb' }));
@@ -31,6 +33,12 @@ app.get('/health/db', async (_req, res) => {
 app.use('/api/me', meRoutes);
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
 app.use('/api/admin/ad-providers', createAdminProviderRouter({ registry: providerRegistry }));
+if (monetagPostbackSecret) {
+  app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({
+    providerRegistry,
+    secret: monetagPostbackSecret
+  }));
+}
 
 app.get('/', (_req, res) => {
   res.sendFile(path.join(publicDir, 'index.html'));
