@@ -14,7 +14,6 @@ function createDailyCheckinRouter({ providerRegistry }) {
     const result = await dailyCheckinService.startDailyCheckinClaim({
       userId: user.id,
       idempotencyKey: req.body?.idempotencyKey,
-      externalAdId: req.body?.externalAdId || null,
       providerRegistry,
       providerId: req.body?.providerId || null
     });
