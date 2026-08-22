@@ -69,19 +69,26 @@ async function loadMe() {
   }
 }
 
+function setDailyButton(button, text, disabled) {
+  button.disabled = disabled;
+  button.textContent = text;
+}
+
+async function showDailyCheckinAd(ymid) {
+  if (typeof window.show_11627577 !== 'function') throw new Error('Monetag SDK is not ready');
+  $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
+  await window.show_11627577({ type: 'end', ymid, requestVar: 'daily_checkin' });
+}
+
 /** Start the server-authoritative Daily Check-in advertisement flow. */
 async function startDailyCheckinAd() {
   if (state.dailyBusy) return;
   const button = $('dailyBtn');
   state.dailyBusy = true;
-  button.disabled = true;
-  button.textContent = 'Loading…';
+  setDailyButton(button, 'Loading…', true);
   try {
     const claim = await api('/api/daily-checkin/claim', { method: 'POST', body: JSON.stringify({ idempotencyKey: `daily:${crypto.randomUUID()}` }) });
-    const ymid = claim.adEvent?.external_ad_id;
-    if (!ymid || typeof window.show_11627577 !== 'function') throw new Error('Monetag SDK is not ready');
-    $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
-    await window.show_11627577({ type: 'end', ymid, requestVar: 'daily_checkin' });
+    await showDailyCheckinAd(claim.adEvent?.external_ad_id);
     $('dailyText').textContent = 'Advertisement completed. Waiting for server verification.';
     toast('Advertisement completed. Your reward is being verified.');
     await loadMe();
@@ -90,8 +97,7 @@ async function startDailyCheckinAd() {
     $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
   } finally {
     state.dailyBusy = false;
-    button.disabled = false;
-    button.textContent = 'Check in';
+    setDailyButton(button, 'Check in', false);
   }
 }
 
@@ -104,9 +110,7 @@ document.addEventListener('click', event => {
   if (event.target.closest('#dailyBtn')) startDailyCheckinAd();
   if (event.target.closest('#taskVerifyBtn')) toast('Task verification is awaiting the real task/provider adapter.');
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
-  if (event.target.closest('#copyReferral')) {
-    toast('Referral link generation will be enabled when the Referral phase is implemented.');
-  }
+  if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
 });
 
 renderBalances();
