@@ -76,6 +76,7 @@
 - 🟢 `npm run test:phase2` exists for Phase 2 verification invariants.
 - 🟢 Daily Check-in HTTP exposes only the claim boundary; advertisement verification and reward finalization are no longer client-callable routes. Trusted Monetag postback remains the reward verification/finalization boundary.
 - 🟢 Temporary Monetag diagnostic page and diagnostic code were removed after troubleshooting.
+- 🟢 Monetag zone/context are centralized in `src/config/monetag.js` and consumed by both the browser adapter build and server postback validator.
 
 ### Runtime verification required
 
@@ -167,6 +168,7 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - Removed client-callable Daily Check-in `/verify` and `/finalize` routes; verification/finalization remain server-side through the trusted postback boundary.
 - Repaired the frontend validation script so it checks the current production flow instead of obsolete function names.
 - Aligned the Monetag postback ADR/test terminology with Monetag's actual `reward_event_type=valued` contract.
+- Centralized the Monetag zone/context to prevent frontend/server configuration drift.
 
 ## Change Log
 
