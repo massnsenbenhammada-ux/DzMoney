@@ -10,7 +10,7 @@ function buildInitData(userId) {
   params.set('user', JSON.stringify({ id: userId, first_name: 'Test' }));
   const dataCheckString = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join('\n');
   const secretKey = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN).digest();
-  params.set('hash', crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+  params.set('hash', crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex'));
   return params.toString();
 }
 
