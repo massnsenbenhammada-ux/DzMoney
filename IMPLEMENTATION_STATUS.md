@@ -6,7 +6,7 @@
 
 **Specification:** `PROJECT_ROADMAP.md` is the single source of truth. `docs/PHASE2_DESIGN_REVIEW.md`, `docs/PHASE2_TASK_VERIFICATION_RULES.md` and `docs/ARCHITECTURE_RULES.md` constrain implementation and change control.
 
-**Repository state:** clean Phase 2 boundary. Premature Phase 4 Squad runtime code and routes have been removed. Migration `008_squad_engine.sql` is preserved as immutable migration history; `009_cleanup_unreleased_squad.sql` removes that unreleased schema safely so existing and fresh environments converge to the same Phase 2 boundary.
+**Repository state:** clean Phase 2 boundary. Premature Phase 4 Squad runtime code/routes and temporary Monetag diagnostic UI have been removed. Phase 12 admin-provider HTTP/configuration code that was not part of the opened phase has also been removed. Migration `008_squad_engine.sql` remains immutable history; `009_cleanup_unreleased_squad.sql` keeps active environments aligned with the Phase 2 schema boundary.
 
 ## Phase 0 — Specification Lock
 
@@ -74,6 +74,8 @@
 - 🟢 Task DZP is recorded through the existing `earned_dzp` bucket, preserving Reward Pool eligibility semantics.
 - 🟢 One active/pending attempt per user/task is enforced at the database level.
 - 🟢 `npm run test:phase2` exists for Phase 2 verification invariants.
+- 🟢 Daily Check-in HTTP exposes only the claim boundary; advertisement verification and reward finalization are no longer client-callable routes. Trusted Monetag postback remains the reward verification/finalization boundary.
+- 🟢 Temporary Monetag diagnostic page and diagnostic code were removed after troubleshooting.
 
 ### Runtime verification required
 
@@ -140,7 +142,7 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 ⬜ Not started. Initial UI foundation exists; full UI/UX remains pending.
 
 ### Phase 12 — Admin Panel
-⬜ Not started.
+⬜ Not started. No admin provider configuration route/service is active in the current Phase 2 boundary.
 
 ### Phase 13 — Ledger / Security / Anti-Fraud hardening
 ⬜ Not started.
@@ -158,6 +160,14 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - Added `docs/ARCHITECTURE_RULES.md` defining phase isolation, layer boundaries, migration discipline, economy invariants, testing gates and no-fake-integration rules.
 - Tightened the JSON body limit to 64 KB in the HTTP layer.
 
+## Architecture audit cleanup — 2026-08-22
+
+- Removed premature Phase 12 admin-provider route, admin authentication boundary, provider configuration service and its tests.
+- Removed the temporary Monetag diagnostic page and client-side diagnostic functions.
+- Removed client-callable Daily Check-in `/verify` and `/finalize` routes; verification/finalization remain server-side through the trusted postback boundary.
+- Repaired the frontend validation script so it checks the current production flow instead of obsolete function names.
+- Aligned the Monetag postback ADR/test terminology with Monetag's actual `reward_event_type=valued` contract.
+
 ## Change Log
 
 ### 2026-08-22 — Monetag Rewarded Interstitial integration
@@ -168,29 +178,6 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - Daily Check-in now obtains the server-generated advertisement identifier, invokes the configured Monetag SDK, and leaves reward finalization to the server-side postback flow.
 - No new database migration, economy, ledger, reward system or duplicate test source was introduced by the integration.
 - Remaining limitation: broader Phase 2 runtime/acceptance verification and anti-fraud hardening are still pending.
-
-### 2026-08-21 — Architecture stabilization
-
-- Reconciled the implementation state with the roadmap.
-- Removed the accidental Phase 4 runtime implementation before it could become a second architecture track.
-- Kept Squad as specification only until Phase 4 is formally opened.
-- Removed client-side coupling to unimplemented Squad endpoints.
-- Made future UI actions explicitly non-final instead of simulating backend behavior.
-
-### 2026-08-21 — Initial Mini App UI + authenticated bootstrap
-
-- Added the first DzMoney Mini App frontend under `public/`.
-- Added authenticated `/api/me` bootstrap using the existing Telegram `initData` verification middleware.
-- Connected the frontend to `/health` and `/api/me`.
-
-### 2026-08-20 — Phase 2 backend foundation
-
-- Added the Phase 2 task/attempt/ad-verification schema.
-- Added the task Execute → Verify service flow.
-- Added the 5/10-second verification-ad gate.
-- Kept verification rewards inside the existing atomic economy transaction primitive.
-- Added `test:phase2` acceptance/invariant coverage.
-- Did not implement real ad-provider integration or final user-facing Ads/Tasks behavior.
 
 ## Update Rule
 
