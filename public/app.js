@@ -17,20 +17,11 @@ if (monetagScript) {
   monetagScript.addEventListener('load', () => {
     monetagDiagnostics.scriptLoadedAt = performance.now();
     monetagScriptState = typeof window.show_11627577 === 'function' ? 'ready' : 'loaded_without_api';
-    console.info('[Monetag] SDK script loaded', {
-      apiReady: typeof window.show_11627577 === 'function',
-      elapsedMs: Math.round(monetagDiagnostics.scriptLoadedAt - monetagDiagnostics.startedAt),
-      platform: monetagDiagnostics.platform,
-      version: monetagDiagnostics.version
-    });
+    console.info('[Monetag] SDK script loaded', { apiReady: typeof window.show_11627577 === 'function', elapsedMs: Math.round(monetagDiagnostics.scriptLoadedAt - monetagDiagnostics.startedAt), platform: monetagDiagnostics.platform, version: monetagDiagnostics.version });
   }, { once: true });
   monetagScript.addEventListener('error', () => {
     monetagScriptState = 'load_error';
-    console.error('[Monetag] SDK script failed to load', {
-      elapsedMs: Math.round(performance.now() - monetagDiagnostics.startedAt),
-      platform: monetagDiagnostics.platform,
-      version: monetagDiagnostics.version
-    });
+    console.error('[Monetag] SDK script failed to load', { elapsedMs: Math.round(performance.now() - monetagDiagnostics.startedAt), platform: monetagDiagnostics.platform, version: monetagDiagnostics.version });
   }, { once: true });
 }
 
@@ -49,10 +40,7 @@ function showPage(page) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function format(value) {
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 }).format(Number(value || 0));
-}
-
+function format(value) { return new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 }).format(Number(value || 0)); }
 function renderBalances() {
   $('coinBalance').textContent = format(state.balance.coin);
   $('dzxBalance').textContent = format(state.balance.dzx);
@@ -73,14 +61,9 @@ async function api(path, options = {}) {
 }
 
 async function loadHealth() {
-  try {
-    await api('/health');
-    document.querySelector('.status').innerHTML = '<i></i> Online';
-  } catch {
-    document.querySelector('.status').innerHTML = '<i style="background:#ff8d8d"></i> Offline';
-  }
+  try { await api('/health'); document.querySelector('.status').innerHTML = '<i></i> Online'; }
+  catch { document.querySelector('.status').innerHTML = '<i style="background:#ff8d8d"></i> Offline'; }
 }
-
 async function loadMe() {
   try {
     const data = await api('/api/me');
@@ -99,11 +82,7 @@ async function loadMe() {
   }
 }
 
-function setDailyButton(button, text, disabled) {
-  button.disabled = disabled;
-  button.textContent = text;
-}
-
+function setDailyButton(button, text, disabled) { button.disabled = disabled; button.textContent = text; }
 function formatCooldown(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -111,7 +90,6 @@ function formatCooldown(ms) {
   const seconds = totalSeconds % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
-
 function startDailyCooldown(nextEligibleAt) {
   const until = new Date(nextEligibleAt).getTime();
   if (!Number.isFinite(until)) return;
@@ -137,54 +115,66 @@ function startDailyCooldown(nextEligibleAt) {
 async function waitForMonetagSdk(timeoutMs = 30000, intervalMs = 100) {
   const startedAt = performance.now();
   let lastLogAt = startedAt;
-  console.info('[Monetag] readiness wait started', {
-    timeoutMs,
-    platform: monetagDiagnostics.platform,
-    version: monetagDiagnostics.version,
-    initialApiType: typeof window.show_11627577,
-    scriptState: monetagScriptState
-  });
-
   while (typeof window.show_11627577 !== 'function') {
     const now = performance.now();
     if (now - lastLogAt >= 1000) {
-      console.info('[Monetag] readiness poll', {
-        elapsedMs: Math.round(now - startedAt),
-        scriptState: monetagScriptState,
-        apiType: typeof window.show_11627577
-      });
+      console.info('[Monetag] readiness poll', { elapsedMs: Math.round(now - startedAt), scriptState: monetagScriptState, apiType: typeof window.show_11627577 });
       lastLogAt = now;
     }
     if (now - startedAt >= timeoutMs) {
-      const diagnostic = monetagScriptState === 'load_error'
-        ? 'Monetag SDK script failed to load'
-        : monetagScriptState === 'loaded_without_api'
-          ? 'Monetag SDK script loaded but show_11627577 was not created'
-          : monetagScript
-            ? 'Monetag SDK did not become ready'
-            : 'Monetag SDK script tag is missing';
-      console.error('[Monetag] readiness timeout', {
-        diagnostic,
-        scriptState: monetagScriptState,
-        apiType: typeof window.show_11627577,
-        elapsedMs: Math.round(now - startedAt),
-        scriptLoadedAfterMs: monetagDiagnostics.scriptLoadedAt === null ? null : Math.round(monetagDiagnostics.scriptLoadedAt - monetagDiagnostics.startedAt),
-        platform: monetagDiagnostics.platform,
-        version: monetagDiagnostics.version,
-        userAgent: navigator.userAgent
-      });
+      const diagnostic = monetagScriptState === 'load_error' ? 'Monetag SDK script failed to load' : monetagScriptState === 'loaded_without_api' ? 'Monetag SDK script loaded but show_11627577 was not created' : monetagScript ? 'Monetag SDK did not become ready' : 'Monetag SDK script tag is missing';
       throw new Error(diagnostic);
     }
     await new Promise(resolve => setTimeout(resolve, intervalMs));
   }
-
   monetagDiagnostics.apiReadyAt = performance.now();
   monetagScriptState = 'ready';
-  console.info('[Monetag] API became ready', {
-    elapsedMs: Math.round(monetagDiagnostics.apiReadyAt - startedAt),
-    platform: monetagDiagnostics.platform,
-    version: monetagDiagnostics.version
-  });
+}
+
+function collectMonetagSnapshot() {
+  return {
+    sdkScriptPresent: Boolean(monetagScript),
+    sdkScriptState: monetagScriptState,
+    apiType: typeof window.show_11627577,
+    apiReady: typeof window.show_11627577 === 'function',
+    sdkLoadedAfterMs: monetagDiagnostics.scriptLoadedAt == null ? null : Math.round(monetagDiagnostics.scriptLoadedAt - monetagDiagnostics.startedAt),
+    apiReadyAfterMs: monetagDiagnostics.apiReadyAt == null ? null : Math.round(monetagDiagnostics.apiReadyAt - monetagDiagnostics.startedAt),
+    telegramPlatform: tg?.platform || 'unknown',
+    telegramVersion: tg?.version || 'unknown',
+    readyState: document.readyState,
+    userAgent: navigator.userAgent,
+    sdkResources: performance.getEntriesByName('https://libtl.com/sdk.js').map(x => ({ duration: Math.round(x.duration), transferSize: x.transferSize, encodedBodySize: x.encodedBodySize }))
+  };
+}
+
+function renderMonetagDiagnostic(extra = null) {
+  const result = $('monetagDiagnosticResult');
+  if (!result) return;
+  const payload = { snapshot: collectMonetagSnapshot(), ...(extra || {}) };
+  result.textContent = JSON.stringify(payload, null, 2);
+}
+
+async function runMonetagDiagnostic() {
+  renderMonetagDiagnostic({ status: 'checking SDK readiness…' });
+  try {
+    await waitForMonetagSdk();
+    renderMonetagDiagnostic({ status: 'SDK ready. The global Monetag function exists.' });
+  } catch (error) {
+    renderMonetagDiagnostic({ status: 'SDK not ready', error: String(error?.message || error) });
+  }
+}
+
+async function testMonetagAd() {
+  const result = $('monetagDiagnosticResult');
+  if (!result) return;
+  try {
+    await waitForMonetagSdk();
+    result.textContent = JSON.stringify({ snapshot: collectMonetagSnapshot(), status: 'Calling show_11627577…' }, null, 2);
+    const adResult = await window.show_11627577({ type: 'end', ymid: `diagnostic-${Date.now()}`, requestVar: 'diagnostic' });
+    renderMonetagDiagnostic({ status: 'Advertisement call completed', adResult });
+  } catch (error) {
+    renderMonetagDiagnostic({ status: 'Advertisement call failed', error: String(error?.message || error) });
+  }
 }
 
 async function showDailyCheckinAd(ymid) {
@@ -233,15 +223,17 @@ function addMonetagTestButton() {
 
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]');
-  if (nav) {
-    showPage(nav.dataset.go);
-    return;
-  }
+  if (nav) { showPage(nav.dataset.go); return; }
   if (event.target.closest('#dailyBtn')) startDailyCheckinAd();
-  if (event.target.closest('#monetagTestBtn')) window.location.assign('/monetag-diagnostic.html');
+  if (event.target.closest('#monetagTestBtn')) { showPage('monetag'); runMonetagDiagnostic(); }
+  if (event.target.closest('#runMonetagDiagnostic')) runMonetagDiagnostic();
   if (event.target.closest('#taskVerifyBtn')) toast('Task verification is awaiting the real task/provider adapter.');
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
   if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
+});
+
+document.addEventListener('dblclick', event => {
+  if (event.target.closest('#monetagDiagnosticResult')) testMonetagAd();
 });
 
 renderBalances();
