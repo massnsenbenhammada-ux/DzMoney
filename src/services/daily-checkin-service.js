@@ -27,6 +27,7 @@ async function getDailyCheckinSettings(client) {
   return { cooldownHours, reward: { coin, dzx, dzp } };
 }
 
+/** Start the Daily Check-in ad gate and generate its trusted external event id. */
 async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry, providerId = null }) {
   requiredId(userId, 'userId');
   requiredId(idempotencyKey, 'idempotencyKey');
@@ -69,6 +70,7 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry
   });
 }
 
+/** Verify the Daily Check-in advertisement through the selected trusted provider. */
 async function verifyDailyCheckinAd({ userId, adEventId, providerRegistry, providerId = null, providerPayload }) {
   requiredId(userId, 'userId');
   requiredId(adEventId, 'adEventId');
@@ -84,6 +86,7 @@ async function verifyDailyCheckinAd({ userId, adEventId, providerRegistry, provi
   return markAdvertisementVerified({ adEventId, providerReference: result.verification.reference, verificationMetadata: { ...result.verification.metadata, provider_id: result.providerId } });
 }
 
+/** Issue the Daily Check-in reward exactly once after verified ad completion. */
 async function finalizeDailyCheckin({ userId, claimIdempotencyKey }) {
   requiredId(userId, 'userId');
   requiredId(claimIdempotencyKey, 'claimIdempotencyKey');
