@@ -75,6 +75,7 @@ function setDailyButton(button, text, disabled) {
 }
 
 async function showDailyCheckinAd(ymid) {
+  if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
   if (typeof window.show_11627577 !== 'function') throw new Error('Monetag SDK is not ready');
   $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
   await window.show_11627577({ type: 'end', ymid, requestVar: 'daily_checkin' });
