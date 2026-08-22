@@ -42,6 +42,7 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry
       if (nextEligibleAt.getTime() > Date.now()) {
         const error = new Error('Daily Check-in is on cooldown');
         error.statusCode = 429;
+        error.nextEligibleAt = nextEligibleAt.toISOString();
         throw error;
       }
     }

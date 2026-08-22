@@ -1,7 +1,7 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, dailyBusy: false };
+const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, dailyBusy: false, dailyCooldownUntil: null };
 const $ = id => document.getElementById(id);
 
 function toast(message) {
@@ -74,6 +74,36 @@ function setDailyButton(button, text, disabled) {
   button.textContent = text;
 }
 
+function formatCooldown(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function startDailyCooldown(nextEligibleAt) {
+  const until = new Date(nextEligibleAt).getTime();
+  if (!Number.isFinite(until)) return;
+  state.dailyCooldownUntil = until;
+  clearInterval(startDailyCooldown.timer);
+  const button = $('dailyBtn');
+  const tick = () => {
+    const remaining = state.dailyCooldownUntil - Date.now();
+    if (remaining <= 0) {
+      state.dailyCooldownUntil = null;
+      clearInterval(startDailyCooldown.timer);
+      setDailyButton(button, 'Check in', false);
+      $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+      return;
+    }
+    setDailyButton(button, `Cooldown ${formatCooldown(remaining)}`, true);
+    $('dailyText').textContent = `Daily Check-in available again in ${formatCooldown(remaining)}.`;
+  };
+  tick();
+  startDailyCooldown.timer = setInterval(tick, 1000);
+}
+
 /** Wait for the Monetag SDK to expose the configured rewarded-ad function. */
 async function waitForMonetagSdk(timeoutMs = 5000, intervalMs = 100) {
   const startedAt = Date.now();
@@ -92,7 +122,7 @@ async function showDailyCheckinAd(ymid) {
 
 /** Start the server-authoritative Daily Check-in advertisement flow. */
 async function startDailyCheckinAd() {
-  if (state.dailyBusy) return;
+  if (state.dailyBusy || state.dailyCooldownUntil) return;
   const button = $('dailyBtn');
   state.dailyBusy = true;
   setDailyButton(button, 'Loading…', true);
@@ -104,11 +134,16 @@ async function startDailyCheckinAd() {
     toast('Advertisement completed. Your reward is being verified.');
     await loadMe();
   } catch (error) {
-    toast(error.message || 'Unable to show the advertisement.');
-    $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+    if (error.status === 429 && error.data?.nextEligibleAt) {
+      startDailyCooldown(error.data.nextEligibleAt);
+      toast('Daily Check-in is on cooldown.');
+    } else {
+      toast(error.message || 'Unable to show the advertisement.');
+      $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+    }
   } finally {
     state.dailyBusy = false;
-    setDailyButton(button, 'Check in', false);
+    if (!state.dailyCooldownUntil) setDailyButton(button, 'Check in', false);
   }
 }
 

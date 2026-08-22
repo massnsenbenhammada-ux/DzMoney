@@ -60,8 +60,11 @@ async function main() {
     } catch (error) {
       cooldownError = error;
     }
+    assert.ok(cooldownError, 'Expected a cooldown error');
     assert.match(cooldownError.message, /Daily Check-in is on cooldown/);
     assert.strictEqual(cooldownError.statusCode, 429);
+    assert.ok(cooldownError.nextEligibleAt, 'Cooldown error must expose nextEligibleAt');
+    assert.ok(new Date(cooldownError.nextEligibleAt).getTime() > Date.now(), 'nextEligibleAt must be in the future');
     console.log('Daily Check-in invariants: PASS');
   } finally {
     await cleanup(userId);

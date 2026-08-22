@@ -47,7 +47,9 @@ app.get('/', (_req, res) => {
 app.use((error, _req, res, _next) => {
   console.error('Unhandled request error:', error);
   const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
-  res.status(status).json({ ok: false, error: status === 500 ? 'Internal server error' : error.message });
+  const payload = { ok: false, error: status === 500 ? 'Internal server error' : error.message };
+  if (status === 429 && error.nextEligibleAt) payload.nextEligibleAt = error.nextEligibleAt;
+  res.status(status).json(payload);
 });
 
 app.listen(port, '0.0.0.0', () => {
