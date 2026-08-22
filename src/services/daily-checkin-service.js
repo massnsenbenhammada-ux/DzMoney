@@ -1,6 +1,6 @@
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
-const { markAdvertisementVerified, startAdvertisementEvent } = require('./ad-event-service');
+const { markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 
 const DEFAULT_COOLDOWN_HOURS = 24;
@@ -44,14 +44,22 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, externalAdId = n
       const event = await client.query('SELECT * FROM activity_ad_events WHERE id=$1', [existing.ad_event_id]);
       if (event.rowCount && !event.rows[0].verified) return { claimIdempotencyKey: existing.claim_idempotency_key, adEvent: event.rows[0], providerId: event.rows[0].metadata?.provider_id, duplicate: true };
     }
-    const ad = await startAdvertisementEvent({ userId, context: 'daily_checkin', idempotencyKey: `daily-ad:${idempotencyKey}`, externalAdId, metadata: { provider_id: provider.id, claim_idempotency_key: idempotencyKey } });
+    const adInsert = await client.query(
+      `INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,metadata)
+       VALUES($1,'daily_checkin',$2,$3,NOW(),$4)
+       ON CONFLICT(idempotency_key) DO NOTHING RETURNING *`,
+      [userId, externalAdId, `daily-ad:${idempotencyKey}`, { provider_id: provider.id, claim_idempotency_key: idempotencyKey }]
+    );
+    const adEvent = adInsert.rowCount
+      ? adInsert.rows[0]
+      : (await client.query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE', [`daily-ad:${idempotencyKey}`])).rows[0];
     await client.query(
       `INSERT INTO daily_checkins(user_id,ad_event_id,claim_idempotency_key,updated_at)
        VALUES($1,$2,$3,NOW())
        ON CONFLICT(user_id) DO UPDATE SET ad_event_id=EXCLUDED.ad_event_id,claim_idempotency_key=EXCLUDED.claim_idempotency_key,updated_at=NOW()`,
-      [userId, ad.adEvent.id, idempotencyKey]
+      [userId, adEvent.id, idempotencyKey]
     );
-    return { claimIdempotencyKey: idempotencyKey, adEvent: ad.adEvent, providerId: provider.id, duplicate: ad.duplicate };
+    return { claimIdempotencyKey: idempotencyKey, adEvent, providerId: provider.id, duplicate: !adInsert.rowCount };
   });
 }
 
