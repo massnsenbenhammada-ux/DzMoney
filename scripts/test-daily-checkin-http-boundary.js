@@ -10,7 +10,7 @@ function buildInitData(userId) {
   params.set('user', JSON.stringify({ id: userId, first_name: 'Test' }));
   const dataCheckString = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join('\n');
   const secretKey = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN).digest();
-  params.set('hash', crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex'));
+  params.set('hash', crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
   return params.toString();
 }
 
@@ -61,6 +61,7 @@ async function run() {
 
   const verify = await request('POST', '/api/daily-checkin/verify', { adEventId: 7, providerPayload: { token: 'verified' } }, auth);
   assert.strictEqual(verify.status, 200);
+  assert.strictEqual(calls[1][1].userId, 42);
   assert.strictEqual(calls[1][1].adEventId, 7);
 
   const finalize = await request('POST', '/api/daily-checkin/finalize', { claimIdempotencyKey: 'claim-1' }, auth);
