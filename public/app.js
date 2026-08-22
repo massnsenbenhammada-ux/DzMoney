@@ -1,85 +1,24 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const MONETAG_ZONE_ID = '11627577';
-const MONETAG_GLOBAL_NAME = `show_${MONETAG_ZONE_ID}`;
 const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, dailyBusy: false, dailyCooldownUntil: null };
 const $ = id => document.getElementById(id);
-
 let monetagHandler = null;
-const monetagDiagnostics = { startedAt: performance.now(), adapterReadyAt: null, attempts: 0 };
+const MONETAG_READY_TIMEOUT_MS = 15000;
 
 function getMonetagHandler() {
   const adapter = window.DzMoneyMonetag;
   if (adapter?.handler && typeof adapter.handler === 'function') {
-    if (monetagDiagnostics.adapterReadyAt == null) monetagDiagnostics.adapterReadyAt = performance.now();
     monetagHandler = adapter.handler;
     return monetagHandler;
   }
   return null;
 }
 
-function getMonetagGlobalState() {
-  const globalHandler = window[MONETAG_GLOBAL_NAME];
-  const adapter = window.DzMoneyMonetag;
-  return {
-    globalName: MONETAG_GLOBAL_NAME,
-    globalType: typeof globalHandler,
-    globalReady: typeof globalHandler === 'function',
-    matchingGlobals: Object.keys(window).filter(key => /^show_\d+$/.test(key)).slice(0, 20),
-    adapterKeys: adapter && typeof adapter === 'object' ? Object.keys(adapter) : [],
-    adapterHasHandler: Boolean(adapter?.handler && typeof adapter.handler === 'function')
-  };
-}
-
-function getMonetagResourceState() {
-  const names = ['https://libtl.com/sdk.js', 'https://telegram.org/js/telegram-web-app.js'];
-  return names.map(name => performance.getEntriesByName(name).map(entry => ({
-    name: entry.name,
-    duration: Math.round(entry.duration),
-    transferSize: entry.transferSize ?? null,
-    encodedBodySize: entry.encodedBodySize ?? null,
-    decodedBodySize: entry.decodedBodySize ?? null,
-    responseStatus: entry.responseStatus ?? null
-  })));
-}
-
-function serializeMonetagError(error) {
-  if (!error) return null;
-  return {
-    name: error.name || 'Error',
-    message: String(error.message || error),
-    code: error.code ?? null,
-    type: error.type ?? null,
-    stack: error.stack ? String(error.stack).split('\n').slice(0, 6).join('\n') : null,
-    ownKeys: Object.keys(error)
-  };
-}
-
-function monetagSnapshot() {
-  const handler = getMonetagHandler();
-  return {
-    provider: 'monetag-tg-sdk',
-    zoneId: MONETAG_ZONE_ID,
-    adapterPresent: Boolean(window.DzMoneyMonetag),
-    handlerType: typeof handler,
-    apiReady: typeof handler === 'function',
-    adapterReadyAfterMs: monetagDiagnostics.adapterReadyAt == null ? null : Math.round(monetagDiagnostics.adapterReadyAt - monetagDiagnostics.startedAt),
-    attempts: monetagDiagnostics.attempts,
-    telegramPlatform: tg?.platform || 'unknown',
-    telegramVersion: tg?.version || 'unknown',
-    readyState: document.readyState,
-    userAgent: navigator.userAgent,
-    monetagGlobal: getMonetagGlobalState(),
-    sdkResources: getMonetagResourceState().flat()
-  };
-}
-
 function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-async function ensureMonetagSdk(timeoutMs = 15000) {
+async function ensureMonetagSdk(timeoutMs = MONETAG_READY_TIMEOUT_MS) {
   const started = performance.now();
-  monetagDiagnostics.attempts += 1;
   while (true) {
     const handler = getMonetagHandler();
     if (handler) return handler;
@@ -104,6 +43,7 @@ function showPage(page) {
 }
 
 function format(value) { return new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 }).format(Number(value || 0)); }
+
 function renderBalances() {
   $('coinBalance').textContent = format(state.balance.coin);
   $('dzxBalance').textContent = format(state.balance.dzx);
@@ -127,6 +67,7 @@ async function loadHealth() {
   try { await api('/health'); document.querySelector('.status').innerHTML = '<i></i> Online'; }
   catch { document.querySelector('.status').innerHTML = '<i style="background:#ff8d8d"></i> Offline'; }
 }
+
 async function loadMe() {
   try {
     const data = await api('/api/me');
@@ -146,6 +87,7 @@ async function loadMe() {
 }
 
 function setDailyButton(button, text, disabled) { button.disabled = disabled; button.textContent = text; }
+
 function formatCooldown(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -153,6 +95,7 @@ function formatCooldown(ms) {
   const seconds = totalSeconds % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
+
 function startDailyCooldown(nextEligibleAt) {
   const until = new Date(nextEligibleAt).getTime();
   if (!Number.isFinite(until)) return;
@@ -173,35 +116,6 @@ function startDailyCooldown(nextEligibleAt) {
   };
   tick();
   startDailyCooldown.timer = setInterval(tick, 1000);
-}
-
-function renderMonetagDiagnostic(extra = null) {
-  const result = $('monetagDiagnosticResult');
-  if (!result) return;
-  result.textContent = JSON.stringify({ snapshot: monetagSnapshot(), ...(extra || {}) }, null, 2);
-}
-
-async function runMonetagDiagnostic() {
-  renderMonetagDiagnostic({ status: 'initializing official Monetag Telegram SDK…' });
-  try {
-    await ensureMonetagSdk();
-    renderMonetagDiagnostic({ status: 'SDK adapter ready. Rewarded Interstitial handler is available.' });
-  } catch (error) {
-    renderMonetagDiagnostic({ status: 'SDK not ready', error: String(error?.message || error) });
-  }
-}
-
-async function testMonetagAd() {
-  const result = $('monetagDiagnosticResult');
-  if (!result) return;
-  try {
-    const handler = await ensureMonetagSdk();
-    renderMonetagDiagnostic({ status: 'Calling Rewarded Interstitial…' });
-    const adResult = await handler({ type: 'end', ymid: `diagnostic-${Date.now()}`, requestVar: 'diagnostic' });
-    renderMonetagDiagnostic({ status: 'Advertisement call completed', adResult });
-  } catch (error) {
-    renderMonetagDiagnostic({ status: 'Advertisement call failed', error: String(error?.message || error) });
-  }
 }
 
 async function startDailyCheckinAd(ymid) {
@@ -240,11 +154,8 @@ async function startDailyCheckinAdFlow() {
 
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]');
-  if (nav) { showPage(nav.dataset.go); if (nav.dataset.go === 'monetag') renderMonetagDiagnostic({ status: 'ready to test' }); return; }
+  if (nav) { showPage(nav.dataset.go); return; }
   if (event.target.closest('#dailyBtn')) startDailyCheckinAdFlow();
-  if (event.target.closest('#monetagTestBtn')) { showPage('monetag'); renderMonetagDiagnostic({ status: 'initializing official Monetag Telegram SDK…' }); runMonetagDiagnostic(); }
-  if (event.target.closest('#runMonetagDiagnostic')) runMonetagDiagnostic();
-  if (event.target.closest('#runMonetagAdTest')) testMonetagAd();
   if (event.target.closest('#taskVerifyBtn')) toast('Task verification is awaiting the real task/provider adapter.');
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
   if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
