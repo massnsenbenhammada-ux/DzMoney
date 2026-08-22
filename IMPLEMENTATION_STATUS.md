@@ -2,11 +2,11 @@
 
 ## Current state
 
-**Current phase:** Phase 2 — Activity / Ads / Tasks — backend foundation implemented; runtime verification pending.
+**Current phase:** Phase 2 — Activity / Ads / Tasks — backend foundation implemented; baseline isolated runtime verification passed; remaining implementation and acceptance work is pending.
 
 **Specification:** `PROJECT_ROADMAP.md` is the single source of truth. `docs/PHASE2_DESIGN_REVIEW.md`, `docs/PHASE2_TASK_VERIFICATION_RULES.md` and `docs/ARCHITECTURE_RULES.md` constrain implementation and change control.
 
-**Repository state:** clean Phase 2 boundary. Premature Phase 4 Squad runtime code/routes and temporary Monetag diagnostic UI have been removed. Phase 12 admin-provider HTTP/configuration code that was not part of the opened phase has also been removed. Migration `008_squad_engine.sql` remains immutable history; `009_cleanup_unreleased_squad.sql` keeps active environments aligned with the Phase 2 schema boundary.
+**Repository state:** clean Phase 2 boundary. Premature Phase 4 Squad runtime code/routes and temporary Monetag diagnostic UI have been removed. Phase 12 admin-provider HTTP/configuration code that was not part of the opened phase has also been removed. Migration `008_squad_engine.sql` remains immutable history; `009_cleanup_unreleased_squad.sql` keeps active environments aligned with the Phase 2 schema boundary. The unused duplicate `src/providers/ads/ads-provider.js` abstraction was removed; `src/services/ad-provider-service.js` remains the provider-neutral advertisement boundary.
 
 ## Phase 0 — Specification Lock
 
@@ -58,7 +58,7 @@
 
 ## Phase 2 — Activity / Ads / Tasks
 
-🟡 Backend foundation implemented — runtime verification pending.
+🟡 Backend foundation implemented; baseline isolated runtime verification passed; remaining implementation and acceptance work pending.
 
 ### Implemented foundation
 
@@ -78,15 +78,21 @@
 - 🟢 Temporary Monetag diagnostic page and diagnostic code were removed after troubleshooting.
 - 🟢 Monetag zone/context are centralized in `src/config/monetag.js` and consumed by both the browser adapter build and server postback validator.
 
-### Runtime verification required
+### Baseline runtime verification
 
-- ⬜ `npm run migrate` after the cleanup migration is deployed.
-- ⬜ `npm run test:phase2`.
-- ⬜ Re-run `npm run test:phase1`.
-- ⬜ Re-run `npm run test:economy-ledger`.
-- ⬜ Re-run `npm run test:deposit`.
-- ⬜ Re-run `npm run reconcile:economy`.
-- ⬜ Verify `/health` and `/health/db` remain HTTP 200.
+The existing Phase 2 CI workflow was executed against the current Phase 2 code on PR #37's final head commit `1e2c812f25cdf6e170ee773c64a2eadb76122478` (workflow run #115). The isolated PostgreSQL 16 environment, migrations, runtime health checks and full `npm run test:all` suite all passed. The successful PR was then merged into `main` as commit `4a899616e83daee26e4365fb419f6d6104fb1bb9`. The main deployment status for that commit is also successful.
+
+- 🟢 `npm run migrate` — passed in isolated PostgreSQL 16.
+- 🟢 `npm run test:phase2` — passed.
+- 🟢 `npm run test:phase1` — passed.
+- 🟢 `npm run test:economy-ledger` — passed.
+- 🟢 `npm run test:deposit` — passed.
+- 🟢 `npm run reconcile:economy` — passed as part of `test:all`.
+- 🟢 `/health` and `/health/db` — both passed in the isolated runtime.
+- 🟢 `npm run test:frontend` — passed.
+- 🟢 Daily Check-in service and HTTP boundary tests — passed.
+- 🟢 Task catalog, execution, lifecycle and verification-config tests — passed.
+- 🟢 Advertisement provider and Monetag postback/YMID/finalization tests — passed.
 
 ### Remaining Phase 2 implementation
 
@@ -97,7 +103,7 @@
 - 🟢 User-facing Daily Check-in Monetag wiring — merged in PR #29 and covered by the existing Daily Check-in HTTP boundary test.
 - ⬜ Anti-fraud hardening around ad callbacks and task verification.
 
-Phase 2 must not be marked complete until the runtime and acceptance tests pass.
+Phase 2 is **not complete** yet. Baseline runtime verification is now green, but the remaining implementation and acceptance criteria above must be completed and verified before Phase 2 can be closed.
 
 ## UI Foundation — Initial Mini App Shell
 
@@ -169,6 +175,8 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - Repaired the frontend validation script so it checks the current production flow instead of obsolete function names.
 - Aligned the Monetag postback ADR/test terminology with Monetag's actual `reward_event_type=valued` contract.
 - Centralized the Monetag zone/context to prevent frontend/server configuration drift.
+- Removed the unused duplicate `src/providers/ads/ads-provider.js` abstraction; the existing `ad-provider-service.js` remains the single provider-neutral boundary.
+- Fixed the existing Daily Check-in HTTP boundary test so its 404 assertions do not assume that Express returns JSON for an unregistered route.
 
 ## Change Log
 
@@ -179,7 +187,13 @@ Phase 2 must not be marked complete until the runtime and acceptance tests pass.
 - Verified PR #29 with CI on its final head commit before merge.
 - Daily Check-in now obtains the server-generated advertisement identifier, invokes the configured Monetag SDK, and leaves reward finalization to the server-side postback flow.
 - No new database migration, economy, ledger, reward system or duplicate test source was introduced by the integration.
-- Remaining limitation: broader Phase 2 runtime/acceptance verification and anti-fraud hardening are still pending.
+- Remaining limitation: broader Phase 2 implementation and anti-fraud hardening are still pending.
+
+### 2026-08-22 — Phase 2 baseline runtime verification
+
+- Full isolated Phase 2 workflow passed on PR #37 final head commit `1e2c812f25cdf6e170ee773c64a2eadb76122478` (workflow run #115).
+- The verified suite included migrations, isolated PostgreSQL 16, runtime health checks and `npm run test:all`.
+- PR #37 was merged into `main` as `4a899616e83daee26e4365fb419f6d6104fb1bb9`.
 
 ## Update Rule
 
