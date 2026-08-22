@@ -1,5 +1,4 @@
-const MONETAG_ZONE_ID = '11627577';
-const MONETAG_CONTEXT = 'daily_checkin';
+const { MONETAG_ZONE_ID, MONETAG_CONTEXT } = require('../config/monetag');
 
 function required(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
