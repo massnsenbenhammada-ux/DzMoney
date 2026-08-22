@@ -1,8 +1,8 @@
 const express = require('express');
 const { query } = require('../db/pool');
-const { markAdvertisementVerified } = require('../src/services/ad-event-service');
-const { verifyWithProvider } = require('../src/services/ad-provider-service');
-const { MONETAG_PROVIDER_ID } = require('../src/services/monetag-adapter');
+const { markAdvertisementVerified } = require('../services/ad-event-service');
+const { verifyWithProvider } = require('../services/ad-provider-service');
+const { MONETAG_PROVIDER_ID } = require('../services/monetag-adapter');
 
 function createMonetagPostbackRouter({ providerRegistry, secret }) {
   const router = express.Router();
