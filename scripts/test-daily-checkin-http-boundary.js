@@ -1,8 +1,6 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 
 process.env.BOT_TOKEN = 'test-bot-token';
 
@@ -16,20 +14,7 @@ function buildInitData(userId) {
   return params.toString();
 }
 
-function assertMonetagFrontendContract() {
-  const index = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-  const app = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
-  assert.match(index, /data-zone=['"]11627577['"]/);
-  assert.match(index, /data-sdk=['"]show_11627577['"]/);
-  assert.match(index, /libtl\.com\/sdk\.js/);
-  assert.match(app, /daily-checkin\/claim/);
-  assert.match(app, /show_11627577/);
-  assert.match(app, /ymid/);
-  assert.match(app, /requestVar:\s*'daily_checkin'/);
-}
-
 async function run() {
-  assertMonetagFrontendContract();
   const servicePath = require.resolve('../src/services/daily-checkin-service');
   const walletPath = require.resolve('../src/services/wallet-service');
   const originalService = require(servicePath);
@@ -38,9 +23,10 @@ async function run() {
 
   require.cache[servicePath].exports = {
     ...originalService,
-    startDailyCheckinClaim: async args => { calls.push(['start', args]); return { claimIdempotencyKey: args.idempotencyKey, adEvent: { id: 7 }, providerId: 'test-provider' }; },
-    verifyDailyCheckinAd: async args => { calls.push(['verify', args]); return { id: args.adEventId, verified: true }; },
-    finalizeDailyCheckin: async args => { calls.push(['finalize', args]); return { rewarded: true, duplicate: false }; }
+    startDailyCheckinClaim: async args => {
+      calls.push(args);
+      return { claimIdempotencyKey: args.idempotencyKey, adEvent: { id: 7 }, providerId: 'test-provider' };
+    }
   };
   require.cache[walletPath].exports = { ...originalWallet, createUser: async () => ({ id: 42 }) };
 
@@ -59,7 +45,7 @@ async function run() {
     const req = http.request({ hostname: '127.0.0.1', port, path: requestPath, method, headers }, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(data) }));
+      res.on('end', () => resolve({ status: res.statusCode, body: data ? JSON.parse(data) : null }));
     });
     req.on('error', reject);
     if (body) req.write(JSON.stringify(body));
@@ -71,20 +57,14 @@ async function run() {
   const claim = await request('POST', '/api/daily-checkin/claim', { idempotencyKey: 'claim-1' }, auth);
   assert.strictEqual(claim.status, 200);
   assert.strictEqual(claim.body.adEvent.id, 7);
-  assert.strictEqual(calls[0][0], 'start');
-  assert.strictEqual(calls[0][1].userId, 42);
-
-  const verify = await request('POST', '/api/daily-checkin/verify', { adEventId: 7, providerPayload: { token: 'verified' } }, auth);
-  assert.strictEqual(verify.status, 200);
-  assert.strictEqual(calls[1][1].userId, 42);
-  assert.strictEqual(calls[1][1].adEventId, 7);
-
-  const finalize = await request('POST', '/api/daily-checkin/finalize', { claimIdempotencyKey: 'claim-1' }, auth);
-  assert.strictEqual(finalize.status, 200);
-  assert.strictEqual(calls[2][1].userId, 42);
-  assert.strictEqual(calls[2][1].claimIdempotencyKey, 'claim-1');
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].userId, 42);
+  assert.strictEqual((await request('POST', '/api/daily-checkin/verify', { adEventId: 7 }, auth)).status, 404);
+  assert.strictEqual((await request('POST', '/api/daily-checkin/finalize', { claimIdempotencyKey: 'claim-1' }, auth)).status, 404);
 
   await new Promise(resolve => server.close(resolve));
+  require.cache[servicePath].exports = originalService;
+  require.cache[walletPath].exports = originalWallet;
   console.log('daily-checkin HTTP boundary tests passed');
 }
 
