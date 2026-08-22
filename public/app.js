@@ -1,7 +1,7 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null };
+const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, dailyBusy: false };
 const $ = id => document.getElementById(id);
 
 function toast(message) {
@@ -69,13 +69,39 @@ async function loadMe() {
   }
 }
 
+/** Start the server-authoritative Daily Check-in advertisement flow. */
+async function startDailyCheckinAd() {
+  if (state.dailyBusy) return;
+  const button = $('dailyBtn');
+  state.dailyBusy = true;
+  button.disabled = true;
+  button.textContent = 'Loading…';
+  try {
+    const claim = await api('/api/daily-checkin/claim', { method: 'POST', body: JSON.stringify({ idempotencyKey: `daily:${crypto.randomUUID()}` }) });
+    const ymid = claim.adEvent?.external_ad_id;
+    if (!ymid || typeof window.show_11627577 !== 'function') throw new Error('Monetag SDK is not ready');
+    $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
+    await window.show_11627577({ type: 'end', ymid, requestVar: 'daily_checkin' });
+    $('dailyText').textContent = 'Advertisement completed. Waiting for server verification.';
+    toast('Advertisement completed. Your reward is being verified.');
+    await loadMe();
+  } catch (error) {
+    toast(error.message || 'Unable to show the advertisement.');
+    $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+  } finally {
+    state.dailyBusy = false;
+    button.disabled = false;
+    button.textContent = 'Check in';
+  }
+}
+
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]');
   if (nav) {
     showPage(nav.dataset.go);
     return;
   }
-  if (event.target.closest('#dailyBtn')) toast('Daily Check-in is awaiting the verified advertisement provider integration.');
+  if (event.target.closest('#dailyBtn')) startDailyCheckinAd();
   if (event.target.closest('#taskVerifyBtn')) toast('Task verification is awaiting the real task/provider adapter.');
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
   if (event.target.closest('#copyReferral')) {
