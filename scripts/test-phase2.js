@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { pool, withTransaction } = require('../src/db/pool');
-const { createTask, activateTask, executeTask } = require('../src/services/task-service');
+const { createTask, transitionTaskStatus, activateTask, executeTask } = require('../src/services/task-service');
 const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const { startTaskVerificationAd, verifyTaskAdvertisement, finalizeTaskVerification } = require('../src/services/task-verification-service');
 
@@ -57,6 +57,7 @@ async function main() {
     userId = await createTestUser();
     const task = await createTask({ taskType: 'social', title: 'Phase 2 verification test', rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
     taskId = task.id;
+    await transitionTaskStatus(taskId, 'pending_review');
     await activateTask(taskId);
 
     const execution = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-${Date.now()}` });
