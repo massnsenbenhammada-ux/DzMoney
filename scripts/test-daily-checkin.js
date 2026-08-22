@@ -29,10 +29,10 @@ async function balance(userId, currency) {
 
 async function cleanup(userId) {
   await withTransaction(async client => {
-    await client.query(`DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)`, [userId]);
+    await client.query('DELETE FROM daily_checkins WHERE user_id=$1', [userId]);
+    await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)', [userId]);
     await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
-    await client.query('DELETE FROM daily_checkins WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM users WHERE id=$1', [userId]);
   });
 }
