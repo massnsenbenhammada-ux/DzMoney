@@ -39,7 +39,11 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry
     const existing = state.rows[0];
     if (existing?.last_claimed_at) {
       const nextEligibleAt = new Date(new Date(existing.last_claimed_at).getTime() + settings.cooldownHours * 3600000);
-      if (nextEligibleAt.getTime() > Date.now()) throw new Error('Daily Check-in is on cooldown');
+      if (nextEligibleAt.getTime() > Date.now()) {
+        const error = new Error('Daily Check-in is on cooldown');
+        error.statusCode = 429;
+        throw error;
+      }
     }
     if (existing?.ad_event_id && !existing.last_claimed_at) {
       const event = await client.query('SELECT * FROM activity_ad_events WHERE id=$1', [existing.ad_event_id]);

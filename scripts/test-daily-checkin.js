@@ -54,7 +54,14 @@ async function main() {
     const duplicate = await finalizeDailyCheckin({ userId, claimIdempotencyKey: claim.claimIdempotencyKey });
     assert.strictEqual(duplicate.duplicate, true);
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
-    await assert.rejects(() => startDailyCheckinClaim({ userId, idempotencyKey: `daily-${Date.now()}-second`, providerRegistry: registry }), /Daily Check-in is on cooldown/);
+    let cooldownError;
+    try {
+      await startDailyCheckinClaim({ userId, idempotencyKey: `daily-${Date.now()}-second`, providerRegistry: registry });
+    } catch (error) {
+      cooldownError = error;
+    }
+    assert.match(cooldownError.message, /Daily Check-in is on cooldown/);
+    assert.strictEqual(cooldownError.statusCode, 429);
     console.log('Daily Check-in invariants: PASS');
   } finally {
     await cleanup(userId);
