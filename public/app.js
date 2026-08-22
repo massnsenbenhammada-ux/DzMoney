@@ -4,6 +4,19 @@ if (tg) { tg.ready(); tg.expand(); }
 const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, dailyBusy: false, dailyCooldownUntil: null };
 const $ = id => document.getElementById(id);
 
+const monetagScript = document.querySelector('script[data-sdk="show_11627577"]');
+let monetagScriptState = typeof window.show_11627577 === 'function' ? 'ready' : 'unknown';
+if (monetagScript) {
+  monetagScript.addEventListener('load', () => {
+    monetagScriptState = typeof window.show_11627577 === 'function' ? 'ready' : 'loaded_without_api';
+    console.info('[Monetag] SDK script loaded', { apiReady: typeof window.show_11627577 === 'function' });
+  }, { once: true });
+  monetagScript.addEventListener('error', () => {
+    monetagScriptState = 'load_error';
+    console.error('[Monetag] SDK script failed to load');
+  }, { once: true });
+}
+
 function toast(message) {
   const el = $('toast');
   el.textContent = message;
@@ -104,13 +117,23 @@ function startDailyCooldown(nextEligibleAt) {
   startDailyCooldown.timer = setInterval(tick, 1000);
 }
 
-/** Wait for the Monetag SDK to expose the configured rewarded-ad function. */
 async function waitForMonetagSdk(timeoutMs = 5000, intervalMs = 100) {
   const startedAt = Date.now();
   while (typeof window.show_11627577 !== 'function') {
-    if (Date.now() - startedAt >= timeoutMs) throw new Error('Monetag SDK is not ready');
+    if (Date.now() - startedAt >= timeoutMs) {
+      const diagnostic = monetagScriptState === 'load_error'
+        ? 'Monetag SDK script failed to load'
+        : monetagScriptState === 'loaded_without_api'
+          ? 'Monetag SDK script loaded but show_11627577 was not created'
+          : monetagScript
+            ? 'Monetag SDK did not become ready'
+            : 'Monetag SDK script tag is missing';
+      console.error('[Monetag] readiness timeout', { diagnostic, scriptState: monetagScriptState, apiType: typeof window.show_11627577 });
+      throw new Error(diagnostic);
+    }
     await new Promise(resolve => setTimeout(resolve, intervalMs));
   }
+  monetagScriptState = 'ready';
 }
 
 async function showDailyCheckinAd(ymid) {
@@ -120,7 +143,6 @@ async function showDailyCheckinAd(ymid) {
   await window.show_11627577({ type: 'end', ymid, requestVar: 'daily_checkin' });
 }
 
-/** Start the server-authoritative Daily Check-in advertisement flow. */
 async function startDailyCheckinAd() {
   if (state.dailyBusy || state.dailyCooldownUntil) return;
   const button = $('dailyBtn');
@@ -139,7 +161,7 @@ async function startDailyCheckinAd() {
       toast('Daily Check-in is on cooldown.');
     } else {
       toast(error.message || 'Unable to show the advertisement.');
-      $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+      $('dailyText').textContent = error.message || 'Unable to show the advertisement.';
     }
   } finally {
     state.dailyBusy = false;
