@@ -98,3 +98,24 @@ No database migration is required for this boundary. Existing `activity_ad_event
 ### Consequences
 
 Adding AdsGram, another ad network, or multiple networks later requires provider adapters only. The core verification and reward paths remain provider-independent. A provider outage can be isolated without turning an invalid verification response into a successful reward.
+
+## ADR-0005 — Monetag Rewarded Interstitial uses a server-side postback boundary
+
+**Status:** Accepted  
+**Date:** 2026-08-22
+
+### Context
+
+DzMoney now has a real Monetag Rewarded Interstitial zone. Monetag provides a client SDK completion signal and a server-side postback containing the Telegram ID, zone, event type, reward-event flag, YMID and request context. DzMoney must not issue economic rewards from the browser alone.
+
+### Decision
+
+Use Monetag only through the existing advertisement provider registry. Monetag postbacks are accepted through a dedicated server-side HTTP boundary protected by a server-only secret. A postback must match an existing `daily_checkin` advertisement event by `ymid`, match the stored user's Telegram ID, use the configured Monetag zone, use the `impression` event and a rewarded (`yes`) event flag, and carry the `daily_checkin` request context.
+
+A successful Monetag verification marks the existing `activity_ad_events` row verified through `ad-event-service.js`. The existing Daily Check-in service remains responsible for the final economic reward and idempotency. No second ledger, reward service, or advertisement event store is introduced.
+
+The Monetag provider is disabled unless explicitly enabled by server configuration. Its postback endpoint is exposed only when its server-side secret is configured. No Monetag secret is stored in the frontend or task configuration.
+
+### Consequences
+
+The frontend SDK is not an economic trust boundary. Monetag remains replaceable through the existing provider registry. Existing Daily Check-in and Economy/Ledger code remain the single sources of truth. No database migration is required because `activity_ad_events.external_ad_id` and existing verification state are sufficient for correlation and idempotency.
