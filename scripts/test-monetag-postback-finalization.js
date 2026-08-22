@@ -17,7 +17,7 @@ async function run() {
 
   require.cache[dbPath].exports = {
     ...originalDb,
-    query: async () => ({ rowCount: 1, rows: [{ id: 7, user_id: 42, context: 'daily_checkin', external_ad_id: 'ymid-1', verified: false, telegram_user_id: '123' }] })
+    query: async () => ({ rowCount: 1, rows: [{ id: 7, user_id: 42, context: 'daily_checkin', external_ad_id: 'ymid-1', verified: false, telegram_user_id: '123', claim_idempotency_key: 'claim-1' }] })
   };
   require.cache[adProviderPath].exports = {
     ...originalProvider,
@@ -53,7 +53,7 @@ async function run() {
   assert.strictEqual(calls[0][0], 'verify');
   assert.strictEqual(calls[1][0], 'finalize');
   assert.strictEqual(calls[1][1].userId, 42);
-  assert.strictEqual(calls[1][1].claimIdempotencyKey, 'daily-ad:claim-1');
+  assert.strictEqual(calls[1][1].claimIdempotencyKey, 'claim-1');
 
   await new Promise(resolve => server.close(resolve));
   console.log('Monetag postback finalization test passed');
