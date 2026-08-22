@@ -32,25 +32,27 @@ async function cleanup(userId) {
 
 async function main() {
   const userId = await createUser();
+  const idempotencyKey = `ymid-${Date.now()}`;
   try {
     const claim = await startDailyCheckinClaim({
       userId,
-      idempotencyKey: `ymid-${Date.now()}`,
+      idempotencyKey,
+      externalAdId: 'client-controlled-ymid',
       providerRegistry: registry
     });
 
     assert.match(claim.adEvent.external_ad_id, /^[A-Za-z0-9_-]{16,}$/);
-    assert.notStrictEqual(claim.adEvent.external_ad_id, null);
+    assert.notStrictEqual(claim.adEvent.external_ad_id, 'client-controlled-ymid');
 
-    const attemptedClientId = 'client-controlled-ymid';
-    const second = await startDailyCheckinClaim({
-      userId: userId + 999999,
-      idempotencyKey: `ymid-second-${Date.now()}`,
-      externalAdId: attemptedClientId,
+    const duplicate = await startDailyCheckinClaim({
+      userId,
+      idempotencyKey,
+      externalAdId: 'different-client-ymid',
       providerRegistry: registry
-    }).catch(error => error);
+    });
 
-    assert(second instanceof Error, 'A synthetic different-user claim should not bypass normal user validation');
+    assert.strictEqual(duplicate.adEvent.id, claim.adEvent.id);
+    assert.strictEqual(duplicate.adEvent.external_ad_id, claim.adEvent.external_ad_id);
 
     console.log('Monetag YMID generation invariants: PASS');
   } finally {
