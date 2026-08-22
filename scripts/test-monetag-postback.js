@@ -7,7 +7,7 @@ function validPayload(overrides = {}) {
     zone_id: '11627577',
     sub_zone_id: '1',
     event_type: 'impression',
-    reward_event_type: 'yes',
+    reward_event_type: 'valued',
     estimated_price: '0.01000',
     ymid: 'attempt-123',
     request_var: 'daily_checkin',
