@@ -2,7 +2,6 @@ const express = require('express');
 const path = require('path');
 const { query } = require('./src/db/pool');
 const meRoutes = require('./src/http/me-routes');
-const { createAdminProviderRouter } = require('./src/http/admin-provider-routes');
 const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
@@ -32,7 +31,6 @@ app.get('/health/db', async (_req, res) => {
 
 app.use('/api/me', meRoutes);
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
-app.use('/api/admin/ad-providers', createAdminProviderRouter({ registry: providerRegistry }));
 if (monetagPostbackSecret) {
   app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({
     providerRegistry,
