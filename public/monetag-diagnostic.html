@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>DzMoney Monetag Diagnostic</title>
+  <script>
+    window.__dzMonetag = { startedAt: performance.now(), scriptLoaded: false, scriptError: false };
+  </script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="//libtl.com/sdk.js" data-zone="11627577" data-sdk="show_11627577"
+    onload="window.__dzMonetag.scriptLoaded=true;window.__dzMonetag.scriptLoadedAt=performance.now();"
+    onerror="window.__dzMonetag.scriptError=true;window.__dzMonetag.scriptErrorAt=performance.now();"></script>
+  <style>
+    body{font-family:Arial,sans-serif;background:#0b1110;color:#fff;padding:20px;line-height:1.5}
+    pre{white-space:pre-wrap;word-break:break-word;background:#111a18;padding:14px;border-radius:12px}
+    button{padding:12px 16px;border:0;border-radius:10px;margin-top:10px}
+  </style>
+</head>
+<body>
+  <h2>Monetag SDK Diagnostic</h2>
+  <p>Wait for the result below. Do not press the ad button repeatedly.</p>
+  <pre id="result">Checking…</pre>
+  <button id="test">Test show_11627577()</button>
+  <script>
+    const out=document.getElementById('result');
+    const tg=window.Telegram?.WebApp;
+    if(tg){tg.ready();tg.expand();}
+    const started=performance.now();
+    function snapshot(){
+      return {
+        sdkScriptLoaded: window.__dzMonetag?.scriptLoaded ?? false,
+        sdkScriptError: window.__dzMonetag?.scriptError ?? false,
+        scriptLoadedMs: window.__dzMonetag?.scriptLoadedAt == null ? null : Math.round(window.__dzMonetag.scriptLoadedAt-window.__dzMonetag.startedAt),
+        apiType: typeof window.show_11627577,
+        apiReady: typeof window.show_11627577 === 'function',
+        telegramPlatform: tg?.platform ?? 'unknown',
+        telegramVersion: tg?.version ?? 'unknown',
+        readyState: document.readyState,
+        elapsedMs: Math.round(performance.now()-started),
+        userAgent: navigator.userAgent,
+        sdkResources: performance.getEntriesByName('https://libtl.com/sdk.js').map(x=>({duration:Math.round(x.duration),transferSize:x.transferSize,encodedBodySize:x.encodedBodySize}))
+      };
+    }
+    function render(){out.textContent=JSON.stringify(snapshot(),null,2);}
+    const timer=setInterval(()=>{
+      render();
+      if(typeof window.show_11627577==='function') clearInterval(timer);
+      if(performance.now()-started>30000) clearInterval(timer);
+    },1000);
+    render();
+    document.getElementById('test').addEventListener('click',async()=>{
+      if(typeof window.show_11627577!=='function'){render();return;}
+      try{
+        const result=await window.show_11627577({type:'end',ymid:'diagnostic-'+Date.now(),requestVar:'diagnostic'});
+        out.textContent=JSON.stringify({snapshot:snapshot(),adResult:result},null,2);
+      }catch(error){
+        out.textContent=JSON.stringify({snapshot:snapshot(),adError:String(error?.message||error)},null,2);
+      }
+    });
+  </script>
+</body>
+</html>
