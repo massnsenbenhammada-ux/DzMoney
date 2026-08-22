@@ -6,14 +6,31 @@ const $ = id => document.getElementById(id);
 
 const monetagScript = document.querySelector('script[data-sdk="show_11627577"]');
 let monetagScriptState = typeof window.show_11627577 === 'function' ? 'ready' : 'unknown';
+const monetagDiagnostics = {
+  startedAt: performance.now(),
+  scriptLoadedAt: null,
+  apiReadyAt: typeof window.show_11627577 === 'function' ? performance.now() : null,
+  platform: tg?.platform || 'unknown',
+  version: tg?.version || 'unknown'
+};
 if (monetagScript) {
   monetagScript.addEventListener('load', () => {
+    monetagDiagnostics.scriptLoadedAt = performance.now();
     monetagScriptState = typeof window.show_11627577 === 'function' ? 'ready' : 'loaded_without_api';
-    console.info('[Monetag] SDK script loaded', { apiReady: typeof window.show_11627577 === 'function' });
+    console.info('[Monetag] SDK script loaded', {
+      apiReady: typeof window.show_11627577 === 'function',
+      elapsedMs: Math.round(monetagDiagnostics.scriptLoadedAt - monetagDiagnostics.startedAt),
+      platform: monetagDiagnostics.platform,
+      version: monetagDiagnostics.version
+    });
   }, { once: true });
   monetagScript.addEventListener('error', () => {
     monetagScriptState = 'load_error';
-    console.error('[Monetag] SDK script failed to load');
+    console.error('[Monetag] SDK script failed to load', {
+      elapsedMs: Math.round(performance.now() - monetagDiagnostics.startedAt),
+      platform: monetagDiagnostics.platform,
+      version: monetagDiagnostics.version
+    });
   }, { once: true });
 }
 
@@ -117,10 +134,28 @@ function startDailyCooldown(nextEligibleAt) {
   startDailyCooldown.timer = setInterval(tick, 1000);
 }
 
-async function waitForMonetagSdk(timeoutMs = 5000, intervalMs = 100) {
-  const startedAt = Date.now();
+async function waitForMonetagSdk(timeoutMs = 30000, intervalMs = 100) {
+  const startedAt = performance.now();
+  let lastLogAt = startedAt;
+  console.info('[Monetag] readiness wait started', {
+    timeoutMs,
+    platform: monetagDiagnostics.platform,
+    version: monetagDiagnostics.version,
+    initialApiType: typeof window.show_11627577,
+    scriptState: monetagScriptState
+  });
+
   while (typeof window.show_11627577 !== 'function') {
-    if (Date.now() - startedAt >= timeoutMs) {
+    const now = performance.now();
+    if (now - lastLogAt >= 1000) {
+      console.info('[Monetag] readiness poll', {
+        elapsedMs: Math.round(now - startedAt),
+        scriptState: monetagScriptState,
+        apiType: typeof window.show_11627577
+      });
+      lastLogAt = now;
+    }
+    if (now - startedAt >= timeoutMs) {
       const diagnostic = monetagScriptState === 'load_error'
         ? 'Monetag SDK script failed to load'
         : monetagScriptState === 'loaded_without_api'
@@ -128,12 +163,28 @@ async function waitForMonetagSdk(timeoutMs = 5000, intervalMs = 100) {
           : monetagScript
             ? 'Monetag SDK did not become ready'
             : 'Monetag SDK script tag is missing';
-      console.error('[Monetag] readiness timeout', { diagnostic, scriptState: monetagScriptState, apiType: typeof window.show_11627577 });
+      console.error('[Monetag] readiness timeout', {
+        diagnostic,
+        scriptState: monetagScriptState,
+        apiType: typeof window.show_11627577,
+        elapsedMs: Math.round(now - startedAt),
+        scriptLoadedAfterMs: monetagDiagnostics.scriptLoadedAt === null ? null : Math.round(monetagDiagnostics.scriptLoadedAt - monetagDiagnostics.startedAt),
+        platform: monetagDiagnostics.platform,
+        version: monetagDiagnostics.version,
+        userAgent: navigator.userAgent
+      });
       throw new Error(diagnostic);
     }
     await new Promise(resolve => setTimeout(resolve, intervalMs));
   }
+
+  monetagDiagnostics.apiReadyAt = performance.now();
   monetagScriptState = 'ready';
+  console.info('[Monetag] API became ready', {
+    elapsedMs: Math.round(monetagDiagnostics.apiReadyAt - startedAt),
+    platform: monetagDiagnostics.platform,
+    version: monetagDiagnostics.version
+  });
 }
 
 async function showDailyCheckinAd(ymid) {
