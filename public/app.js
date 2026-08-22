@@ -6,11 +6,7 @@ const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, 
 const $ = id => document.getElementById(id);
 
 let monetagHandler = null;
-const monetagDiagnostics = {
-  startedAt: performance.now(),
-  adapterReadyAt: null,
-  attempts: 0
-};
+const monetagDiagnostics = { startedAt: performance.now(), adapterReadyAt: null, attempts: 0, preloadReadyAt: null };
 
 function getMonetagHandler() {
   const adapter = window.DzMoneyMonetag;
@@ -31,6 +27,7 @@ function monetagSnapshot() {
     handlerType: typeof handler,
     apiReady: typeof handler === 'function',
     adapterReadyAfterMs: monetagDiagnostics.adapterReadyAt == null ? null : Math.round(monetagDiagnostics.adapterReadyAt - monetagDiagnostics.startedAt),
+    preloadReadyAfterMs: monetagDiagnostics.preloadReadyAt == null ? null : Math.round(monetagDiagnostics.preloadReadyAt - monetagDiagnostics.startedAt),
     attempts: monetagDiagnostics.attempts,
     telegramPlatform: tg?.platform || 'unknown',
     telegramVersion: tg?.version || 'unknown',
@@ -47,9 +44,7 @@ async function ensureMonetagSdk(timeoutMs = 15000) {
   while (true) {
     const handler = getMonetagHandler();
     if (handler) return handler;
-    if (performance.now() - started >= timeoutMs) {
-      throw new Error('Monetag SDK adapter did not initialize');
-    }
+    if (performance.now() - started >= timeoutMs) throw new Error('Monetag SDK adapter did not initialize');
     await wait(100);
   }
 }
@@ -147,13 +142,24 @@ function renderMonetagDiagnostic(extra = null) {
   result.textContent = JSON.stringify({ snapshot: monetagSnapshot(), ...(extra || {}) }, null, 2);
 }
 
+async function preloadMonetagAd(ymid) {
+  const handler = await ensureMonetagSdk();
+  const id = ymid || `preload-${Date.now()}`;
+  await handler({ type: 'preload', timeout: 8, ymid: id });
+  monetagDiagnostics.preloadReadyAt = performance.now();
+  return { handler, ymid: id };
+}
+
 async function runMonetagDiagnostic() {
   renderMonetagDiagnostic({ status: 'initializing official Monetag Telegram SDK…' });
   try {
     await ensureMonetagSdk();
-    renderMonetagDiagnostic({ status: 'SDK adapter ready. Rewarded Interstitial handler is available.' });
+    renderMonetagDiagnostic({ status: 'SDK adapter ready. Preloading Rewarded Interstitial…' });
+    const ymid = `diagnostic-${Date.now()}`;
+    await preloadMonetagAd(ymid);
+    renderMonetagDiagnostic({ status: 'Rewarded Interstitial preload succeeded. Ready to show.', ymid });
   } catch (error) {
-    renderMonetagDiagnostic({ status: 'SDK not ready', error: String(error?.message || error) });
+    renderMonetagDiagnostic({ status: 'Advertisement unavailable', error: String(error?.message || error) });
   }
 }
 
@@ -162,9 +168,14 @@ async function testMonetagAd() {
   if (!result) return;
   try {
     const handler = await ensureMonetagSdk();
-    renderMonetagDiagnostic({ status: 'Calling Rewarded Interstitial…' });
-    const adResult = await handler({ type: 'end', ymid: `diagnostic-${Date.now()}`, requestVar: 'diagnostic' });
-    renderMonetagDiagnostic({ status: 'Advertisement call completed', adResult });
+    const ymid = `diagnostic-${Date.now()}`;
+    renderMonetagDiagnostic({ status: 'Preloading Rewarded Interstitial…', ymid });
+    await handler({ type: 'preload', timeout: 8, ymid });
+    monetagDiagnostics.preloadReadyAt = performance.now();
+    renderMonetagDiagnostic({ status: 'Preload succeeded. Showing Rewarded Interstitial…', ymid });
+    // For Rewarded Interstitial the documented direct call is handler({ymid, requestVar}); no type:'end' is needed.
+    const adResult = await handler({ ymid, requestVar: 'diagnostic' });
+    renderMonetagDiagnostic({ status: 'Advertisement completed', adResult, ymid });
   } catch (error) {
     renderMonetagDiagnostic({ status: 'Advertisement call failed', error: String(error?.message || error) });
   }
@@ -173,8 +184,10 @@ async function testMonetagAd() {
 async function startDailyCheckinAd(ymid) {
   if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
   const handler = await ensureMonetagSdk();
+  $('dailyText').textContent = 'Preparing the advertisement…';
+  await handler({ type: 'preload', timeout: 8, ymid });
   $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
-  await handler({ type: 'end', ymid, requestVar: 'daily_checkin' });
+  await handler({ ymid, requestVar: 'daily_checkin' });
 }
 
 async function startDailyCheckinAdFlow() {
