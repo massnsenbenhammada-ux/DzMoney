@@ -1,7 +1,7 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null };
+const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, dailyBusy: false };
 const $ = id => document.getElementById(id);
 
 function toast(message) {
@@ -69,18 +69,49 @@ async function loadMe() {
   }
 }
 
+function setDailyButton(button, text, disabled) {
+  button.disabled = disabled;
+  button.textContent = text;
+}
+
+async function showDailyCheckinAd(ymid) {
+  if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
+  if (typeof window.show_11627577 !== 'function') throw new Error('Monetag SDK is not ready');
+  $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
+  await window.show_11627577({ type: 'end', ymid, requestVar: 'daily_checkin' });
+}
+
+/** Start the server-authoritative Daily Check-in advertisement flow. */
+async function startDailyCheckinAd() {
+  if (state.dailyBusy) return;
+  const button = $('dailyBtn');
+  state.dailyBusy = true;
+  setDailyButton(button, 'Loading…', true);
+  try {
+    const claim = await api('/api/daily-checkin/claim', { method: 'POST', body: JSON.stringify({ idempotencyKey: `daily:${crypto.randomUUID()}` }) });
+    await showDailyCheckinAd(claim.adEvent?.external_ad_id);
+    $('dailyText').textContent = 'Advertisement completed. Waiting for server verification.';
+    toast('Advertisement completed. Your reward is being verified.');
+    await loadMe();
+  } catch (error) {
+    toast(error.message || 'Unable to show the advertisement.');
+    $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+  } finally {
+    state.dailyBusy = false;
+    setDailyButton(button, 'Check in', false);
+  }
+}
+
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]');
   if (nav) {
     showPage(nav.dataset.go);
     return;
   }
-  if (event.target.closest('#dailyBtn')) toast('Daily Check-in is awaiting the verified advertisement provider integration.');
+  if (event.target.closest('#dailyBtn')) startDailyCheckinAd();
   if (event.target.closest('#taskVerifyBtn')) toast('Task verification is awaiting the real task/provider adapter.');
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
-  if (event.target.closest('#copyReferral')) {
-    toast('Referral link generation will be enabled when the Referral phase is implemented.');
-  }
+  if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
 });
 
 renderBalances();
