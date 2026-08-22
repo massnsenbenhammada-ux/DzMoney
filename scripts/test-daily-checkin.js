@@ -43,8 +43,9 @@ async function main() {
     const claim = await startDailyCheckinClaim({ userId, idempotencyKey: `daily-${Date.now()}`, providerRegistry: registry });
     assert.strictEqual(claim.providerId, provider.id);
     await assert.rejects(() => finalizeDailyCheckin({ userId, claimIdempotencyKey: claim.claimIdempotencyKey }), /Daily Check-in advertisement must be verified first/);
-    await assert.rejects(() => verifyDailyCheckinAd({ adEventId: claim.adEvent.id, providerRegistry: registry, providerPayload: { accepted: false } }), /Advertisement provider verification failed/);
-    await verifyDailyCheckinAd({ adEventId: claim.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: 'daily-ref-1' } });
+    await assert.rejects(() => verifyDailyCheckinAd({ userId: userId + 1, adEventId: claim.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true } }), /does not belong to the user/);
+    await assert.rejects(() => verifyDailyCheckinAd({ userId, adEventId: claim.adEvent.id, providerRegistry: registry, providerPayload: { accepted: false } }), /Advertisement provider verification failed/);
+    await verifyDailyCheckinAd({ userId, adEventId: claim.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: 'daily-ref-1' } });
     const rewarded = await finalizeDailyCheckin({ userId, claimIdempotencyKey: claim.claimIdempotencyKey });
     assert.strictEqual(rewarded.rewarded, true);
     assert.strictEqual(await balance(userId, 'COIN'), 1000);

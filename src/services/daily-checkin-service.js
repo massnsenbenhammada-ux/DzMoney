@@ -64,11 +64,13 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, externalAdId = n
 }
 
 /** Verify the Daily Check-in advertisement through the selected trusted provider. */
-async function verifyDailyCheckinAd({ adEventId, providerRegistry, providerId = null, providerPayload }) {
+async function verifyDailyCheckinAd({ userId, adEventId, providerRegistry, providerId = null, providerPayload }) {
+  requiredId(userId, 'userId');
   requiredId(adEventId, 'adEventId');
   if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
-  const eventResult = await query('SELECT context,metadata FROM activity_ad_events WHERE id=$1', [adEventId]);
+  const eventResult = await query('SELECT user_id,context,metadata FROM activity_ad_events WHERE id=$1', [adEventId]);
   if (!eventResult.rowCount || eventResult.rows[0].context !== 'daily_checkin') throw new Error('Daily Check-in advertisement event not found');
+  if (String(eventResult.rows[0].user_id) !== String(userId)) throw new Error('Daily Check-in advertisement does not belong to the user');
   const recordedProviderId = eventResult.rows[0].metadata?.provider_id;
   if (!recordedProviderId) throw new Error('Daily Check-in advertisement provider is not recorded');
   if (providerId && providerId !== recordedProviderId) throw new Error('Advertisement provider does not match the selected provider');
@@ -93,6 +95,7 @@ async function finalizeDailyCheckin({ userId, claimIdempotencyKey }) {
     }
     const adResult = await client.query('SELECT * FROM activity_ad_events WHERE id=$1 FOR UPDATE', [state.ad_event_id]);
     if (!adResult.rowCount || adResult.rows[0].context !== 'daily_checkin') throw new Error('Daily Check-in advertisement event not found');
+    if (String(adResult.rows[0].user_id) !== String(userId)) throw new Error('Daily Check-in advertisement does not belong to the user');
     if (!adResult.rows[0].verified) throw new Error('Daily Check-in advertisement must be verified first');
     const settings = await getDailyCheckinSettings(client);
     const reward = await creditActivityRewardOnClient(client, {

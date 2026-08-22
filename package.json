@@ -13,6 +13,7 @@
     "test:deposit": "node ./scripts/test-deposit.js",
     "test:phase2": "node ./scripts/test-phase2.js",
     "test:daily-checkin": "node ./scripts/test-daily-checkin.js",
+    "test:daily-checkin-http": "node ./scripts/test-daily-checkin-http-boundary.js",
     "test:task-catalog": "node ./scripts/test-task-catalog.js",
     "test:task-execution": "node ./scripts/test-task-execution.js",
     "test:task-lifecycle": "node ./scripts/test-task-lifecycle.js",
@@ -22,7 +23,7 @@
     "test:admin-provider-persistence": "node ./scripts/test-admin-provider-config-persistence.js",
     "test:admin-provider-http": "node ./scripts/test-admin-provider-http-boundary.js",
     "test:frontend": "node ./scripts/validate-frontend.js",
-    "test:all": "npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:daily-checkin && npm run test:task-catalog && npm run test:task-execution && npm run test:task-lifecycle && npm run test:task-verification-config && npm run test:ad-provider-system && npm run test:admin-provider-config && npm run test:admin-provider-persistence && npm run test:admin-provider-http && npm run reconcile:economy"
+    "test:all": "npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:daily-checkin && npm run test:daily-checkin-http && npm run test:task-catalog && npm run test:task-execution && npm run test:task-lifecycle && npm run test:task-verification-config && npm run test:ad-provider-system && npm run test:admin-provider-config && npm run test:admin-provider-persistence && npm run test:admin-provider-http && npm run reconcile:economy"
   },
   "engines": { "node": ">=20" },
   "dependencies": { "express": "^5.2.1", "pg": "^8.16.3" }
