@@ -45,7 +45,10 @@ async function run() {
     const req = http.request({ hostname: '127.0.0.1', port, path: requestPath, method, headers }, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, body: data ? JSON.parse(data) : null }));
+      res.on('end', () => {
+        const isJson = String(res.headers['content-type'] || '').includes('application/json');
+        resolve({ status: res.statusCode, body: isJson && data ? JSON.parse(data) : null });
+      });
     });
     req.on('error', reject);
     if (body) req.write(JSON.stringify(body));
