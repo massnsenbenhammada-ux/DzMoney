@@ -25,6 +25,7 @@ function assertMonetagFrontendContract() {
   assert.match(app, /daily-checkin\/claim/);
   assert.match(app, /show_11627577/);
   assert.match(app, /ymid/);
+  assert.match(app, /requestVar:\s*'daily_checkin'/);
 }
 
 async function run() {
