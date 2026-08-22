@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "prestart": "npm run build:monetag",
-    "build:monetag": "esbuild public/monetag-adapter-entry.js --bundle --format=iife --platform=browser --outfile=public/monetag-adapter.bundle.js",
+    "build:monetag": "node ./scripts/build-monetag.js",
     "migrate": "node ./scripts/migrate.js",
     "reconcile:economy": "node ./scripts/reconcile-economy.js",
     "test:phase1": "node ./scripts/test-phase1.js",
