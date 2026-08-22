@@ -14,7 +14,8 @@ const provider = {
 const registry = new AdProviderRegistry([provider]);
 
 async function createUser() {
-  const marker = `${Date.now()}-${Math.random()}`;
+  // telegram_user_id is BIGINT; keep the generated test identifier numeric.
+  const marker = `${Date.now()}${String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0')}`;
   const result = await pool.query(
     'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id',
     [marker, `ymid_${Date.now()}`, 'YMID Test']
