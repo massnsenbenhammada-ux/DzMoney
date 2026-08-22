@@ -9,6 +9,14 @@ on:
       - 'migrations/**'
       - 'package.json'
       - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - 'migrations/**'
+      - 'package.json'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
