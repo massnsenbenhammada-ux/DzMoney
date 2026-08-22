@@ -220,6 +220,17 @@ async function startDailyCheckinAd() {
   }
 }
 
+function addMonetagTestButton() {
+  const quickGrid = document.querySelector('.quick-grid');
+  if (!quickGrid || document.getElementById('monetagTestBtn')) return;
+  const button = document.createElement('button');
+  button.className = 'action-card';
+  button.id = 'monetagTestBtn';
+  button.type = 'button';
+  button.innerHTML = '<b>⚙</b><span>Monetag Test</span><small>Open SDK diagnostic</small>';
+  quickGrid.appendChild(button);
+}
+
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]');
   if (nav) {
@@ -227,11 +238,13 @@ document.addEventListener('click', event => {
     return;
   }
   if (event.target.closest('#dailyBtn')) startDailyCheckinAd();
+  if (event.target.closest('#monetagTestBtn')) window.location.assign('/monetag-diagnostic.html');
   if (event.target.closest('#taskVerifyBtn')) toast('Task verification is awaiting the real task/provider adapter.');
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
   if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
 });
 
 renderBalances();
+addMonetagTestButton();
 loadHealth();
 loadMe();
