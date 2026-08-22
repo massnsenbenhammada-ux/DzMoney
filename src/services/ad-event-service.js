@@ -7,6 +7,7 @@ function requiredId(value, name) {
   return value;
 }
 
+/** Start an idempotent advertisement event in an explicit context. */
 async function startAdvertisementEvent({ userId, context, idempotencyKey, externalAdId = null, metadata = {} }) {
   requiredId(userId, 'userId');
   requiredId(idempotencyKey, 'idempotencyKey');
@@ -22,12 +23,13 @@ async function startAdvertisementEvent({ userId, context, idempotencyKey, extern
   return { adEvent: existing.rows[0], duplicate: true };
 }
 
+/** Mark a supported advertisement event as provider-verified exactly once. */
 async function markAdvertisementVerified({ adEventId, providerReference, verificationMetadata = {} }) {
   requiredId(adEventId, 'adEventId');
   requiredId(providerReference, 'providerReference');
   return withTransaction(async client => {
-    const result = await client.query(`SELECT * FROM activity_ad_events WHERE id=$1 AND context='verification' FOR UPDATE`, [adEventId]);
-    if (!result.rowCount) throw new Error('Verification advertisement event not found');
+    const result = await client.query(`SELECT * FROM activity_ad_events WHERE id=$1 FOR UPDATE`, [adEventId]);
+    if (!result.rowCount) throw new Error('Advertisement event not found');
     const event = result.rows[0];
     if (event.verified) return { adEvent: event, duplicate: true };
     const updated = await client.query(
