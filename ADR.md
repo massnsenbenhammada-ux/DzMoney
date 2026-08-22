@@ -110,7 +110,7 @@ DzMoney now has a real Monetag Rewarded Interstitial zone. Monetag provides a cl
 
 ### Decision
 
-Use Monetag only through the existing advertisement provider registry. Monetag postbacks are accepted through a dedicated server-side HTTP boundary protected by a server-only secret. A postback must match an existing `daily_checkin` advertisement event by `ymid`, match the stored user's Telegram ID, use the configured Monetag zone, use the `impression` event and a rewarded (`yes`) event flag, and carry the `daily_checkin` request context.
+Use Monetag only through the existing advertisement provider registry. Monetag postbacks are accepted through a dedicated server-side HTTP boundary protected by a server-only secret. A postback must match an existing `daily_checkin` advertisement event by `ymid`, match the stored user's Telegram ID, use the configured Monetag zone, use the `impression` event and a monetized (`valued`) reward event flag, and carry the `daily_checkin` request context.
 
 A successful Monetag verification marks the existing `activity_ad_events` row verified through `ad-event-service.js`. The existing Daily Check-in service remains responsible for the final economic reward and idempotency. No second ledger, reward service, or advertisement event store is introduced.
 
