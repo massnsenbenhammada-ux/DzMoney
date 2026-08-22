@@ -2,7 +2,7 @@ const assert = require('assert');
 const { pool } = require('../src/db/pool');
 const {
   createTask,
-  updateTaskStatus,
+  transitionTaskStatus,
   listActiveTasks
 } = require('../src/services/task-service');
 
@@ -11,8 +11,8 @@ async function cleanup(taskIds) {
 }
 
 async function activateTask(taskId) {
-  await updateTaskStatus(taskId, 'pending_review');
-  await updateTaskStatus(taskId, 'active');
+  await transitionTaskStatus(taskId, 'pending_review');
+  await transitionTaskStatus(taskId, 'active');
 }
 
 async function main() {
