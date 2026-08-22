@@ -4,6 +4,16 @@ const { validateVerificationConfig } = require('./task-verification-config');
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
 const TASK_STATUSES = ['draft', 'pending_review', 'active', 'paused', 'completed', 'expired', 'closed', 'refunded'];
 const VERIFICATION_SECONDS = [5, 10];
+const TASK_STATUS_TRANSITIONS = {
+  draft: ['pending_review'],
+  pending_review: ['draft', 'active'],
+  active: ['paused', 'completed', 'expired'],
+  paused: ['active', 'completed', 'expired'],
+  completed: ['closed', 'refunded'],
+  expired: ['closed', 'refunded'],
+  closed: [],
+  refunded: []
+};
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -14,6 +24,10 @@ function normalizeReward(value, name) {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n) || n < 0) throw new Error(`${name} must be a non-negative number`);
   return n;
+}
+
+function canTransitionTaskStatus(from, to) {
+  return TASK_STATUS_TRANSITIONS[from]?.includes(to) === true;
 }
 
 async function getActivitySetting(client, key, fallback) {
@@ -67,14 +81,22 @@ async function createTask({ taskType, title, description = null, rewardCoin, rew
   });
 }
 
+async function transitionTaskStatus(taskId, toStatus) {
+  requiredId(taskId, 'taskId');
+  requiredId(toStatus, 'toStatus');
+  if (!TASK_STATUSES.includes(toStatus)) throw new Error('Invalid task status');
+  return withTransaction(async client => {
+    const result = await client.query('SELECT status FROM activity_tasks WHERE id=$1 FOR UPDATE', [taskId]);
+    if (!result.rowCount) throw new Error('Task not found');
+    const fromStatus = result.rows[0].status;
+    if (!canTransitionTaskStatus(fromStatus, toStatus)) throw new Error(`Task cannot transition from ${fromStatus} to ${toStatus}`);
+    const updated = await client.query('UPDATE activity_tasks SET status=$2,updated_at=NOW() WHERE id=$1 RETURNING *', [taskId, toStatus]);
+    return updated.rows[0];
+  });
+}
+
 async function activateTask(taskId) {
-  const result = await query(
-    `UPDATE activity_tasks SET status='active',updated_at=NOW()
-     WHERE id=$1 AND status IN('draft','pending_review','paused') RETURNING *`,
-    [requiredId(taskId, 'taskId')]
-  );
-  if (!result.rowCount) throw new Error('Task cannot be activated from its current state');
-  return result.rows[0];
+  return transitionTaskStatus(taskId, 'active');
 }
 
 async function getTask(taskId) {
@@ -110,4 +132,4 @@ async function executeTask({ taskId, userId, idempotencyKey, metadata = {} }) {
   });
 }
 
-module.exports = { TASK_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, activateTask, getTask, listActiveTasks, executeTask };
+module.exports = { TASK_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, transitionTaskStatus, canTransitionTaskStatus, activateTask, getTask, listActiveTasks, executeTask };
