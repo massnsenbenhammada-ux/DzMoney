@@ -13,14 +13,13 @@ function validateMonetagPostback(payload = {}) {
   const rewardEventType = required(payload.reward_event_type, 'reward event type');
   const ymid = required(payload.ymid, 'ymid');
   const requestVar = required(payload.request_var, 'request var');
-  const hasPrice = payload.estimated_price !== undefined && payload.estimated_price !== null && payload.estimated_price !== '';
-  const price = hasPrice ? Number(payload.estimated_price) : null;
+  const price = Number(payload.estimated_price);
 
   if (zoneId !== MONETAG_ZONE_ID) throw new Error('Monetag zone does not match');
   if (!['impression', 'click'].includes(eventType)) throw new Error('Monetag event type is unsupported');
   if (!['valued', 'yes'].includes(rewardEventType)) throw new Error('Monetag event is not a rewarded event');
   if (requestVar !== MONETAG_CONTEXT) throw new Error('Monetag request context does not match');
-  if (hasPrice && (!Number.isFinite(price) || price < 0)) throw new Error('Monetag estimated price is invalid');
+  if (!Number.isFinite(price) || price < 0) throw new Error('Monetag estimated price is invalid');
 
   return { eligible: true, telegramId, ymid, requestVar, zoneId, eventType, rewardEventType, estimatedPrice: price };
 }
