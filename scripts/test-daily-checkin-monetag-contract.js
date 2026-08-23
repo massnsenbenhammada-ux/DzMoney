@@ -4,6 +4,7 @@ const fs = require('fs');
 async function main() {
   const app = fs.readFileSync('public/app.js', 'utf8');
   const adapter = fs.readFileSync('public/monetag-adapter-entry.js', 'utf8');
+  const index = fs.readFileSync('public/index.html', 'utf8');
   const start = app.indexOf('async function startDailyCheckinAd');
   const end = app.indexOf('\n}\n\nasync function startDailyCheckinAdFlow', start);
   assert.ok(start >= 0 && end > start, 'Daily Check-in Monetag function must exist');
@@ -13,11 +14,9 @@ async function main() {
   assert.match(body, /await\s+handler\(\{\s*ymid\s*,\s*requestVar:\s*['"]daily_checkin['"]\s*\}\)/, 'Daily Check-in must show the same ymid with requestVar');
   assert.match(body, /type:\s*['"]preload['"]/, 'Daily Check-in must preload the Rewarded Interstitial before showing it');
 
-  const monetagSdk = await import('monetag-tg-sdk');
-  assert.strictEqual(typeof monetagSdk.default, 'function', 'Official Monetag TMA package must expose createAdHandler as its default export');
-  assert.match(adapter, /import\s+createAdHandler\s+from\s+['"]monetag-tg-sdk['"]/, 'Monetag adapter must use the official TMA package');
-  assert.match(adapter, /const\s+MONETAG_ZONE_ID\s*=\s*['"]11627577['"]/, 'Monetag adapter must define the configured main zone');
-  assert.match(adapter, /createAdHandler\(MONETAG_ZONE_ID\)/, 'Monetag adapter must initialize the SDK with the configured main zone');
+  assert.match(index, /<script\s+src=["']https:\/\/yoszi\.com\/sdk\.js["']\s+data-zone=["']11627577["']\s+data-sdk=["']show_11627577["']\s*><\/script>/, 'HTML must load the official Monetag SDK tag for the configured zone');
+  assert.doesNotMatch(adapter, /monetag-tg-sdk/, 'Monetag adapter must not dynamically load a second SDK copy');
+  assert.match(adapter, /window\.show_11627577/, 'Monetag adapter must expose the official global SDK handler');
   assert.match(adapter, /window\.DzMoneyMonetag/, 'Monetag adapter must expose the shared application adapter');
 
   console.log('DAILY CHECK-IN MONETAG CONTRACT: PASS');
