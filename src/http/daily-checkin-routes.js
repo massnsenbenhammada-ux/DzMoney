@@ -8,6 +8,11 @@ function createDailyCheckinRouter({ providerRegistry }) {
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
   router.use(telegramAuth);
+  router.get('/status', asyncRoute(async (req, res) => {
+    const user = await getAuthenticatedUser(req);
+    res.json({ ok: true, ...(await dailyCheckinService.getDailyCheckinStatus({ userId: user.id })) });
+  }));
+
   router.post('/claim', asyncRoute(async (req, res) => {
     const user = await getAuthenticatedUser(req);
     const result = await dailyCheckinService.startDailyCheckinClaim({
