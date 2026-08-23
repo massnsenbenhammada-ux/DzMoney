@@ -1,5 +1,6 @@
 const REFERRAL_MODES = ['disabled', 'link_only', 'link_and_owner_verification'];
 const VERIFICATION_MODES = ['automatic', 'custom'];
+const COMPLETION_MODES = ['open_link', 'server_verified'];
 const SECRET_KEYS = new Set(['apiKey', 'apiSecret', 'secret', 'token', 'accessToken', 'clientSecret']);
 
 function validateReferral(referral = {}) {
@@ -9,6 +10,12 @@ function validateReferral(referral = {}) {
   if (mode === 'link_and_owner_verification' && !referral.ownerVerification) {
     throw new Error('owner verification configuration is required');
   }
+}
+
+function validateCompletion(completion = {}) {
+  const mode = completion.mode || 'server_verified';
+  if (!COMPLETION_MODES.includes(mode)) throw new Error('Invalid task completion mode');
+  if (mode === 'open_link' && !completion.url) throw new Error('completion.url is required for open_link tasks');
 }
 
 function rejectSecrets(value) {
@@ -27,8 +34,13 @@ function validateVerificationConfig(config = {}) {
   if (typeof verification !== 'object' || Array.isArray(verification)) {
     throw new Error('verification config must be an object');
   }
+  const completion = config.completion || {};
+  if (typeof completion !== 'object' || Array.isArray(completion)) {
+    throw new Error('completion config must be an object');
+  }
   const mode = verification.mode || 'automatic';
   if (!VERIFICATION_MODES.includes(mode)) throw new Error('Invalid verification mode');
+  validateCompletion(completion);
   validateReferral(config.referral);
   return true;
 }
@@ -38,9 +50,14 @@ function resolveVerificationConfig({ taskType, config = {} }) {
   const source = config && typeof config === 'object' ? config : {};
   validateVerificationConfig(source);
   const verification = source.verification || {};
+  const completion = source.completion || {};
   const referral = source.referral || {};
   return {
     taskType,
+    completion: {
+      mode: completion.mode || 'server_verified',
+      url: completion.url || null
+    },
     verification: {
       mode: verification.mode || 'automatic',
       provider: verification.provider || null,
@@ -54,4 +71,4 @@ function resolveVerificationConfig({ taskType, config = {} }) {
   };
 }
 
-module.exports = { REFERRAL_MODES, VERIFICATION_MODES, validateVerificationConfig, resolveVerificationConfig };
+module.exports = { REFERRAL_MODES, VERIFICATION_MODES, COMPLETION_MODES, validateVerificationConfig, resolveVerificationConfig };
