@@ -1,7 +1,12 @@
 const assert = require('assert');
 const { pool, withTransaction } = require('../src/db/pool');
 const { AdProviderRegistry } = require('../src/services/ad-provider-service');
-const { startDailyCheckinClaim, verifyDailyCheckinAd, finalizeDailyCheckin } = require('../src/services/daily-checkin-service');
+const {
+  startDailyCheckinClaim,
+  verifyDailyCheckinAd,
+  finalizeDailyCheckin,
+  getDailyCheckinStatus
+} = require('../src/services/daily-checkin-service');
 
 const provider = {
   id: 'test-daily-checkin',
@@ -40,14 +45,20 @@ async function cleanup(userId) {
 async function main() {
   const userId = await createUser();
   try {
+    assert.deepStrictEqual(await getDailyCheckinStatus({ userId }), { status: 'available' });
     const claim = await startDailyCheckinClaim({ userId, idempotencyKey: `daily-${Date.now()}`, providerRegistry: registry });
     assert.strictEqual(claim.providerId, provider.id);
+    assert.strictEqual((await getDailyCheckinStatus({ userId })).status, 'pending');
     await assert.rejects(() => finalizeDailyCheckin({ userId, claimIdempotencyKey: claim.claimIdempotencyKey }), /Daily Check-in advertisement must be verified first/);
     await assert.rejects(() => verifyDailyCheckinAd({ userId: userId + 1, adEventId: claim.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true } }), /does not belong to the user/);
     await assert.rejects(() => verifyDailyCheckinAd({ userId, adEventId: claim.adEvent.id, providerRegistry: registry, providerPayload: { accepted: false } }), /Advertisement provider verification failed/);
     await verifyDailyCheckinAd({ userId, adEventId: claim.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: 'daily-ref-1' } });
     const rewarded = await finalizeDailyCheckin({ userId, claimIdempotencyKey: claim.claimIdempotencyKey });
     assert.strictEqual(rewarded.rewarded, true);
+    const status = await getDailyCheckinStatus({ userId });
+    assert.strictEqual(status.status, 'cooldown');
+    assert.ok(status.nextEligibleAt);
+    assert.ok(new Date(status.nextEligibleAt).getTime() > Date.now());
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
     assert.strictEqual(await balance(userId, 'DZX'), 1);
     assert.strictEqual(await balance(userId, 'DZP'), 1);
