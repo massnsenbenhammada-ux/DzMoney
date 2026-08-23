@@ -64,10 +64,19 @@ async function main() {
     assert.strictEqual(execution.attempt.status, 'verification_pending');
     assert.strictEqual(execution.gate.required_seconds, 5);
 
+    let verifierCallsBeforeAd = 0;
     await assert.rejects(
-      () => finalizeTaskVerification({ attemptId: execution.attempt.id, idempotencyKey: `phase2-before-ad-${Date.now()}`, verifyTaskCompletion: async () => true }),
+      () => finalizeTaskVerification({
+        attemptId: execution.attempt.id,
+        idempotencyKey: `phase2-before-ad-${Date.now()}`,
+        verifyTaskCompletion: async () => {
+          verifierCallsBeforeAd += 1;
+          return true;
+        }
+      }),
       /Verification advertisement must be verified first/
     );
+    assert.strictEqual(verifierCallsBeforeAd, 0);
 
     const ad = await startVerificationAd(execution.attempt.id, `phase2-ad-${Date.now()}`, 'phase2-test-ad');
     assert.strictEqual(ad.providerId, 'test-ads');
