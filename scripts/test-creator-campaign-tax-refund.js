@@ -30,7 +30,6 @@ async function main() {
     assert.equal(Number(rejected.taxDZX), 9);
     assert.equal(Number(rejected.refundDZX), 81);
 
-    // Tax is withheld from the refund; it is not a second wallet debit.
     const wallet = await pool.query(`SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency='DZX'`, [user.id]);
     assert.equal(Number(wallet.rows[0].balance), 91);
 
@@ -52,6 +51,25 @@ async function main() {
     assert.equal(duplicate.duplicate, true);
     const walletAfterDuplicate = await pool.query(`SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency='DZX'`, [user.id]);
     assert.equal(Number(walletAfterDuplicate.rows[0].balance), 91);
+
+    // Admin may set rejection tax to the full 0-100% range. At 100%, refund is exactly zero,
+    // but the idempotent financial transaction must still be recorded.
+    await pool.query(`INSERT INTO admin_settings(key,value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`, [TAX_KEY, '100']);
+    const fullTaxCampaign = await createCreatorCampaign({ taskType: 'social', title: 'Full tax contract', creatorId: user.id, target: 1, idempotencyKey: `${marker}:full-tax-campaign`, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
+    const fullTaxTaskId = fullTaxCampaign.task.id;
+    await submitCreatorCampaignForReview(fullTaxTaskId, user.id);
+    const fullTaxRejected = await rejectCreatorCampaign(fullTaxTaskId, user.id);
+    assert.equal(Number(fullTaxRejected.taxPercent), 100);
+    assert.equal(Number(fullTaxRejected.taxDZX), 9);
+    assert.equal(Number(fullTaxRejected.refundDZX), 0);
+    assert.equal(fullTaxRejected.task.status, 'refunded');
+    const fullTaxTx = await pool.query(`SELECT metadata FROM ledger_transactions WHERE idempotency_key=$1`, [`creator-campaign-rejection:${fullTaxTaskId}`]);
+    assert.equal(fullTaxTx.rowCount, 1);
+    assert.equal(Number(fullTaxTx.rows[0].metadata.tax_percent), 100);
+    assert.equal(Number(fullTaxTx.rows[0].metadata.tax_dzx), 9);
+    assert.equal(Number(fullTaxTx.rows[0].metadata.refund_dzx), 0);
+    await pool.query('DELETE FROM activity_tasks WHERE id=$1', [fullTaxTaskId]);
+
     console.log('Creator campaign tax/refund contract: PASS');
   } catch (error) {
     console.error('Creator campaign tax/refund contract: FAIL');
