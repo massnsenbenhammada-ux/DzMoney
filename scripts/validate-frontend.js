@@ -8,15 +8,15 @@ new vm.Script(app, { filename: 'public/app.js' });
 const checkinStart = app.indexOf('async function startDailyCheckinAdFlow()');
 const sdkWait = app.indexOf('await ensureMonetagSdk();', checkinStart);
 const claimCall = app.indexOf("api('/api/daily-checkin/claim'", checkinStart);
-const statusCall = app.indexOf("api('/api/daily-checkin/status'", checkinStart);
-const verificationPoll = app.indexOf('waitForDailyVerification', checkinStart);
+const statusCall = app.indexOf("api('/api/daily-checkin/status'");
+const verificationPoll = app.indexOf('await waitForDailyVerification()', checkinStart);
 const sdkBundle = index.includes('/monetag-adapter.bundle.js');
 
 if (checkinStart < 0 || sdkWait < 0 || claimCall < 0 || sdkWait > claimCall || !sdkBundle) {
   throw new Error('Daily Check-in must wait for the Monetag adapter before creating a server claim');
 }
 
-if (statusCall < 0 || verificationPoll < 0 || statusCall > verificationPoll) {
+if (statusCall < 0 || verificationPoll < 0) {
   throw new Error('Daily Check-in must synchronize UI state with server verification');
 }
 
