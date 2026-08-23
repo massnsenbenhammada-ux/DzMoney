@@ -1,5 +1,6 @@
 const { withTransaction, query } = require('../db/pool');
 const { validateVerificationConfig } = require('./task-verification-config');
+const { postEconomyTransactionOnClient } = require('./economy-service');
 
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
 const CREATOR_CAMPAIGN_TYPES = ['game', 'social', 'web'];
@@ -99,6 +100,68 @@ async function createTask({ taskType, title, description = null, creatorId = nul
   });
 }
 
+async function createCreatorCampaign({ taskType, title, description = null, creatorId, target, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {}, idempotencyKey, priceDZX }) {
+  if (!CREATOR_CAMPAIGN_TYPES.includes(taskType)) throw new Error('Creator campaigns must use game, social, or web task types');
+  requiredId(idempotencyKey, 'idempotencyKey');
+  if (priceDZX !== undefined) throw new Error('Campaign price is server/admin controlled');
+  const campaign = normalizeCampaignFields(taskType, creatorId, target);
+  validateVerificationConfig(config);
+
+  return withTransaction(async client => {
+    const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(client, 'activity.verification_ad_seconds', 5);
+    if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) throw new Error('verification ad duration must be 5 or 10 seconds');
+
+    const rewards = {
+      coin: normalizeReward(rewardCoin, 'rewardCoin'),
+      dzx: normalizeReward(rewardDzx, 'rewardDzx'),
+      dzp: normalizeReward(rewardDzp, 'rewardDzp')
+    };
+    if (!rewards.coin && !rewards.dzx && !rewards.dzp) throw new Error('At least one task reward is required');
+
+    const price = await getActivitySetting(client, 'task.campaign_price_dzx_per_execution', null);
+    if (price === null || price <= 0) throw new Error('Campaign price is not configured by Admin');
+    const campaignCostDZX = Number(target) * price;
+    if (!Number.isSafeInteger(campaignCostDZX) || campaignCostDZX <= 0) throw new Error('Campaign cost is invalid');
+
+    const taskResult = await client.query(
+      `INSERT INTO activity_tasks(task_type,title,description,creator_id,target,reward_coin,reward_dzx,reward_dzp,verification_ad_seconds,status,config)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10) RETURNING *`,
+      [taskType, title, description, campaign.creatorId, campaign.target, rewards.coin, rewards.dzx, rewards.dzp, Number(configuredSeconds), config]
+    );
+    const task = taskResult.rows[0];
+
+    const economy = await postEconomyTransactionOnClient(client, {
+      idempotencyKey,
+      userId: creatorId,
+      type: 'CREATOR_CAMPAIGN_DEBIT',
+      metadata: {
+        source: 'creator_campaign',
+        task_id: task.id,
+        target: Number(target),
+        applied_price_dzx: price,
+        campaign_cost_dzx: campaignCostDZX
+      },
+      movements: [{ currency: 'DZX', amount: -campaignCostDZX, source: 'creator_campaign' }]
+    });
+
+    if (economy.duplicate) {
+      const existingTaskId = economy.transaction.metadata?.task_id;
+      if (!existingTaskId) throw new Error('Idempotent campaign transaction is missing task_id');
+      await client.query('DELETE FROM activity_tasks WHERE id=$1', [task.id]);
+      const existingTask = await client.query('SELECT * FROM activity_tasks WHERE id=$1', [existingTaskId]);
+      if (!existingTask.rowCount) throw new Error('Idempotent campaign task not found');
+      return {
+        task: existingTask.rows[0],
+        appliedPriceDZX: Number(economy.transaction.metadata.applied_price_dzx),
+        campaignCostDZX: Number(economy.transaction.metadata.campaign_cost_dzx),
+        duplicate: true
+      };
+    }
+
+    return { task, appliedPriceDZX: price, campaignCostDZX, transaction: economy.transaction, entries: economy.entries, duplicate: false };
+  });
+}
+
 async function transitionTaskStatus(taskId, toStatus) {
   requiredId(taskId, 'taskId');
   requiredId(toStatus, 'toStatus');
@@ -150,4 +213,4 @@ async function executeTask({ taskId, userId, idempotencyKey, metadata = {} }) {
   });
 }
 
-module.exports = { TASK_TYPES, CREATOR_CAMPAIGN_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, transitionTaskStatus, canTransitionTaskStatus, activateTask, getTask, listActiveTasks, executeTask };
+module.exports = { TASK_TYPES, CREATOR_CAMPAIGN_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, createCreatorCampaign, transitionTaskStatus, canTransitionTaskStatus, activateTask, getTask, listActiveTasks, executeTask };
