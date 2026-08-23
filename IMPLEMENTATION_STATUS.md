@@ -81,7 +81,9 @@ Phase 2 remains open until evidence exists for the **current commit** for all of
 
 ## Phase 2 Verification Contract Clarification
 
-The repository has a generic verification boundary, but it does not currently define trusted evidence sources for each non-ad task category. Therefore:
+The repository has a generic verification boundary, but it does not currently define trusted evidence sources for each non-ad task category. The canonical clarification is now contained in `docs/PHASE2_TASK_VERIFICATION_RULES.md` rather than a second Phase 2 specification file.
+
+The rules establish that:
 
 - client assertions such as `completed=true` are never sufficient evidence;
 - verifier implementations must use server-trusted evidence appropriate to the task type;
@@ -89,8 +91,6 @@ The repository has a generic verification boundary, but it does not currently de
 - advertisement tasks are excluded from the two-action Execute → Verify model;
 - no provider-specific verifier is to be invented before its evidence source, identity binding, replay/idempotency rules and failure behavior are specified;
 - Phase 2 cannot close while a required category lacks both a defined evidence contract and corresponding tests.
-
-The detailed clarification is recorded in `docs/PHASE2_TASK_VERIFICATION_CONTRACT.md`.
 
 ## Later Phases
 
@@ -113,7 +113,7 @@ The detailed clarification is recorded in `docs/PHASE2_TASK_VERIFICATION_CONTRAC
 - Current documentation describes the authenticated Daily Check-in HTTP boundary as it exists on current `main`.
 - Documentation distinguishes implemented backend boundaries from unverified production/runtime acceptance.
 - No duplicate specification/TDD/YAGNI file is required; the existing architecture/ADR documents remain authoritative.
-- `docs/PHASE2_TASK_VERIFICATION_CONTRACT.md` is a Phase 2 contract clarification, not permission to invent concrete verifier integrations.
+- The Phase 2 evidence clarification is maintained in `docs/PHASE2_TASK_VERIFICATION_RULES.md`; no additional Phase 2 contract/specification file is required.
 
 ## Update Rule
 
