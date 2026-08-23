@@ -16,7 +16,8 @@ async function main() {
   const monetagSdk = await import('monetag-tg-sdk');
   assert.strictEqual(typeof monetagSdk.default, 'function', 'Official Monetag TMA package must expose createAdHandler as its default export');
   assert.match(adapter, /import\s+createAdHandler\s+from\s+['"]monetag-tg-sdk['"]/, 'Monetag adapter must use the official TMA package');
-  assert.match(adapter, /createAdHandler\(['"]11627577['"]\)/, 'Monetag adapter must use the configured main zone');
+  assert.match(adapter, /const\s+MONETAG_ZONE_ID\s*=\s*['"]11627577['"]/, 'Monetag adapter must define the configured main zone');
+  assert.match(adapter, /createAdHandler\(MONETAG_ZONE_ID\)/, 'Monetag adapter must initialize the SDK with the configured main zone');
   assert.match(adapter, /window\.DzMoneyMonetag/, 'Monetag adapter must expose the shared application adapter');
 
   console.log('DAILY CHECK-IN MONETAG CONTRACT: PASS');
