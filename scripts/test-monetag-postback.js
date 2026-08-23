@@ -7,7 +7,7 @@ function validPayload(overrides = {}) {
     zone_id: '11627577',
     sub_zone_id: '1',
     event_type: 'impression',
-    reward_event_type: 'valued',
+    reward_event_type: 'yes',
     estimated_price: '0.01000',
     ymid: 'attempt-123',
     request_var: 'daily_checkin',
@@ -15,7 +15,7 @@ function validPayload(overrides = {}) {
   };
 }
 
-function testAcceptsValuedImpression() {
+function testAcceptsPaidImpression() {
   const result = validateMonetagPostback(validPayload());
   assert.strictEqual(result.eligible, true);
   assert.strictEqual(result.ymid, 'attempt-123');
@@ -26,7 +26,7 @@ function testRejectsWrongZone() {
   assert.throws(() => validateMonetagPostback(validPayload({ zone_id: '999' })), /zone/i);
 }
 
-function testRejectsNonRewardEvent() {
+function testRejectsUnpaidImpression() {
   assert.throws(() => validateMonetagPostback(validPayload({ reward_event_type: 'no' })), /reward/i);
 }
 
@@ -48,9 +48,9 @@ function testRejectsInvalidPrice() {
 }
 
 try {
-  testAcceptsValuedImpression();
+  testAcceptsPaidImpression();
   testRejectsWrongZone();
-  testRejectsNonRewardEvent();
+  testRejectsUnpaidImpression();
   testRejectsClickAsReward();
   testRejectsWrongContext();
   testRequiresYmidAndTelegramId();
