@@ -16,7 +16,8 @@ async function main() {
 
   assert.match(index, /<script\s+src=["']https:\/\/yoszi\.com\/sdk\.js["']\s+data-zone=["']11627577["']\s+data-sdk=["']show_11627577["']\s*><\/script>/, 'HTML must load the official Monetag SDK tag for the configured zone');
   assert.doesNotMatch(adapter, /monetag-tg-sdk/, 'Monetag adapter must not dynamically load a second SDK copy');
-  assert.match(adapter, /window\.show_11627577/, 'Monetag adapter must expose the official global SDK handler');
+  assert.match(adapter, /MONETAG_HANDLER_NAME\s*=\s*`show_\$\{MONETAG_ZONE_ID\}`/, 'Monetag adapter must derive the official global SDK handler name from the configured zone');
+  assert.match(adapter, /window\[MONETAG_HANDLER_NAME\]/, 'Monetag adapter must resolve the official global SDK handler');
   assert.match(adapter, /window\.DzMoneyMonetag/, 'Monetag adapter must expose the shared application adapter');
 
   console.log('DAILY CHECK-IN MONETAG CONTRACT: PASS');
