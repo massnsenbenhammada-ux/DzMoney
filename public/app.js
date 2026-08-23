@@ -168,7 +168,7 @@ async function startDailyCheckinAd(ymid) {
   if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
   const handler = await ensureMonetagSdk();
   $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
-  await handler({ type: 'end', ymid, requestVar: 'daily_checkin' });
+  await handler({ ymid, requestVar: 'daily_checkin' });
 }
 
 async function startDailyCheckinAdFlow() {
