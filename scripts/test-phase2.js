@@ -134,8 +134,7 @@ async function main() {
     assert.strictEqual(openVerified.rewarded, true);
     assert.strictEqual(await balance(userId, 'COIN'), 1500);
 
-    const ads = await pool.query(`SELECT * FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
-    console.error('PHASE2_DIAGNOSTIC_AD_EVENTS', JSON.stringify(ads.rows));
+    const ads = await pool.query(`SELECT context, verified, metadata->>'provider_id' AS provider_id FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
     assert.strictEqual(ads.rows.length, 4);
     assert.strictEqual(ads.rows.filter(row => row.context === 'verification').length, 4);
     assert.strictEqual(ads.rows.filter(row => row.verified && row.provider_id === 'test-ads').length, 4);
