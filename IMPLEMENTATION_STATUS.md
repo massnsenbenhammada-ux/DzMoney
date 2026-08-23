@@ -77,6 +77,7 @@
 - 🟢 Daily Check-in HTTP exposes only the claim boundary; advertisement verification and reward finalization are no longer client-callable routes. Trusted Monetag postback remains the reward verification/finalization boundary.
 - 🟢 Temporary Monetag diagnostic page and diagnostic code were removed after troubleshooting.
 - 🟢 Monetag zone/context are centralized in `src/config/monetag.js` and consumed by both the browser adapter build and server postback validator.
+- 🟢 Task Verification now enforces the verification-ad gate before invoking the trusted task verifier; the regression test also asserts that the verifier is not called before `ad_completed`.
 
 ### Baseline runtime verification
 
@@ -179,6 +180,15 @@ Phase 2 is **not complete** yet. Baseline runtime verification is now green, but
 - Fixed the existing Daily Check-in HTTP boundary test so its 404 assertions do not assume that Express returns JSON for an unregistered route.
 
 ## Change Log
+
+### 2026-08-23 — Task Verification gate ordering
+
+- Merged PR #42 with commit `6debee9373c22cd03744bf72d6308af49053a0e9`.
+- Enforced the existing Phase 2 verification contract so `finalizeTaskVerification()` checks the verification advertisement state before invoking the trusted task verifier.
+- Added a regression assertion proving that the trusted verifier is not called when the verification advertisement has not been verified.
+- PR #42 passed the Phase 2 CI workflow before merge, including isolated PostgreSQL, migrations, runtime health and `npm run test:all`.
+- No database migration, service, provider, economy, ledger or duplicate source of truth was introduced.
+- Phase 2 remains open; this fix closes only the verification-gate ordering defect.
 
 ### 2026-08-22 — Monetag Rewarded Interstitial integration
 
