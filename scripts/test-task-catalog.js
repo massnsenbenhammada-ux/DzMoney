@@ -6,8 +6,18 @@ const {
   listActiveTasks
 } = require('../src/services/task-service');
 
-async function cleanup(taskIds) {
+async function createTestUser() {
+  const marker = Date.now();
+  const result = await pool.query(
+    'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id',
+    [String(marker), `task_catalog_${marker}`, 'Task Catalog Test']
+  );
+  return result.rows[0].id;
+}
+
+async function cleanup(taskIds, userId) {
   await pool.query('DELETE FROM activity_tasks WHERE id = ANY($1::bigint[])', [taskIds]);
+  if (userId) await pool.query('DELETE FROM users WHERE id=$1', [userId]);
 }
 
 async function activateTask(taskId) {
@@ -17,7 +27,10 @@ async function activateTask(taskId) {
 
 async function main() {
   const taskIds = [];
+  let userId;
   try {
+    userId = await createTestUser();
+
     const daily = await createTask({
       taskType: 'daily',
       title: 'Daily catalog test',
@@ -30,6 +43,8 @@ async function main() {
     const social = await createTask({
       taskType: 'social',
       title: 'Social draft must stay hidden',
+      creatorId: userId,
+      target: 1000,
       rewardCoin: 1000,
       rewardDzx: 1,
       rewardDzp: 1,
@@ -55,7 +70,7 @@ async function main() {
     console.error(error);
     process.exitCode = 1;
   } finally {
-    await cleanup(taskIds);
+    await cleanup(taskIds, userId);
     await pool.end();
   }
 }
