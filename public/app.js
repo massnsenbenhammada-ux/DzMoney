@@ -1,10 +1,12 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, dailyBusy: false, dailyCooldownUntil: null };
+const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, dailyBusy: false, dailyVerificationPending: false, dailyCooldownUntil: null };
 const $ = id => document.getElementById(id);
 let monetagHandler = null;
 const MONETAG_READY_TIMEOUT_MS = 15000;
+const DAILY_VERIFICATION_POLL_MS = 1000;
+const DAILY_VERIFICATION_POLL_LIMIT = 30000;
 
 function getMonetagHandler() {
   const adapter = window.DzMoneyMonetag;
@@ -100,6 +102,7 @@ function startDailyCooldown(nextEligibleAt) {
   const until = new Date(nextEligibleAt).getTime();
   if (!Number.isFinite(until)) return;
   state.dailyCooldownUntil = until;
+  state.dailyVerificationPending = false;
   clearInterval(startDailyCooldown.timer);
   const button = $('dailyBtn');
   const tick = () => {
@@ -118,6 +121,49 @@ function startDailyCooldown(nextEligibleAt) {
   startDailyCooldown.timer = setInterval(tick, 1000);
 }
 
+function setDailyVerificationPending(pending) {
+  state.dailyVerificationPending = pending;
+  if (!pending || state.dailyCooldownUntil) return;
+  const button = $('dailyBtn');
+  setDailyButton(button, 'Verifying…', true);
+  $('dailyText').textContent = 'Advertisement completed. Waiting for server verification.';
+}
+
+async function loadDailyStatus() {
+  try {
+    const status = await api('/api/daily-checkin/status');
+    if (status.status === 'cooldown' && status.nextEligibleAt) {
+      startDailyCooldown(status.nextEligibleAt);
+      return status;
+    }
+    if (status.status === 'pending') {
+      setDailyVerificationPending(true);
+      return status;
+    }
+    state.dailyVerificationPending = false;
+    if (!state.dailyBusy) setDailyButton($('dailyBtn'), 'Check in', false);
+    $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+    return status;
+  } catch {
+    return null;
+  }
+}
+
+async function waitForDailyVerification() {
+  const deadline = Date.now() + DAILY_VERIFICATION_POLL_LIMIT;
+  while (Date.now() < deadline) {
+    const status = await loadDailyStatus();
+    if (status?.status === 'cooldown') {
+      await loadMe();
+      return true;
+    }
+    if (status?.status === 'available') return false;
+    await wait(DAILY_VERIFICATION_POLL_MS);
+  }
+  setDailyVerificationPending(true);
+  return false;
+}
+
 async function startDailyCheckinAd(ymid) {
   if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
   const handler = await ensureMonetagSdk();
@@ -126,7 +172,7 @@ async function startDailyCheckinAd(ymid) {
 }
 
 async function startDailyCheckinAdFlow() {
-  if (state.dailyBusy || state.dailyCooldownUntil) return;
+  if (state.dailyBusy || state.dailyVerificationPending || state.dailyCooldownUntil) return;
   const button = $('dailyBtn');
   state.dailyBusy = true;
   setDailyButton(button, 'Loading…', true);
@@ -135,9 +181,9 @@ async function startDailyCheckinAdFlow() {
     if (typeof handler !== 'function') throw new Error('Monetag SDK is unavailable');
     const claim = await api('/api/daily-checkin/claim', { method: 'POST', body: JSON.stringify({ idempotencyKey: `daily:${crypto.randomUUID()}` }) });
     await startDailyCheckinAd(claim.adEvent?.external_ad_id);
-    $('dailyText').textContent = 'Advertisement completed. Waiting for server verification.';
+    setDailyVerificationPending(true);
     toast('Advertisement completed. Your reward is being verified.');
-    await loadMe();
+    await waitForDailyVerification();
   } catch (error) {
     if (error.status === 429 && error.data?.nextEligibleAt) {
       startDailyCooldown(error.data.nextEligibleAt);
@@ -148,7 +194,7 @@ async function startDailyCheckinAdFlow() {
     }
   } finally {
     state.dailyBusy = false;
-    if (!state.dailyCooldownUntil) setDailyButton(button, 'Check in', false);
+    if (!state.dailyVerificationPending && !state.dailyCooldownUntil) setDailyButton(button, 'Check in', false);
   }
 }
 
@@ -161,6 +207,10 @@ document.addEventListener('click', event => {
   if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
 });
 
+window.addEventListener('focus', () => { loadDailyStatus(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadDailyStatus(); });
+
 renderBalances();
 loadHealth();
 loadMe();
+loadDailyStatus();
