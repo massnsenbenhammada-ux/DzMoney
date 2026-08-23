@@ -18,11 +18,11 @@ async function run() {
 
   const validPayload = {
     telegram_id: '123', zone_id: '11627577', event_type: 'impression',
-    reward_event_type: 'yes', estimated_price: '0.01000',
+    reward_event_type: 'valued', estimated_price: '0.01000',
     ymid: 'attempt-1', request_var: 'daily_checkin'
   };
   assert.doesNotThrow(() => validateMonetagPostback(validPayload));
-  assert.throws(() => validateMonetagPostback({ ...validPayload, reward_event_type: 'no' }), /not a rewarded event/);
+  assert.throws(() => validateMonetagPostback({ ...validPayload, reward_event_type: 'non_valued' }), /not a rewarded event/);
 
   require.cache[poolPath].exports = {
     ...originalPool,
@@ -57,7 +57,7 @@ async function run() {
   });
 
   assert.strictEqual((await request('/api/ads/monetag/postback?token=bad')).status, 401);
-  const ok = await request('/api/ads/monetag/postback?token=secret&telegram_id=123&zone_id=11627577&event_type=impression&reward_event_type=yes&estimated_price=0.01000&ymid=attempt-1&request_var=daily_checkin');
+  const ok = await request('/api/ads/monetag/postback?token=secret&telegram_id=123&zone_id=11627577&event_type=impression&reward_event_type=valued&estimated_price=0.01000&ymid=attempt-1&request_var=daily_checkin');
   assert.strictEqual(ok.status, 200);
   assert.strictEqual(ok.body.verified, true);
   assert.strictEqual(ok.body.rewarded, true);
