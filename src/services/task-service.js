@@ -35,7 +35,7 @@ async function createCreatorCampaign({ taskType, title, description = null, crea
   if (!CREATOR_CAMPAIGN_TYPES.includes(taskType)) throw new Error('Creator campaigns must use game, social, or web task types'); requiredId(idempotencyKey, 'idempotencyKey'); if (priceDZX !== undefined) throw new Error('Campaign price is server/admin controlled'); const campaign = normalizeCampaignFields(taskType, creatorId, target); validateVerificationConfig(config);
   return withTransaction(async client => {
     const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(client, 'activity.verification_ad_seconds', 5); if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) throw new Error('verification ad duration must be 5 or 10 seconds');
-    const rewards = { coin: normalizeReward(rewardCoin, 'rewardCoin'), dzx: normalizeReward(rewardDzx, 'rewardDzx'), dzp: normalizeReward(rewardDzp, 'rewardDzp') }; if (!rewards.coin && !rewards.dzx && !rewards.dzp) throw new Error('At least one task reward is required');
+    const rewards = { coin: normalizeReward(rewardCoin, 'rewardCoin'), dzx: normalizeReward(rewardDzx, 'rewardDzx'), dzp: normalizeReward(rewardDzp, 'rewardDzp') }; if (!rewards.coin && !rewards.dzx && !rewards.dzp) throw new Error('At least one campaign reward is required');
     const price = await getActivitySetting(client, 'task.campaign_price_dzx_per_execution', null); if (price === null || price <= 0) throw new Error('Campaign price is not configured by Admin'); const campaignCostDZX = Number(target) * price; if (!Number.isSafeInteger(campaignCostDZX) || campaignCostDZX <= 0) throw new Error('Campaign cost is invalid');
     const taskResult = await client.query(`INSERT INTO activity_tasks(task_type,title,description,creator_id,target,reward_coin,reward_dzx,reward_dzp,verification_ad_seconds,status,config) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10) RETURNING *`, [taskType, title, description, campaign.creatorId, campaign.target, rewards.coin, rewards.dzx, rewards.dzp, Number(configuredSeconds), config]); const task = taskResult.rows[0];
     const economy = await postEconomyTransactionOnClient(client, { idempotencyKey, userId: creatorId, type: 'CREATOR_CAMPAIGN_DEBIT', metadata: { source: 'creator_campaign', task_id: task.id, target: Number(target), applied_price_dzx: price, campaign_cost_dzx: campaignCostDZX }, movements: [{ currency: 'DZX', amount: -campaignCostDZX, source: 'creator_campaign' }] });
@@ -45,7 +45,6 @@ async function createCreatorCampaign({ taskType, title, description = null, crea
 }
 
 async function transitionTaskStatus(taskId, toStatus) { requiredId(taskId, 'taskId'); requiredId(toStatus, 'toStatus'); if (!TASK_STATUSES.includes(toStatus)) throw new Error('Invalid task status'); return withTransaction(async client => { const result = await client.query('SELECT status FROM activity_tasks WHERE id=$1 FOR UPDATE', [taskId]); if (!result.rowCount) throw new Error('Task not found'); const fromStatus = result.rows[0].status; if (!canTransitionTaskStatus(fromStatus, toStatus)) throw new Error(`Task cannot transition from ${fromStatus} to ${toStatus}`); const updated = await client.query('UPDATE activity_tasks SET status=$2,updated_at=NOW() WHERE id=$1 RETURNING *', [taskId, toStatus]); return updated.rows[0]; }); }
-
 async function submitCreatorCampaignForReview(taskId, creatorId) { requiredId(creatorId, 'creatorId'); return withTransaction(async client => { const result = await client.query('SELECT * FROM activity_tasks WHERE id=$1 AND creator_id=$2 FOR UPDATE', [requiredId(taskId, 'taskId'), creatorId]); if (!result.rowCount) throw new Error('Creator campaign not found'); if (result.rows[0].status !== 'draft') throw new Error(`Creator campaign cannot enter review from ${result.rows[0].status}`); const updated = await client.query("UPDATE activity_tasks SET status='pending_review',updated_at=NOW() WHERE id=$1 RETURNING *", [taskId]); return updated.rows[0]; }); }
 async function approveCreatorCampaign(taskId) { const task = await getTask(taskId); if (!CREATOR_CAMPAIGN_TYPES.includes(task.task_type)) throw new Error('Only creator campaigns can be approved'); return transitionTaskStatus(taskId, 'active'); }
 async function rejectCreatorCampaign(taskId, creatorId) {
@@ -54,18 +53,17 @@ async function rejectCreatorCampaign(taskId, creatorId) {
     const taskResult = await client.query('SELECT * FROM activity_tasks WHERE id=$1 AND creator_id=$2 FOR UPDATE', [requiredId(taskId, 'taskId'), creatorId]);
     if (!taskResult.rowCount) throw new Error('Creator campaign not found');
     const task = taskResult.rows[0];
+    const rejectionKey = `creator-campaign-rejection:${task.id}`;
     if (task.status === 'refunded') {
-      const existing = await client.query("SELECT * FROM ledger_transactions WHERE idempotency_key=$1 FOR SHARE", [`creator-campaign-rejection:${task.id}`]);
+      const existing = await client.query('SELECT * FROM ledger_transactions WHERE idempotency_key=$1 FOR SHARE', [rejectionKey]);
       if (!existing.rowCount) throw new Error('Refunded campaign is missing rejection transaction');
       return { task, duplicate: true, campaignCostDZX: Number(existing.rows[0].metadata.campaign_cost_dzx), taxPercent: Number(existing.rows[0].metadata.tax_percent), taxDZX: Number(existing.rows[0].metadata.tax_dzx), refundDZX: Number(existing.rows[0].metadata.refund_dzx), transaction: existing.rows[0] };
     }
     if (task.status !== 'pending_review') throw new Error(`Creator campaign rejection requires pending_review, got ${task.status}`);
 
-    const debit = await client.query("SELECT metadata FROM ledger_transactions WHERE idempotency_key=$1 FOR SHARE", [
-      task.config?.creator_campaign_debit_key || `creator-campaign:${task.id}`
-    ]);
-    let campaignCostDZX = Number(task.target) * Number(await getActivitySetting(client, 'task.campaign_price_dzx_per_execution', 0));
-    if (debit.rowCount && debit.rows[0].metadata?.campaign_cost_dzx !== undefined) campaignCostDZX = Number(debit.rows[0].metadata.campaign_cost_dzx);
+    const debit = await client.query("SELECT metadata FROM ledger_transactions WHERE user_id=$1 AND transaction_type='CREATOR_CAMPAIGN_DEBIT' AND metadata->>'task_id'=$2 ORDER BY id DESC LIMIT 1 FOR SHARE", [creatorId, String(task.id)]);
+    if (!debit.rowCount) throw new Error('Creator campaign debit snapshot not found');
+    const campaignCostDZX = Number(debit.rows[0].metadata.campaign_cost_dzx);
     if (!Number.isSafeInteger(campaignCostDZX) || campaignCostDZX <= 0) throw new Error('Campaign cost is invalid');
 
     const taxPercent = Number(await getActivitySetting(client, 'task.campaign_rejection_tax_percent', 0));
@@ -74,20 +72,12 @@ async function rejectCreatorCampaign(taskId, creatorId) {
     const refundDZX = campaignCostDZX - taxDZX;
     if (!Number.isSafeInteger(refundDZX) || refundDZX < 0) throw new Error('Campaign refund is invalid');
 
-    const idempotencyKey = `creator-campaign-rejection:${task.id}`;
     const economy = await postEconomyTransactionOnClient(client, {
-      idempotencyKey,
+      idempotencyKey: rejectionKey,
       userId: creatorId,
       type: 'CREATOR_CAMPAIGN_REFUND',
-      metadata: {
-        source: 'creator_campaign_refund',
-        task_id: task.id,
-        campaign_cost_dzx: campaignCostDZX,
-        tax_percent: taxPercent,
-        tax_dzx: taxDZX,
-        refund_dzx: refundDZX
-      },
-      movements: refundDZX > 0 ? [{ currency: 'DZX', amount: refundDZX, source: 'creator_campaign_refund' }] : [{ currency: 'DZX', amount: 0.000001, source: 'creator_campaign_refund' }]
+      metadata: { source: 'creator_campaign_refund', task_id: task.id, campaign_cost_dzx: campaignCostDZX, tax_percent: taxPercent, tax_dzx: taxDZX, refund_dzx: refundDZX },
+      movements: refundDZX > 0 ? [{ currency: 'DZX', amount: refundDZX, source: 'creator_campaign_refund' }] : []
     });
     if (economy.duplicate) return { task, duplicate: true, campaignCostDZX, taxPercent, taxDZX, refundDZX, transaction: economy.transaction };
 
