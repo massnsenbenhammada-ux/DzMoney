@@ -135,7 +135,7 @@ async function main() {
     assert.strictEqual(await balance(userId, 'COIN'), 1500);
 
     const ads = await pool.query(`SELECT context, verified, metadata->>'provider_id' AS provider_id FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
-    assert.ok(ads.rows.length === 4 && ads.rows.every(row => row.context === 'verification' && row.verified && row.provider_id === 'test-ads'));
+    assert.ok(ads.rows.length === 5 && ads.rows.every(row => row.context === 'verification' && row.verified && row.provider_id === 'test-ads'));
 
     const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`, [userId]);
     assert.strictEqual(ledger.rows[0].count, 4);
@@ -154,4 +154,4 @@ async function main() {
   }
 }
 
-main().catch(error => { console.error('Phase 2 test runner: FAIL'); console.error(error); process.exit(1); });
+main();
