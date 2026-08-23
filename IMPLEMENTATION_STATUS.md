@@ -4,7 +4,7 @@
 
 **Current phase:** Phase 2 — Activity / Ads / Tasks. Backend foundations exist, but Phase 2 is **NOT CLOSED**.
 
-**Documentation authority:** `PROJECT_ROADMAP.md` defines phase order/scope; `docs/ARCHITECTURE_RULES.md` defines architecture constraints; `ADR.md` records architectural decisions; `TODO.md` contains deferred non-blocking work.
+**Documentation authority:** `PROJECT_ROADMAP.md` defines phase order/scope; `docs/PHASE2_DESIGN_REVIEW.md` and `docs/PHASE2_TASK_VERIFICATION_RULES.md` define Phase 2 behavior; `docs/ARCHITECTURE_RULES.md` defines architecture constraints; `ADR.md` records architectural decisions; `TODO.md` contains deferred non-blocking work.
 
 **Repository boundary:** premature Squad runtime and temporary Monetag diagnostics were removed. Premature Phase 12 admin-provider runtime was removed. Migration `008_squad_engine.sql` remains immutable history; `009_cleanup_unreleased_squad.sql` keeps active environments aligned with the Phase 2 boundary.
 
@@ -47,6 +47,7 @@ Previously verified evidence includes migrations, Phase 1 tests, economy/ledger 
 - Reward finalization is not a client-callable economic operation; trusted provider callback is the verification/finalization boundary.
 - Monetag integration includes server-generated YMID, server-side postback verification/finalization and centralized zone/context configuration.
 - Temporary Monetag diagnostic UI/code was removed.
+- The existing task verification boundary accepts a trusted verifier decision and keeps all economic mutation inside the canonical task verification service.
 
 ### Phase 2 Closure Gate
 
@@ -72,9 +73,24 @@ Phase 2 remains open until evidence exists for the **current commit** for all of
 
 ### Remaining Phase 2 implementation
 
-- ⬜ Required real task adapters/verifiers for the approved Phase 2 task types.
+- ⬜ Trusted evidence contracts for Daily, Game, Social, Web and Special/Partner task verification are not fully specified by the current repository. Concrete adapters must not be guessed.
+- ⬜ Required real task adapters/verifiers remain pending those evidence contracts.
 - ⬜ Advertisement task flow without an unintended second verification advertisement.
 - ⬜ Anti-fraud hardening.
+- ⬜ Live Telegram Monetag acceptance remains open because prior Android Telegram testing reported `Advertisement unavailable` / `Error communicating with the ad server`. Repository contract tests do not prove live provider availability.
+
+## Phase 2 Verification Contract Clarification
+
+The repository has a generic verification boundary, but it does not currently define trusted evidence sources for each non-ad task category. Therefore:
+
+- client assertions such as `completed=true` are never sufficient evidence;
+- verifier implementations must use server-trusted evidence appropriate to the task type;
+- a verifier returns a success decision only and never writes Economy/Ledger state directly;
+- advertisement tasks are excluded from the two-action Execute → Verify model;
+- no provider-specific verifier is to be invented before its evidence source, identity binding, replay/idempotency rules and failure behavior are specified;
+- Phase 2 cannot close while a required category lacks both a defined evidence contract and corresponding tests.
+
+The detailed clarification is recorded in `docs/PHASE2_TASK_VERIFICATION_CONTRACT.md`.
 
 ## Later Phases
 
@@ -94,9 +110,10 @@ Phase 2 remains open until evidence exists for the **current commit** for all of
 ## Documentation Reconciliation
 
 - PR #26 is documentation-only but is based on an older `main` commit. It is **not** evidence for current state and must not be merged blindly.
-- Current documentation must describe the authenticated Daily Check-in HTTP boundary as it exists on current `main`.
-- Documentation must distinguish implemented backend boundaries from unverified production/runtime acceptance.
+- Current documentation describes the authenticated Daily Check-in HTTP boundary as it exists on current `main`.
+- Documentation distinguishes implemented backend boundaries from unverified production/runtime acceptance.
 - No duplicate specification/TDD/YAGNI file is required; the existing architecture/ADR documents remain authoritative.
+- `docs/PHASE2_TASK_VERIFICATION_CONTRACT.md` is a Phase 2 contract clarification, not permission to invent concrete verifier integrations.
 
 ## Update Rule
 
