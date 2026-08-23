@@ -5,6 +5,7 @@ const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, 
 const $ = id => document.getElementById(id);
 let monetagHandler = null;
 const MONETAG_READY_TIMEOUT_MS = 15000;
+const MONETAG_PRELOAD_TIMEOUT_SECONDS = 12;
 const DAILY_VERIFICATION_POLL_MS = 1000;
 const DAILY_VERIFICATION_POLL_LIMIT = 30000;
 
@@ -167,6 +168,13 @@ async function waitForDailyVerification() {
 async function startDailyCheckinAd(ymid) {
   if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
   const handler = await ensureMonetagSdk();
+  $('dailyText').textContent = 'Preparing the advertisement…';
+  await handler({
+    type: 'preload',
+    ymid,
+    requestVar: 'daily_checkin',
+    timeout: MONETAG_PRELOAD_TIMEOUT_SECONDS
+  });
   $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
   await handler({ ymid, requestVar: 'daily_checkin' });
 }
