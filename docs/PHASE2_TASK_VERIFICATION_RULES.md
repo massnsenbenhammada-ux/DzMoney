@@ -32,6 +32,40 @@ The verification advertisement duration is configurable between the agreed short
 
 The exact duration/configuration is controlled by the backend/Admin configuration and must not be trusted from the frontend.
 
+## Trusted evidence contract
+
+A verifier must derive its decision from **server-trusted evidence appropriate to the task type**.
+
+The following are never sufficient evidence by themselves:
+
+- client-provided `completed=true`;
+- arbitrary client timestamps;
+- arbitrary client counters;
+- client-only success flags;
+- equivalent frontend assertions that are not independently verified by the backend.
+
+The existing task verification service is the verification/reward boundary. A concrete verifier must return a success decision only; it must not mint rewards or write Economy/Ledger state directly.
+
+Before a concrete verifier is implemented for a category, the repository must define:
+
+1. the exact user action/event being verified;
+2. the trusted evidence source;
+3. identity binding between that evidence and the authenticated Telegram user;
+4. replay/idempotency behavior;
+5. failure behavior and, where relevant, reversal behavior.
+
+### Current category status
+
+The repository currently defines the generic verification boundary, but it does **not** define complete trusted evidence sources for the following categories:
+
+- **Daily:** evidence source not yet specified;
+- **Game:** evidence source not yet specified;
+- **Social:** evidence source and supported platform/provider not yet specified;
+- **Web:** evidence source not yet specified;
+- **Special/Partner:** partner/provider identity and trusted callback/evidence contract not yet specified.
+
+Therefore no concrete verifier/adapter for these categories may be invented merely to satisfy an implementation checklist. Until the evidence source and contract are defined, the category remains **pending specification** and Phase 2 remains open.
+
 ## Reward rules
 
 - Viewing the verification advertisement **does not create an additional task reward**.
@@ -66,6 +100,18 @@ The verification advertisement must remain distinguishable in audit metadata as 
 
 The final reward transaction must be atomic and idempotent.
 
+## Independence rules
+
+Task verification must remain independent from:
+
+- Referral lifetime rewards;
+- Squad modifiers;
+- Reward Pool distributions;
+- Promo rewards;
+- unrelated advertisement contexts.
+
+A verifier must never write to those systems directly.
+
 ## Acceptance criteria
 
 A Phase 2 implementation is not accepted unless all of the following pass:
@@ -74,6 +120,8 @@ A Phase 2 implementation is not accepted unless all of the following pass:
 - [ ] Advertisement tasks do not receive a second verification advertisement.
 - [ ] Verify cannot finalize a reward before the configured short ad gate is completed.
 - [ ] The backend performs the authoritative task verification.
+- [ ] Every implemented task category has a defined trusted evidence source.
+- [ ] Evidence is bound to the authenticated Telegram user where applicable.
 - [ ] Failed verification produces no task reward.
 - [ ] Successful verification produces exactly one configured reward.
 - [ ] Repeated Verify attempts cannot duplicate the reward.
@@ -82,7 +130,12 @@ A Phase 2 implementation is not accepted unless all of the following pass:
 - [ ] Task-earned DZP is the only DZP from this flow that contributes to activity weight.
 - [ ] The transaction and ledger records preserve the task source and verification-gate metadata.
 - [ ] Squad, Referral, Reward Pool and Promo logic remain independent from the task verification mechanism.
+- [ ] Tests exist for each concrete verifier before its category is considered complete.
 
 ## Implementation constraint
 
-**Do not implement Phase 2 until the complete Phase 2 design and acceptance criteria have been reviewed and approved.**
+**Do not implement a concrete Phase 2 task verifier until its trusted evidence contract is defined and the corresponding TDD behavior is specified.**
+
+If the required evidence source is not specified, the correct state is **pending specification**, not a guessed adapter.
+
+**Do not create another Phase 2 specification file for this contract. This file is the canonical task-verification behavior document.**
