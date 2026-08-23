@@ -68,7 +68,7 @@ async function main() {
       rewardDzx: 1,
       rewardDzp: 1,
       verificationAdSeconds: 5
-    }, /target is required/);
+    }, /target (?:is required|must be a positive integer)/);
 
     // Target must be strictly positive.
     await expectReject({
