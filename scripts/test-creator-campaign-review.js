@@ -11,7 +11,8 @@ async function main() {
   try {
     creator = await createUser({ telegramUserId: -Date.now(), username: marker, firstName: 'Campaign Review Test' });
     await pool.query(`INSERT INTO admin_settings(key,value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`, ['task.campaign_price_dzx_per_execution', '9']);
-    await postEconomyTransaction({ idempotencyKey: `${marker}:funding`, userId: creator.id, type: 'TEST_CREDIT', metadata: { source: 'creator_campaign_review_test' }, movements: [{ currency: 'DZX', amount: 100, source: 'test' }] });
+    await pool.query(`INSERT INTO admin_settings(key,value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`, ['task.campaign_rejection_tax_percent', '10']);
+    await postEconomyTransaction({ idempotencyKey: `${marker}:funding`, userId: creator.id, type: 'TEST_CREDIT', metadata: { source: 'creator_campaign_review_test' }, movements: [{ currency: 'DZX', amount: 200, source: 'test' }] });
 
     const campaign = await createCreatorCampaign({ taskType: 'social', title: 'Review lifecycle contract', creatorId: creator.id, target: 10, idempotencyKey: `${marker}:campaign`, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
     taskId = campaign.task.id;
@@ -27,7 +28,12 @@ async function main() {
     try {
       await assert.rejects(() => rejectCreatorCampaign(second.task.id, creator.id), /pending_review/);
       await submitCreatorCampaignForReview(second.task.id, creator.id);
-      await assert.rejects(() => rejectCreatorCampaign(second.task.id, creator.id), /refund.*contract|tax|not implemented/i);
+      const rejected = await rejectCreatorCampaign(second.task.id, creator.id);
+      assert.equal(rejected.task.status, 'refunded');
+      assert.equal(Number(rejected.taxPercent), 10);
+      assert.equal(Number(rejected.refundDZX), 8.1);
+      const duplicate = await rejectCreatorCampaign(second.task.id, creator.id);
+      assert.equal(duplicate.duplicate, true);
     } finally {
       await pool.query('DELETE FROM activity_tasks WHERE id=$1', [second.task.id]);
     }
@@ -44,7 +50,7 @@ async function main() {
       await pool.query('DELETE FROM ledger_transactions WHERE user_id=$1', [creator.id]);
       await pool.query('DELETE FROM users WHERE id=$1', [creator.id]);
     }
-    await pool.query('DELETE FROM admin_settings WHERE key=$1', ['task.campaign_price_dzx_per_execution']);
+    await pool.query('DELETE FROM admin_settings WHERE key IN ($1,$2)', ['task.campaign_price_dzx_per_execution', 'task.campaign_rejection_tax_percent']);
     await pool.end();
   }
 }
