@@ -1,10 +1,14 @@
-import createAdHandler from 'monetag-tg-sdk';
-
 const MONETAG_ZONE_ID = '11627577';
-const handler = createAdHandler(MONETAG_ZONE_ID);
+const MONETAG_HANDLER_NAME = `show_${MONETAG_ZONE_ID}`;
+
+function getHandler() {
+  return window[MONETAG_HANDLER_NAME];
+}
 
 window.DzMoneyMonetag = {
   zoneId: MONETAG_ZONE_ID,
-  handler,
-  provider: 'monetag-tg-sdk'
+  get handler() {
+    return getHandler();
+  },
+  provider: 'monetag-sdk-script'
 };
