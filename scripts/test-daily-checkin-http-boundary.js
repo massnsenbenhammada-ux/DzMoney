@@ -26,7 +26,8 @@ async function run() {
     startDailyCheckinClaim: async args => {
       calls.push(args);
       return { claimIdempotencyKey: args.idempotencyKey, adEvent: { id: 7 }, providerId: 'test-provider' };
-    }
+    },
+    getDailyCheckinStatus: async ({ userId }) => ({ status: 'pending', userId })
   };
   require.cache[walletPath].exports = { ...originalWallet, createUser: async () => ({ id: 42 }) };
 
@@ -55,8 +56,14 @@ async function run() {
     req.end();
   });
 
-  assert.strictEqual((await request('POST', '/api/daily-checkin/claim', { idempotencyKey: 'claim-1' })).status, 401);
+  assert.strictEqual((await request('GET', '/api/daily-checkin/status', null)).status, 401);
   const auth = buildInitData(123);
+  const status = await request('GET', '/api/daily-checkin/status', null, auth);
+  assert.strictEqual(status.status, 200);
+  assert.strictEqual(status.body.status, 'pending');
+  assert.strictEqual(status.body.userId, 42);
+
+  assert.strictEqual((await request('POST', '/api/daily-checkin/claim', { idempotencyKey: 'claim-1' })).status, 401);
   const claim = await request('POST', '/api/daily-checkin/claim', { idempotencyKey: 'claim-1' }, auth);
   assert.strictEqual(claim.status, 200);
   assert.strictEqual(claim.body.adEvent.id, 7);
