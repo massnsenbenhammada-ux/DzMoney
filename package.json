@@ -33,7 +33,6 @@
   "dependencies": {
     "esbuild": "^0.28.1",
     "express": "^5.2.1",
-    "monetag-tg-sdk": "^1.0.4",
     "pg": "^8.16.3"
   }
 }
