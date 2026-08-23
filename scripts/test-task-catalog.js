@@ -25,7 +25,8 @@ async function main() {
       rewardCoin: 1000,
       rewardDzx: 1,
       rewardDzp: 1,
-      verificationAdSeconds: 5
+      verificationAdSeconds: 5,
+      config: { completion: { mode: 'open_link', url: 'https://example.test/daily' } }
     });
     const social = await createTask({
       taskType: 'social',
@@ -48,6 +49,7 @@ async function main() {
     assert.strictEqual(filtered[0].rewardCoin, 1000);
     assert.strictEqual(filtered[0].rewardDzx, 1);
     assert.strictEqual(filtered[0].rewardDzp, 1);
+    assert.deepStrictEqual(filtered[0].completion, { mode: 'open_link', url: 'https://example.test/daily' });
 
     console.log('Task catalog foundation invariants: PASS');
   } catch (error) {
