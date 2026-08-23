@@ -10,6 +10,7 @@ async function main() {
   let user;
   let taskId;
   const marker = `campaign-economics-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const campaignKey = `${marker}:campaign`;
 
   try {
     user = await createUser({
@@ -38,6 +39,7 @@ async function main() {
       title: 'Campaign economics contract',
       creatorId: user.id,
       target: 1000,
+      idempotencyKey: campaignKey,
       rewardCoin: 1000,
       rewardDzx: 1,
       rewardDzp: 1,
@@ -70,6 +72,28 @@ async function main() {
     assert.equal(Number(ledger.rows[0].metadata.applied_price_dzx), 9);
     assert.equal(Number(ledger.rows[0].metadata.campaign_cost_dzx), 9000);
 
+    // Replaying the same idempotency key must not debit the Creator twice.
+    const duplicate = await createCreatorCampaign({
+      taskType: 'social',
+      title: 'Campaign economics contract',
+      creatorId: user.id,
+      target: 1000,
+      idempotencyKey: campaignKey,
+      rewardCoin: 1000,
+      rewardDzx: 1,
+      rewardDzp: 1,
+      verificationAdSeconds: 5,
+      config: { test: true }
+    });
+    assert.equal(duplicate.duplicate, true);
+    assert.equal(String(duplicate.task.id), String(taskId));
+
+    const walletAfterDuplicate = await pool.query(
+      `SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZX'`,
+      [user.id]
+    );
+    assert.equal(Number(walletAfterDuplicate.rows[0].balance), 1000);
+
     // A campaign must never calculate its authoritative price from Creator input.
     await assert.rejects(
       () => createCreatorCampaign({
@@ -77,6 +101,7 @@ async function main() {
         title: 'Client price injection',
         creatorId: user.id,
         target: 1,
+        idempotencyKey: `${marker}:injection`,
         priceDZX: 1,
         rewardCoin: 1000,
         rewardDzx: 1,
