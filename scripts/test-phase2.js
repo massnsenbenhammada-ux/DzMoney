@@ -55,7 +55,7 @@ async function main() {
   let taskId;
   try {
     userId = await createTestUser();
-    const task = await createTask({ taskType: 'social', title: 'Phase 2 verification test', rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
+    const task = await createTask({ taskType: 'social', title: 'Phase 2 verification test', creatorId: userId, target: 1000, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
     taskId = task.id;
     await transitionTaskStatus(taskId, 'pending_review');
     await activateTask(taskId);
