@@ -16,7 +16,7 @@ function validateMonetagPostback(payload = {}) {
   const price = Number(payload.estimated_price);
 
   if (zoneId !== MONETAG_ZONE_ID) throw new Error('Monetag zone does not match');
-  if (eventType !== 'impression') throw new Error('Monetag event is not an impression');
+  if (!['impression', 'click'].includes(eventType)) throw new Error('Monetag event type is unsupported');
   if (rewardEventType !== 'valued') throw new Error('Monetag event is not a rewarded event');
   if (requestVar !== MONETAG_CONTEXT) throw new Error('Monetag request context does not match');
   if (!Number.isFinite(price) || price < 0) throw new Error('Monetag estimated price is invalid');

@@ -23,6 +23,12 @@ function testAcceptsPaidImpression() {
   assert.strictEqual(result.rewardEventType, 'valued');
 }
 
+function testAcceptsPaidClick() {
+  const result = validateMonetagPostback(validPayload({ event_type: 'click' }));
+  assert.strictEqual(result.eligible, true);
+  assert.strictEqual(result.eventType, 'click');
+}
+
 function testRejectsWrongZone() {
   assert.throws(() => validateMonetagPostback(validPayload({ zone_id: '999' })), /zone/i);
 }
@@ -31,8 +37,8 @@ function testRejectsUnpaidImpression() {
   assert.throws(() => validateMonetagPostback(validPayload({ reward_event_type: 'non_valued' })), /reward/i);
 }
 
-function testRejectsClickAsReward() {
-  assert.throws(() => validateMonetagPostback(validPayload({ event_type: 'click' })), /event/i);
+function testRejectsUnknownEventType() {
+  assert.throws(() => validateMonetagPostback(validPayload({ event_type: 'complete' })), /event/i);
 }
 
 function testRejectsWrongContext() {
@@ -50,9 +56,10 @@ function testRejectsInvalidPrice() {
 
 try {
   testAcceptsPaidImpression();
+  testAcceptsPaidClick();
   testRejectsWrongZone();
   testRejectsUnpaidImpression();
-  testRejectsClickAsReward();
+  testRejectsUnknownEventType();
   testRejectsWrongContext();
   testRequiresYmidAndTelegramId();
   testRejectsInvalidPrice();
