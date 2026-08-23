@@ -2,6 +2,7 @@ const { withTransaction, query } = require('../db/pool');
 const { validateVerificationConfig } = require('./task-verification-config');
 
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
+const CREATOR_CAMPAIGN_TYPES = ['game', 'social', 'web'];
 const TASK_STATUSES = ['draft', 'pending_review', 'active', 'paused', 'completed', 'expired', 'closed', 'refunded'];
 const VERIFICATION_SECONDS = [5, 10];
 const TASK_STATUS_TRANSITIONS = {
@@ -24,6 +25,21 @@ function normalizeReward(value, name) {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n) || n < 0) throw new Error(`${name} must be a non-negative number`);
   return n;
+}
+
+function normalizeCampaignFields(taskType, creatorId, target) {
+  const isCreatorCampaign = CREATOR_CAMPAIGN_TYPES.includes(taskType);
+
+  if (!isCreatorCampaign) {
+    return { creatorId: null, target: null };
+  }
+
+  requiredId(creatorId, 'creatorId');
+  if (!Number.isInteger(target) || target <= 0) {
+    throw new Error('target must be a positive integer');
+  }
+
+  return { creatorId, target };
 }
 
 function canTransitionTaskStatus(from, to) {
@@ -59,10 +75,12 @@ async function listActiveTasks({ taskType = null } = {}) {
   }));
 }
 
-async function createTask({ taskType, title, description = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
+async function createTask({ taskType, title, description = null, creatorId = null, target = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
   if (!TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
   if (!title) throw new Error('title is required');
   validateVerificationConfig(config);
+  const campaign = normalizeCampaignFields(taskType, creatorId, target);
+
   return withTransaction(async client => {
     const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(client, 'activity.verification_ad_seconds', 5);
     if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) throw new Error('verification ad duration must be 5 or 10 seconds');
@@ -73,9 +91,9 @@ async function createTask({ taskType, title, description = null, rewardCoin, rew
     };
     if (!rewards.coin && !rewards.dzx && !rewards.dzp) throw new Error('At least one task reward is required');
     const result = await client.query(
-      `INSERT INTO activity_tasks(task_type,title,description,reward_coin,reward_dzx,reward_dzp,verification_ad_seconds,status,config)
-       VALUES($1,$2,$3,$4,$5,$6,$7,'draft',$8) RETURNING *`,
-      [taskType, title, description, rewards.coin, rewards.dzx, rewards.dzp, Number(configuredSeconds), config]
+      `INSERT INTO activity_tasks(task_type,title,description,creator_id,target,reward_coin,reward_dzx,reward_dzp,verification_ad_seconds,status,config)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'draft',$10) RETURNING *`,
+      [taskType, title, description, campaign.creatorId, campaign.target, rewards.coin, rewards.dzx, rewards.dzp, Number(configuredSeconds), config]
     );
     return result.rows[0];
   });
@@ -132,4 +150,4 @@ async function executeTask({ taskId, userId, idempotencyKey, metadata = {} }) {
   });
 }
 
-module.exports = { TASK_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, transitionTaskStatus, canTransitionTaskStatus, activateTask, getTask, listActiveTasks, executeTask };
+module.exports = { TASK_TYPES, CREATOR_CAMPAIGN_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, transitionTaskStatus, canTransitionTaskStatus, activateTask, getTask, listActiveTasks, executeTask };
