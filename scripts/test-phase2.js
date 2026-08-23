@@ -30,14 +30,14 @@ async function balance(userId, currency) {
   return Number(result.rows[0].balance);
 }
 
-async function cleanupTestData(userId, taskId) {
+async function cleanupTestData(userId, taskIds) {
   await withTransaction(async client => {
     await client.query(`DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)`, [userId]);
     await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)', [userId]);
     await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM task_attempts WHERE user_id=$1', [userId]);
-    if (taskId) await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+    if (taskIds.length) await client.query('DELETE FROM activity_tasks WHERE id = ANY($1::bigint[])', [taskIds]);
     await client.query('DELETE FROM users WHERE id=$1', [userId]);
   });
 }
@@ -52,15 +52,15 @@ async function verifyAd(adEventId, providerPayload) {
 
 async function main() {
   let userId;
-  let taskId;
+  const taskIds = [];
   try {
     userId = await createTestUser();
     const task = await createTask({ taskType: 'social', title: 'Phase 2 verification test', rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
-    taskId = task.id;
-    await transitionTaskStatus(taskId, 'pending_review');
-    await activateTask(taskId);
+    taskIds.push(task.id);
+    await transitionTaskStatus(task.id, 'pending_review');
+    await activateTask(task.id);
 
-    const execution = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-${Date.now()}` });
+    const execution = await executeTask({ taskId: task.id, userId, idempotencyKey: `phase2-exec-${Date.now()}` });
     assert.strictEqual(execution.attempt.status, 'verification_pending');
     assert.strictEqual(execution.gate.required_seconds, 5);
 
@@ -87,7 +87,7 @@ async function main() {
     assert.strictEqual(rejected.rewarded, false);
     assert.strictEqual(await balance(userId, 'COIN'), 0);
 
-    const execution3 = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-3-${Date.now()}` });
+    const execution3 = await executeTask({ taskId: task.id, userId, idempotencyKey: `phase2-exec-3-${Date.now()}` });
     const ad3 = await startVerificationAd(execution3.attempt.id, `phase2-ad-3-${Date.now()}`, 'phase2-test-ad-3');
     await verifyAd(ad3.adEvent.id, { accepted: true, reference: 'test-provider-ref-3' });
     await assert.rejects(
@@ -98,7 +98,7 @@ async function main() {
     assert.strictEqual(pending.rows[0].status, 'verification_pending');
     await finalizeTaskVerification({ attemptId: execution3.attempt.id, idempotencyKey: `phase2-rejected-after-contract-${Date.now()}`, verifyTaskCompletion: async () => false });
 
-    const execution2 = await executeTask({ taskId, userId, idempotencyKey: `phase2-exec-2-${Date.now()}` });
+    const execution2 = await executeTask({ taskId: task.id, userId, idempotencyKey: `phase2-exec-2-${Date.now()}` });
     const ad2 = await startVerificationAd(execution2.attempt.id, `phase2-ad-2-${Date.now()}`, 'phase2-test-ad-2');
     await verifyAd(ad2.adEvent.id, { accepted: true, reference: 'test-provider-ref-2' });
 
@@ -115,11 +115,30 @@ async function main() {
     assert.strictEqual(await balance(userId, 'DZX'), 1);
     assert.strictEqual(await balance(userId, 'DZP'), 1);
 
+    const openLinkTask = await createTask({
+      taskType: 'web',
+      title: 'Phase 2 open link test',
+      rewardCoin: 500,
+      rewardDzx: 1,
+      rewardDzp: 0,
+      verificationAdSeconds: 5,
+      config: { completion: { mode: 'open_link', url: 'https://example.test/task' } }
+    });
+    taskIds.push(openLinkTask.id);
+    await transitionTaskStatus(openLinkTask.id, 'pending_review');
+    await activateTask(openLinkTask.id);
+    const openExecution = await executeTask({ taskId: openLinkTask.id, userId, idempotencyKey: `phase2-open-exec-${Date.now()}` });
+    const openAd = await startVerificationAd(openExecution.attempt.id, `phase2-open-ad-${Date.now()}`, 'phase2-open-test-ad');
+    await verifyAd(openAd.adEvent.id, { accepted: true, reference: 'test-open-provider-ref' });
+    const openVerified = await finalizeTaskVerification({ attemptId: openExecution.attempt.id, idempotencyKey: `phase2-open-reward-${Date.now()}` });
+    assert.strictEqual(openVerified.rewarded, true);
+    assert.strictEqual(await balance(userId, 'COIN'), 1500);
+
     const ads = await pool.query(`SELECT context, verified, metadata->>'provider_id' AS provider_id FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
-    assert.ok(ads.rows.length === 3 && ads.rows.every(row => row.context === 'verification' && row.verified && row.provider_id === 'test-ads'));
+    assert.ok(ads.rows.length === 4 && ads.rows.every(row => row.context === 'verification' && row.verified && row.provider_id === 'test-ads'));
 
     const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`, [userId]);
-    assert.strictEqual(ledger.rows[0].count, 3);
+    assert.strictEqual(ledger.rows[0].count, 4);
 
     console.log('Phase 2 task verification invariants: PASS');
   } catch (error) {
@@ -128,7 +147,7 @@ async function main() {
     process.exitCode = 1;
   } finally {
     if (userId) {
-      try { await cleanupTestData(userId, taskId); }
+      try { await cleanupTestData(userId, taskIds); }
       catch (cleanupError) { console.error('Phase 2 test cleanup: FAIL'); console.error(cleanupError); process.exitCode = 1; }
     }
     await pool.end();
