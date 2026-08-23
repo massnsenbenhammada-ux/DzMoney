@@ -27,6 +27,27 @@ async function getDailyCheckinSettings(client) {
   return { cooldownHours, reward: { coin, dzx, dzp } };
 }
 
+/** Return the server-authoritative Daily Check-in UI state. */
+async function getDailyCheckinStatus({ userId }) {
+  requiredId(userId, 'userId');
+  const result = await query(
+    `SELECT d.last_claimed_at,a.id AS ad_event_id,a.verified
+     FROM daily_checkins d
+     LEFT JOIN activity_ad_events a ON a.id=d.ad_event_id
+     WHERE d.user_id=$1`,
+    [userId]
+  );
+  if (!result.rowCount) return { status: 'available' };
+  const state = result.rows[0];
+  if (state.last_claimed_at) {
+    const settings = await getDailyCheckinSettings({ query: (...args) => query(...args) });
+    const nextEligibleAt = new Date(new Date(state.last_claimed_at).getTime() + settings.cooldownHours * 3600000);
+    if (nextEligibleAt.getTime() > Date.now()) return { status: 'cooldown', nextEligibleAt: nextEligibleAt.toISOString() };
+  }
+  if (state.ad_event_id && !state.verified) return { status: 'pending' };
+  return { status: 'available' };
+}
+
 /** Start the Daily Check-in ad gate and generate its trusted external event id. */
 async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry, providerId = null }) {
   requiredId(userId, 'userId');
@@ -120,4 +141,4 @@ async function finalizeDailyCheckin({ userId, claimIdempotencyKey }) {
   });
 }
 
-module.exports = { startDailyCheckinClaim, verifyDailyCheckinAd, finalizeDailyCheckin, getDailyCheckinSettings };
+module.exports = { startDailyCheckinClaim, verifyDailyCheckinAd, finalizeDailyCheckin, getDailyCheckinSettings, getDailyCheckinStatus };
