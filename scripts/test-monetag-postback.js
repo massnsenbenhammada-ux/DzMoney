@@ -29,12 +29,25 @@ function testAcceptsPaidClick() {
   assert.strictEqual(result.eventType, 'click');
 }
 
+function testAcceptsLegacyPaidValueFromCurrentSspUi() {
+  const result = validateMonetagPostback(validPayload({ reward_event_type: 'yes' }));
+  assert.strictEqual(result.eligible, true);
+  assert.strictEqual(result.rewardEventType, 'yes');
+}
+
+function testAcceptsMissingTelegramId() {
+  const result = validateMonetagPostback(validPayload({ telegram_id: '' }));
+  assert.strictEqual(result.eligible, true);
+  assert.strictEqual(result.telegramId, null);
+}
+
 function testRejectsWrongZone() {
   assert.throws(() => validateMonetagPostback(validPayload({ zone_id: '999' })), /zone/i);
 }
 
 function testRejectsUnpaidImpression() {
   assert.throws(() => validateMonetagPostback(validPayload({ reward_event_type: 'non_valued' })), /reward/i);
+  assert.throws(() => validateMonetagPostback(validPayload({ reward_event_type: 'no' })), /reward/i);
 }
 
 function testRejectsUnknownEventType() {
@@ -45,9 +58,8 @@ function testRejectsWrongContext() {
   assert.throws(() => validateMonetagPostback(validPayload({ request_var: 'task' })), /request/i);
 }
 
-function testRequiresYmidAndTelegramId() {
+function testRequiresYmid() {
   assert.throws(() => validateMonetagPostback(validPayload({ ymid: '' })), /ymid/i);
-  assert.throws(() => validateMonetagPostback(validPayload({ telegram_id: '' })), /telegram/i);
 }
 
 function testRejectsInvalidPrice() {
@@ -57,11 +69,13 @@ function testRejectsInvalidPrice() {
 try {
   testAcceptsPaidImpression();
   testAcceptsPaidClick();
+  testAcceptsLegacyPaidValueFromCurrentSspUi();
+  testAcceptsMissingTelegramId();
   testRejectsWrongZone();
   testRejectsUnpaidImpression();
   testRejectsUnknownEventType();
   testRejectsWrongContext();
-  testRequiresYmidAndTelegramId();
+  testRequiresYmid();
   testRejectsInvalidPrice();
   console.log('Monetag rewarded postback invariants: PASS');
 } catch (error) {

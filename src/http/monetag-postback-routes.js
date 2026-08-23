@@ -10,9 +10,19 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
   if (!secret) throw new Error('Monetag postback secret is required');
 
   router.get('/', async (req, res, next) => {
+    const payload = req.query;
+    console.info('[Monetag postback] received', {
+      ymid: payload.ymid || null,
+      eventType: payload.event_type || null,
+      rewardEventType: payload.reward_event_type || null,
+      zoneId: payload.zone_id || null,
+      subZoneId: payload.sub_zone_id || null,
+      requestVar: payload.request_var || null,
+      telegramIdPresent: Boolean(payload.telegram_id)
+    });
+
     try {
       if (req.query.token !== secret) return res.status(401).json({ ok: false, error: 'Unauthorized' });
-      const payload = req.query;
       const eventResult = await query(
         `SELECT a.id,a.user_id,a.context,a.external_ad_id,a.verified,u.telegram_user_id,d.claim_idempotency_key
          FROM activity_ad_events a
@@ -23,7 +33,9 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
       );
       if (eventResult.rowCount !== 1) return res.status(404).json({ ok: false, error: 'Advertisement event not found' });
       const event = eventResult.rows[0];
-      if (String(event.telegram_user_id) !== String(payload.telegram_id)) return res.status(403).json({ ok: false, error: 'Advertisement user does not match' });
+      if (payload.telegram_id && String(event.telegram_user_id) !== String(payload.telegram_id)) {
+        return res.status(403).json({ ok: false, error: 'Advertisement user does not match' });
+      }
       const result = await verifyWithProvider(providerRegistry, {
         context: 'daily_checkin',
         providerId: MONETAG_PROVIDER_ID,

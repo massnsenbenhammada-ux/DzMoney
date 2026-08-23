@@ -22,6 +22,7 @@ async function run() {
     ymid: 'attempt-1', request_var: 'daily_checkin'
   };
   assert.doesNotThrow(() => validateMonetagPostback(validPayload));
+  assert.doesNotThrow(() => validateMonetagPostback({ ...validPayload, telegram_id: '', reward_event_type: 'yes' }));
   assert.throws(() => validateMonetagPostback({ ...validPayload, reward_event_type: 'non_valued' }), /not a rewarded event/);
 
   require.cache[poolPath].exports = {
@@ -61,6 +62,11 @@ async function run() {
   assert.strictEqual(ok.status, 200);
   assert.strictEqual(ok.body.verified, true);
   assert.strictEqual(ok.body.rewarded, true);
+
+  const missingTelegramId = await request('/api/ads/monetag/postback?token=secret&telegram_id=&zone_id=11627577&event_type=impression&reward_event_type=yes&estimated_price=0.01000&ymid=attempt-1&request_var=daily_checkin');
+  assert.strictEqual(missingTelegramId.status, 200);
+  assert.strictEqual(missingTelegramId.body.verified, true);
+  assert.strictEqual(missingTelegramId.body.rewarded, true);
 
   await new Promise(resolve => server.close(resolve));
   require.cache[poolPath].exports = originalPool;
