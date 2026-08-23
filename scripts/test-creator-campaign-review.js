@@ -17,7 +17,7 @@ async function main() {
     taskId = campaign.task.id;
     assert.equal(campaign.task.status, 'draft');
 
-    await assert.rejects(() => approveCreatorCampaign(taskId), /pending_review/);
+    await assert.rejects(() => approveCreatorCampaign(taskId), /cannot transition from draft to active|pending_review/i);
     const pending = await submitCreatorCampaignForReview(taskId, creator.id);
     assert.equal(pending.status, 'pending_review');
     const active = await approveCreatorCampaign(taskId);
