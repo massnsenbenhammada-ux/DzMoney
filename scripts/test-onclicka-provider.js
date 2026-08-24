@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { ONCLICKA_PROVIDER_ID, createOnclickaProvider } = require('../src/services/onclicka-adapter');
+const { ONCLICKA_ENABLED, ONCLICKA_PRIORITY, ONCLICKA_SPOT_ID } = require('../src/config/onclicka');
 
 async function testProviderContract() {
   const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
@@ -36,6 +37,12 @@ async function testRejectsMissingUser() {
   );
 }
 
+function testOnclickaIsActiveByDefault() {
+  assert.strictEqual(ONCLICKA_ENABLED, true);
+  assert.strictEqual(ONCLICKA_PRIORITY > 100, true);
+  assert.strictEqual(ONCLICKA_SPOT_ID, '6134799');
+}
+
 function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
   assert.match(html, /__MONETAG_SCRIPTS__/);
@@ -48,6 +55,7 @@ function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
     await testRejectsUnauthenticatedCompletion();
     await testRejectsWrongSpot();
     await testRejectsMissingUser();
+    testOnclickaIsActiveByDefault();
     testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider();
     console.log('OnClickA provider contract: PASS');
   } catch (error) {
