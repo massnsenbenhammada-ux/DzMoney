@@ -17,9 +17,12 @@ const sdkBundle = index.includes('/monetag-adapter.bundle.js');
 const stylesheet = index.match(/<link[^>]+rel=["']stylesheet["'][^>]+href=["']\/style\.css(?:\?[^"']*)?["']/i);
 const mobileDiagnostics = diagnostics.includes('Copy diagnostics')
   && diagnostics.includes('navigator.clipboard.writeText')
-  && diagnostics.includes('JSON.stringify(evidence, null, 2)');
+  && diagnostics.includes('JSON.stringify(window.__DzMoneyMonetagRuntime, null, 2)');
 const selectableDiagnostics = diagnostics.includes('textarea')
   && diagnostics.includes('readOnly = true');
+const deferredDiagnostics = diagnostics.includes('document.body')
+  && diagnostics.includes('DOMContentLoaded')
+  && diagnostics.includes('exposeEvidence');
 
 if (checkinStart < 0 || sdkWait < 0 || claimCall < 0 || sdkWait > claimCall || !sdkBundle) {
   throw new Error('Daily Check-in must wait for the Monetag adapter before creating a server claim');
@@ -37,9 +40,14 @@ if (!mobileDiagnostics || !selectableDiagnostics) {
   throw new Error('Monetag runtime evidence must be copyable from mobile');
 }
 
+if (!deferredDiagnostics) {
+  throw new Error('Monetag diagnostics must defer DOM rendering until the body exists');
+}
+
 console.log('FRONTEND_SYNTAX: PASS');
 console.log('DAILY_ACTION_BINDING: PASS');
 console.log('DAILY_SDK_READINESS_ORDER: PASS');
 console.log('DAILY_VERIFICATION_STATUS_SYNC: PASS');
 console.log('STYLESHEET_LINK: PASS');
 console.log('MONETAG_MOBILE_DIAGNOSTICS: PASS');
+console.log('MONETAG_DIAGNOSTICS_DOM_TIMING: PASS');
