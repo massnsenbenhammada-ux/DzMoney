@@ -17,7 +17,7 @@ const sdkBundle = index.includes('/monetag-adapter.bundle.js');
 const stylesheet = index.match(/<link[^>]+rel=["']stylesheet["'][^>]+href=["']\/style\.css(?:\?[^"']*)?["']/i);
 const mobileDiagnostics = diagnostics.includes('Copy diagnostics')
   && diagnostics.includes('navigator.clipboard.writeText')
-  && diagnostics.includes('JSON.stringify(window.__DzMoneyMonetagRuntime, null, 2)');
+  && diagnostics.includes('JSON.stringify(window.__DzMoneyMonetagRuntime || {}, null, 2)');
 const selectableDiagnostics = diagnostics.includes('textarea')
   && diagnostics.includes('readOnly = true');
 const deferredDiagnostics = diagnostics.includes('document.body')
