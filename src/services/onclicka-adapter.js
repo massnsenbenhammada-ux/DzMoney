@@ -23,6 +23,7 @@ function createOnclickaProvider(options = {}) {
     clientConfig: { scriptUrl: ONCLICKA_SCRIPT_URL, spotId },
     async verifyCompletion(payload = {}) {
       const userId = requiredUserId(payload.USERID ?? payload.userId);
+      if (!payload.confirmedByPostback) throw new Error('Authenticated OnClickA postback is required');
       if (payload.spot_id && String(payload.spot_id) !== spotId) throw new Error('Spot ID mismatch');
       return {
         verified: true,
