@@ -18,6 +18,7 @@
     "test:daily-checkin-http": "node ./scripts/test-daily-checkin-http-boundary.js",
     "test:task-catalog": "node ./scripts/test-task-catalog.js",
     "test:task-execution": "node ./scripts/test-task-execution.js",
+    "test:task-execution-http": "node ./scripts/test-task-execution-http-boundary.js",
     "test:task-lifecycle": "node ./scripts/test-task-lifecycle.js",
     "test:task-click-http": "node ./scripts/test-task-click-http-boundary.js",
     "test:task-list-http": "node ./scripts/test-task-list-http.js",
@@ -34,7 +35,7 @@
     "test:monetag-finalization": "node ./scripts/test-monetag-postback-finalization.js",
     "test:daily-checkin-monetag-contract": "node ./scripts/test-daily-checkin-monetag-contract.js",
     "test:frontend": "node ./scripts/validate-frontend.js",
-    "test:all": "npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:daily-checkin && npm run test:daily-checkin-http && npm run test:task-catalog && npm run test:task-execution && npm run test:task-lifecycle && npm run test:task-click-http && npm run test:task-list-http && npm run test:task-list-frontend && npm run test:task-verification-config && npm run test:creator-campaign-contract && npm run test:creator-campaign-economics && npm run test:creator-campaign-review && npm run test:creator-campaign-tax-refund && npm run test:daily-task-check-for-update && npm run test:ad-provider-system && npm run test:monetag-postback && npm run test:monetag-ymid && npm run test:monetag-finalization && npm run test:daily-checkin-monetag-contract && npm run reconcile:economy"
+    "test:all": "npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:daily-checkin && npm run test:daily-checkin-http && npm run test:task-catalog && npm run test:task-execution && npm run test:task-execution-http && npm run test:task-lifecycle && npm run test:task-click-http && npm run test:task-list-http && npm run test:task-list-frontend && npm run test:task-verification-config && npm run test:creator-campaign-contract && npm run test:creator-campaign-economics && npm run test:creator-campaign-review && npm run test:creator-campaign-tax-refund && npm run test:daily-task-check-for-update && npm run test:ad-provider-system && npm run test:monetag-postback && npm run test:monetag-ymid && npm run test:monetag-finalization && npm run test:daily-checkin-monetag-contract && npm run reconcile:economy"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
