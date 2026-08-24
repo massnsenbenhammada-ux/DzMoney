@@ -2,9 +2,9 @@ const { AdProviderRegistry } = require('./ad-provider-service');
 const { createMonetagProvider } = require('./monetag-adapter');
 const { createOnclickaProvider } = require('./onclicka-adapter');
 
-// Single runtime registry. Provider adapters are registered here server-side as they are integrated.
+// Single runtime registry. OnClickA is the active provider unless explicitly disabled.
 const registry = new AdProviderRegistry([
-  createOnclickaProvider(),
+  createOnclickaProvider({ enabled: process.env.ONCLICKA_ENABLED !== 'false' }),
   createMonetagProvider()
 ]);
 
