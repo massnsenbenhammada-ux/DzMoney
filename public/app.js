@@ -50,6 +50,8 @@ function renderBalances() {
   $('coinBalance').textContent = format(state.balance.coin);
   $('dzxBalance').textContent = format(state.balance.dzx);
   $('dzpBalance').textContent = format(state.balance.dzp);
+  $('totalBalance').textContent = format(state.balance.dzx);
+  $('walletBalance').textContent = format(state.balance.dzx);
 }
 async function api(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
@@ -82,3 +84,203 @@ async function loadMe() {
     else toast('Account data is temporarily unavailable.');
   }
 }
+function renderTasks() {
+  const container = $('tasksList');
+  if (!container) return;
+  if (!state.tasks.length) {
+    container.innerHTML = '<article class="info-card"><strong>No tasks available</strong><p>There are no active tasks available for your account right now.</p></article>';
+    return;
+  }
+  container.innerHTML = state.tasks.map(task => `
+    <article class="task-card" data-task-id="${String(task.id)}">
+      <div class="task-icon">▶</div>
+      <div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.type || 'Activity')}</span><small>${String(task.completion?.mode || 'verified')}</small></div>
+      <button class="secondary-btn task-action" data-task-id="${String(task.id)}">${task.completion?.mode === 'open_link' ? 'Open' : 'Verify'}</button>
+    </article>`).join('');
+}
+async function loadTasks() {
+  const container = $('tasksList');
+  if (container) container.innerHTML = '<article class="info-card"><strong>Loading tasks…</strong></article>';
+  try {
+    const data = await api('/api/tasks');
+    state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    renderTasks();
+  } catch (error) {
+    state.tasks = [];
+    if (container) container.innerHTML = `<article class="info-card"><strong>Unable to load tasks</strong><p>${String(error.message || 'Please try again later.')}</p></article>`;
+  }
+}
+async function waitForTaskVerification(attemptId) {
+  const deadline = Date.now() + TASK_VERIFICATION_POLL_LIMIT;
+  while (Date.now() < deadline) {
+    const status = await api(`/api/tasks/attempt/${encodeURIComponent(attemptId)}`);
+    if (status.status === 'verified') {
+      await loadMe();
+      return status;
+    }
+    if (status.status === 'rejected') return status;
+    await wait(TASK_VERIFICATION_POLL_MS);
+  }
+  return api(`/api/tasks/attempt/${encodeURIComponent(attemptId)}`);
+}
+async function showTaskVerificationAd(ymid) {
+  if (!ymid) throw new Error('Task verification advertisement id is missing');
+  const handler = await ensureMonetagSdk();
+  await handler({ type: 'preload', ymid, requestVar: 'verification', timeout: MONETAG_PRELOAD_TIMEOUT_SECONDS });
+  await handler({ ymid, requestVar: 'verification' });
+}
+async function startTaskExecutionFlow(taskId) {
+  const task = state.tasks.find(item => String(item.id) === String(taskId));
+  if (!task) throw new Error('Task is no longer available');
+
+  const completionWindow = task.completion?.mode === 'open_link' && task.completion?.url
+    ? window.open('about:blank', '_blank', 'noopener,noreferrer')
+    : null;
+  const idempotencyKey = `task:${task.id}:${crypto.randomUUID()}`;
+  const result = await api('/api/tasks/execute', {
+    method: 'POST',
+    body: JSON.stringify({ taskId: task.id, idempotencyKey, metadata: { source: 'tasks_ui' } })
+  });
+
+  toast('Preparing the verification advertisement…');
+  await showTaskVerificationAd(result.verificationAdId);
+
+  if (task.completion?.mode === 'open_link' && task.completion?.url) {
+    if (completionWindow) {
+      completionWindow.location.href = task.completion.url;
+    } else {
+      window.location.href = task.completion.url;
+      return result;
+    }
+    const click = await api('/api/tasks/click', {
+      method: 'POST',
+      body: JSON.stringify({ attemptId: result.attemptId })
+    });
+    if (click.status === 'verified') {
+      await loadMe();
+      toast('Task verified and reward credited.');
+      return { ...result, ...click };
+    }
+    toast('Task opened. Waiting for server verification…');
+    const status = await waitForTaskVerification(result.attemptId);
+    if (status.status === 'verified') toast('Task verified and reward credited.');
+    else if (status.status === 'rejected') toast('Task verification was rejected.');
+    else toast('Server verification is still pending.');
+    return { ...result, ...click, verification: status };
+  }
+
+  const status = await waitForTaskVerification(result.attemptId);
+  if (status.status === 'verified') toast('Task verified and reward credited.');
+  else if (status.status === 'rejected') toast('Task verification was rejected.');
+  else toast('Task verification is still pending.');
+  return { ...result, verification: status };
+}
+function setDailyButton(button, text, disabled) { button.disabled = disabled; button.textContent = text; }
+function formatCooldown(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+function startDailyCooldown(nextEligibleAt) {
+  const until = new Date(nextEligibleAt).getTime();
+  if (!Number.isFinite(until)) return;
+  state.dailyCooldownUntil = until;
+  state.dailyVerificationPending = false;
+  clearInterval(startDailyCooldown.timer);
+  const button = $('dailyBtn');
+  const tick = () => {
+    const remaining = state.dailyCooldownUntil - Date.now();
+    if (remaining <= 0) {
+      state.dailyCooldownUntil = null;
+      clearInterval(startDailyCooldown.timer);
+      setDailyButton(button, 'Check in', false);
+      $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+      return;
+    }
+    setDailyButton(button, `Cooldown ${formatCooldown(remaining)}`, true);
+    $('dailyText').textContent = `Daily Check-in available again in ${formatCooldown(remaining)}.`;
+  };
+  tick();
+  startDailyCooldown.timer = setInterval(tick, 1000);
+}
+function setDailyVerificationPending(pending) {
+  state.dailyVerificationPending = pending;
+  if (!pending || state.dailyCooldownUntil) return;
+  const button = $('dailyBtn');
+  setDailyButton(button, 'Verifying…', true);
+  $('dailyText').textContent = 'Advertisement completed. Waiting for server verification.';
+}
+async function loadDailyStatus() {
+  try {
+    const status = await api('/api/daily-checkin/status');
+    if (status.status === 'cooldown' && status.nextEligibleAt) { startDailyCooldown(status.nextEligibleAt); return status; }
+    if (status.status === 'pending') { setDailyVerificationPending(true); return status; }
+    state.dailyVerificationPending = false;
+    if (!state.dailyBusy) setDailyButton($('dailyBtn'), 'Check in', false);
+    $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
+    return status;
+  } catch { return null; }
+}
+async function waitForDailyVerification() {
+  const deadline = Date.now() + DAILY_VERIFICATION_POLL_LIMIT;
+  while (Date.now() < deadline) {
+    const status = await loadDailyStatus();
+    if (status?.status === 'cooldown') { await loadMe(); return true; }
+    if (status?.status === 'available') return false;
+    await wait(DAILY_VERIFICATION_POLL_MS);
+  }
+  setDailyVerificationPending(true);
+  return false;
+}
+async function startDailyCheckinAd(ymid) {
+  if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
+  const handler = await ensureMonetagSdk();
+  $('dailyText').textContent = 'Preparing the advertisement…';
+  await handler({ type: 'preload', ymid, requestVar: 'daily_checkin', timeout: MONETAG_PRELOAD_TIMEOUT_SECONDS });
+  $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
+  await handler({ ymid, requestVar: 'daily_checkin' });
+}
+async function startDailyCheckinAdFlow() {
+  if (state.dailyBusy || state.dailyVerificationPending || state.dailyCooldownUntil) return;
+  const button = $('dailyBtn');
+  state.dailyBusy = true;
+  setDailyButton(button, 'Loading…', true);
+  try {
+    const handler = await ensureMonetagSdk();
+    if (typeof handler !== 'function') throw new Error('Monetag SDK is unavailable');
+    const claim = await api('/api/daily-checkin/claim', { method: 'POST', body: JSON.stringify({ idempotencyKey: `daily:${crypto.randomUUID()}` }) });
+    await startDailyCheckinAd(claim.adEvent?.external_ad_id);
+    setDailyVerificationPending(true);
+    toast('Advertisement completed. Your reward is being verified.');
+    await waitForDailyVerification();
+  } catch (error) {
+    if (error.status === 429 && error.data?.nextEligibleAt) { startDailyCooldown(error.data.nextEligibleAt); toast('Daily Check-in is on cooldown.'); }
+    else { toast(error.message || 'Unable to show the advertisement.'); $('dailyText').textContent = error.message || 'Unable to show the advertisement.'; }
+  } finally {
+    state.dailyBusy = false;
+    if (!state.dailyVerificationPending && !state.dailyCooldownUntil) setDailyButton(button, 'Check in', false);
+  }
+}
+document.addEventListener('click', event => {
+  const nav = event.target.closest('[data-go]');
+  if (nav) { showPage(nav.dataset.go); return; }
+  if (event.target.closest('#dailyBtn')) startDailyCheckinAdFlow();
+  const taskButton = event.target.closest('.task-action');
+  if (taskButton) {
+    taskButton.disabled = true;
+    startTaskExecutionFlow(taskButton.dataset.taskId).catch(error => {
+      taskButton.disabled = false;
+      toast(error.message || 'Unable to start task.');
+    });
+  }
+  if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
+  if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
+});
+window.addEventListener('focus', () => { loadDailyStatus(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadDailyStatus(); });
+renderBalances();
+loadHealth();
+loadMe();
+loadDailyStatus();
