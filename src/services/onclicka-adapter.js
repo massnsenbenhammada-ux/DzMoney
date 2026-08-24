@@ -6,6 +6,7 @@ const {
 } = require('../config/onclicka');
 
 const ONCLICKA_PROVIDER_ID = 'onclicka';
+const ONCLICKA_SCRIPT_URL = 'https://js.onclckvd.com/in-stream-ad-admanager/tma.js';
 
 function requiredUserId(value) {
   if (value === undefined || value === null || value === '') throw new Error('USERID is required');
@@ -19,6 +20,7 @@ function createOnclickaProvider(options = {}) {
     contexts: [...ONCLICKA_CONTEXTS],
     enabled: options.enabled ?? ONCLICKA_ENABLED,
     priority: options.priority ?? ONCLICKA_PRIORITY,
+    clientConfig: { scriptUrl: ONCLICKA_SCRIPT_URL, spotId },
     async verifyCompletion(payload = {}) {
       const userId = requiredUserId(payload.USERID ?? payload.userId);
       if (payload.spot_id && String(payload.spot_id) !== spotId) throw new Error('Spot ID mismatch');
