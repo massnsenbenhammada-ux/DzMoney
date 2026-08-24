@@ -9,6 +9,11 @@ function createTaskRouter({ wallet = walletService, tasks = taskService } = {}) 
 
   router.use(telegramAuth);
 
+  router.get('/', asyncRoute(async (req, res) => {
+    const tasksList = await tasks.listActiveTasks({ userId: req.telegramUser.id });
+    res.json({ success: true, tasks: tasksList });
+  }));
+
   router.post('/click', asyncRoute(async (req, res) => {
     const attemptId = req.body?.attemptId;
     if (attemptId === undefined || attemptId === null || attemptId === '') {
