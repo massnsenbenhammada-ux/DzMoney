@@ -3,15 +3,32 @@ const walletService = require('../services/wallet-service');
 const taskService = require('../services/task-service');
 const { telegramAuth } = require('./telegram-auth');
 
-function createTaskRouter({ wallet = walletService, tasks = taskService } = {}) {
+function createTaskRouter({ wallet = walletService, tasks = taskService, auth = telegramAuth } = {}) {
   const router = express.Router();
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
-  router.use(telegramAuth);
+  router.use(auth);
 
   router.get('/', asyncRoute(async (req, res) => {
     const tasksList = await tasks.listActiveTasks({ userId: req.telegramUser.id });
     res.json({ success: true, tasks: tasksList });
+  }));
+
+  router.post('/execute', asyncRoute(async (req, res) => {
+    const taskId = req.body?.taskId;
+    const idempotencyKey = req.body?.idempotencyKey;
+    if (taskId === undefined || taskId === null || taskId === '') return res.status(400).json({ ok: false, error: 'taskId is required' });
+    if (idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === '') return res.status(400).json({ ok: false, error: 'idempotencyKey is required' });
+
+    const user = await wallet.createUser({
+      telegramUserId: String(req.telegramUser.id),
+      username: req.telegramUser.username || null,
+      firstName: req.telegramUser.first_name || null,
+      photoUrl: req.telegramUser.photo_url || null
+    });
+
+    const result = await tasks.executeTask({ taskId, userId: user.id, idempotencyKey, metadata: req.body?.metadata || {} });
+    res.json({ ok: true, attemptId: result.attempt?.id, gateId: result.gate?.id, duplicate: result.duplicate });
   }));
 
   router.post('/click', asyncRoute(async (req, res) => {
