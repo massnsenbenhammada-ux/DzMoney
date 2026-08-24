@@ -26,6 +26,10 @@ async function run() {
   };
   require.cache[verificationPath].exports = {
     ...originalVerification,
+    verifyTaskAdvertisement: async args => {
+      calls.push(['verifyTaskAdvertisement', args]);
+      return { duplicate: false, verification: { verified: true, reference: 'verification-ref', metadata: {} } };
+    },
     finalizeTaskVerification: async args => { calls.push(['finalize', args]); return { duplicate: false, status: 'verification_pending', rewarded: false, reason: 'link_click_required' }; }
   };
 
@@ -42,16 +46,17 @@ async function run() {
     http.get({ hostname: '127.0.0.1', port, path }, res => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(data) }));
+      res.on('end', () => resolve({ status: res.statusCode, rawBody: data }));
     }).on('error', reject);
   });
 
-  assert.strictEqual(response.status, 200);
-  assert.strictEqual(response.body.context, 'verification');
-  assert.strictEqual(response.body.verified, true);
-  assert.strictEqual(response.body.status, 'verification_pending');
-  assert.strictEqual(response.body.rewarded, false);
-  assert.deepStrictEqual(calls[0][0], 'verify');
+  assert.strictEqual(response.status, 200, `Unexpected response: ${response.rawBody}`);
+  const body = JSON.parse(response.rawBody);
+  assert.strictEqual(body.context, 'verification');
+  assert.strictEqual(body.verified, true);
+  assert.strictEqual(body.status, 'verification_pending');
+  assert.strictEqual(body.rewarded, false);
+  assert.deepStrictEqual(calls[0][0], 'verifyTaskAdvertisement');
   assert.strictEqual(calls[0][1].adEventId, 17);
   assert.deepStrictEqual(calls[1], ['finalize', { attemptId: 99, idempotencyKey: 'task:99' }]);
 
