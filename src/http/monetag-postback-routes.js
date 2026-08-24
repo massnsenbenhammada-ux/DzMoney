@@ -2,7 +2,7 @@ const express = require('express');
 const { query } = require('../db/pool');
 const { markAdvertisementVerified } = require('../services/ad-event-service');
 const { finalizeDailyCheckin } = require('../services/daily-checkin-service');
-const { finalizeTaskVerification } = require('../services/task-verification-service');
+const { finalizeTaskVerification, verifyTaskAdvertisement } = require('../services/task-verification-service');
 const { verifyWithProvider } = require('../services/ad-provider-service');
 const { MONETAG_PROVIDER_ID } = require('../services/monetag-adapter');
 const { validateMonetagPostback } = require('../services/monetag-postback-service');
@@ -40,6 +40,19 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
       if (payload.telegram_id && String(event.telegram_user_id) !== String(payload.telegram_id)) {
         return res.status(403).json({ ok: false, error: 'Advertisement user does not match' });
       }
+
+      if (event.context === 'verification') {
+        const verified = await verifyTaskAdvertisement({
+          adEventId: event.id,
+          providerRegistry,
+          providerId: MONETAG_PROVIDER_ID,
+          providerPayload: payload
+        });
+        if (verified.verification && verified.verification.verified === false) return res.status(202).json({ ok: true, verified: false });
+        const finalization = await finalizeTaskVerification({ attemptId: event.attempt_id, idempotencyKey: `task:${event.attempt_id}` });
+        return res.json({ ok: true, context: event.context, verified: true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, status: finalization.status, reason: finalization.reason || null });
+      }
+
       const result = await verifyWithProvider(providerRegistry, {
         context: event.context,
         providerId: MONETAG_PROVIDER_ID,
@@ -51,14 +64,8 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
         providerReference: result.verification.reference,
         verificationMetadata: { ...result.verification.metadata, provider_id: result.providerId }
       });
-
-      if (event.context === 'daily_checkin') {
-        const reward = await finalizeDailyCheckin({ userId: event.user_id, claimIdempotencyKey: event.claim_idempotency_key });
-        return res.json({ ok: true, context: event.context, verified: true, duplicate: verified.duplicate || reward.duplicate, rewarded: reward.rewarded });
-      }
-
-      const finalization = await finalizeTaskVerification({ attemptId: event.attempt_id, idempotencyKey: `task:${event.attempt_id}` });
-      return res.json({ ok: true, context: event.context, verified: true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, status: finalization.status, reason: finalization.reason || null });
+      const reward = await finalizeDailyCheckin({ userId: event.user_id, claimIdempotencyKey: event.claim_idempotency_key });
+      return res.json({ ok: true, context: event.context, verified: true, duplicate: verified.duplicate || reward.duplicate, rewarded: reward.rewarded });
     } catch (error) {
       return next(error);
     }
