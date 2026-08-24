@@ -12,7 +12,8 @@ function getSdkState() {
   const scripts = typeof document === 'undefined' ? [] : document.querySelectorAll('script[data-sdk="show_11627577"]');
   return {
     handlerType: typeof getHandler(),
-    sdkScriptPresent: scripts.length > 0
+    sdkScriptPresent: scripts.length > 0,
+    sdkScriptLoad: window.__DzMoneyMonetagSdkLoad || 'unknown'
   };
 }
 
@@ -27,7 +28,7 @@ function waitForSdkReady() {
       }
       if (Date.now() - startedAt >= SDK_READY_TIMEOUT_MS) {
         const state = getSdkState();
-        reject(new Error(`Monetag SDK handler ${MONETAG_HANDLER_NAME} is unavailable (type=${state.handlerType}, script=${state.sdkScriptPresent ? 'present' : 'missing'})`));
+        reject(new Error(`Monetag SDK handler ${MONETAG_HANDLER_NAME} is unavailable (type=${state.handlerType}, script=${state.sdkScriptPresent ? 'present' : 'missing'}, load=${state.sdkScriptLoad})`));
         return;
       }
       setTimeout(check, SDK_READY_POLL_MS);
