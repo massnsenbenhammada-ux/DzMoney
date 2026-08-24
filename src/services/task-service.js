@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
-const { validateVerificationConfig } = require('./task-verification-config');
+const { validateVerificationConfig, resolveVerificationConfig } = require('./task-verification-config');
 const { postEconomyTransactionOnClient } = require('./economy-service');
 
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
@@ -18,8 +18,11 @@ function money(value) { return Number(Number(value).toFixed(8)); }
 async function listActiveTasks({ taskType = null } = {}) {
   if (taskType !== null && !TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
   const params = taskType ? [taskType] : []; const filter = taskType ? 'AND task_type=$1' : '';
-  const result = await query(`SELECT id, task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds FROM activity_tasks WHERE status='active' ${filter} ORDER BY id`, params);
-  return result.rows.map(row => ({ id: row.id, taskType: row.task_type, title: row.title, description: row.description, rewardCoin: Number(row.reward_coin), rewardDzx: Number(row.reward_dzx), rewardDzp: Number(row.reward_dzp), verificationAdSeconds: row.verification_ad_seconds }));
+  const result = await query(`SELECT id, task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds, config FROM activity_tasks WHERE status='active' ${filter} ORDER BY id`, params);
+  return result.rows.map(row => {
+    const completion = resolveVerificationConfig({ taskType: row.task_type, config: row.config }).completion;
+    return { id: row.id, taskType: row.task_type, title: row.title, description: row.description, rewardCoin: Number(row.reward_coin), rewardDzx: Number(row.reward_dzx), rewardDzp: Number(row.reward_dzp), verificationAdSeconds: row.verification_ad_seconds, completion };
+  });
 }
 
 async function createTask({ taskType, title, description = null, creatorId = null, target = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
