@@ -38,6 +38,8 @@ function request(server, method, path, headers = {}) {
 (async () => {
   const app = express();
   app.use('/api/tasks', createTaskRouter({
+    providerRegistry: {},
+    verification: {},
     tasks: {
       listActiveTasks: async () => ([{
         id: 'task-1',
