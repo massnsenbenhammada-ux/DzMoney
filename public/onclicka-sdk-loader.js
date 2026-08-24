@@ -1,3 +1,11 @@
+function loadSharedAdDiagnostics() {
+  if (document.querySelector('script[data-dzmoney-ad-diagnostics]')) return;
+  const script = document.createElement('script');
+  script.src = '/monetag-runtime-diagnostics.js?v=dev';
+  script.dataset.dzmoneyAdDiagnostics = 'true';
+  document.head.appendChild(script);
+}
+
 function loadOnclickaSdk() {
   if (typeof window.initCdTma === 'function') return Promise.resolve();
   return new Promise((resolve, reject) => {
@@ -9,4 +17,5 @@ function loadOnclickaSdk() {
   });
 }
 
+loadSharedAdDiagnostics();
 window.DzMoneyLoadOnclickaSdk = loadOnclickaSdk;
