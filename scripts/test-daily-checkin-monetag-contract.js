@@ -6,7 +6,7 @@ async function main() {
   const adapter = fs.readFileSync('public/monetag-adapter-entry.js', 'utf8');
   const index = fs.readFileSync('public/index.html', 'utf8');
   const start = app.indexOf('async function startDailyCheckinAd');
-  const end = app.indexOf('\n}\n\nasync function startDailyCheckinAdFlow', start);
+  const end = app.indexOf('\n}\nasync function startDailyCheckinAdFlow', start);
   assert.ok(start >= 0 && end > start, 'Daily Check-in Monetag function must exist');
   const body = app.slice(start, end);
 
