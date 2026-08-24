@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { validateMonetagPostback } = require('../src/services/monetag-postback-service');
+const { validateMonetagPostback, MONETAG_VERIFICATION_CONTEXT } = require('../src/services/monetag-postback-service');
 
 function validPayload(overrides = {}) {
   return {
@@ -27,6 +27,14 @@ function testAcceptsPaidClick() {
   const result = validateMonetagPostback(validPayload({ event_type: 'click' }));
   assert.strictEqual(result.eligible, true);
   assert.strictEqual(result.eventType, 'click');
+}
+
+function testAcceptsVerificationContext() {
+  const result = validateMonetagPostback(validPayload({ request_var: MONETAG_VERIFICATION_CONTEXT }));
+  assert.strictEqual(result.eligible, true);
+  assert.strictEqual(result.requestVar, MONETAG_VERIFICATION_CONTEXT);
+  assert.throws(() => validateMonetagPostback(validPayload({ request_var: MONETAG_VERIFICATION_CONTEXT }), 'daily_checkin'), /context/i);
+  assert.throws(() => validateMonetagPostback(validPayload(), MONETAG_VERIFICATION_CONTEXT), /context/i);
 }
 
 function testAcceptsLegacyPaidValueFromCurrentSspUi() {
@@ -69,6 +77,7 @@ function testRejectsInvalidPrice() {
 try {
   testAcceptsPaidImpression();
   testAcceptsPaidClick();
+  testAcceptsVerificationContext();
   testAcceptsLegacyPaidValueFromCurrentSspUi();
   testAcceptsMissingTelegramId();
   testRejectsWrongZone();
