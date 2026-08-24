@@ -1,0 +1,54 @@
+name: Monetag SDK endpoint probe
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/monetag-sdk-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Monetag SDK endpoint
+        run: |
+          node <<'NODE'
+          const https = require('https');
+          const url = 'https://libtl.com/sdk.js';
+          const request = https.get(url, {
+            headers: {
+              'User-Agent': 'DzMoney-Monetag-SDK-Probe/1.0',
+              Accept: '*/*',
+            },
+          }, (response) => {
+            const chunks = [];
+            response.on('data', (chunk) => chunks.push(chunk));
+            response.on('end', () => {
+              const body = Buffer.concat(chunks);
+              const result = {
+                url,
+                statusCode: response.statusCode,
+                statusMessage: response.statusMessage,
+                httpVersion: response.httpVersion,
+                contentLength: response.headers['content-length'] || null,
+                contentType: response.headers['content-type'] || null,
+                location: response.headers.location || null,
+                bodyBytes: body.length,
+              };
+              console.log(JSON.stringify(result, null, 2));
+              process.exit(response.statusCode >= 200 && response.statusCode < 400 && body.length > 0 ? 0 : 1);
+            });
+          });
+          request.setTimeout(15000, () => {
+            console.error('REQUEST_TIMEOUT');
+            request.destroy(new Error('request timeout'));
+          });
+          request.on('error', (error) => {
+            console.error(JSON.stringify({ url, error: error.message, code: error.code || null }, null, 2));
+            process.exit(1);
+          });
+          NODE
