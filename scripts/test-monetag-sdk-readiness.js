@@ -4,17 +4,17 @@ const vm = require('vm');
 const adapter = fs.readFileSync('public/monetag-adapter-entry.js', 'utf8');
 const app = fs.readFileSync('public/app.js', 'utf8');
 const index = fs.readFileSync('public/index.html', 'utf8');
+const server = fs.readFileSync('server.js', 'utf8');
 
 if (!adapter.includes('ready')) throw new Error('Monetag adapter must expose readiness');
 if (!adapter.includes('sdkScriptLoad')) throw new Error('Monetag adapter must expose SDK script load diagnostics');
 if (!adapter.includes('runtimeEvidence')) throw new Error('Monetag adapter must expose runtime evidence');
 if (!app.includes('adapter.ready')) throw new Error('Frontend must await adapter readiness');
 
-const sdkIndex = index.indexOf('libtl.com/sdk.js');
-const adapterIndex = index.indexOf('/monetag-adapter.bundle.js');
-if (sdkIndex < 0 || adapterIndex < 0 || sdkIndex > adapterIndex) throw new Error('SDK must precede adapter');
-if (!index.includes("onload=\"window.__DzMoneyMonetagSdkLoad='loaded'\"")) throw new Error('Monetag SDK load success marker is missing');
-if (!index.includes("onerror=\"window.__DzMoneyMonetagSdkLoad='error'\"")) throw new Error('Monetag SDK load error marker is missing');
+if (!index.includes('__MONETAG_SCRIPTS__')) throw new Error('Monetag scripts must be provider-gated');
+if (index.includes('libtl.com/sdk.js')) throw new Error('Monetag SDK must not be hard-coded into the HTML');
+if (!server.includes('monetagScriptsForClient')) throw new Error('Server must own Monetag script selection');
+if (!server.includes("provider?.id === 'monetag'")) throw new Error('Monetag script loading must depend on selected provider');
 
 const runtimeEvidence = {
   resourceError: true,

@@ -5,6 +5,7 @@ const { query } = require('./src/db/pool');
 const meRoutes = require('./src/http/me-routes');
 const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
+const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
@@ -13,8 +14,23 @@ const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, 'public');
 const indexPath = path.join(publicDir, 'index.html');
 const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
+const onclickaConfirmationSecret = process.env.ONCLICKA_CONFIRMATION_SECRET;
 const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'dev';
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
+
+function clientAdConfig() {
+  return Object.fromEntries(['daily_checkin', 'verification'].map(context => {
+    const provider = providerRegistry.listAvailable(context)[0] || null;
+    return [context, provider ? { id: provider.id, ...(provider.clientConfig || {}) } : null];
+  }));
+}
+
+function monetagScriptsForClient() {
+  const selected = clientAdConfig();
+  const usesMonetag = Object.values(selected).some(provider => provider?.id === 'monetag');
+  if (!usesMonetag) return '';
+  return '<script src="/monetag-runtime-diagnostics.js?v=__ASSET_VERSION__"></script><script src="//libtl.com/sdk.js" data-zone="11627577" data-sdk="show_11627577" onload="window.__DzMoneyMonetagSdkLoad=\'loaded\'" onerror="window.__DzMoneyMonetagSdkLoad=\'error\'"></script>';
+}
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '64kb' }));
@@ -54,9 +70,18 @@ if (monetagPostbackSecret) {
     secret: monetagPostbackSecret
   }));
 }
+if (onclickaConfirmationSecret) {
+  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({
+    providerRegistry,
+    secret: onclickaConfirmationSecret
+  }));
+}
 
 app.get('/', (_req, res) => {
-  const html = indexHtml.replaceAll('__ASSET_VERSION__', assetVersion);
+  const html = indexHtml
+    .replaceAll('__ASSET_VERSION__', assetVersion)
+    .replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion))
+    .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'));
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(html);
 });

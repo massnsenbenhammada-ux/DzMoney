@@ -32,13 +32,14 @@
     "test:creator-campaign-tax-refund": "node ./scripts/test-creator-campaign-tax-refund.js",
     "test:daily-task-check-for-update": "node ./scripts/test-daily-task-check-for-update.js",
     "test:ad-provider-system": "node ./scripts/test-ad-provider-system.js",
+    "test:onclicka-provider": "node ./scripts/test-onclicka-provider.js",
     "test:monetag-postback": "node ./scripts/test-monetag-postback.js && node ./scripts/test-monetag-postback-http.js",
     "test:monetag-ymid": "node ./scripts/test-monetag-ymid-generation.js",
     "test:monetag-finalization": "node ./scripts/test-monetag-postback-finalization.js",
     "test:daily-checkin-monetag-contract": "node ./scripts/test-daily-checkin-monetag-contract.js",
     "test:monetag-sdk-readiness": "node ./scripts/test-monetag-sdk-readiness.js",
     "test:frontend": "node ./scripts/validate-frontend.js",
-    "test:all": "npm run test:monetag-sdk-readiness && npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:daily-checkin && npm run test:daily-checkin-http && npm run test:task-catalog && npm run test:task-execution && npm run test:task-execution-active-attempt && npm run test:task-execution-http && npm run test:task-lifecycle && npm run test:task-click-http && npm run test:task-list-http && npm run test:task-list-frontend && npm run test:task-verification-config && npm run test:task-verification-postback && npm run test:creator-campaign-contract && npm run test:creator-campaign-economics && npm run test:creator-campaign-review && npm run test:creator-campaign-tax-refund && npm run test:daily-task-check-for-update && npm run test:ad-provider-system && npm run test:monetag-postback && npm run test:monetag-ymid && npm run test:monetag-finalization && npm run test:daily-checkin-monetag-contract && npm run reconcile:economy"
+    "test:all": "npm run test:monetag-sdk-readiness && npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:daily-checkin && npm run test:daily-checkin-http && npm run test:task-catalog && npm run test:task-execution && npm run test:task-execution-active-attempt && npm run test:task-execution-http && npm run test:task-lifecycle && npm run test:task-click-http && npm run test:task-list-http && npm run test:task-list-frontend && npm run test:task-verification-config && npm run test:task-verification-postback && npm run test:creator-campaign-contract && npm run test:creator-campaign-economics && npm run test:creator-campaign-review && npm run test:creator-campaign-tax-refund && npm run test:daily-task-check-for-update && npm run test:ad-provider-system && npm run test:onclicka-provider && npm run test:monetag-postback && npm run test:monetag-ymid && npm run test:monetag-finalization && npm run test:daily-checkin-monetag-contract && npm run reconcile:economy"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
