@@ -106,6 +106,22 @@ async function loadTasks() {
     if (container) container.innerHTML = `<article class="info-card"><strong>Unable to load tasks</strong><p>${String(error.message || 'Please try again later.')}</p></article>`;
   }
 }
+async function startTaskExecutionFlow(taskId) {
+  const task = state.tasks.find(item => String(item.id) === String(taskId));
+  if (!task) throw new Error('Task is no longer available');
+  const idempotencyKey = `task:${task.id}:${crypto.randomUUID()}`;
+  const result = await api('/api/tasks/execute', {
+    method: 'POST',
+    body: JSON.stringify({ taskId: task.id, idempotencyKey, metadata: { source: 'tasks_ui' } })
+  });
+  if (task.completion?.mode === 'open_link' && task.completion?.url) {
+    window.open(task.completion.url, '_blank', 'noopener,noreferrer');
+    toast('Task opened. Complete it, then return to DzMoney for verification.');
+    return result;
+  }
+  toast('Task started. Server verification is pending.');
+  return result;
+}
 function setDailyButton(button, text, disabled) { button.disabled = disabled; button.textContent = text; }
 function formatCooldown(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -198,8 +214,14 @@ document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]');
   if (nav) { showPage(nav.dataset.go); return; }
   if (event.target.closest('#dailyBtn')) startDailyCheckinAdFlow();
-  if (event.target.closest('#taskVerifyBtn')) toast('Task verification is awaiting the real task/provider adapter.');
-  if (event.target.closest('.task-action')) toast('Task execution flow will open after the task completion adapter is connected.');
+  const taskButton = event.target.closest('.task-action');
+  if (taskButton) {
+    taskButton.disabled = true;
+    startTaskExecutionFlow(taskButton.dataset.taskId).catch(error => {
+      taskButton.disabled = false;
+      toast(error.message || 'Unable to start task.');
+    });
+  }
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
   if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
 });
