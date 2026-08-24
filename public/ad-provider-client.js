@@ -23,6 +23,7 @@ function exposeProvider(context, config) {
 
 if (verificationProvider?.id === 'onclicka' || dailyProvider?.id === 'onclicka') {
   window.__DzMoneySelectedAdProvider = verificationProvider?.id === 'onclicka' ? 'onclicka' : dailyProvider?.id;
+  exposeProvider('verification', verificationProvider?.id === 'onclicka' ? verificationProvider : dailyProvider);
 }
 
 window.DzMoneyAdClient = { providerConfig, exposeProvider };
