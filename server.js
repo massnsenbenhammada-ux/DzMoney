@@ -18,6 +18,13 @@ const onclickaConfirmationSecret = process.env.ONCLICKA_CONFIRMATION_SECRET;
 const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'dev';
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
+function clientAdConfig() {
+  return Object.fromEntries(['daily_checkin', 'verification'].map(context => {
+    const provider = providerRegistry.listAvailable(context)[0] || null;
+    return [context, provider ? { id: provider.id, ...(provider.clientConfig || {}) } : null];
+  }));
+}
+
 app.disable('x-powered-by');
 app.use(express.json({ limit: '64kb' }));
 app.use(express.static(publicDir, {
@@ -64,7 +71,9 @@ if (onclickaConfirmationSecret) {
 }
 
 app.get('/', (_req, res) => {
-  const html = indexHtml.replaceAll('__ASSET_VERSION__', assetVersion);
+  const html = indexHtml
+    .replaceAll('__ASSET_VERSION__', assetVersion)
+    .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'));
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(html);
 });
