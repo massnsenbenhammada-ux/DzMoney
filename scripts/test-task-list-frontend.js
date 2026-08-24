@@ -13,5 +13,7 @@ assert.match(appJs, /loadTasks\(\)/, 'Frontend startup must load tasks');
 assert.match(appJs, /async function startTaskExecutionFlow\s*\(/, 'Frontend must define task execution flow');
 assert.match(appJs, /api\('\/api\/tasks\/execute'/, 'Frontend must call the task execution boundary');
 assert.match(appJs, /crypto\.randomUUID\(\)/, 'Task execution must use an idempotency key');
+assert.match(appJs, /api\('\/api\/tasks\/click'/, 'Frontend must report open_link click evidence to the server');
+assert.match(appJs, /attemptId: result\.attemptId/, 'Frontend must associate click evidence with the started attempt');
 
 console.log('test-task-list-frontend: PASS');
