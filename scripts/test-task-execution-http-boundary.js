@@ -43,11 +43,11 @@ async function run() {
       verificationStatus: 'pending',
       duplicate: false
     });
-    assert.deepStrictEqual(calls, [
-      { createUser: { telegramUserId: '123', username: 'tester', firstName: 'Test', photoUrl: null } },
-      { taskId: 12, userId: 7, idempotencyKey: 'exec-http-1', metadata: { source: 'ui' } },
-      { startVerification: { attemptId: 41, idempotencyKey: 'verification:41', providerRegistry: undefined } }
-    ]);
+    assert.deepStrictEqual(calls[0], { createUser: { telegramUserId: '123', username: 'tester', firstName: 'Test', photoUrl: null } });
+    assert.deepStrictEqual(calls[1], { taskId: 12, userId: 7, idempotencyKey: 'exec-http-1', metadata: { source: 'ui' } });
+    assert.strictEqual(calls[2].startVerification.attemptId, 41);
+    assert.strictEqual(calls[2].startVerification.idempotencyKey, 'verification:41');
+    assert.ok(calls[2].startVerification.providerRegistry);
     console.log('Task execution HTTP boundary: PASS');
   } finally {
     await new Promise(resolve => server.close(resolve));
