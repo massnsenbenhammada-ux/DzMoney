@@ -5,15 +5,23 @@ async function testProviderContract() {
   const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
   assert.strictEqual(provider.id, ONCLICKA_PROVIDER_ID);
   assert.deepStrictEqual(provider.contexts, ['daily_checkin', 'verification']);
-  const result = await provider.verifyCompletion({ USERID: '12345', spot_id: '6134799' });
+  const result = await provider.verifyCompletion({ USERID: '12345', spot_id: '6134799', confirmedByPostback: true });
   assert.strictEqual(result.verified, true);
   assert.strictEqual(result.reference, 'onclicka:6134799:12345');
+}
+
+async function testRejectsUnauthenticatedCompletion() {
+  const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
+  await assert.rejects(
+    () => provider.verifyCompletion({ USERID: '12345', spot_id: '6134799' }),
+    /Authenticated OnClickA postback is required/
+  );
 }
 
 async function testRejectsWrongSpot() {
   const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
   await assert.rejects(
-    () => provider.verifyCompletion({ USERID: '12345', spot_id: '9999999' }),
+    () => provider.verifyCompletion({ USERID: '12345', spot_id: '9999999', confirmedByPostback: true }),
     /Spot ID mismatch/
   );
 }
@@ -21,7 +29,7 @@ async function testRejectsWrongSpot() {
 async function testRejectsMissingUser() {
   const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
   await assert.rejects(
-    () => provider.verifyCompletion({ spot_id: '6134799' }),
+    () => provider.verifyCompletion({ spot_id: '6134799', confirmedByPostback: true }),
     /USERID is required/
   );
 }
@@ -29,6 +37,7 @@ async function testRejectsMissingUser() {
 (async () => {
   try {
     await testProviderContract();
+    await testRejectsUnauthenticatedCompletion();
     await testRejectsWrongSpot();
     await testRejectsMissingUser();
     console.log('OnClickA provider contract: PASS');
