@@ -21,13 +21,15 @@ function getMonetagHandler() {
 }
 function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 async function ensureMonetagSdk(timeoutMs = MONETAG_READY_TIMEOUT_MS) {
-  const started = performance.now();
-  while (true) {
-    const handler = getMonetagHandler();
-    if (handler) return handler;
-    if (performance.now() - started >= timeoutMs) throw new Error('Monetag SDK adapter did not initialize');
-    await wait(100);
-  }
+  const adapter = window.DzMoneyMonetag;
+  if (!adapter?.ready) throw new Error('Monetag SDK adapter is unavailable');
+  await Promise.race([
+    adapter.ready,
+    wait(timeoutMs).then(() => { throw new Error('Monetag SDK readiness timed out'); })
+  ]);
+  const handler = getMonetagHandler();
+  if (!handler) throw new Error('Monetag SDK handler is unavailable after readiness');
+  return handler;
 }
 function toast(message) {
   const el = $('toast');
