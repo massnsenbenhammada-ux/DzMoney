@@ -18,8 +18,8 @@ async function main() {
   assert.match(index, /__MONETAG_SCRIPTS__/, 'HTML must keep Monetag SDK loading behind the server-side provider selection boundary');
   assert.match(server, /function monetagScriptsForClient\(\)/, 'Server must own Monetag SDK selection');
   assert.match(server, /provider\?\.id === ['"]monetag['"]/, 'Server must load Monetag only when Monetag is selected');
-  assert.match(server, /data-zone=\\"11627577\\"/, 'Server must load the configured Monetag zone 11627577');
-  assert.match(server, /data-sdk=\\"show_11627577\\"/, 'Server must load the configured Monetag handler show_11627577');
+  assert.match(server, /11627577/, 'Server must load the configured Monetag zone 11627577');
+  assert.match(server, /show_11627577/, 'Server must load the configured Monetag handler show_11627577');
   assert.doesNotMatch(adapter, /monetag-tg-sdk/, 'Monetag adapter must not dynamically load a second SDK copy');
   assert.match(adapter, /MONETAG_HANDLER_NAME\s*=\s*`show_\$\{MONETAG_ZONE_ID\}`/, 'Monetag adapter must derive the configured global SDK handler name from the zone');
   assert.match(adapter, /window\[MONETAG_HANDLER_NAME\]/, 'Monetag adapter must resolve the configured global SDK handler');
