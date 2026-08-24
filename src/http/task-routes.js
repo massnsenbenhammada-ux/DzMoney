@@ -1,9 +1,11 @@
 const express = require('express');
 const walletService = require('../services/wallet-service');
 const taskService = require('../services/task-service');
+const taskVerificationService = require('../services/task-verification-service');
+const providerRegistryRuntime = require('../services/ad-provider-registry-runtime');
 const { telegramAuth } = require('./telegram-auth');
 
-function createTaskRouter({ wallet = walletService, tasks = taskService, auth = telegramAuth } = {}) {
+function createTaskRouter({ wallet = walletService, tasks = taskService, verification = taskVerificationService, providerRegistry = providerRegistryRuntime, auth = telegramAuth } = {}) {
   const router = express.Router();
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
@@ -28,7 +30,20 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, auth = 
     });
 
     const result = await tasks.executeTask({ taskId, userId: user.id, idempotencyKey, metadata: req.body?.metadata || {} });
-    res.json({ ok: true, attemptId: result.attempt?.id, gateId: result.gate?.id, duplicate: result.duplicate });
+    const verificationAd = await verification.startTaskVerificationAd({
+      attemptId: result.attempt?.id,
+      idempotencyKey: result.gate?.idempotency_key || `verification:${result.attempt?.id}`,
+      providerRegistry
+    });
+    res.json({
+      ok: true,
+      attemptId: result.attempt?.id,
+      gateId: result.gate?.id,
+      verificationAdId: verificationAd.adEvent?.external_ad_id || null,
+      verificationProvider: verificationAd.providerId || null,
+      verificationStatus: result.gate?.status || 'pending',
+      duplicate: result.duplicate
+    });
   }));
 
   router.post('/click', asyncRoute(async (req, res) => {
@@ -45,7 +60,29 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, auth = 
     });
 
     const result = await tasks.recordTaskClick({ attemptId, userId: user.id });
-    res.json({ ok: true, clicked: result.clicked, duplicate: result.duplicate });
+    const finalization = await verification.finalizeTaskVerification({
+      attemptId,
+      idempotencyKey: `task:${attemptId}`
+    });
+    res.json({
+      ok: true,
+      clicked: result.clicked,
+      duplicate: result.duplicate,
+      status: finalization.status,
+      rewarded: finalization.rewarded === true,
+      reason: finalization.reason || null
+    });
+  }));
+
+  router.get('/attempt/:attemptId', asyncRoute(async (req, res) => {
+    const user = await wallet.createUser({
+      telegramUserId: String(req.telegramUser.id),
+      username: req.telegramUser.username || null,
+      firstName: req.telegramUser.first_name || null,
+      photoUrl: req.telegramUser.photo_url || null
+    });
+    const status = await verification.getTaskVerificationStatus({ attemptId: req.params.attemptId, userId: user.id });
+    res.json({ ok: true, ...status });
   }));
 
   return router;
