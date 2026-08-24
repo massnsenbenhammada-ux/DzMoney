@@ -8,6 +8,8 @@ const MONETAG_READY_TIMEOUT_MS = 15000;
 const MONETAG_PRELOAD_TIMEOUT_SECONDS = 12;
 const DAILY_VERIFICATION_POLL_MS = 1000;
 const DAILY_VERIFICATION_POLL_LIMIT = 30000;
+const TASK_VERIFICATION_POLL_MS = 1000;
+const TASK_VERIFICATION_POLL_LIMIT = 30000;
 
 function getMonetagHandler() {
   const adapter = window.DzMoneyMonetag;
@@ -106,25 +108,70 @@ async function loadTasks() {
     if (container) container.innerHTML = `<article class="info-card"><strong>Unable to load tasks</strong><p>${String(error.message || 'Please try again later.')}</p></article>`;
   }
 }
+async function waitForTaskVerification(attemptId) {
+  const deadline = Date.now() + TASK_VERIFICATION_POLL_LIMIT;
+  while (Date.now() < deadline) {
+    const status = await api(`/api/tasks/attempt/${encodeURIComponent(attemptId)}`);
+    if (status.status === 'verified') {
+      await loadMe();
+      return status;
+    }
+    if (status.status === 'rejected') return status;
+    await wait(TASK_VERIFICATION_POLL_MS);
+  }
+  return api(`/api/tasks/attempt/${encodeURIComponent(attemptId)}`);
+}
+async function showTaskVerificationAd(ymid) {
+  if (!ymid) throw new Error('Task verification advertisement id is missing');
+  const handler = await ensureMonetagSdk();
+  await handler({ type: 'preload', ymid, requestVar: 'verification', timeout: MONETAG_PRELOAD_TIMEOUT_SECONDS });
+  await handler({ ymid, requestVar: 'verification' });
+}
 async function startTaskExecutionFlow(taskId) {
   const task = state.tasks.find(item => String(item.id) === String(taskId));
   if (!task) throw new Error('Task is no longer available');
+
+  const completionWindow = task.completion?.mode === 'open_link' && task.completion?.url
+    ? window.open('about:blank', '_blank', 'noopener,noreferrer')
+    : null;
   const idempotencyKey = `task:${task.id}:${crypto.randomUUID()}`;
   const result = await api('/api/tasks/execute', {
     method: 'POST',
     body: JSON.stringify({ taskId: task.id, idempotencyKey, metadata: { source: 'tasks_ui' } })
   });
+
+  toast('Preparing the verification advertisement…');
+  await showTaskVerificationAd(result.verificationAdId);
+
   if (task.completion?.mode === 'open_link' && task.completion?.url) {
-    window.open(task.completion.url, '_blank', 'noopener,noreferrer');
-    await api('/api/tasks/click', {
+    if (completionWindow) {
+      completionWindow.location.href = task.completion.url;
+    } else {
+      window.location.href = task.completion.url;
+      return result;
+    }
+    const click = await api('/api/tasks/click', {
       method: 'POST',
       body: JSON.stringify({ attemptId: result.attemptId })
     });
-    toast('Task opened. Server recorded the click. Complete it, then return to DzMoney for verification.');
-    return result;
+    if (click.status === 'verified') {
+      await loadMe();
+      toast('Task verified and reward credited.');
+      return { ...result, ...click };
+    }
+    toast('Task opened. Waiting for server verification…');
+    const status = await waitForTaskVerification(result.attemptId);
+    if (status.status === 'verified') toast('Task verified and reward credited.');
+    else if (status.status === 'rejected') toast('Task verification was rejected.');
+    else toast('Server verification is still pending.');
+    return { ...result, ...click, verification: status };
   }
-  toast('Task started. Server verification is pending.');
-  return result;
+
+  const status = await waitForTaskVerification(result.attemptId);
+  if (status.status === 'verified') toast('Task verified and reward credited.');
+  else if (status.status === 'rejected') toast('Task verification was rejected.');
+  else toast('Task verification is still pending.');
+  return { ...result, verification: status };
 }
 function setDailyButton(button, text, disabled) { button.disabled = disabled; button.textContent = text; }
 function formatCooldown(ms) {
