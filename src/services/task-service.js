@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
-const { validateVerificationConfig } = require('./task-verification-config');
+const { validateVerificationConfig, resolveVerificationConfig } = require('./task-verification-config');
 const { postEconomyTransactionOnClient } = require('./economy-service');
 
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
@@ -18,8 +18,11 @@ function money(value) { return Number(Number(value).toFixed(8)); }
 async function listActiveTasks({ taskType = null } = {}) {
   if (taskType !== null && !TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
   const params = taskType ? [taskType] : []; const filter = taskType ? 'AND task_type=$1' : '';
-  const result = await query(`SELECT id, task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds FROM activity_tasks WHERE status='active' ${filter} ORDER BY id`, params);
-  return result.rows.map(row => ({ id: row.id, taskType: row.task_type, title: row.title, description: row.description, rewardCoin: Number(row.reward_coin), rewardDzx: Number(row.reward_dzx), rewardDzp: Number(row.reward_dzp), verificationAdSeconds: row.verification_ad_seconds }));
+  const result = await query(`SELECT id, task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds, config FROM activity_tasks WHERE status='active' ${filter} ORDER BY id`, params);
+  return result.rows.map(row => {
+    const completion = resolveVerificationConfig({ taskType: row.task_type, config: row.config }).completion;
+    return { id: row.id, taskType: row.task_type, title: row.title, description: row.description, rewardCoin: Number(row.reward_coin), rewardDzx: Number(row.reward_dzx), rewardDzp: Number(row.reward_dzp), verificationAdSeconds: row.verification_ad_seconds, completion };
+  });
 }
 
 async function createTask({ taskType, title, description = null, creatorId = null, target = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
@@ -81,4 +84,20 @@ async function activateTask(taskId) { return transitionTaskStatus(taskId, 'activ
 async function getTask(taskId) { const result = await query('SELECT * FROM activity_tasks WHERE id=$1', [requiredId(taskId, 'taskId')]); if (!result.rowCount) throw new Error('Task not found'); return result.rows[0]; }
 async function executeTask({ taskId, userId, idempotencyKey, metadata = {} }) { requiredId(taskId, 'taskId'); requiredId(userId, 'userId'); requiredId(idempotencyKey, 'idempotencyKey'); return withTransaction(async client => { const taskResult = await client.query('SELECT * FROM activity_tasks WHERE id=$1 FOR SHARE', [taskId]); if (!taskResult.rowCount) throw new Error('Task not found'); const task = taskResult.rows[0]; if (task.status !== 'active') throw new Error('Task is not active'); const existing = await client.query('SELECT * FROM task_attempts WHERE execute_idempotency_key=$1 FOR SHARE', [idempotencyKey]); if (existing.rowCount) return { attempt: existing.rows[0], duplicate: true }; const attempt = await client.query(`INSERT INTO task_attempts(task_id,user_id,status,execute_idempotency_key,metadata) VALUES($1,$2,'verification_pending',$3,$4) RETURNING *`, [taskId, userId, idempotencyKey, metadata]); const gate = await client.query(`INSERT INTO task_verification_gates(attempt_id,required_seconds,idempotency_key,metadata) VALUES($1,$2,$3,$4) RETURNING *`, [attempt.rows[0].id, task.verification_ad_seconds, `verification:${attempt.rows[0].id}`, { task_id: taskId }]); return { task, attempt: attempt.rows[0], gate: gate.rows[0], duplicate: false }; }); }
 
-module.exports = { TASK_TYPES, CREATOR_CAMPAIGN_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, createCreatorCampaign, submitCreatorCampaignForReview, approveCreatorCampaign, rejectCreatorCampaign, transitionTaskStatus, canTransitionTaskStatus, activateTask, getTask, listActiveTasks, executeTask };
+async function recordTaskClick({ attemptId, userId }) {
+  requiredId(attemptId, 'attemptId');
+  requiredId(userId, 'userId');
+  return withTransaction(async client => {
+    const result = await client.query(`SELECT a.*,t.task_type,t.config FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id WHERE a.id=$1 AND a.user_id=$2 FOR UPDATE`, [attemptId, userId]);
+    if (!result.rowCount) throw new Error('Task attempt not found');
+    const row = result.rows[0];
+    const completion = resolveVerificationConfig({ taskType: row.task_type, config: row.config }).completion;
+    if (completion.mode !== 'open_link') throw new Error('Task attempt does not use open_link completion');
+    if (row.status !== 'verification_pending') throw new Error('Task attempt is not awaiting verification');
+    if (row.metadata?.link_clicked === true) return { clicked: true, duplicate: true, attempt: row };
+    const updated = await client.query(`UPDATE task_attempts SET metadata = metadata || jsonb_build_object('link_clicked', true, 'link_clicked_at', NOW()) WHERE id=$1 RETURNING *`, [attemptId]);
+    return { clicked: true, duplicate: false, attempt: updated.rows[0] };
+  });
+}
+
+module.exports = { TASK_TYPES, CREATOR_CAMPAIGN_TYPES, TASK_STATUSES, VERIFICATION_SECONDS, createTask, createCreatorCampaign, submitCreatorCampaignForReview, approveCreatorCampaign, rejectCreatorCampaign, transitionTaskStatus, canTransitionTaskStatus, activateTask, getTask, listActiveTasks, executeTask, recordTaskClick };
