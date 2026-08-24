@@ -2,6 +2,7 @@ const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
+const { resolveVerificationConfig } = require('./task-verification-config');
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -48,16 +49,24 @@ async function verifyTaskAdvertisement({ adEventId, providerRegistry, providerId
 async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskCompletion }) {
   requiredId(attemptId, 'attemptId');
   requiredId(idempotencyKey, 'idempotencyKey');
-  if (typeof verifyTaskCompletion !== 'function') throw new Error('A trusted task verifier is required');
   return withTransaction(async client => {
-    const result = await client.query(`SELECT a.*,t.reward_coin,t.reward_dzx,t.reward_dzp,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 FOR UPDATE`, [attemptId]);
+    const result = await client.query(`SELECT a.*,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 FOR UPDATE`, [attemptId]);
     if (!result.rowCount) throw new Error('Task attempt not found');
     const row = result.rows[0];
     if (row.status === 'verified') return { duplicate: true, status: 'verified' };
     if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
     if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
-    const verifiedByTaskRule = await verifyTaskCompletion({ attemptId });
-    if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
+
+    const completion = resolveVerificationConfig({ taskType: 'unknown', config: row.config }).completion;
+    let verifiedByTaskRule;
+    if (completion.mode === 'open_link') {
+      verifiedByTaskRule = true;
+    } else {
+      if (typeof verifyTaskCompletion !== 'function') throw new Error('A trusted task verifier is required');
+      verifiedByTaskRule = await verifyTaskCompletion({ attemptId });
+      if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
+    }
+
     if (verifiedByTaskRule !== true) {
       await client.query(`UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`, [attemptId]);
       await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
