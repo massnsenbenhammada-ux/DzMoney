@@ -5,6 +5,7 @@ const { query } = require('./src/db/pool');
 const meRoutes = require('./src/http/me-routes');
 const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
+const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
@@ -13,6 +14,7 @@ const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, 'public');
 const indexPath = path.join(publicDir, 'index.html');
 const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
+const onclickaConfirmationSecret = process.env.ONCLICKA_CONFIRMATION_SECRET;
 const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'dev';
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
@@ -52,6 +54,12 @@ if (monetagPostbackSecret) {
   app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({
     providerRegistry,
     secret: monetagPostbackSecret
+  }));
+}
+if (onclickaConfirmationSecret) {
+  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({
+    providerRegistry,
+    secret: onclickaConfirmationSecret
   }));
 }
 
