@@ -14,6 +14,18 @@ const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '64kb' }));
+
+// Mini App HTML/JS must always be revalidated after a deploy. Telegram WebView
+// may otherwise keep an older application shell or adapter bundle in cache.
+app.use((req, res, next) => {
+  if (req.path === '/' || req.path.endsWith('.html') || req.path.endsWith('.js')) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+  }
+  next();
+});
+
 app.use(express.static(publicDir, { index: 'index.html' }));
 
 app.get('/health', (_req, res) => {
@@ -41,6 +53,9 @@ if (monetagPostbackSecret) {
 }
 
 app.get('/', (_req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.sendFile(path.join(publicDir, 'index.html'));
 });
 
