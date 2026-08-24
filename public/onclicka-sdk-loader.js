@@ -17,5 +17,8 @@ function loadOnclickaSdk() {
   });
 }
 
-loadSharedAdDiagnostics();
+document.addEventListener('click', event => {
+  if (event.target.closest('[data-go="diagnostics"]')) loadSharedAdDiagnostics();
+});
+
 window.DzMoneyLoadOnclickaSdk = loadOnclickaSdk;
