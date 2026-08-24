@@ -42,12 +42,6 @@ async function cleanupTestData(userId, taskIds) {
   });
 }
 
-async function diagnosticAdEvents(userId, label) {
-  const result = await pool.query(`SELECT id, context, verified, metadata->>'provider_id' AS provider_id, idempotency_key, external_ad_id FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
-  console.log(`PHASE2 AD EVENTS DIAGNOSTIC [${label}] count=${result.rows.length}`);
-  console.dir(result.rows, { depth: null });
-}
-
 async function startVerificationAd(attemptId, idempotencyKey, externalAdId) {
   return startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId, providerRegistry: adProviderRegistry });
 }
@@ -138,11 +132,9 @@ async function main() {
     const openExecution = await executeTask({ taskId: openLinkTask.id, userId, idempotencyKey: `phase2-open-exec-${Date.now()}` });
     const openAd = await startVerificationAd(openExecution.attempt.id, `phase2-open-ad-${Date.now()}`, 'phase2-open-test-ad');
     await verifyAd(openAd.adEvent.id, { accepted: true, reference: 'test-open-provider-ref' });
-    await diagnosticAdEvents(userId, 'after-open-verify');
-    const openVerified = await finalizeTaskVerification({ attemptId: openExecution.attempt.id, idempotencyKey: `phase2-open-reward-${Date.now()}` });
-    await diagnosticAdEvents(userId, 'after-open-finalize');
-    assert.strictEqual(openVerified.rewarded, true);
-    assert.strictEqual(await balance(userId, 'COIN'), 1500);
+    const openWithoutClick = await finalizeTaskVerification({ attemptId: openExecution.attempt.id, idempotencyKey: `phase2-open-no-click-${Date.now()}` });
+    assert.strictEqual(openWithoutClick.rewarded, false, 'open_link must not reward before link click');
+    assert.strictEqual(await balance(userId, 'COIN'), 1000);
 
     const ads = await pool.query(`SELECT context, verified, metadata->>'provider_id' AS provider_id FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
     assert.strictEqual(ads.rows.length, 4);
@@ -151,7 +143,7 @@ async function main() {
     assert.strictEqual(ads.rows.filter(row => !row.verified).length, 0);
 
     const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`, [userId]);
-    assert.strictEqual(ledger.rows[0].count, 5);
+    assert.strictEqual(ledger.rows[0].count, 4);
 
     console.log('Phase 2 task verification invariants: PASS');
   } catch (error) {
@@ -161,7 +153,7 @@ async function main() {
   } finally {
     if (userId) {
       try { await cleanupTestData(userId, taskIds); }
-      catch (cleanupError) { console.error('Phase 2 test cleanup: FAIL'); console.error(error); process.exitCode = 1; }
+      catch (cleanupError) { console.error('Phase 2 test cleanup: FAIL'); console.error(cleanupError); process.exitCode = 1; }
     }
     await pool.end();
   }
