@@ -60,6 +60,9 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
     const completion = resolveVerificationConfig({ taskType: 'unknown', config: row.config }).completion;
     let verifiedByTaskRule;
     if (completion.mode === 'open_link') {
+      if (row.metadata?.link_clicked !== true) {
+        return { duplicate: false, status: 'verification_pending', rewarded: false, reason: 'link_click_required' };
+      }
       verifiedByTaskRule = true;
     } else {
       if (typeof verifyTaskCompletion !== 'function') throw new Error('A trusted task verifier is required');
