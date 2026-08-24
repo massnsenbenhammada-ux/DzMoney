@@ -1,11 +1,13 @@
 const express = require('express');
 const walletService = require('../services/wallet-service');
 const taskService = require('../services/task-service');
+const taskVerificationService = require('../services/task-verification-service');
 const { telegramAuth } = require('./telegram-auth');
 
-function createTaskRouter({ wallet = walletService, tasks = taskService, auth = telegramAuth } = {}) {
+function createTaskRouter({ wallet = walletService, tasks = taskService, verification = taskVerificationService, providerRegistry, auth = telegramAuth } = {}) {
   const router = express.Router();
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+  if (!providerRegistry) throw new Error('Task router requires the trusted advertisement provider registry');
 
   router.use(auth);
 
@@ -28,7 +30,23 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, auth = 
     });
 
     const result = await tasks.executeTask({ taskId, userId: user.id, idempotencyKey, metadata: req.body?.metadata || {} });
-    res.json({ ok: true, attemptId: result.attempt?.id, gateId: result.gate?.id, duplicate: result.duplicate });
+    const verificationAd = await verification.startTaskVerificationAd({
+      attemptId: result.attempt.id,
+      idempotencyKey: `task-verification-ad:${result.attempt.id}`,
+      providerRegistry,
+      providerId: req.body?.providerId || null
+    });
+    res.json({
+      ok: true,
+      attemptId: result.attempt.id,
+      gateId: result.gate?.id,
+      duplicate: result.duplicate || verificationAd.duplicate,
+      verificationAd: {
+        eventId: verificationAd.adEvent.id,
+        externalAdId: verificationAd.adEvent.external_ad_id,
+        providerId: verificationAd.providerId
+      }
+    });
   }));
 
   router.post('/click', asyncRoute(async (req, res) => {
@@ -45,7 +63,11 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, auth = 
     });
 
     const result = await tasks.recordTaskClick({ attemptId, userId: user.id });
-    res.json({ ok: true, clicked: result.clicked, duplicate: result.duplicate });
+    const finalized = await verification.finalizeTaskVerification({
+      attemptId,
+      idempotencyKey: `task-reward:${attemptId}`
+    });
+    res.json({ ok: true, clicked: result.clicked, duplicate: result.duplicate, verification: finalized });
   }));
 
   return router;
