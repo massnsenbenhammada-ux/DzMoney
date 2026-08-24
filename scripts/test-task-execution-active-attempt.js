@@ -4,9 +4,10 @@ const { createTask, transitionTaskStatus, activateTask, executeTask } = require(
 
 async function createTestUser() {
   const marker = `active_attempt_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const telegramUserId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
   const result = await pool.query(
     'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id',
-    [marker, marker, 'Active Attempt Test']
+    [telegramUserId, marker, 'Active Attempt Test']
   );
   return result.rows[0].id;
 }
