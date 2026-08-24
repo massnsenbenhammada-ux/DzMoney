@@ -13,7 +13,8 @@ function getSdkState() {
   return {
     handlerType: typeof getHandler(),
     sdkScriptPresent: scripts.length > 0,
-    sdkScriptLoad: window.__DzMoneyMonetagSdkLoad || 'unknown'
+    sdkScriptLoad: window.__DzMoneyMonetagSdkLoad || 'unknown',
+    runtimeEvidence: window.__DzMoneyMonetagRuntime || null
   };
 }
 
@@ -28,7 +29,8 @@ function waitForSdkReady() {
       }
       if (Date.now() - startedAt >= SDK_READY_TIMEOUT_MS) {
         const state = getSdkState();
-        reject(new Error(`Monetag SDK handler ${MONETAG_HANDLER_NAME} is unavailable (type=${state.handlerType}, script=${state.sdkScriptPresent ? 'present' : 'missing'}, load=${state.sdkScriptLoad})`));
+        const evidence = state.runtimeEvidence ? `, evidence=${JSON.stringify(state.runtimeEvidence)}` : '';
+        reject(new Error(`Monetag SDK handler ${MONETAG_HANDLER_NAME} is unavailable (type=${state.handlerType}, script=${state.sdkScriptPresent ? 'present' : 'missing'}, load=${state.sdkScriptLoad}${evidence})`));
         return;
       }
       setTimeout(check, SDK_READY_POLL_MS);
@@ -53,6 +55,9 @@ const sdkReady = waitForSdkReady();
 window.DzMoneyMonetag = {
   zoneId: MONETAG_ZONE_ID,
   ready: sdkReady,
+  get runtimeEvidence() {
+    return window.__DzMoneyMonetagRuntime || null;
+  },
   get handler() {
     const handler = getHandler();
     if (typeof handler !== 'function') return null;
