@@ -14,7 +14,7 @@ async function main() {
   assert.match(body, /await\s+handler\(\{\s*ymid\s*,\s*requestVar:\s*['"]daily_checkin['"]\s*\}\)/, 'Daily Check-in must show the same ymid with requestVar');
   assert.match(body, /type:\s*['"]preload['"]/, 'Daily Check-in must preload the Rewarded Interstitial before showing it');
 
-  assert.match(index, /<script\s+src=["']https:\/\/yoszi\.com\/sdk\.js["']\s+data-zone=["']11627577["']\s+data-sdk=["']show_11627577["']\s*><\/script>/, 'HTML must load the official Monetag SDK tag for the configured zone');
+  assert.match(index, /<script\s+src=["']\/\/libtl\.com\/sdk\.js["']\s+data-zone=["']11627577["']\s+data-sdk=["']show_11627577["']\s*><\/script>/, 'HTML must load the configured official Monetag SDK tag for zone 11627577');
   assert.doesNotMatch(adapter, /monetag-tg-sdk/, 'Monetag adapter must not dynamically load a second SDK copy');
   assert.match(adapter, /MONETAG_HANDLER_NAME\s*=\s*`show_\$\{MONETAG_ZONE_ID\}`/, 'Monetag adapter must derive the official global SDK handler name from the configured zone');
   assert.match(adapter, /window\[MONETAG_HANDLER_NAME\]/, 'Monetag adapter must resolve the official global SDK handler');

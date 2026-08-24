@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { query } = require('./src/db/pool');
 const meRoutes = require('./src/http/me-routes');
 const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
@@ -10,11 +11,25 @@ const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, 'public');
+const indexPath = path.join(publicDir, 'index.html');
 const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
+const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'dev';
+const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '64kb' }));
-app.use(express.static(publicDir, { index: 'index.html' }));
+app.use(express.static(publicDir, {
+  index: false,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store');
+      return;
+    }
+    if (/\.(js|css)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+  }
+}));
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'DzMoney', version: '2.0.0' });
@@ -41,7 +56,9 @@ if (monetagPostbackSecret) {
 }
 
 app.get('/', (_req, res) => {
-  res.sendFile(path.join(publicDir, 'index.html'));
+  const html = indexHtml.replaceAll('__ASSET_VERSION__', assetVersion);
+  res.setHeader('Cache-Control', 'no-store');
+  res.type('html').send(html);
 });
 
 app.use((error, _req, res, _next) => {
