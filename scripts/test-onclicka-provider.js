@@ -1,8 +1,9 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { ONCLICKA_PROVIDER_ID, createOnclickaProvider } = require('../src/services/onclicka-adapter');
-const { ONCLICKA_ENABLED, ONCLICKA_PRIORITY, ONCLICKA_SPOT_ID } = require('../src/config/onclicka');
+const { ONCLICKA_PROVIDER_ID } = require('../src/services/onclicka-adapter');
+const { createOnclickaProvider } = require('../src/services/onclicka-adapter');
+const providerRegistry = require('../src/services/ad-provider-registry-runtime');
 
 async function testProviderContract() {
   const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
@@ -37,10 +38,10 @@ async function testRejectsMissingUser() {
   );
 }
 
-function testOnclickaIsActiveByDefault() {
-  assert.strictEqual(ONCLICKA_ENABLED, true);
-  assert.strictEqual(ONCLICKA_PRIORITY > 100, true);
-  assert.strictEqual(ONCLICKA_SPOT_ID, '6134799');
+function testOnclickaIsActiveAtRuntime() {
+  for (const context of ['daily_checkin', 'verification']) {
+    assert.strictEqual(providerRegistry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
+  }
 }
 
 function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
@@ -55,7 +56,7 @@ function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
     await testRejectsUnauthenticatedCompletion();
     await testRejectsWrongSpot();
     await testRejectsMissingUser();
-    testOnclickaIsActiveByDefault();
+    testOnclickaIsActiveAtRuntime();
     testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider();
     console.log('OnClickA provider contract: PASS');
   } catch (error) {
