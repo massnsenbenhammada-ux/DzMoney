@@ -38,7 +38,7 @@ async function testRejectsMissingUser() {
 
 function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-  assert.match(html, /__MONETAG_SCRIPT__/);
+  assert.match(html, /__MONETAG_SCRIPTS__/);
   assert.doesNotMatch(html, /<script[^>]+src=["']\/\/libtl\.com\/sdk\.js/);
 }
 
