@@ -106,6 +106,12 @@ async function loadTasks() {
     if (container) container.innerHTML = `<article class="info-card"><strong>Unable to load tasks</strong><p>${String(error.message || 'Please try again later.')}</p></article>`;
   }
 }
+async function startTaskVerificationAd(externalAdId) {
+  if (!externalAdId) throw new Error('Task verification advertisement id is missing');
+  const handler = await ensureMonetagSdk();
+  await handler({ type: 'preload', ymid: externalAdId, requestVar: 'verification', timeout: MONETAG_PRELOAD_TIMEOUT_SECONDS });
+  await handler({ ymid: externalAdId, requestVar: 'verification' });
+}
 async function startTaskExecutionFlow(taskId) {
   const task = state.tasks.find(item => String(item.id) === String(taskId));
   if (!task) throw new Error('Task is no longer available');
@@ -114,16 +120,24 @@ async function startTaskExecutionFlow(taskId) {
     method: 'POST',
     body: JSON.stringify({ taskId: task.id, idempotencyKey, metadata: { source: 'tasks_ui' } })
   });
+
+  await startTaskVerificationAd(result.verificationAd?.externalAdId);
+
   if (task.completion?.mode === 'open_link' && task.completion?.url) {
     window.open(task.completion.url, '_blank', 'noopener,noreferrer');
-    await api('/api/tasks/click', {
+    const click = await api('/api/tasks/click', {
       method: 'POST',
       body: JSON.stringify({ attemptId: result.attemptId })
     });
-    toast('Task opened. Server recorded the click. Complete it, then return to DzMoney for verification.');
+    if (click.verification?.status === 'verified') {
+      await loadMe();
+      toast('Task verified and reward credited.');
+    } else {
+      toast('Task opened. Server recorded the click. Waiting for advertisement verification.');
+    }
     return result;
   }
-  toast('Task started. Server verification is pending.');
+  toast('Task started. Complete it and wait for server verification.');
   return result;
 }
 function setDailyButton(button, text, disabled) { button.disabled = disabled; button.textContent = text; }
