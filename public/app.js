@@ -116,7 +116,11 @@ async function startTaskExecutionFlow(taskId) {
   });
   if (task.completion?.mode === 'open_link' && task.completion?.url) {
     window.open(task.completion.url, '_blank', 'noopener,noreferrer');
-    toast('Task opened. Complete it, then return to DzMoney for verification.');
+    await api('/api/tasks/click', {
+      method: 'POST',
+      body: JSON.stringify({ attemptId: result.attemptId })
+    });
+    toast('Task opened. Server recorded the click. Complete it, then return to DzMoney for verification.');
     return result;
   }
   toast('Task started. Server verification is pending.');
