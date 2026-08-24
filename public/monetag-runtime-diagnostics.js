@@ -13,11 +13,28 @@
   window.addEventListener('error', function (event) {
     const target = event.target;
     if (!target || target.tagName !== 'SCRIPT' || !String(target.src).includes(SDK_SRC)) return;
+
+    const resourceUrl = target.src;
+    const entries = performance.getEntriesByName(resourceUrl);
+    const entry = entries[entries.length - 1];
+
     record({
       resourceError: true,
-      resourceUrl: target.src,
+      resourceUrl,
       resourceErrorMessage: event.message || null,
+      online: navigator.onLine,
+      resourceEntry: entry ? {
+        name: entry.name,
+        duration: entry.duration,
+        transferSize: entry.transferSize,
+        encodedBodySize: entry.encodedBodySize,
+        decodedBodySize: entry.decodedBodySize,
+        nextHopProtocol: entry.nextHopProtocol,
+      } : null,
+      handlerType: typeof window.show_11627577,
     });
+
+    target.setAttribute('data-dzmoney-monetag-error', 'captured');
   }, true);
 
   window.addEventListener('load', function () {
