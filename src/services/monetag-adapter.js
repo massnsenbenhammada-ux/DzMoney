@@ -2,12 +2,13 @@ const { MONETAG_ZONE_ID, MONETAG_CONTEXT } = require('../config/monetag');
 const { validateMonetagPostback } = require('./monetag-postback-service');
 
 const MONETAG_PROVIDER_ID = 'monetag';
+const MONETAG_CONTEXTS = [MONETAG_CONTEXT, 'verification'];
 
 /** Adapt a validated Monetag postback to the shared advertisement verification contract. */
 function createMonetagProvider() {
   return {
     id: MONETAG_PROVIDER_ID,
-    contexts: [MONETAG_CONTEXT],
+    contexts: MONETAG_CONTEXTS,
     enabled: process.env.MONETAG_ENABLED === 'true',
     priority: 100,
     async verifyCompletion(payload = {}) {
