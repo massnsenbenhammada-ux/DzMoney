@@ -48,79 +48,61 @@
   }
 
   function exposeEvidence() {
-    const evidence = window.__DzMoneyMonetagRuntime;
-    if (!evidence || typeof document === 'undefined') return;
-
     const render = () => {
-      if (!document.body) return;
-      let panel = document.getElementById('dzmoney-monetag-diagnostics');
-      if (!panel) {
-        panel = document.createElement('div');
-        panel.id = 'dzmoney-monetag-diagnostics';
-        Object.assign(panel.style, {
-          position: 'fixed', left: '12px', right: '12px', bottom: '100px',
-          zIndex: '9999', padding: '12px', borderRadius: '14px',
-          background: '#0d1916', color: '#f4faf7', border: '1px solid rgba(255,255,255,.14)',
-          boxShadow: '0 15px 45px rgba(0,0,0,.45)',
-        });
+      const container = document.getElementById('dzmoney-diagnostics-container');
+      if (!container || document.getElementById('dzmoney-monetag-diagnostics')) return;
 
-        const title = document.createElement('strong');
-        title.textContent = 'Monetag diagnostics';
-        title.style.display = 'block';
-        title.style.marginBottom = '8px';
-        panel.appendChild(title);
+      const panel = document.createElement('article');
+      panel.id = 'dzmoney-monetag-diagnostics';
+      panel.className = 'info-card';
 
-        const output = document.createElement('textarea');
-        output.readOnly = true;
-        output.id = 'dzmoney-monetag-diagnostics-output';
-        Object.assign(output.style, {
-          width: '100%', height: '180px', boxSizing: 'border-box',
-          background: '#07100e', color: '#f4faf7', border: '1px solid rgba(255,255,255,.12)',
-          borderRadius: '10px', padding: '8px', fontSize: '11px',
-        });
-        panel.appendChild(output);
+      const title = document.createElement('strong');
+      title.textContent = 'Monetag diagnostics';
+      panel.appendChild(title);
 
-        const test = document.createElement('button');
-        test.type = 'button';
+      const output = document.createElement('textarea');
+      output.readOnly = true;
+      output.id = 'dzmoney-monetag-diagnostics-output';
+      Object.assign(output.style, {
+        width: '100%', height: '180px', boxSizing: 'border-box',
+        marginTop: '10px', background: '#07100e', color: '#f4faf7',
+        border: '1px solid rgba(255,255,255,.12)', borderRadius: '10px',
+        padding: '8px', fontSize: '11px',
+      });
+      output.value = JSON.stringify(window.__DzMoneyMonetagRuntime || {}, null, 2);
+      panel.appendChild(output);
+
+      const test = document.createElement('button');
+      test.type = 'button';
+      test.className = 'secondary-btn';
+      test.textContent = 'Test SDK connection';
+      test.addEventListener('click', async () => {
+        test.disabled = true;
+        test.textContent = 'Testing...';
+        await testSdkConnectivity();
+        output.value = JSON.stringify(window.__DzMoneyMonetagRuntime || {}, null, 2);
+        test.disabled = false;
         test.textContent = 'Test SDK connection';
-        Object.assign(test.style, {
-          marginTop: '8px', padding: '9px 12px', border: 0, borderRadius: '10px',
-          background: '#193f39', color: '#f4faf7', fontWeight: '700',
-        });
-        test.addEventListener('click', async () => {
-          test.disabled = true;
-          test.textContent = 'Testing...';
-          await testSdkConnectivity();
-          output.value = JSON.stringify(window.__DzMoneyMonetagRuntime, null, 2);
-          test.disabled = false;
-          test.textContent = 'Test SDK connection';
-        });
-        panel.appendChild(test);
+      });
+      panel.appendChild(test);
 
-        const copy = document.createElement('button');
-        copy.type = 'button';
-        copy.textContent = 'Copy diagnostics';
-        Object.assign(copy.style, {
-          marginTop: '8px', marginLeft: '8px', padding: '9px 12px', border: 0, borderRadius: '10px',
-          background: '#55e6b0', color: '#06251d', fontWeight: '700',
-        });
-        copy.addEventListener('click', async () => {
-          try {
-            await navigator.clipboard.writeText(output.value);
-            copy.textContent = 'Copied';
-          } catch {
-            output.focus();
-            output.select();
-            document.execCommand('copy');
-            copy.textContent = 'Copied';
-          }
-        });
-        panel.appendChild(copy);
-        document.body.appendChild(panel);
-      }
-
-      const output = document.getElementById('dzmoney-monetag-diagnostics-output');
-      if (output) output.value = JSON.stringify(window.__DzMoneyMonetagRuntime, null, 2);
+      const copy = document.createElement('button');
+      copy.type = 'button';
+      copy.className = 'secondary-btn';
+      copy.style.marginLeft = '8px';
+      copy.textContent = 'Copy diagnostics';
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(output.value);
+        } catch {
+          output.focus();
+          output.select();
+          document.execCommand('copy');
+        }
+        copy.textContent = 'Copied';
+      });
+      panel.appendChild(copy);
+      container.appendChild(panel);
     };
 
     if (document.body) render();
@@ -171,4 +153,6 @@
       handlerType: typeof window.show_11627577,
     });
   });
+
+  exposeEvidence();
 })();
