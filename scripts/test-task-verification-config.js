@@ -2,6 +2,7 @@ const assert = require('assert');
 const {
   REFERRAL_MODES,
   VERIFICATION_MODES,
+  COMPLETION_MODES,
   resolveVerificationConfig,
   validateVerificationConfig
 } = require('../src/services/task-verification-config');
@@ -16,6 +17,29 @@ function testVerificationModes() {
   assert.throws(
     () => validateVerificationConfig({ verification: { mode: 'unknown' } }),
     /Invalid verification mode/
+  );
+}
+
+function testCompletionModes() {
+  assert.deepStrictEqual(COMPLETION_MODES, ['open_link', 'server_verified']);
+  const defaultConfig = resolveVerificationConfig({ taskType: 'daily', config: {} });
+  assert.strictEqual(defaultConfig.completion.mode, 'server_verified');
+  assert.strictEqual(defaultConfig.completion.url, null);
+
+  const openLink = resolveVerificationConfig({
+    taskType: 'web',
+    config: { completion: { mode: 'open_link', url: 'https://example.test/task' } }
+  });
+  assert.strictEqual(openLink.completion.mode, 'open_link');
+  assert.strictEqual(openLink.completion.url, 'https://example.test/task');
+
+  assert.throws(
+    () => validateVerificationConfig({ completion: { mode: 'open_link' } }),
+    /completion.url is required for open_link tasks/
+  );
+  assert.throws(
+    () => validateVerificationConfig({ completion: { mode: 'unknown' } }),
+    /Invalid task completion mode/
   );
 }
 
@@ -70,6 +94,7 @@ function testNoSecretsInTaskConfig() {
 
 try {
   testVerificationModes();
+  testCompletionModes();
   testReferralModes();
   testAutomaticDefaults();
   testReferralTemplateRules();
