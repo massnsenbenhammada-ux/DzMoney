@@ -118,6 +118,8 @@ async function main() {
     const openLinkTask = await createTask({
       taskType: 'web',
       title: 'Phase 2 open link test',
+      creatorId: userId,
+      target: 1000,
       rewardCoin: 500,
       rewardDzx: 1,
       rewardDzp: 0,
