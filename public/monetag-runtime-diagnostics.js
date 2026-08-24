@@ -2,12 +2,49 @@
   'use strict';
 
   const SDK_SRC = 'libtl.com/sdk.js';
+  const SDK_URL = 'https://libtl.com/sdk.js';
 
   function record(patch) {
     window.__DzMoneyMonetagRuntime = {
       ...(window.__DzMoneyMonetagRuntime || {}),
       ...patch,
     };
+  }
+
+  async function testSdkConnectivity() {
+    const startedAt = performance.now();
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(SDK_URL, {
+        method: 'GET',
+        mode: 'no-cors',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      record({
+        connectivityTest: {
+          ok: true,
+          responseType: response.type,
+          status: response.status,
+          durationMs: Number((performance.now() - startedAt).toFixed(1)),
+          online: navigator.onLine,
+        },
+      });
+    } catch (error) {
+      record({
+        connectivityTest: {
+          ok: false,
+          errorName: error?.name || 'Error',
+          errorMessage: error?.message || null,
+          durationMs: Number((performance.now() - startedAt).toFixed(1)),
+          online: navigator.onLine,
+        },
+      });
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   function exposeEvidence() {
@@ -43,11 +80,28 @@
         });
         panel.appendChild(output);
 
+        const test = document.createElement('button');
+        test.type = 'button';
+        test.textContent = 'Test SDK connection';
+        Object.assign(test.style, {
+          marginTop: '8px', padding: '9px 12px', border: 0, borderRadius: '10px',
+          background: '#193f39', color: '#f4faf7', fontWeight: '700',
+        });
+        test.addEventListener('click', async () => {
+          test.disabled = true;
+          test.textContent = 'Testing...';
+          await testSdkConnectivity();
+          output.value = JSON.stringify(window.__DzMoneyMonetagRuntime, null, 2);
+          test.disabled = false;
+          test.textContent = 'Test SDK connection';
+        });
+        panel.appendChild(test);
+
         const copy = document.createElement('button');
         copy.type = 'button';
         copy.textContent = 'Copy diagnostics';
         Object.assign(copy.style, {
-          marginTop: '8px', padding: '9px 12px', border: 0, borderRadius: '10px',
+          marginTop: '8px', marginLeft: '8px', padding: '9px 12px', border: 0, borderRadius: '10px',
           background: '#55e6b0', color: '#06251d', fontWeight: '700',
         });
         copy.addEventListener('click', async () => {
@@ -102,7 +156,7 @@
   }, true);
 
   window.addEventListener('load', function () {
-    const entries = performance.getEntriesByName('https://libtl.com/sdk.js');
+    const entries = performance.getEntriesByName(SDK_URL);
     const entry = entries[entries.length - 1];
     record({
       resourceEntry: entry ? {

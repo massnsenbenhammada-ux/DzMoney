@@ -23,6 +23,11 @@ const selectableDiagnostics = diagnostics.includes('textarea')
 const deferredDiagnostics = diagnostics.includes('document.body')
   && diagnostics.includes('DOMContentLoaded')
   && diagnostics.includes('exposeEvidence');
+const connectivityDiagnostics = diagnostics.includes('Test SDK connection')
+  && diagnostics.includes('https://libtl.com/sdk.js')
+  && diagnostics.includes('fetch')
+  && diagnostics.includes('AbortController')
+  && diagnostics.includes('connectivityTest');
 
 if (checkinStart < 0 || sdkWait < 0 || claimCall < 0 || sdkWait > claimCall || !sdkBundle) {
   throw new Error('Daily Check-in must wait for the Monetag adapter before creating a server claim');
@@ -44,6 +49,10 @@ if (!deferredDiagnostics) {
   throw new Error('Monetag diagnostics must defer DOM rendering until the body exists');
 }
 
+if (!connectivityDiagnostics) {
+  throw new Error('Monetag diagnostics must expose an SDK connectivity test');
+}
+
 console.log('FRONTEND_SYNTAX: PASS');
 console.log('DAILY_ACTION_BINDING: PASS');
 console.log('DAILY_SDK_READINESS_ORDER: PASS');
@@ -51,3 +60,4 @@ console.log('DAILY_VERIFICATION_STATUS_SYNC: PASS');
 console.log('STYLESHEET_LINK: PASS');
 console.log('MONETAG_MOBILE_DIAGNOSTICS: PASS');
 console.log('MONETAG_DIAGNOSTICS_DOM_TIMING: PASS');
+console.log('MONETAG_DIAGNOSTICS_CONNECTIVITY: PASS');
