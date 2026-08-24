@@ -1,0 +1,40 @@
+const assert = require('assert');
+const { ONCLICKA_PROVIDER_ID, createOnclickaProvider } = require('../src/services/onclicka-adapter');
+
+async function testProviderContract() {
+  const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
+  assert.strictEqual(provider.id, ONCLICKA_PROVIDER_ID);
+  assert.deepStrictEqual(provider.contexts, ['daily_checkin', 'verification']);
+  const result = await provider.verifyCompletion({ USERID: '12345', spot_id: '6134799' });
+  assert.strictEqual(result.verified, true);
+  assert.strictEqual(result.reference, 'onclicka:6134799:12345');
+}
+
+async function testRejectsWrongSpot() {
+  const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
+  await assert.rejects(
+    () => provider.verifyCompletion({ USERID: '12345', spot_id: '9999999' }),
+    /Spot ID mismatch/
+  );
+}
+
+async function testRejectsMissingUser() {
+  const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
+  await assert.rejects(
+    () => provider.verifyCompletion({ spot_id: '6134799' }),
+    /USERID is required/
+  );
+}
+
+(async () => {
+  try {
+    await testProviderContract();
+    await testRejectsWrongSpot();
+    await testRejectsMissingUser();
+    console.log('OnClickA provider contract: PASS');
+  } catch (error) {
+    console.error('OnClickA provider contract: FAIL');
+    console.error(error);
+    process.exitCode = 1;
+  }
+})();
