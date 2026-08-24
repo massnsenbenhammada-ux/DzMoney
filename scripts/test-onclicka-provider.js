@@ -1,4 +1,6 @@
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { ONCLICKA_PROVIDER_ID, createOnclickaProvider } = require('../src/services/onclicka-adapter');
 
 async function testProviderContract() {
@@ -34,12 +36,19 @@ async function testRejectsMissingUser() {
   );
 }
 
+function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  assert.match(html, /__MONETAG_SCRIPT__/);
+  assert.doesNotMatch(html, /<script[^>]+src=["']\/\/libtl\.com\/sdk\.js/);
+}
+
 (async () => {
   try {
     await testProviderContract();
     await testRejectsUnauthenticatedCompletion();
     await testRejectsWrongSpot();
     await testRejectsMissingUser();
+    testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider();
     console.log('OnClickA provider contract: PASS');
   } catch (error) {
     console.error('OnClickA provider contract: FAIL');
