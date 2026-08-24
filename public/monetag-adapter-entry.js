@@ -9,9 +9,10 @@ function getHandler() {
 }
 
 function getSdkState() {
+  const scripts = typeof document === 'undefined' ? [] : document.querySelectorAll('script[data-sdk="show_11627577"]');
   return {
     handlerType: typeof getHandler(),
-    sdkScriptPresent: Boolean(document?.querySelector?.('script[data-sdk="show_11627577"]'))
+    sdkScriptPresent: scripts.length > 0
   };
 }
 
