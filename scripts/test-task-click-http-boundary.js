@@ -26,10 +26,16 @@ async function run() {
       return { clicked: true, duplicate: false };
     }
   };
+  const verification = {
+    finalizeTaskVerification: async args => {
+      calls.push({ finalize: args });
+      return { status: 'verified', rewarded: true, duplicate: false };
+    }
+  };
 
   const app = express();
   app.use(express.json());
-  app.use('/api/tasks', createTaskRouter({ wallet, tasks }));
+  app.use('/api/tasks', createTaskRouter({ wallet, tasks, verification }));
   const http = require('http');
   const server = http.createServer(app);
   await new Promise(resolve => server.listen(0, resolve));
@@ -56,10 +62,11 @@ async function run() {
   const auth = buildInitData(123);
   const click = await request('POST', '/api/tasks/click', { attemptId: 'attempt-1' }, auth);
   assert.strictEqual(click.status, 200);
-  assert.deepStrictEqual(click.body, { ok: true, clicked: true, duplicate: false });
-  assert.strictEqual(calls.length, 1);
+  assert.deepStrictEqual(click.body, { ok: true, clicked: true, duplicate: false, status: 'verified', rewarded: true, reason: null });
+  assert.strictEqual(calls.length, 2);
   assert.strictEqual(calls[0].attemptId, 'attempt-1');
   assert.strictEqual(calls[0].userId, 42);
+  assert.deepStrictEqual(calls[1], { finalize: { attemptId: 'attempt-1', idempotencyKey: 'task:attempt-1' } });
 
   const missingAttempt = await request('POST', '/api/tasks/click', {}, auth);
   assert.strictEqual(missingAttempt.status, 400);

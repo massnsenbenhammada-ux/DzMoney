@@ -1,4 +1,4 @@
-const { MONETAG_ZONE_ID, MONETAG_CONTEXT } = require('../config/monetag');
+const { MONETAG_ZONE_ID, MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT } = require('../config/monetag');
 const { validateMonetagPostback } = require('./monetag-postback-service');
 
 const MONETAG_PROVIDER_ID = 'monetag';
@@ -7,7 +7,7 @@ const MONETAG_PROVIDER_ID = 'monetag';
 function createMonetagProvider() {
   return {
     id: MONETAG_PROVIDER_ID,
-    contexts: [MONETAG_CONTEXT],
+    contexts: [MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT],
     enabled: process.env.MONETAG_ENABLED === 'true',
     priority: 100,
     async verifyCompletion(payload = {}) {

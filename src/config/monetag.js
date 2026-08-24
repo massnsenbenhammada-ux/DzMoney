@@ -1,4 +1,5 @@
 const MONETAG_ZONE_ID = '11627577';
 const MONETAG_CONTEXT = 'daily_checkin';
+const MONETAG_VERIFICATION_CONTEXT = 'verification';
 
-module.exports = { MONETAG_ZONE_ID, MONETAG_CONTEXT };
+module.exports = { MONETAG_ZONE_ID, MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT };
