@@ -30,13 +30,16 @@ function createOnclickaPostbackRouter({ providerRegistry, secret }) {
            AND a.metadata->>'provider_id'=$2
            AND u.telegram_user_id=$3
          ORDER BY a.started_at DESC
-         LIMIT 1`,
+         LIMIT 2`,
         [context, ONCLICKA_PROVIDER_ID, userId]
       );
-      if (eventResult.rowCount !== 1) return res.status(404).json({ ok: false, error: 'Advertisement event not found' });
+      if (eventResult.rowCount !== 1) {
+        if (eventResult.rowCount > 1) return res.status(409).json({ ok: false, error: 'Multiple pending advertisement events found' });
+        return res.status(404).json({ ok: false, error: 'Advertisement event not found' });
+      }
 
       const event = eventResult.rows[0];
-      const providerPayload = { USERID: userId };
+      const providerPayload = { USERID: userId, confirmedByPostback: true };
       if (context === 'daily_checkin') {
         const verified = await verifyDailyCheckinAd({
           userId: event.user_id,
