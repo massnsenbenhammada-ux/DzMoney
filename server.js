@@ -25,6 +25,13 @@ function clientAdConfig() {
   }));
 }
 
+function monetagScriptsForClient() {
+  const selected = clientAdConfig();
+  const usesMonetag = Object.values(selected).some(provider => provider?.id === 'monetag');
+  if (!usesMonetag) return '';
+  return '<script src="/monetag-runtime-diagnostics.js?v=__ASSET_VERSION__"></script><script src="//libtl.com/sdk.js" data-zone="11627577" data-sdk="show_11627577" onload="window.__DzMoneyMonetagSdkLoad=\'loaded\'" onerror="window.__DzMoneyMonetagSdkLoad=\'error\'"></script>';
+}
+
 app.disable('x-powered-by');
 app.use(express.json({ limit: '64kb' }));
 app.use(express.static(publicDir, {
@@ -73,6 +80,7 @@ if (onclickaConfirmationSecret) {
 app.get('/', (_req, res) => {
   const html = indexHtml
     .replaceAll('__ASSET_VERSION__', assetVersion)
+    .replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion))
     .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'));
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(html);
