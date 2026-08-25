@@ -42,13 +42,15 @@ async function main() {
   });
   assert.strictEqual(duplicate.duplicate, true);
 
-  const otherPair = await createAttributionPair();
+  const unlinkedUser = await walletService.createUser({
+    telegramUserId: `8${Date.now()}${Math.floor(Math.random() * 1000)}03`
+  });
   await assert.rejects(
     referralService.qualifyReferral({
-      referredUserId: otherPair.referred.id,
+      referredUserId: unlinkedUser.id,
       source: 'task',
       referenceId: attempt.rows[0].id,
-      idempotencyKey: `qualification-invalid-user-${Date.now()}`
+      idempotencyKey: `qualification-unlinked-user-${Date.now()}`
     }),
     /Referral attribution not found/
   );
