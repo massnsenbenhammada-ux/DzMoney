@@ -19,7 +19,7 @@ const provider = {
 const registry = new AdProviderRegistry([provider]);
 
 async function createUser() {
-  const marker = `${Date.now()}-${Math.random()}`;
+  const marker = String(Date.now());
   const result = await pool.query(
     'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id',
     [marker, `task_ad_${Date.now()}`, 'Task Ad Test']
