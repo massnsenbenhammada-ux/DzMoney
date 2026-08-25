@@ -4,9 +4,7 @@ const assert = require('node:assert/strict');
 const { createReferralService } = require('../src/services/referral-service');
 
 function fakeDb() {
-  const users = new Map();
-  const referrals = new Map();
-  const rewards = new Set();
+  const users = new Map(); const referrals = new Map(); const rewards = new Set();
   return {
     async createUser(id) { const user = { id: users.size + 1, telegram_user_id: String(id) }; users.set(String(id), user); return user; },
     async findReferralByReferredUserId(id) { return referrals.get(id) || null; },
@@ -14,14 +12,12 @@ function fakeDb() {
     async countQualifiedReferrals(referrerId) { return [...referrals.values()].filter(r => r.referrer_id === referrerId && r.status === 'qualified').length; },
     async markQualified(referralId, activityId) { const row = [...referrals.values()].find(r => r.id === referralId); row.status = 'qualified'; row.qualification_activity_id = activityId; return row; },
     async hasActivationReward(referralId) { return rewards.has(`activation:${referralId}`); },
-    async recordActivationReward(referralId) { rewards.add(`activation:${referralId}`); return { recorded: true }; },
-    _referrals: referrals
+    async recordActivationReward(referralId) { rewards.add(`activation:${referralId}`); return { recorded: true }; }
   };
 }
 
 test('referral attribution is one-level and immutable', async () => {
-  const db = fakeDb();
-  const service = createReferralService(db);
+  const db = fakeDb(); const service = createReferralService(db);
   const a = await db.createUser(100); const b = await db.createUser(200); const c = await db.createUser(300);
   await service.attribute({ referrerUserId: a.id, referredUserId: b.id, referralCode: 'A' });
   await assert.rejects(() => service.attribute({ referrerUserId: c.id, referredUserId: b.id, referralCode: 'C' }), /already attributed/);
