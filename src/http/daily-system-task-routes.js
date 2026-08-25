@@ -23,7 +23,9 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
     const task = await tasks.getSystemTask(systemKey);
     const available = systemKey === 'view_ads'
       ? await tasks.assertAdvertisementAvailable(task, user.id)
-      : await tasks.assertAvailable(task, user.id);
+      : task.config?.achievementThreshold !== undefined
+        ? await tasks.assertReferralAchievementAvailable(task, user.id)
+        : await tasks.assertAvailable(task, user.id);
     res.json({
       ok: true,
       task: {
