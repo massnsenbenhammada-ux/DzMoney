@@ -58,7 +58,10 @@ async function createTransaction(client, { idempotencyKey, userId, type, metadat
   if (inserted.rowCount) return { transaction: inserted.rows[0], duplicate: false };
   const existing = await client.query('SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE', [idempotencyKey]);
   if (!existing.rowCount) throw new Error('Unable to resolve idempotent transaction');
-  return { transaction: existing.rows[0], duplicate: true };
+  const transaction = existing.rows[0];
+  if (String(transaction.user_id) !== String(userId)) throw new Error('Idempotency key ownership mismatch');
+  if (transaction.transaction_type !== type) throw new Error('Idempotency key operation mismatch');
+  return { transaction, duplicate: true };
 }
 
 async function postEconomyTransactionOnClient(client, { idempotencyKey, userId, type, movements, metadata = {} }) {
