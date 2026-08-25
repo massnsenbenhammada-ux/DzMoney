@@ -1,0 +1,118 @@
+const assert = require('assert');
+const { pool, withTransaction } = require('../src/db/pool');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
+const {
+  startTaskAdvertisement,
+  verifyTrustedTaskAdvertisement,
+  finalizeTaskAdvertisement
+} = require('../src/services/task-advertisement-service');
+
+const provider = {
+  id: 'task-concurrency-test-provider',
+  contexts: ['task'],
+  async verifyServerCompletion(payload) {
+    return {
+      verified: true,
+      reference: payload.reference,
+      userId: payload.userId,
+      providerId: this.id,
+      context: 'task'
+    };
+  }
+};
+const registry = new AdProviderRegistry([provider]);
+
+async function createUser() {
+  const marker = `${Date.now()}-${Math.random()}`;
+  const result = await pool.query(
+    'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id',
+    [marker, `task_concurrency_${Date.now()}`, 'Task Concurrency Test']
+  );
+  const userId = result.rows[0].id;
+  await withTransaction(async client => {
+    for (const currency of ['COIN', 'DZX', 'DZP']) {
+      await client.query(
+        'INSERT INTO wallet_accounts (user_id, currency) VALUES ($1,$2) ON CONFLICT (user_id,currency) DO NOTHING',
+        [userId, currency]
+      );
+    }
+  });
+  return userId;
+}
+
+async function createTask() {
+  const result = await pool.query(
+    `INSERT INTO activity_tasks
+      (task_type,title,reward_coin,reward_dzx,reward_dzp,status)
+     VALUES ('web','Task advertisement concurrency test',1000,1,1,'active')
+     RETURNING id`
+  );
+  return result.rows[0].id;
+}
+
+async function cleanup(userId, taskId) {
+  await withTransaction(async client => {
+    await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)', [userId]);
+    await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
+    await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
+    await client.query('DELETE FROM wallet_accounts WHERE user_id=$1', [userId]);
+    await client.query('DELETE FROM users WHERE id=$1', [userId]);
+    await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+  });
+}
+
+async function main() {
+  const userId = await createUser();
+  const taskId = await createTask();
+  try {
+    const started = await startTaskAdvertisement({
+      userId,
+      taskId,
+      idempotencyKey: `task-concurrency-${Date.now()}`,
+      providerRegistry: registry
+    });
+
+    await verifyTrustedTaskAdvertisement({
+      providerId: provider.id,
+      providerPayload: {
+        reference: started.adEvent.external_ad_id,
+        userId,
+        providerId: provider.id,
+        context: 'task'
+      },
+      providerRegistry: registry
+    });
+
+    const results = await Promise.all([
+      finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id }),
+      finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id })
+    ]);
+
+    assert.strictEqual(results.filter(result => result.duplicate === false).length, 1);
+    assert.strictEqual(results.filter(result => result.duplicate === true).length, 1);
+
+    const transactions = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND idempotency_key=$2",
+      [userId, `task-advertisement:${started.adEvent.id}`]
+    );
+    assert.strictEqual(transactions.rows[0].count, 1);
+
+    const balances = await pool.query(
+      "SELECT currency,balance FROM wallet_accounts WHERE user_id=$1 ORDER BY currency",
+      [userId]
+    );
+    const balanceByCurrency = Object.fromEntries(balances.rows.map(row => [row.currency, Number(row.balance)]));
+    assert.deepStrictEqual(balanceByCurrency, { COIN: 1000, DZX: 1, DZP: 1 });
+
+    console.log('Task advertisement concurrent finalization invariant: PASS');
+  } finally {
+    await cleanup(userId, taskId);
+    await pool.end();
+  }
+}
+
+main().catch(error => {
+  console.error('Task advertisement concurrent finalization invariant: FAIL');
+  console.error(error);
+  process.exit(1);
+});
