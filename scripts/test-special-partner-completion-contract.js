@@ -10,7 +10,7 @@ function testSpecialPartnerRejectsClickProof() {
       { completion: { mode: 'open_link', url: 'https://partner.example/task' } },
       'special'
     ),
-    /Special\/Partner tasks require server_verified completion/
+    /Special\/Partner tasks support server_verified completion only/
   );
 }
 
