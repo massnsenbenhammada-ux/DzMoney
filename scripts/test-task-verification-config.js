@@ -38,7 +38,7 @@ function testSpecialServerVerifiedOnly() {
     /Special\/Partner tasks support server_verified completion only/
   );
   assert.throws(
-    () => resolveVerificationConfig({ taskType: 'special', config: { completion: { mode: 'open_link', url: 'https://partner.example/task' } }),
+    () => resolveVerificationConfig({ taskType: 'special', config: { completion: { mode: 'open_link', url: 'https://partner.example/task' } } }),
     /Special\/Partner tasks support server_verified completion only/
   );
   assert.strictEqual(resolveVerificationConfig({ taskType: 'special', config: {} }).completion.mode, 'server_verified');
