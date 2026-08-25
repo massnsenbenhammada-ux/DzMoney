@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
+const referralService = require('./referral-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 
@@ -135,6 +136,15 @@ async function finalizeDailyCheckin({ userId, claimIdempotencyKey }) {
       dzp: settings.reward.dzp,
       modifiers: []
     });
+    if (!reward.duplicate) {
+      await referralService.creditReferralLifetime({
+        referredUserId: userId,
+        source: 'advertisement',
+        sourceReferenceId: adResult.rows[0].id,
+        idempotencyKey: `referral-lifetime:daily-checkin:${adResult.rows[0].id}`,
+        baseReward: { coin: settings.reward.coin, dzx: settings.reward.dzx }
+      });
+    }
     if (reward.duplicate) return { duplicate: true, rewarded: false, reward };
     const updated = await client.query('UPDATE daily_checkins SET last_claimed_at=NOW(),updated_at=NOW() WHERE user_id=$1 RETURNING *', [userId]);
     return { duplicate: false, rewarded: true, reward, state: updated.rows[0] };
