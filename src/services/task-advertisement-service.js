@@ -42,10 +42,12 @@ async function verifyTaskAdvertisement() {
   throw new Error('Task advertisement verification must use trusted provider ingress');
 }
 
-function validateServerVerification(verification) {
+function validateServerVerification(verification, providerId) {
   if (!verification || verification.verified !== true) throw new Error('Advertisement provider verification failed');
   if (typeof verification.reference !== 'string' || !verification.reference.trim()) throw new Error('Trusted task provider reference is required');
   if (verification.userId === undefined || verification.userId === null || verification.userId === '') throw new Error('Trusted task provider user is required');
+  if (verification.providerId !== providerId) throw new Error('Trusted task provider identity does not match');
+  if (verification.context !== 'task') throw new Error('Trusted task provider context must be task');
 }
 
 /** Verify a task advertisement from authenticated provider evidence and correlate it to the started event. */
@@ -61,7 +63,7 @@ async function verifyTrustedTaskAdvertisement({ providerId, providerPayload, pro
     throw new Error(`Advertisement provider ${providerId} has no trusted server verification contract`);
   }
   const verification = await provider.verifyServerCompletion(providerPayload);
-  validateServerVerification(verification);
+  validateServerVerification(verification, providerId);
   const result = await query(
     `SELECT * FROM activity_ad_events
      WHERE context='task'
@@ -78,7 +80,7 @@ async function verifyTrustedTaskAdvertisement({ providerId, providerPayload, pro
   return markAdvertisementVerified({
     adEventId: event.id,
     providerReference: verification.reference,
-    verificationMetadata: { provider_id: providerId, source: 'trusted_provider' }
+    verificationMetadata: { provider_id: providerId, source: 'trusted_provider', context: 'task' }
   });
 }
 
