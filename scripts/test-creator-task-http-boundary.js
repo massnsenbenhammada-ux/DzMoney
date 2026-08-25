@@ -1,0 +1,86 @@
+const assert = require('assert');
+const crypto = require('crypto');
+const express = require('express');
+
+process.env.BOT_TOKEN = 'test-bot-token';
+
+function buildInitData(userId) {
+  const params = new URLSearchParams();
+  params.set('auth_date', String(Math.floor(Date.now() / 1000)));
+  params.set('user', JSON.stringify({ id: userId, first_name: 'Creator' }));
+  const dataCheckString = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join('\n');
+  const secretKey = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN).digest();
+  params.set('hash', crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex'));
+  return params.toString();
+}
+
+async function run() {
+  const { createCreatorTaskRouter } = require('../src/http/creator-task-routes');
+  const calls = [];
+  const wallet = { createUser: async args => ({ id: 42, ...args }) };
+  const tasks = {
+    createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: 9000, duplicate: false }; },
+    submitCreatorCampaignForReview: async args => { calls.push({ submit: args }); return { id: 7, status: 'pending_review', creator_id: args.creatorId }; }
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use('/api/creator/tasks', createCreatorTaskRouter({ wallet, tasks }));
+  const http = require('http');
+  const server = http.createServer(app);
+  await new Promise(resolve => server.listen(0, resolve));
+  const port = server.address().port;
+
+  const request = (method, path, body, initData) => new Promise((resolve, reject) => {
+    const headers = { 'content-type': 'application/json' };
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    const req = http.request({ hostname: '127.0.0.1', port, path, method, headers }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, body: data ? JSON.parse(data) : null }));
+    });
+    req.on('error', reject);
+    if (body) req.write(JSON.stringify(body));
+    req.end();
+  });
+
+  assert.strictEqual((await request('GET', '/api/creator/tasks/contracts/special')).status, 401);
+  const auth = buildInitData(123);
+
+  const specialContract = await request('GET', '/api/creator/tasks/contracts/special', null, auth);
+  assert.strictEqual(specialContract.status, 200);
+  assert.deepStrictEqual(specialContract.body.availableCompletionModes, ['server_verified']);
+  assert.strictEqual(specialContract.body.serverVerified.source, 'partner_backend');
+
+  const socialContract = await request('GET', '/api/creator/tasks/contracts/social', null, auth);
+  assert.deepStrictEqual(socialContract.body.availableCompletionModes, ['open_link', 'server_verified']);
+  assert.strictEqual(socialContract.body.creatorInput.status, 'provider_contract_required');
+
+  const create = await request('POST', '/api/creator/tasks', {
+    taskType: 'social',
+    title: 'Telegram test campaign',
+    target: 1000,
+    rewardCoin: 1000,
+    rewardDzx: 1,
+    rewardDzp: 1,
+    idempotencyKey: 'creator-task-1',
+    config: { completion: { mode: 'server_verified' } }
+  }, auth);
+  assert.strictEqual(create.status, 201);
+  assert.strictEqual(create.body.task.id, 7);
+  assert.strictEqual(calls[0].create.creatorId, 42);
+  assert.strictEqual(calls[0].create.config.completion.mode, 'server_verified');
+
+  const submit = await request('POST', '/api/creator/tasks/7/submit', {}, auth);
+  assert.strictEqual(submit.status, 200);
+  assert.strictEqual(submit.body.status, 'pending_review');
+  assert.strictEqual(calls[1].submit.creatorId, 42);
+
+  const invalidType = await request('GET', '/api/creator/tasks/contracts/daily', null, auth);
+  assert.strictEqual(invalidType.status, 400);
+
+  await new Promise(resolve => server.close(resolve));
+  console.log('creator-task HTTP boundary tests passed');
+}
+
+run().catch(error => { console.error(error); process.exit(1); });
