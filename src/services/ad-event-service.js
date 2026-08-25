@@ -23,6 +23,18 @@ async function startAdvertisementEvent({ userId, context, idempotencyKey, extern
   return { adEvent: existing.rows[0], duplicate: true };
 }
 
+/** Start an idempotent advertisement event explicitly scoped to a task. */
+async function startTaskAdvertisementEvent({ userId, taskId, idempotencyKey, externalAdId = null, metadata = {} }) {
+  requiredId(taskId, 'taskId');
+  return startAdvertisementEvent({
+    userId,
+    context: 'task',
+    idempotencyKey,
+    externalAdId,
+    metadata: { ...metadata, task_id: taskId }
+  });
+}
+
 /** Mark a supported advertisement event as provider-verified exactly once. */
 async function markAdvertisementVerified({ adEventId, providerReference, verificationMetadata = {} }) {
   requiredId(adEventId, 'adEventId');
@@ -41,4 +53,4 @@ async function markAdvertisementVerified({ adEventId, providerReference, verific
   });
 }
 
-module.exports = { AD_CONTEXTS, startAdvertisementEvent, markAdvertisementVerified };
+module.exports = { AD_CONTEXTS, startAdvertisementEvent, startTaskAdvertisementEvent, markAdvertisementVerified };
