@@ -100,7 +100,7 @@ async function finalizeTaskAdvertisement({ userId, adEventId }) {
     const values = Object.fromEntries(settings.rows.map(row => [row.key, Number(row.value)]));
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1, dzp: values['activity.default_reward_dzp'] ?? 1, modifiers: [] });
     if (!reward.duplicate) {
-      await referralService.creditReferralLifetime({
+      await referralService.creditReferralLifetimeOnClient(client, {
         referredUserId: userId,
         source: 'advertisement',
         sourceReferenceId: event.id,
