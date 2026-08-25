@@ -61,7 +61,8 @@ function resolveVerificationConfig({ taskType, config = {} }) {
     verification: {
       mode: verification.mode || 'automatic',
       provider: verification.provider || null,
-      providerConfigRef: verification.providerConfigRef || null
+      providerConfigRef: verification.providerConfigRef || null,
+      channel: verification.channel || null
     },
     referral: {
       mode: referral.mode || 'disabled',
