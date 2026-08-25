@@ -37,13 +37,13 @@ async function getCampaignContractPricing(query) {
 async function getCreatorActivityRewards(query) {
   const rows = await query(
     `SELECT key, value FROM admin_settings WHERE key = ANY($1::text[])`,
-    [['activity.reward_coin', 'activity.reward_dzx', 'activity.reward_dzp']]
+    [['activity.default_reward_coin', 'activity.default_reward_dzx', 'activity.default_reward_dzp']]
   );
   const values = Object.fromEntries(rows.rows.map(row => [row.key, Number(row.value)]));
   return {
-    coin: Number.isFinite(values['activity.reward_coin']) ? values['activity.reward_coin'] : 1000,
-    dzx: Number.isFinite(values['activity.reward_dzx']) ? values['activity.reward_dzx'] : 1,
-    dzp: Number.isFinite(values['activity.reward_dzp']) ? values['activity.reward_dzp'] : 1
+    coin: Number.isFinite(values['activity.default_reward_coin']) ? values['activity.default_reward_coin'] : 1000,
+    dzx: Number.isFinite(values['activity.default_reward_dzx']) ? values['activity.default_reward_dzx'] : 1,
+    dzp: Number.isFinite(values['activity.default_reward_dzp']) ? values['activity.default_reward_dzp'] : 1
   };
 }
 
