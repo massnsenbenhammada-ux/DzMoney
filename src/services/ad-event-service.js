@@ -1,13 +1,12 @@
 const { withTransaction, query } = require('../db/pool');
 
-const AD_CONTEXTS = ['task', 'reward_pool', 'daily_checkin', 'verification'];
+const AD_CONTEXTS = ['task', 'reward_pool', 'daily_checkin', 'verification', 'achievement'];
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
   return value;
 }
 
-/** Start an idempotent advertisement event in an explicit context. */
 async function startAdvertisementEvent({ userId, context, idempotencyKey, externalAdId = null, metadata = {} }) {
   requiredId(userId, 'userId');
   requiredId(idempotencyKey, 'idempotencyKey');
@@ -23,7 +22,6 @@ async function startAdvertisementEvent({ userId, context, idempotencyKey, extern
   return { adEvent: existing.rows[0], duplicate: true };
 }
 
-/** Mark a supported advertisement event as provider-verified exactly once. */
 async function markAdvertisementVerified({ adEventId, providerReference, verificationMetadata = {} }) {
   requiredId(adEventId, 'adEventId');
   requiredId(providerReference, 'providerReference');
