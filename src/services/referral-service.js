@@ -29,11 +29,16 @@ function createReferralService(db) {
     return db.activateReferral(referralId, idempotencyKey);
   }
 
+  async function creditLifetime({ referralId, activityId, baseReward, idempotencyKey = `referral:lifetime:${activityId}` }) {
+    if (!referralId || !activityId || !baseReward) throw new Error('referralId, activityId and baseReward are required');
+    return db.creditLifetimeReferralReward(referralId, activityId, baseReward, idempotencyKey);
+  }
+
   async function getQualifiedCount(referrerUserId) {
     return db.countQualifiedReferrals(referrerUserId);
   }
 
-  return { attribute, qualify, activate, getQualifiedCount };
+  return { attribute, qualify, activate, creditLifetime, getQualifiedCount };
 }
 
 const dbAdapter = {
@@ -46,8 +51,13 @@ const dbAdapter = {
     return result.rows[0] || null;
   },
   async createReferral(referrerUserId, referredUserId, code) {
-    const result = await query(`INSERT INTO referrals (referrer_user_id, referred_user_id, referral_code) VALUES ($1,$2,$3) RETURNING *`, [referrerUserId, referredUserId, code]);
-    return result.rows[0];
+    try {
+      const result = await query(`INSERT INTO referrals (referrer_user_id, referred_user_id, referral_code) VALUES ($1,$2,$3) RETURNING *`, [referrerUserId, referredUserId, code]);
+      return result.rows[0];
+    } catch (error) {
+      if (error.code === '23505') throw new Error('referred user is already attributed');
+      throw error;
+    }
   },
   async countQualifiedReferrals(referrerUserId) {
     const result = await query(`SELECT COUNT(*)::int AS count FROM referrals WHERE referrer_user_id = $1 AND status = 'qualified'`, [referrerUserId]);
@@ -67,7 +77,7 @@ const dbAdapter = {
       if (referral.rows[0].status !== 'qualified') throw new Error('referral is not qualified');
       const settings = await client.query(`SELECT key, value FROM admin_settings WHERE key IN ('referral.reward_coin','referral.reward_dzx','referral.reward_dzp')`);
       const values = Object.fromEntries(settings.rows.map(row => [row.key, Number(row.value)]));
-      const result = await creditActivityRewardOnClient(client, {
+      return creditActivityRewardOnClient(client, {
         idempotencyKey,
         userId: referral.rows[0].referrer_user_id,
         source: 'referral',
@@ -76,7 +86,25 @@ const dbAdapter = {
         dzp: values['referral.reward_dzp'] || 0,
         modifiers: []
       });
-      return { ...result, duplicate: result.duplicate };
+    });
+  },
+  async creditLifetimeReferralReward(referralId, activityId, baseReward, idempotencyKey) {
+    return withTransaction(async client => {
+      const referral = await client.query(`SELECT * FROM referrals WHERE id = $1 AND status = 'qualified' FOR SHARE`, [referralId]);
+      if (!referral.rowCount) throw new Error('qualified referral not found');
+      const setting = await client.query(`SELECT value FROM admin_settings WHERE key = 'referral.lifetime_percent'`);
+      const percent = setting.rowCount ? Number(setting.rows[0].value) : 20;
+      if (!Number.isFinite(percent) || percent < 0) throw new Error('Invalid referral lifetime percent');
+      const multiplier = percent / 100;
+      return creditActivityRewardOnClient(client, {
+        idempotencyKey,
+        userId: referral.rows[0].referrer_user_id,
+        source: 'referral',
+        coin: Number(baseReward.coin || 0) * multiplier,
+        dzx: Number(baseReward.dzx || 0) * multiplier,
+        dzp: Number(baseReward.dzp || 0) * multiplier,
+        modifiers: []
+      });
     });
   }
 };
