@@ -6,11 +6,11 @@
 
 **Specification:** `PROJECT_ROADMAP.md` is the product specification. `docs/ARCHITECTURE_RULES.md` and `ADR.md` govern implementation/change control.
 
-**Current main:** `3fae7dc9cb5620625459ab398f8a5088b64cedd5`.
+**Current main:** `8486ca3d244f4c8565b882b393fbe4c81ffc804a`.
 
-**Current CI evidence:** GitHub Actions run #424 (`32877085617`) for the current `main` commit completed successfully. The repository must still treat any later commit as requiring its own CI result.
+**Current CI evidence:** PR #111 CI run #425 (`32877728228`) completed successfully for the exact pre-merge PR head `c4f187ec24db258ef898c6d5a792482b1a3be9f6`. No GitHub Actions run is currently visible for the post-merge commit `8486ca3d244f4c8565b882b393fbe4c81ffc804a`; therefore post-merge CI is not claimed as passed here.
 
-**Important reconciliation:** This status file is reconciled to the current `main` after the merged Referral lifetime 20% work. Only merged commits on `main` are treated as completed.
+**Important reconciliation:** This status file is reconciled to the merged `main` state. Only merged commits on `main` are treated as completed.
 
 ## Phase 0 — Specification Lock
 
@@ -132,7 +132,7 @@ The abandoned/closed earlier PRs that proposed a combined Referral foundation ar
 
 ## Documentation reconciliation note
 
-This update reconciles the status with `main` commit `3fae7dc9cb5620625459ab398f8a5088b64cedd5` and CI run #424. No production behavior is changed by this documentation update.
+This update reconciles the status with merged `main` commit `8486ca3d244f4c8565b882b393fbe4c81ffc804a`. The last validated pre-merge CI was run #425 on PR #111's exact head. No production behavior is changed by this documentation update.
 
 ## Update Rule
 
