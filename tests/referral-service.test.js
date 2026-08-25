@@ -7,12 +7,13 @@ function fakeDb() {
   const users = new Map(); const referrals = new Map(); const rewards = new Set();
   return {
     async createUser(id) { const user = { id: users.size + 1, telegram_user_id: String(id) }; users.set(String(id), user); return user; },
-    async findReferralByReferredUserId(id) { return referrals.get(id) || null; },
-    async createReferral(referrerId, referredId, code) { const row = { id: referrals.size + 1, referrer_id: referrerId, referred_id: referredId, referral_code: code, status: 'pending' }; referrals.set(referredId, row); return row; },
+    async findReferralByReferredUserId(id) { return [...referrals.values()].find(r => r.referred_id === id) || null; },
+    async findReferralById(id) { return [...referrals.values()].find(r => r.id === id) || null; },
+    async createReferral(referrerId, referredId, code) { const row = { id: referrals.size + 1, referrer_id: referrerId, referred_id: referredId, referral_code: code, status: 'pending' }; referrals.set(row.id, row); return row; },
     async countQualifiedReferrals(referrerId) { return [...referrals.values()].filter(r => r.referrer_id === referrerId && r.status === 'qualified').length; },
-    async markQualified(referralId, activityId) { const row = [...referrals.values()].find(r => r.id === referralId); row.status = 'qualified'; row.qualification_activity_id = activityId; return row; },
-    async hasActivationReward(referralId) { return rewards.has(`activation:${referralId}`); },
-    async recordActivationReward(referralId) { rewards.add(`activation:${referralId}`); return { recorded: true }; }
+    async markQualified(referralId, activityId) { const row = referrals.get(referralId); row.status = 'qualified'; row.qualification_activity_id = activityId; return row; },
+    async activateReferral(referralId) { const key = `activation:${referralId}`; if (rewards.has(key)) return { duplicate: true }; rewards.add(key); return { duplicate: false }; },
+    _referrals: referrals
   };
 }
 
