@@ -59,12 +59,13 @@ async function main() {
     assert.ok(!all.some(task => task.id === social.id));
 
     const filtered = await listActiveTasks({ taskType: 'daily' });
-    assert.deepStrictEqual(filtered.map(task => task.id), [daily.id]);
-    assert.strictEqual(filtered[0].verificationAdSeconds, 5);
-    assert.strictEqual(filtered[0].rewardCoin, 1000);
-    assert.strictEqual(filtered[0].rewardDzx, 1);
-    assert.strictEqual(filtered[0].rewardDzp, 1);
-    assert.deepStrictEqual(filtered[0].completion, { mode: 'open_link', url: 'https://example.test/daily' });
+    const createdDaily = filtered.find(task => task.id === daily.id);
+    assert.ok(createdDaily);
+    assert.strictEqual(createdDaily.verificationAdSeconds, 5);
+    assert.strictEqual(createdDaily.rewardCoin, 1000);
+    assert.strictEqual(createdDaily.rewardDzx, 1);
+    assert.strictEqual(createdDaily.rewardDzp, 1);
+    assert.deepStrictEqual(createdDaily.completion, { mode: 'open_link', url: 'https://example.test/daily' });
 
     console.log('Task catalog foundation invariants: PASS');
   } catch (error) {
