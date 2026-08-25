@@ -81,6 +81,38 @@ async function testNoProviderFailsClosed() {
   await assert.rejects(() => verifyWithProvider(registry, { context: 'verification', payload: {} }), /No advertisement provider available/);
 }
 
+async function testAdminCanDisableOneContextOnly() {
+  const registry = new AdProviderRegistry([
+    provider('multi', ['task', 'verification', 'daily_checkin', 'reward_pool'])
+  ]);
+
+  registry.setContextEnabled('multi', 'daily_checkin', false);
+
+  assert.strictEqual(selectProvider(registry, { context: 'task' }).id, 'multi');
+  assert.strictEqual(selectProvider(registry, { context: 'verification' }).id, 'multi');
+  assert.throws(() => selectProvider(registry, { context: 'daily_checkin' }), /No advertisement provider available/);
+  assert.strictEqual(selectProvider(registry, { context: 'reward_pool' }).id, 'multi');
+}
+
+async function testExplicitProviderCannotBypassContextDisablement() {
+  const registry = new AdProviderRegistry([
+    provider('multi', ['task', 'verification', 'daily_checkin', 'reward_pool'])
+  ]);
+
+  registry.setContextEnabled('multi', 'task', false);
+
+  assert.throws(
+    () => selectProvider(registry, { context: 'task', providerId: 'multi' }),
+    /not available/
+  );
+  assert.strictEqual(selectProvider(registry, { context: 'verification', providerId: 'multi' }).id, 'multi');
+}
+
+async function testContextEnablementRejectsUnknownContext() {
+  const registry = new AdProviderRegistry([provider('multi', ['task'])]);
+  assert.throws(() => registry.setContextEnabled('multi', 'unknown', false), /Invalid advertisement context/);
+}
+
 (async () => {
   try {
     await testContextSelection();
@@ -91,6 +123,9 @@ async function testNoProviderFailsClosed() {
     await testUnavailableProviderCanFailOver();
     await testRejectedVerificationNeverFailsOver();
     await testNoProviderFailsClosed();
+    await testAdminCanDisableOneContextOnly();
+    await testExplicitProviderCannotBypassContextDisablement();
+    await testContextEnablementRejectsUnknownContext();
     console.log('Multi-provider advertisement system invariants: PASS');
   } catch (error) {
     console.error('Multi-provider advertisement system invariants: FAIL');
