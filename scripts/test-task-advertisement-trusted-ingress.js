@@ -14,7 +14,13 @@ const provider = {
   },
   async verifyServerCompletion(payload) {
     if (payload?.accepted !== true) return { verified: false, reference: 'rejected-reference' };
-    return { verified: true, reference: payload.reference, userId: payload.userId };
+    return {
+      verified: true,
+      reference: payload.reference,
+      userId: payload.userId,
+      providerId: payload.providerId || 'trusted-task-ad',
+      context: payload.context || 'task'
+    };
   }
 };
 const registry = new AdProviderRegistry([provider]);
@@ -86,7 +92,7 @@ async function main() {
 
     const verified = await verifyTrustedTaskAdvertisement({
       providerId: provider.id,
-      providerPayload: { accepted: true, reference: providerReference, userId },
+      providerPayload: { accepted: true, reference: providerReference, userId, providerId: provider.id, context: 'task' },
       providerRegistry: registry
     });
     assert.strictEqual(verified.adEvent.id, started.adEvent.id);
@@ -95,7 +101,7 @@ async function main() {
     await assert.rejects(
       () => verifyTrustedTaskAdvertisement({
         providerId: provider.id,
-        providerPayload: { accepted: true, reference: providerReference, userId: otherUserId },
+        providerPayload: { accepted: true, reference: providerReference, userId: otherUserId, providerId: provider.id, context: 'task' },
         providerRegistry: registry
       }),
       /Trusted task provider user does not match advertisement owner/
@@ -103,15 +109,33 @@ async function main() {
 
     const duplicate = await verifyTrustedTaskAdvertisement({
       providerId: provider.id,
-      providerPayload: { accepted: true, reference: providerReference, userId },
+      providerPayload: { accepted: true, reference: providerReference, userId, providerId: provider.id, context: 'task' },
       providerRegistry: registry
     });
     assert.strictEqual(duplicate.duplicate, true);
 
     await assert.rejects(
       () => verifyTrustedTaskAdvertisement({
+        providerId: provider.id,
+        providerPayload: { accepted: true, reference: providerReference, userId, providerId: 'another-provider', context: 'task' },
+        providerRegistry: registry
+      }),
+      /Trusted task provider identity does not match/
+    );
+
+    await assert.rejects(
+      () => verifyTrustedTaskAdvertisement({
+        providerId: provider.id,
+        providerPayload: { accepted: true, reference: providerReference, userId, providerId: provider.id, context: 'daily_checkin' },
+        providerRegistry: registry
+      }),
+      /Trusted task provider context must be task/
+    );
+
+    await assert.rejects(
+      () => verifyTrustedTaskAdvertisement({
         providerId: 'unknown-provider',
-        providerPayload: { accepted: true, reference: providerReference, userId },
+        providerPayload: { accepted: true, reference: providerReference, userId, providerId: 'unknown-provider', context: 'task' },
         providerRegistry: registry
       }),
       /Advertisement provider unknown-provider is not available for task/
