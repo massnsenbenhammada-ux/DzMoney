@@ -14,6 +14,7 @@ function provider(id, contexts, overrides = {}) {
     enabled: true,
     priority: 100,
     verifyCompletion: async () => ({ verified: true, reference: `${id}-ref` }),
+    verifyServerCompletion: async () => ({ verified: true, reference: `${id}-server-ref` }),
     ...overrides
   };
 }
