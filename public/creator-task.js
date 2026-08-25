@@ -91,6 +91,7 @@ async function createCreatorTask(event) {
   const button = creatorEl('creatorSubmit');
   button.disabled = true;
   try {
+    const verificationAdSecondsValue = creatorEl('creatorVerificationAdSeconds')?.value?.trim() || '';
     const result = await creatorApi('/api/creator/tasks', {
       method: 'POST',
       body: JSON.stringify({
@@ -101,7 +102,7 @@ async function createCreatorTask(event) {
         rewardCoin: Number(creatorEl('creatorRewardCoin').value),
         rewardDzx: Number(creatorEl('creatorRewardDzx').value),
         rewardDzp: Number(creatorEl('creatorRewardDzp').value),
-        verificationAdSeconds: Number(creatorEl('creatorVerificationAdSeconds').value || 0),
+        verificationAdSeconds: verificationAdSecondsValue ? Number(verificationAdSecondsValue) : null,
         config: creatorConfig(),
         idempotencyKey: creatorGetIdempotencyKey()
       })
