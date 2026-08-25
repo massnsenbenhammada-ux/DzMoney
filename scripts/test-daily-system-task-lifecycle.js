@@ -36,3 +36,5 @@ try {
   console.error(error);
   process.exitCode = 1;
 }
+
+// The lifecycle contract is intentionally independent of referral activation timing.
