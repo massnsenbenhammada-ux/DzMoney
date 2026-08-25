@@ -54,6 +54,7 @@
     "test:monetag-postback": "node ./scripts/test-monetag-postback.js && node ./scripts/test-monetag-postback-http.js",
     "test:monetag-ymid": "node ./scripts/test-monetag-ymid-generation.js",
     "test:monetag-finalization": "node ./scripts/test-monetag-postback-finalization.js",
+    "test:daily-checkin-monetag-contract": "node ./scripts/test-daily-checkin-monetag-contract.js",
     "test:monetag-sdk-readiness": "node ./scripts/test-monetag-sdk-readiness.js",
     "test:special-partner-completion-contract": "node ./scripts/test-special-partner-completion-contract.js",
     "test:frontend": "node ./scripts/validate-frontend.js",
