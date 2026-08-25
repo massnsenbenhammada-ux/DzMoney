@@ -6,9 +6,14 @@ function positiveId(value, name) {
   return id;
 }
 
-async function findAttribution(client, referredUserId) {
+function requiredId(value, name) {
+  if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
+  return positiveId(value, name);
+}
+
+async function findAttribution(client, referredUserId, lock = false) {
   const result = await client.query(
-    `SELECT * FROM referral_attributions WHERE referred_user_id = $1`,
+    `SELECT * FROM referral_attributions WHERE referred_user_id = $1${lock ? ' FOR UPDATE' : ''}`,
     [referredUserId]
   );
   return result.rows[0] || null;
@@ -42,6 +47,49 @@ async function resolveExistingAttribution(client, referrerUserId, referredUserId
   return { attribution: existing, duplicate: true };
 }
 
+async function verifyQualificationEvidence(client, referredUserId, source, referenceId) {
+  if (source === 'task') {
+    const result = await client.query(
+      `SELECT id FROM task_attempts WHERE id=$1 AND user_id=$2 AND status='verified'`,
+      [referenceId, referredUserId]
+    );
+    return result.rowCount > 0;
+  }
+  const result = await client.query(
+    `SELECT id FROM activity_ad_events
+     WHERE id=$1 AND user_id=$2 AND verified=TRUE AND context <> 'verification'`,
+    [referenceId, referredUserId]
+  );
+  return result.rowCount > 0;
+}
+
+/** Qualifies a referral only from server-recorded verified task or advertisement evidence. */
+async function qualifyReferral({ referredUserId, source, referenceId, idempotencyKey }) {
+  const referred = requiredId(referredUserId, 'referredUserId');
+  const evidenceId = requiredId(referenceId, 'referenceId');
+  if (!['task', 'advertisement'].includes(source)) throw new Error('Invalid referral qualification source');
+  if (idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === '') {
+    throw new Error('idempotencyKey is required');
+  }
+
+  return withTransaction(async client => {
+    const attribution = await findAttribution(client, referred, true);
+    if (!attribution) throw new Error('Referral attribution not found');
+    if (attribution.status === 'qualified') return { attribution, duplicate: true };
+    const verified = await verifyQualificationEvidence(client, referred, source, evidenceId);
+    if (!verified) throw new Error(`Verified ${source} evidence not found`);
+    const updated = await client.query(
+      `UPDATE referral_attributions
+       SET status='qualified', qualified_at=NOW(), qualification_source=$1,
+           qualification_reference_id=$2, qualification_idempotency_key=$3, updated_at=NOW()
+       WHERE id=$4 AND status='pending' RETURNING *`,
+      [source, evidenceId, idempotencyKey, attribution.id]
+    );
+    if (!updated.rowCount) return { attribution: await findAttribution(client, referred), duplicate: true };
+    return { attribution: updated.rows[0], duplicate: false };
+  });
+}
+
 /** Returns the canonical referral attribution for a referred user. */
 async function getReferralByReferredUser(referredUserId) {
   const referred = positiveId(referredUserId, 'referredUserId');
@@ -52,4 +100,4 @@ async function getReferralByReferredUser(referredUserId) {
   return result.rows[0] || null;
 }
 
-module.exports = { createAttribution, getReferralByReferredUser };
+module.exports = { createAttribution, qualifyReferral, getReferralByReferredUser };
