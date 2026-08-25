@@ -52,7 +52,7 @@ The existing `activity_tasks` table remains the single persistence source for ta
 
 ### Context
 
-Tasks may require different external verification sources. Some sources can provide a known verifier automatically, while others require administrator configuration. Some registration tasks also need an external application's referral link, optionally followed by verification that the registered account belongs to the DzMoney task user.
+Tasks may require different external verification sources. Some sources can provide a known verifier automatically, while others require administrator configuration. Some registration tasks also need an external application's referral link, optionally followed by verification that the registered account belongs to the task user.
 
 ### Decision
 
@@ -145,4 +145,23 @@ No new database table or migration is required. A small orchestration boundary i
 
 ### Consequences
 
-Tasks-page ads remain independent from verification ads and Reward Pool ads. The flow can support Monetag or another provider through the existing provider registry without changing Economy/Ledger logic. The client never receives authoritative reward state from its own ad-completion signal.
+Tasks-page ads remain independent from verification ads and Reward Pool ads. The flow can support Monetag or another provider through the existing provider registry without changing Economy/Ledger logic.
+
+## ADR-0007 — Share with Friends cannot claim completion from an untrusted client signal
+
+**Status:** Accepted  
+**Date:** 2026-08-25
+
+### Context
+
+The Daily `Share with Friends` task requires the user to open Telegram's share flow and share the user's referral link once per UTC+1 calendar day. The DzMoney backend must remain the authority for reward, eligibility and completion state. Telegram's share-link flow does not provide DzMoney with a trusted server callback proving that the user actually completed the share after the share dialog was opened.
+
+### Decision
+
+Do not issue the Daily Share with Friends reward from a frontend-only `shared=true`, click, or dialog-open signal. Opening Telegram's share UI may be used as the user-interface action, but it is not authoritative proof of sharing.
+
+Until a trusted Telegram/provider callback or another server-verifiable completion signal exists, the task must not be implemented as a server-authoritative economic reward. The existing Daily task infrastructure remains the intended boundary; no new share-tracking table, reward service, or client-side source of truth is introduced merely to work around the missing verification signal.
+
+### Consequences
+
+This deliberately blocks a superficially complete but forgeable reward path. The Daily Share with Friends requirement remains a known integration gap rather than a security regression. A future trusted signal can be integrated into the existing Daily task/Economy path without creating a second state store.
