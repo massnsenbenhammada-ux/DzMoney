@@ -77,6 +77,25 @@ Phase 2 remains open until its remaining implementation and acceptance criteria 
 - `Share with Friends`: intended once per UTC+1 calendar day and must use the user's referral link, but no reward is enabled until a trusted server-verifiable completion signal exists.
 - `Invite 1/10/20/50/100`: permanent achievement thresholds based on canonical qualified referrals; each threshold is claimable once and requires the existing verification-ad gate before reward finalization.
 
+## Task completion service contract — specification locked, runtime pending
+
+🟡 **Specification recorded; no production behavior changed.**
+
+The creator-facing completion choice for supported user-created task categories is now documented in `docs/TASK_COMPLETION_SERVICE_CONTRACT.md` and `ADR.md` (ADR-0010):
+
+- **Open Link → Click Proof** — use when opening the configured link is itself the task outcome.
+- **Server Verified** — use when the creator requires trusted proof of an external outcome beyond opening the link.
+
+For Server Verified tasks, the future User Create Tasks UI must derive and display, when the applicable provider contract exists:
+- Verification Source;
+- Evidence Type;
+- Verification Method;
+- Required User Input.
+
+The UI must not invent required inputs, and an unimplemented provider must not be exposed as an operational verification option. Mini App `initData` is documented as an identity/authentication boundary, not by itself proof of arbitrary in-Mini-App completion.
+
+This documentation change does **not** mark the broader task adapters/verifiers or User Create Tasks UI as implemented.
+
 ## Phase 3 — Referral
 
 🟡 Core foundation partially implemented; Phase 3 is not closed.
@@ -133,7 +152,7 @@ The abandoned/closed earlier PRs that proposed a combined Referral foundation ar
 
 ## Documentation reconciliation note
 
-This update reconciles the status with merged `main` commit `0a7138d1dfe2e68e3620c56c33af1698fd2d1e0d` (PR #114). No production behavior is changed by this documentation update.
+This update records the task completion-service specification only. It does not change production behavior or the validated implementation state on `main`. The specification branch is based on merged main commit `0a7138d1dfe2e68e3620c56c33af1698fd2d1e0d`.
 
 ## Update Rule
 
