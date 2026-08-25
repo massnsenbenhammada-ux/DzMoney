@@ -111,8 +111,8 @@ async function activateReferral({ referredUserId, idempotencyKey }) {
     const attribution = await findAttribution(client, referred, true);
     if (!attribution) throw new Error('Referral attribution not found');
     if (attribution.status !== 'qualified') throw new Error('Referral is not qualified');
-    if (attribution.activation_at) return { attribution, duplicate: true };
     await assertActivationKeyAvailable(client, idempotencyKey, attribution.id);
+    if (attribution.activation_at) throw new Error('Referral is already activated');
     await postEconomyTransactionOnClient(client, {
       idempotencyKey,
       userId: Number(attribution.referrer_user_id),
