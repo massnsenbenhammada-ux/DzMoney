@@ -25,9 +25,9 @@ async function run() {
   };
   const query = async (sql, params) => {
     if (sql.includes('key = ANY')) return { rows: [
-      { key: 'activity.reward_coin', value: 1000 },
-      { key: 'activity.reward_dzx', value: 1 },
-      { key: 'activity.reward_dzp', value: 1 }
+      { key: 'activity.default_reward_coin', value: 1000 },
+      { key: 'activity.default_reward_dzx', value: 1 },
+      { key: 'activity.default_reward_dzp', value: 1 }
     ], rowCount: 3 };
     if (params?.[0] === 'task.campaign_price_dzx_per_execution') return { rows: [{ value: 9 }], rowCount: 1 };
     return { rows: [], rowCount: 0 };
