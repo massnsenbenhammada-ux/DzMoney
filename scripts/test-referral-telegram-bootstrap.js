@@ -1,5 +1,4 @@
 const assert = require('assert');
-const path = require('path');
 
 process.env.BOT_TOKEN = process.env.BOT_TOKEN || 'test-bot-token';
 
@@ -41,8 +40,9 @@ async function testFirstEntryAttribution() {
   const referralService = require('../src/services/referral-service');
   const router = require('../src/http/me-routes');
   const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  const referrer = await walletService.createUser({ telegramUserId: `ref-${suffix}` });
-  const referredTelegramId = `new-${suffix}`;
+  const referrerTelegramId = `9${suffix}`;
+  const referredTelegramId = `8${suffix}`;
+  const referrer = await walletService.createUser({ telegramUserId: referrerTelegramId });
 
   async function callMe(startParam) {
     return new Promise((resolve, reject) => {
@@ -66,9 +66,9 @@ async function testFirstEntryAttribution() {
     const unchanged = await referralService.getReferralByReferredUser(attributed.rows[0].referred_user_id);
     assert.strictEqual(Number(unchanged.referrer_user_id), Number(referrer.id));
   } finally {
-    await query('DELETE FROM referral_attributions WHERE referrer_user_id = $1 OR referred_user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($2, $3))', [referrer.id, referredTelegramId, `ref-${suffix}`]);
-    await query('DELETE FROM wallet_accounts WHERE user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($1, $2))', [referredTelegramId, `ref-${suffix}`]);
-    await query('DELETE FROM users WHERE telegram_user_id IN ($1, $2)', [referredTelegramId, `ref-${suffix}`]);
+    await query('DELETE FROM referral_attributions WHERE referrer_user_id = $1 OR referred_user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($2, $3))', [referrer.id, referredTelegramId, referrerTelegramId]);
+    await query('DELETE FROM wallet_accounts WHERE user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($1, $2))', [referredTelegramId, referrerTelegramId]);
+    await query('DELETE FROM users WHERE telegram_user_id IN ($1, $2)', [referredTelegramId, referrerTelegramId]);
     await pool.end();
   }
 }
