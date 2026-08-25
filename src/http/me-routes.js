@@ -26,7 +26,8 @@ router.get('/', asyncRoute(async (req, res) => {
       telegramUserId: String(user.telegram_user_id),
       username: user.username,
       firstName: user.first_name,
-      photoUrl: user.photo_url
+      photoUrl: user.photo_url,
+      referralCode: user.referral_code
     },
     balances
   });

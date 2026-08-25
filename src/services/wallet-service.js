@@ -13,6 +13,7 @@ async function ensureWallets(client, userId) {
   }
 }
 
+/** Creates or updates a Telegram user while preserving the immutable referral code. */
 async function createUser({ telegramUserId, username = null, firstName = null, photoUrl = null }) {
   return withTransaction(async client => {
     const result = await client.query(
