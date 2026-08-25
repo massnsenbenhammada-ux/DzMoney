@@ -1,7 +1,7 @@
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const { startAdvertisementEvent, markAdvertisementVerified } = require('./ad-event-service');
-const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
+const { selectProvider } = require('./ad-provider-service');
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -23,7 +23,7 @@ async function getActiveTask(taskId) {
   return result.rows[0];
 }
 
-/** Start a Tasks-page advertisement bound to an active task and trusted provider. */
+/** Start a Tasks-page advertisement bound to an active task and selected provider. */
 async function startTaskAdvertisement({ userId, taskId, idempotencyKey, externalAdId = null, providerRegistry, providerId = null }) {
   requiredId(userId, 'userId');
   requiredId(idempotencyKey, 'idempotencyKey');
@@ -35,19 +35,47 @@ async function startTaskAdvertisement({ userId, taskId, idempotencyKey, external
   return { ...result, providerId: provider.id };
 }
 
-/** Verify a task-context advertisement using only the provider recorded at start. */
-async function verifyTaskAdvertisement({ userId, adEventId, providerRegistry, providerPayload }) {
-  requiredId(userId, 'userId');
-  requiredId(adEventId, 'adEventId');
-  const result = await query('SELECT * FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context=$3', [adEventId, userId, 'task']);
-  if (!result.rowCount) throw new Error('Task advertisement event not found');
+/** Reject client-originated provider evidence; verification is server-to-server only. */
+async function verifyTaskAdvertisement() {
+  throw new Error('Task advertisement verification must use trusted provider ingress');
+}
+
+function validateServerVerification(verification) {
+  if (!verification || verification.verified !== true) throw new Error('Advertisement provider verification failed');
+  if (typeof verification.reference !== 'string' || !verification.reference.trim()) throw new Error('Trusted task provider reference is required');
+}
+
+/** Verify a task advertisement from authenticated provider evidence and correlate it to the started event. */
+async function verifyTrustedTaskAdvertisement({ providerId, providerPayload, providerRegistry }) {
+  requiredId(providerId, 'providerId');
+  if (!providerPayload || typeof providerPayload !== 'object') throw new Error('Trusted provider payload is required');
+  if (!providerRegistry || typeof providerRegistry.get !== 'function') throw new Error('Advertisement provider registry is required');
+  const provider = providerRegistry.get(providerId);
+  if (!provider || !provider.enabled || !provider.contexts.includes('task')) {
+    throw new Error(`Advertisement provider ${providerId} is not available for task`);
+  }
+  if (typeof provider.verifyServerCompletion !== 'function') {
+    throw new Error(`Advertisement provider ${providerId} has no trusted server verification contract`);
+  }
+  const verification = await provider.verifyServerCompletion(providerPayload);
+  validateServerVerification(verification);
+  const result = await query(
+    `SELECT * FROM activity_ad_events
+     WHERE context='task'
+       AND external_ad_id=$1
+       AND metadata->>'provider_id'=$2
+     ORDER BY id DESC
+     LIMIT 1`,
+    [verification.reference, providerId]
+  );
+  if (!result.rowCount) throw new Error('Trusted task provider reference cannot be verified');
   const event = result.rows[0];
   if (event.verified) return { adEvent: event, duplicate: true };
-  const providerId = event.metadata?.provider_id;
-  if (!providerId) throw new Error('Task advertisement provider is not recorded');
-  const verification = await verifyWithProvider(providerRegistry, { context: 'task', providerId, payload: providerPayload });
-  if (!verification.verification.verified) throw new Error('Advertisement provider verification failed');
-  return markAdvertisementVerified({ adEventId, providerReference: verification.verification.reference, verificationMetadata: { provider_id: verification.providerId } });
+  return markAdvertisementVerified({
+    adEventId: event.id,
+    providerReference: verification.reference,
+    verificationMetadata: { provider_id: providerId, source: 'trusted_provider' }
+  });
 }
 
 /** Finalize one verified task advertisement through the existing economy/ledger. */
@@ -69,4 +97,4 @@ async function finalizeTaskAdvertisement({ userId, adEventId }) {
   });
 }
 
-module.exports = { startTaskAdvertisement, verifyTaskAdvertisement, finalizeTaskAdvertisement };
+module.exports = { startTaskAdvertisement, verifyTaskAdvertisement, verifyTrustedTaskAdvertisement, finalizeTaskAdvertisement };
