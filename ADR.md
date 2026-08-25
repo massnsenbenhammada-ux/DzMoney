@@ -192,3 +192,32 @@ No new attribution table or referral service is introduced. The current `referra
 ### Consequences
 
 The referral code has one source of truth and remains stable for the user's lifetime. The user-facing `/api/me` response may expose the code for display/share-link construction, but the browser cannot create or mutate attribution. The Telegram bot webhook/bootstrap boundary remains a separate integration step because no bot webhook implementation currently exists in the repository.
+
+## ADR-0009 — Mini App referral bootstrap uses Telegram-signed start_param
+
+**Status:** Accepted  
+**Date:** 2026-08-25
+
+### Context
+
+Telegram distinguishes a bot deep link (`?start=`), which delivers a `/start` parameter to the bot conversation, from a Mini App deep link (`?startapp=`), whose value is passed as the Mini App `start_param`. DzMoney's first-entry attribution must be established when the Mini App is opened, and the existing `telegramAuth` boundary already verifies signed Telegram WebApp init data server-side.
+
+Using a bot `/start` webhook would require a separate bot update boundary and would not by itself prove that the Mini App was opened with the same parameter. That would add integration state that is not currently needed. The signed Mini App `start_param` is sufficient for the first-entry trust boundary.
+
+### Decision
+
+For the Mini App referral flow, the server reads `start_param` only from already-verified Telegram WebApp init data. The first authenticated `/api/me` entry creates the user if necessary and, only when the user did not exist before that entry, resolves the start parameter against `users.referral_code` and calls the existing `referral-service.js.createAttribution()`.
+
+An existing user is never re-attributed by a later start parameter. Self-referral and conflicting attribution remain rejected by the existing referral service. No client-provided standalone referral code is accepted as authoritative attribution input.
+
+The canonical Mini App referral URL is therefore the Telegram Main Mini App deep-link form:
+
+`https://t.me/<BOT_USERNAME>?startapp=<REFERRAL_CODE>`
+
+The bot `?start=` form remains a valid Telegram bot deep link, but it is not the canonical DzMoney Mini App attribution transport unless a future bot webhook explicitly bridges it to the Mini App flow. That future integration is outside this feature.
+
+No new table, migration, referral service or reward path is introduced.
+
+### Consequences
+
+The first-entry rule is enforced using the existing authenticated user boundary and existing referral attribution store. Replay is naturally blocked by the user's existing database identity. The browser can display/share the canonical referral code, but cannot manufacture a trusted attribution event.
