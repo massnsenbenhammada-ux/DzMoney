@@ -218,40 +218,27 @@ The bot `?start=` form remains a valid Telegram bot deep link, but it is not the
 
 No new table, migration, referral service or reward path is introduced.
 
-### Consequences
-
-The first-entry rule is enforced using the existing authenticated user boundary and existing referral attribution store. Replay is naturally blocked by the user's existing database identity. The browser can display/share the canonical referral code, but cannot manufacture a trusted attribution event. 
-
-## ADR-0010 — User Create Tasks exposes an explicit completion-service choice
+## ADR-0010 — Special/Partner tasks are Server Verified only
 
 **Status:** Accepted  
 **Date:** 2026-08-25
 
 ### Context
 
-User-created tasks need a clear distinction between tasks where opening a configured link is itself the intended completion and tasks where DzMoney must verify an external outcome. The existing task execution, verification-ad, verification and Economy/Ledger boundaries must remain the single path. The future User Create Tasks UI must therefore expose the creator's completion-service choice without creating a second verification or reward system.
+The Task Completion Service Contract allows task creators to choose between Open Link / Click Proof and Server Verified when both modes are valid for a task category. Special/Partner tasks are different: their intended completion is an outcome established by an external partner, and a client-side link click cannot establish that outcome. Allowing Click Proof for this category would create a misleading completion contract and a potential reward path based only on opening a partner link.
 
 ### Decision
 
-For task categories that support both modes, User Create Tasks exposes exactly two creator-facing completion-service choices:
+**Special/Partner tasks have exactly one completion service: Server Verified.**
 
-1. **Open Link → Click Proof** — use when opening the configured link is itself the task outcome. The existing click evidence boundary records the interaction; it is not a claim that a deeper external action occurred.
-2. **Server Verified** — use when the creator requires proof of an external outcome beyond opening the link. The task's verification contract defines the trusted source, evidence type, verification method and any required user input.
+The future User Create Tasks UI must therefore show Server Verified as the only completion-service option when the task type is Special/Partner. It must not offer Open Link / Click Proof for this category.
 
-The UI must provide concise instructions explaining the difference and must not offer a Server Verified provider as operational until its real server-side verification contract exists and is tested.
+The server-side task contract must enforce the same invariant. A Special/Partner task configured with Open Link / Click Proof is invalid and must be rejected even if a client attempts to submit it directly.
 
-Required user input is derived from the verification/provider contract. The UI must never invent fields such as player ID, account ID, username or unique codes. If no input is required, the UI explicitly shows that no input is required.
+Server Verified Special/Partner tasks require a partner verification contract defining the trusted source, evidence type, verification method, identity correlation requirements and any Required User Input. Partner credentials/secrets remain outside task configuration and belong to the protected provider integration boundary.
 
-For Mini Apps, validated Telegram WebApp `initData` is an identity/authentication boundary. It does not by itself prove completion of an arbitrary action inside the Mini App; trusted completion evidence must come from the Mini App/backend contract when an internal action is required.
-
-The reward boundary remains:
-
-**Execute → Task Attempt → Evidence/Proof → Server Verification → Verification Ad where configured → Final Verification → Existing Economy → Existing Ledger → Reward.**
-
-No new task engine, reward service, economy, ledger, category-specific verification service, database table or provider credential store is introduced by this decision.
-
-The normative details are recorded in `docs/TASK_COMPLETION_SERVICE_CONTRACT.md`.
+This decision does not create a Partner provider, Partner API, new task engine, new verification service, new reward service, new Economy, or new Ledger. It only locks the completion-service constraint so future implementation cannot accidentally expose an invalid Click Proof path.
 
 ### Consequences
 
-The future User Create Tasks UI becomes a configuration surface for the existing task/verification contract rather than a source of verification rules. Creators can choose the appropriate completion service and understand its trust boundary. Server Verified configuration can later expose the exact required user inputs once the provider contract is available, without redesigning the task engine. Unimplemented providers remain pending and do not become fake integrations.
+The Creator UI has a category-dependent completion-service model: categories supporting both modes expose both choices, while Special/Partner exposes Server Verified only. Server-side validation remains authoritative and prevents a manipulated client from bypassing the restriction. Actual Partner verification remains pending until a real partner contract exists and is implemented with focused TDD and integration tests.
