@@ -3,8 +3,9 @@ const { query } = require('../db/pool');
 const { ONCLICKA_PROVIDER_ID } = require('../services/onclicka-adapter');
 const { verifyDailyCheckinAd, finalizeDailyCheckin } = require('../services/daily-checkin-service');
 const { verifyTaskAdvertisement, finalizeTaskVerification } = require('../services/task-verification-service');
+const { finalizeVerifiedAchievementAd } = require('../services/referral-postback-adapter');
 
-const CONTEXTS = new Set(['daily_checkin', 'verification']);
+const CONTEXTS = new Set(['daily_checkin', 'verification', 'achievement']);
 
 function createOnclickaPostbackRouter({ providerRegistry, secret }) {
   if (!providerRegistry) throw new Error('Advertisement provider registry is required');
@@ -40,24 +41,17 @@ function createOnclickaPostbackRouter({ providerRegistry, secret }) {
 
       const event = eventResult.rows[0];
       const providerPayload = { USERID: userId, confirmedByPostback: true };
+      if (context === 'achievement') {
+        const result = await finalizeVerifiedAchievementAd({ event, providerRegistry, providerId: ONCLICKA_PROVIDER_ID, providerPayload });
+        return res.json({ ok: true, context, verified: result.verified, duplicate: result.duplicate, rewarded: result.rewarded === true });
+      }
       if (context === 'daily_checkin') {
-        const verified = await verifyDailyCheckinAd({
-          userId: event.user_id,
-          adEventId: event.id,
-          providerRegistry,
-          providerId: ONCLICKA_PROVIDER_ID,
-          providerPayload
-        });
+        const verified = await verifyDailyCheckinAd({ userId: event.user_id, adEventId: event.id, providerRegistry, providerId: ONCLICKA_PROVIDER_ID, providerPayload });
         const reward = await finalizeDailyCheckin({ userId: event.user_id, claimIdempotencyKey: event.claim_idempotency_key });
         return res.json({ ok: true, context, verified: verified.duplicate || true, duplicate: verified.duplicate || reward.duplicate, rewarded: reward.rewarded === true });
       }
 
-      const verified = await verifyTaskAdvertisement({
-        adEventId: event.id,
-        providerRegistry,
-        providerId: ONCLICKA_PROVIDER_ID,
-        providerPayload
-      });
+      const verified = await verifyTaskAdvertisement({ adEventId: event.id, providerRegistry, providerId: ONCLICKA_PROVIDER_ID, providerPayload });
       const finalization = await finalizeTaskVerification({ attemptId: event.attempt_id, idempotencyKey: `task:${event.attempt_id}` });
       return res.json({ ok: true, context, verified: verified.duplicate || true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, status: finalization.status });
     } catch (error) {
