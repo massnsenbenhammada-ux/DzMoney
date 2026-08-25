@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/pool');
 const walletService = require('../services/wallet-service');
 const referralService = require('../services/referral-service');
+const { buildReferralLink } = require('../config/telegram');
 const { telegramAuth } = require('./telegram-auth');
 
 const router = express.Router();
@@ -46,7 +47,8 @@ router.get('/', asyncRoute(async (req, res) => {
       username: user.username,
       firstName: user.first_name,
       photoUrl: user.photo_url,
-      referralCode: user.referral_code
+      referralCode: user.referral_code,
+      referralLink: buildReferralLink(user.referral_code)
     },
     balances
   });
