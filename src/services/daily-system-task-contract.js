@@ -5,6 +5,19 @@ const DAILY_SYSTEM_TASKS = Object.freeze({
   CHECK_FOR_UPDATE: 'check_for_update',
   SHARE_WITH_FRIENDS: 'share_with_friends',
   VIEW_ADS: 'view_ads',
+  INVITE_1_FRIEND: 'invite_1_friend',
+  INVITE_10_FRIENDS: 'invite_10_friends',
+  INVITE_20_FRIENDS: 'invite_20_friends',
+  INVITE_50_FRIENDS: 'invite_50_friends',
+  INVITE_100_FRIENDS: 'invite_100_friends',
+});
+
+const REFERRAL_ACHIEVEMENT_THRESHOLDS = Object.freeze({
+  [DAILY_SYSTEM_TASKS.INVITE_1_FRIEND]: 1,
+  [DAILY_SYSTEM_TASKS.INVITE_10_FRIENDS]: 10,
+  [DAILY_SYSTEM_TASKS.INVITE_20_FRIENDS]: 20,
+  [DAILY_SYSTEM_TASKS.INVITE_50_FRIENDS]: 50,
+  [DAILY_SYSTEM_TASKS.INVITE_100_FRIENDS]: 100,
 });
 
 /**
@@ -45,6 +58,7 @@ function utcPlusOneDateKey(value) {
 
 module.exports = {
   DAILY_SYSTEM_TASKS,
+  REFERRAL_ACHIEVEMENT_THRESHOLDS,
   isUtcPlusOneCalendarDayAvailable,
   isReferralAchievementClaimable,
 };
