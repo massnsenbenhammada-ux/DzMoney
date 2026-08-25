@@ -71,17 +71,18 @@ async function cleanup(userId, taskId) {
 async function main() {
   const userId = await createUser();
   const taskId = await createTask();
+  const idempotencyKey = `task-ad-${Date.now()}`;
   try {
-    const started = await startTaskAdvertisement({
-      userId,
-      taskId,
-      idempotencyKey: `task-ad-${Date.now()}`,
-      providerRegistry: registry
-    });
+    const started = await startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry: registry });
     assert.strictEqual(started.providerId, provider.id);
     assert.strictEqual(started.adEvent.context, 'task');
     assert.strictEqual(started.adEvent.metadata.task_id, taskId);
     assert.strictEqual(started.adEvent.verified, false);
+
+    const duplicateStart = await startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry: registry });
+    assert.strictEqual(duplicateStart.duplicate, true);
+    assert.strictEqual(duplicateStart.adEvent.id, started.adEvent.id);
+    assert.strictEqual(duplicateStart.providerId, provider.id);
 
     const taskAttemptCount = await pool.query('SELECT COUNT(*)::int AS count FROM task_attempts WHERE user_id=$1', [userId]);
     const verificationGateCount = await pool.query('SELECT COUNT(*)::int AS count FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)', [userId]);
@@ -94,31 +95,16 @@ async function main() {
     );
 
     await assert.rejects(
-      () => verifyTaskAdvertisement({
-        userId: userId + 1,
-        adEventId: started.adEvent.id,
-        providerRegistry: registry,
-        providerPayload: { accepted: true }
-      }),
+      () => verifyTaskAdvertisement({ userId: userId + 1, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true } }),
       /Task advertisement event not found/
     );
 
     await assert.rejects(
-      () => verifyTaskAdvertisement({
-        userId,
-        adEventId: started.adEvent.id,
-        providerRegistry: registry,
-        providerPayload: { accepted: false }
-      }),
+      () => verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: false } }),
       /Advertisement provider verification failed/
     );
 
-    const verified = await verifyTaskAdvertisement({
-      userId,
-      adEventId: started.adEvent.id,
-      providerRegistry: registry,
-      providerPayload: { accepted: true, reference: 'task-ad-ref-1' }
-    });
+    const verified = await verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: 'task-ad-ref-1' } });
     assert.strictEqual(verified.adEvent.verified, true);
 
     const rewarded = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
