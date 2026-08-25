@@ -37,12 +37,18 @@ if (staleDiagnosticsPage || staleDiagnosticsScript) {
 
 const creatorForm = index.includes('id="creatorTaskForm"');
 const creatorReviewButton = index.includes('id="creatorReviewSubmit"');
+const creatorTypes = !index.includes('value="special"') && index.includes('value="game"') && index.includes('value="social"') && index.includes('value="web"');
+const creatorTargetMinimum = index.includes('id="creatorTarget" type="number" min="1000"');
+const creatorRewardsHidden = !index.includes('id="creatorRewardCoin"') && !index.includes('id="creatorRewardDzx"') && !index.includes('id="creatorRewardDzp"');
+const creatorAdSecondsHidden = !index.includes('id="creatorVerificationAdSeconds"');
 const stableCreatorKey = creator.includes('function creatorGetIdempotencyKey()') && creator.includes('idempotencyKey: creatorGetIdempotencyKey()');
 const separateReviewBoundary = creator.includes('async function submitCreatorTaskForReview') && creator.includes('/submit');
 const noAutomaticReview = !creator.includes('const submit = await creatorApi(`/api/creator/tasks/${encodeURIComponent(taskId)}/submit`');
+const creatorSendsOnlyTarget = creator.includes('target: Number(creatorEl(\'creatorTarget\').value)') && !creator.includes('rewardCoin:') && !creator.includes('rewardDzx:') && !creator.includes('rewardDzp:');
+const serverVerifiedHasUrl = creator.includes('id="creatorCompletionUrl"') && creator.includes('mode: creatorTaskState.mode');
 
-if (!creatorForm || !creatorReviewButton || !stableCreatorKey || !separateReviewBoundary || !noAutomaticReview) {
-  throw new Error('Creator UI must keep create idempotency stable and require explicit review submission');
+if (!creatorForm || !creatorReviewButton || !creatorTypes || !creatorTargetMinimum || !creatorRewardsHidden || !creatorAdSecondsHidden || !stableCreatorKey || !separateReviewBoundary || !noAutomaticReview || !creatorSendsOnlyTarget || !serverVerifiedHasUrl) {
+  throw new Error('Creator UI must expose only allowed campaign inputs and keep explicit review submission');
 }
 
 console.log('FRONTEND_SYNTAX: PASS');
@@ -51,4 +57,5 @@ console.log('DAILY_SDK_READINESS_ORDER: PASS');
 console.log('DAILY_VERIFICATION_STATUS_SYNC: PASS');
 console.log('STYLESHEET_LINK: PASS');
 console.log('TEMPORARY_AD_DIAGNOSTICS_REMOVED: PASS');
+console.log('CREATOR_CAMPAIGN_INPUT_SURFACE: PASS');
 console.log('CREATOR_IDEMPOTENCY_AND_REVIEW_BOUNDARY: PASS');
