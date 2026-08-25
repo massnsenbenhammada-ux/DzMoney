@@ -1,6 +1,8 @@
 const { withTransaction, query } = require('../db/pool');
 const { postEconomyTransactionOnClient } = require('./economy-service');
 
+const REFERRAL_LIFETIME_RATE = 0.2;
+
 function positiveId(value, name) {
   const id = Number(value);
   if (!Number.isInteger(id) || id <= 0) throw new Error(`${name} must be a positive integer`);
@@ -10,6 +12,12 @@ function positiveId(value, name) {
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
   return positiveId(value, name);
+}
+
+function lifetimeAmount(value) {
+  const amount = Number(value ?? 0);
+  if (!Number.isFinite(amount) || amount < 0) throw new Error('Lifetime reward amount must be a non-negative number');
+  return Number((amount * REFERRAL_LIFETIME_RATE).toFixed(8));
 }
 
 async function findAttribution(client, referredUserId, lock = false) {
@@ -91,6 +99,47 @@ async function qualifyReferral({ referredUserId, source, referenceId, idempotenc
   });
 }
 
+/** Credits 20% of a qualified user's base COIN/DZX activity to the referrer. */
+async function creditReferralLifetimeOnClient(client, { referredUserId, source, sourceReferenceId, idempotencyKey, baseReward }) {
+  const referred = requiredId(referredUserId, 'referredUserId');
+  if (!['task', 'advertisement'].includes(source)) throw new Error('Invalid lifetime referral source');
+  if (sourceReferenceId === undefined || sourceReferenceId === null || sourceReferenceId === '') {
+    throw new Error('sourceReferenceId is required');
+  }
+  if (idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === '') {
+    throw new Error('idempotencyKey is required');
+  }
+  const coin = lifetimeAmount(baseReward?.coin);
+  const dzx = lifetimeAmount(baseReward?.dzx);
+  const attribution = await findAttribution(client, referred, true);
+  if (!attribution) return { qualified: false, duplicate: false };
+  if (attribution.status !== 'qualified') return { qualified: false, duplicate: false };
+  const movements = [];
+  if (coin > 0) movements.push({ currency: 'COIN', amount: coin, source: 'referral' });
+  if (dzx > 0) movements.push({ currency: 'DZX', amount: dzx, source: 'referral' });
+  if (!movements.length) return { qualified: true, duplicate: false, rewarded: false };
+  const reward = await postEconomyTransactionOnClient(client, {
+    idempotencyKey,
+    userId: Number(attribution.referrer_user_id),
+    type: 'REWARD',
+    metadata: {
+      source: 'referral_lifetime',
+      referred_user_id: referred,
+      source_type: source,
+      source_reference_id: String(sourceReferenceId),
+      rate: REFERRAL_LIFETIME_RATE,
+      base_reward: { coin: Number(baseReward?.coin || 0), dzx: Number(baseReward?.dzx || 0) }
+    },
+    movements,
+  });
+  return { qualified: true, duplicate: reward.duplicate, rewarded: true, reward };
+}
+
+/** Credits 20% of a qualified user's base activity through its own transaction. */
+async function creditReferralLifetime(args) {
+  return withTransaction(client => creditReferralLifetimeOnClient(client, args));
+}
+
 async function assertActivationKeyAvailable(client, key, attributionId) {
   const result = await client.query(
     `SELECT id FROM referral_attributions WHERE activation_idempotency_key=$1`,
@@ -162,4 +211,4 @@ async function getReferralByReferredUser(referredUserId) {
   return result.rows[0] || null;
 }
 
-module.exports = { createAttribution, qualifyReferral, activateReferral, getQualifiedReferralCount, getReferralByReferredUser };
+module.exports = { createAttribution, qualifyReferral, activateReferral, creditReferralLifetime, creditReferralLifetimeOnClient, getQualifiedReferralCount, getReferralByReferredUser };
