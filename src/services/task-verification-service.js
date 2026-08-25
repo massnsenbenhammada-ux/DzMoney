@@ -100,7 +100,7 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
     }
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', coin: Number(row.reward_coin), dzx: Number(row.reward_dzx), dzp: Number(row.reward_dzp), modifiers: [] });
     if (!reward.duplicate) {
-      await referralService.creditReferralLifetime({
+      await referralService.creditReferralLifetimeOnClient(client, {
         referredUserId: row.user_id,
         source: 'task',
         sourceReferenceId: attemptId,
