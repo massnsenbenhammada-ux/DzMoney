@@ -73,7 +73,7 @@ async function run() {
 
   const submit = await request('POST', '/api/creator/tasks/7/submit', {}, auth);
   assert.strictEqual(submit.status, 200);
-  assert.strictEqual(submit.body.status, 'pending_review');
+  assert.strictEqual(submit.body.task.status, 'pending_review');
   assert.strictEqual(calls[1].submit.creatorId, 42);
 
   const invalidType = await request('GET', '/api/creator/tasks/contracts/daily', null, auth);
