@@ -32,10 +32,22 @@ async function run() {
     createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: 9000, duplicate: false }; },
     submitCreatorCampaignForReview: async (taskId, creatorId) => { calls.push({ submit: { taskId, creatorId } }); return { id: 7, status: 'pending_review', creator_id: creatorId }; }
   };
+  const query = async (sql, params) => {
+    if (sql.includes('task.campaign_price_dzx_per_execution')) return { rowCount: 1, rows: [{ value: '9' }] };
+    if (sql.includes('activity.default_reward_coin')) return {
+      rowCount: 3,
+      rows: [
+        { key: 'activity.default_reward_coin', value: '1000' },
+        { key: 'activity.default_reward_dzx', value: '1' },
+        { key: 'activity.default_reward_dzp', value: '1' }
+      ]
+    };
+    throw new Error(`Unexpected SQL in HTTP boundary test: ${sql}`);
+  };
 
   const app = express();
   app.use(express.json());
-  app.use('/api/creator/tasks', createCreatorTaskRouter({ wallet, tasks }));
+  app.use('/api/creator/tasks', createCreatorTaskRouter({ wallet, tasks, query }));
   app.use((error, _req, res, _next) => {
     const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
     res.status(status).json({ ok: false, error: status === 500 ? 'Internal server error' : error.message });
