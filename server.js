@@ -4,6 +4,7 @@ const fs = require('fs');
 const { query } = require('./src/db/pool');
 const meRoutes = require('./src/http/me-routes');
 const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
+const { createDailySystemTaskRouter } = require('./src/http/daily-system-task-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
@@ -63,6 +64,7 @@ app.get('/health/db', async (_req, res) => {
 
 app.use('/api/me', meRoutes);
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
+app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
 if (monetagPostbackSecret) {
   app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({
