@@ -1,0 +1,39 @@
+const assert = require('assert');
+const {
+  DAILY_SYSTEM_TASKS,
+  isUtcPlusOneCalendarDayAvailable,
+  isReferralAchievementClaimable
+} = require('../src/services/daily-system-task-contract');
+
+function testSystemTaskIdentifiers() {
+  assert.strictEqual(DAILY_SYSTEM_TASKS.CHECK_FOR_UPDATE, 'check_for_update');
+  assert.strictEqual(DAILY_SYSTEM_TASKS.SHARE_WITH_FRIENDS, 'share_with_friends');
+  assert.strictEqual(DAILY_SYSTEM_TASKS.VIEW_ADS, 'view_ads');
+}
+
+function testUtcPlusOneCalendarReset() {
+  const previous = '2026-08-25T22:30:00.000Z';
+  const sameUtcPlusOneDay = '2026-08-25T23:30:00.000Z';
+  const nextUtcPlusOneDay = '2026-08-25T23:30:00.001Z';
+  assert.strictEqual(isUtcPlusOneCalendarDayAvailable(previous, sameUtcPlusOneDay), false);
+  assert.strictEqual(isUtcPlusOneCalendarDayAvailable(previous, nextUtcPlusOneDay), false);
+  assert.strictEqual(isUtcPlusOneCalendarDayAvailable(previous, '2026-08-26T00:00:00.000Z'), true);
+}
+
+function testReferralAchievementIsPermanent() {
+  assert.strictEqual(isReferralAchievementClaimable(1, 1, false), true);
+  assert.strictEqual(isReferralAchievementClaimable(2, 1, true), false);
+  assert.strictEqual(isReferralAchievementClaimable(9, 10, false), false);
+  assert.strictEqual(isReferralAchievementClaimable(10, 10, false), true);
+}
+
+try {
+  testSystemTaskIdentifiers();
+  testUtcPlusOneCalendarReset();
+  testReferralAchievementIsPermanent();
+  console.log('Daily system task lifecycle invariants: PASS');
+} catch (error) {
+  console.error('Daily system task lifecycle invariants: FAIL');
+  console.error(error);
+  process.exitCode = 1;
+}
