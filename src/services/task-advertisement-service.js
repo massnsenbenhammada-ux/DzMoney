@@ -19,7 +19,8 @@ async function startTaskAdvertisement({ userId, taskId, idempotencyKey, external
   requiredId(userId, 'userId');
   await getActiveTask(taskId);
   const provider = selectProvider(providerRegistry, { context: 'task', providerId });
-  return startAdvertisementEvent({ userId, context: 'task', idempotencyKey, externalAdId, metadata: { task_id: taskId, provider_id: provider.id } });
+  const result = await startAdvertisementEvent({ userId, context: 'task', idempotencyKey, externalAdId, metadata: { task_id: taskId, provider_id: provider.id } });
+  return { ...result, providerId: provider.id };
 }
 
 /** Verify a task-context advertisement using only the provider recorded at start. */
