@@ -25,7 +25,7 @@ async function listActiveTasks({ taskType = null } = {}) {
 }
 
 async function createTask({ taskType, title, description = null, creatorId = null, target = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
-  if (!TASK_TYPES.includes(taskType)) throw new Error('Invalid task type'); if (!title) throw new Error('title is required'); validateVerificationConfig(config); const campaign = normalizeCampaignFields(taskType, creatorId, target);
+  if (!TASK_TYPES.includes(taskType)) throw new Error('Invalid task type'); if (!title) throw new Error('title is required'); validateVerificationConfig(config, taskType); const campaign = normalizeCampaignFields(taskType, creatorId, target);
   return withTransaction(async client => {
     const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(client, 'activity.verification_ad_seconds', 5); if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) throw new Error('verification ad duration must be 5 or 10 seconds');
     const rewards = { coin: normalizeReward(rewardCoin, 'rewardCoin'), dzx: normalizeReward(rewardDzx, 'rewardDzx'), dzp: normalizeReward(rewardDzp, 'rewardDzp') }; if (!rewards.coin && !rewards.dzx && !rewards.dzp) throw new Error('At least one task reward is required');
@@ -35,7 +35,7 @@ async function createTask({ taskType, title, description = null, creatorId = nul
 }
 
 async function createCreatorCampaign({ taskType, title, description = null, creatorId, target, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {}, idempotencyKey, priceDZX }) {
-  if (!CREATOR_CAMPAIGN_TYPES.includes(taskType)) throw new Error('Creator campaigns must use game, social, or web task types'); requiredId(idempotencyKey, 'idempotencyKey'); if (priceDZX !== undefined) throw new Error('Campaign price is server/admin controlled'); const campaign = normalizeCampaignFields(taskType, creatorId, target); validateVerificationConfig(config);
+  if (!CREATOR_CAMPAIGN_TYPES.includes(taskType)) throw new Error('Creator campaigns must use game, social, or web task types'); requiredId(idempotencyKey, 'idempotencyKey'); if (priceDZX !== undefined) throw new Error('Campaign price is server/admin controlled'); const campaign = normalizeCampaignFields(taskType, creatorId, target); validateVerificationConfig(config, taskType);
   return withTransaction(async client => {
     const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(client, 'activity.verification_ad_seconds', 5); if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) throw new Error('verification ad duration must be 5 or 10 seconds');
     const rewards = { coin: normalizeReward(rewardCoin, 'rewardCoin'), dzx: normalizeReward(rewardDzx, 'rewardDzx'), dzp: normalizeReward(rewardDzp, 'rewardDzp') }; if (!rewards.coin && !rewards.dzx && !rewards.dzp) throw new Error('At least one campaign reward is required');
