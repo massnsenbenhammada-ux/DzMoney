@@ -68,6 +68,7 @@ async function run() {
   assert.deepStrictEqual(socialContract.body.availableCompletionModes, ['open_link', 'server_verified']);
   assert.strictEqual(socialContract.body.creatorInput.status, 'provider_contract_required');
   assert.strictEqual(socialContract.body.campaignPricing.minTarget, 1000);
+  assert.strictEqual(socialContract.body.campaignPricing.targetStep, 1000);
   assert.strictEqual(socialContract.body.campaignPricing.priceDZXPerExecution, 9);
 
   const create = await request('POST', '/api/creator/tasks', {
@@ -102,6 +103,11 @@ async function run() {
     taskType: 'social', title: 'Too small', target: 999, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
   }, auth);
   assert.strictEqual(tooSmall.status, 400);
+
+  const invalidStep = await request('POST', '/api/creator/tasks', {
+    taskType: 'social', title: 'Invalid step', target: 1500, idempotencyKey: 'creator-task-4', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+  }, auth);
+  assert.strictEqual(invalidStep.status, 400);
 
   const submit = await request('POST', '/api/creator/tasks/7/submit', {}, auth);
   assert.strictEqual(submit.status, 200);
