@@ -1,4 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
+const { postEconomyTransactionOnClient } = require('./economy-service');
 
 function positiveId(value, name) {
   const id = Number(value);
@@ -90,6 +91,39 @@ async function qualifyReferral({ referredUserId, source, referenceId, idempotenc
   });
 }
 
+/** Credits the one-time referral activation through the existing Economy and Ledger. */
+async function activateReferral({ referredUserId, idempotencyKey }) {
+  const referred = requiredId(referredUserId, 'referredUserId');
+  if (idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === '') {
+    throw new Error('idempotencyKey is required');
+  }
+  return withTransaction(async client => {
+    const attribution = await findAttribution(client, referred, true);
+    if (!attribution) throw new Error('Referral attribution not found');
+    if (attribution.status !== 'qualified') throw new Error('Referral is not qualified');
+    if (attribution.activation_at) return { attribution, duplicate: true };
+    await postEconomyTransactionOnClient(client, {
+      idempotencyKey,
+      userId: Number(attribution.referrer_user_id),
+      type: 'REWARD',
+      metadata: { source: 'referral_activation', referred_user_id: referred },
+      movements: [
+        { currency: 'COIN', amount: 10000, source: 'referral' },
+        { currency: 'DZX', amount: 10, source: 'referral' },
+        { currency: 'DZP', amount: 10, source: 'referral', dzpBucket: 'earned_dzp' },
+      ],
+    });
+    const updated = await client.query(
+      `UPDATE referral_attributions
+       SET activation_at=NOW(), activation_idempotency_key=$1, updated_at=NOW()
+       WHERE id=$2 AND status='qualified' AND activation_at IS NULL RETURNING *`,
+      [idempotencyKey, attribution.id]
+    );
+    if (!updated.rowCount) return { attribution: await findAttribution(client, referred), duplicate: true };
+    return { attribution: updated.rows[0], duplicate: false };
+  });
+}
+
 /** Returns the canonical referral attribution for a referred user. */
 async function getReferralByReferredUser(referredUserId) {
   const referred = positiveId(referredUserId, 'referredUserId');
@@ -100,4 +134,4 @@ async function getReferralByReferredUser(referredUserId) {
   return result.rows[0] || null;
 }
 
-module.exports = { createAttribution, qualifyReferral, getReferralByReferredUser };
+module.exports = { createAttribution, qualifyReferral, activateReferral, getReferralByReferredUser };
