@@ -8,6 +8,15 @@ function requiredId(value, name) {
   return value;
 }
 
+async function getExistingAdvertisement({ userId, idempotencyKey, taskId }) {
+  const result = await query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1', [idempotencyKey]);
+  if (!result.rowCount) return null;
+  const event = result.rows[0];
+  if (event.user_id !== userId) throw new Error('Advertisement idempotency key belongs to another user');
+  if (event.context !== 'task' || event.metadata?.task_id !== taskId) throw new Error('Advertisement idempotency key is bound to another task');
+  return event;
+}
+
 async function getActiveTask(taskId) {
   const result = await query("SELECT id FROM activity_tasks WHERE id=$1 AND status='active'", [requiredId(taskId, 'taskId')]);
   if (!result.rowCount) throw new Error('Task not found or not active');
@@ -17,6 +26,9 @@ async function getActiveTask(taskId) {
 /** Start a Tasks-page advertisement bound to an active task and trusted provider. */
 async function startTaskAdvertisement({ userId, taskId, idempotencyKey, externalAdId = null, providerRegistry, providerId = null }) {
   requiredId(userId, 'userId');
+  requiredId(idempotencyKey, 'idempotencyKey');
+  const existing = await getExistingAdvertisement({ userId, idempotencyKey, taskId });
+  if (existing) return { adEvent: existing, providerId: existing.metadata?.provider_id, duplicate: true };
   await getActiveTask(taskId);
   const provider = selectProvider(providerRegistry, { context: 'task', providerId });
   const result = await startAdvertisementEvent({ userId, context: 'task', idempotencyKey, externalAdId, metadata: { task_id: taskId, provider_id: provider.id } });
