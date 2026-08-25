@@ -20,22 +20,22 @@ async function run() {
   const walletCalls = [];
   const wallet = { createUser: async args => { walletCalls.push(args); return { id: 42, ...args }; } };
   const tasks = {
+    getCreatorCampaignContract: async taskType => ({
+      taskType,
+      availableCompletionModes: ['open_link', 'server_verified'],
+      completionServices: [],
+      serverVerified: { requiredUserInput: { status: 'provider_contract_required' } },
+      creatorInput: { status: 'provider_contract_required' },
+      campaignPricing: { minTarget: 1000, targetStep: 1000, priceDZXPerExecution: 9 }
+    }),
+    getCreatorActivityRewards: async () => ({ coin: 1000, dzx: 1, dzp: 1 }),
     createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: 9000, duplicate: false }; },
     submitCreatorCampaignForReview: async (taskId, creatorId) => { calls.push({ submit: { taskId, creatorId } }); return { id: 7, status: 'pending_review', creator_id: creatorId }; }
-  };
-  const query = async (sql, params) => {
-    if (sql.includes('key = ANY')) return { rows: [
-      { key: 'activity.default_reward_coin', value: 1000 },
-      { key: 'activity.default_reward_dzx', value: 1 },
-      { key: 'activity.default_reward_dzp', value: 1 }
-    ], rowCount: 3 };
-    if (params?.[0] === 'task.campaign_price_dzx_per_execution') return { rows: [{ value: 9 }], rowCount: 1 };
-    return { rows: [], rowCount: 0 };
   };
 
   const app = express();
   app.use(express.json());
-  app.use('/api/creator/tasks', createCreatorTaskRouter({ wallet, tasks, query }));
+  app.use('/api/creator/tasks', createCreatorTaskRouter({ wallet, tasks }));
   app.use((error, _req, res, _next) => {
     const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
     res.status(status).json({ ok: false, error: status === 500 ? 'Internal server error' : error.message });
