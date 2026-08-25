@@ -45,16 +45,26 @@ function testSpecialServerVerifiedOnly() {
 }
 
 function testServerVerifiedContracts() {
+  const expected = {
+    daily: { inputStatus: 'provider_contract_required' },
+    game: { inputStatus: 'provider_contract_required' },
+    social: { inputStatus: 'provider_contract_required' },
+    web: { inputStatus: 'provider_contract_required' },
+    special: { inputStatus: 'contract_required' }
+  };
   for (const taskType of TASK_TYPES) {
     const resolved = resolveVerificationConfig({ taskType, config: {} });
-    assert.ok(resolved.serverVerified, `${taskType} must expose a Server Verified contract`);
-    assert.strictEqual(resolved.serverVerified.status, 'contract');
-    assert.ok(resolved.serverVerified.source);
-    assert.ok(resolved.serverVerified.evidence);
-    assert.ok(resolved.serverVerified.method);
-    assert.ok(resolved.serverVerified.identity);
-    assert.ok(resolved.serverVerified.requiredUserInput);
-    assert.ok(resolved.serverVerified.replay);
+    const contract = resolved.serverVerified;
+    assert.ok(contract, `${taskType} must expose a Server Verified contract`);
+    assert.strictEqual(contract.status, 'contract');
+    assert.ok(contract.source);
+    assert.ok(contract.evidence);
+    assert.ok(contract.method);
+    assert.ok(contract.identity);
+    assert.ok(contract.requiredUserInput);
+    assert.ok(contract.replay);
+    assert.strictEqual(contract.requiredUserInput.status, expected[taskType].inputStatus);
+    assert.deepStrictEqual(contract.requiredUserInput.fields, []);
   }
   assert.strictEqual(SERVER_VERIFIED_CONTRACTS.game.source, 'mini_app_backend');
   assert.strictEqual(SERVER_VERIFIED_CONTRACTS.game.identity, 'telegram_init_data_user_correlation');
