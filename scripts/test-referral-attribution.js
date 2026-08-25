@@ -19,8 +19,8 @@ async function main() {
     referredUserId: referred.id,
   });
   assert.strictEqual(first.duplicate, false);
-  assert.strictEqual(Number(first.attribution.referrer_user_id), referrer.id);
-  assert.strictEqual(Number(first.attribution.referred_user_id), referred.id);
+  assert.strictEqual(Number(first.attribution.referrer_user_id), Number(referrer.id));
+  assert.strictEqual(Number(first.attribution.referred_user_id), Number(referred.id));
   assert.strictEqual(first.attribution.status, 'pending');
 
   const duplicate = await referralService.createAttribution({
