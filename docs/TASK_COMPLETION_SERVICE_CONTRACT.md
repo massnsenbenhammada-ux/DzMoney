@@ -92,7 +92,177 @@ The server must reject any Special/Partner task configuration that selects Open 
 
 The table is an architectural target. A row marked as supported by a provider is not implementation evidence. `IMPLEMENTATION_STATUS.md` remains authoritative for what is actually implemented on `main`.
 
-## 5. Mini App identity versus completion
+## 5. Server Verified contract by task type
+
+`Server Verified` is a completion service, not a single verification mechanism shared blindly by every task type. Each task type has its own **verification contract** while all contracts terminate at the same existing Task Verification boundary and the same Economy/Ledger path.
+
+The minimum contract for every Server Verified task is:
+
+```text
+Task Type
+   ↓
+Completion Service = Server Verified
+   ↓
+Verification Source
+   ↓
+Evidence Type
+   ↓
+Verification Method
+   ↓
+Identity Correlation
+   ↓
+Required User Input
+   ↓
+Replay / Idempotency Rule
+   ↓
+Verification Decision
+```
+
+### 5.1 Daily — Server Verified
+
+For a Daily task whose completion is tied to an advertisement/provider activity, the trusted source is the configured ad-provider verification boundary.
+
+```text
+Daily
+  ↓
+Server Verified
+  ↓
+Ad Provider
+  ↓
+Trusted activity evidence
+  ↓
+activity_ad_events / applicable provider event
+  ↓
+Provider/event validation
+  ↓
+User + task correlation
+  ↓
+Verification
+```
+
+The contract must distinguish the ad event from the task reward itself. An ad event is evidence for the verification boundary; it is not an independent Economy/Ledger source.
+
+The exact provider-specific event fields and creator inputs remain provider-contract details. They must not be invented in the generic Task UI.
+
+### 5.2 Mini App — Server Verified
+
+For a Mini App task where the required outcome occurs inside the Mini App, Telegram `initData` establishes the authenticated Telegram user/session boundary. It does not by itself prove that the requested action happened.
+
+```text
+Mini App
+  ↓
+Server Verified
+  ↓
+Mini App Backend
+  ↓
+Trusted completion evidence
+  ↓
+Correlation with authenticated Telegram user
+  ↓
+Server verification
+```
+
+The verification contract must define how the Mini App backend proves the requested completion and how that evidence is bound to the DzMoney/Telegram user. A generic `initData` value must never be treated as arbitrary completion evidence.
+
+If the Mini App contract requires creator-configured identifiers or user-provided values, those fields are exposed only after the provider contract defines them.
+
+### 5.3 Social — Server Verified
+
+Social verification is task-specific. Telegram channel membership is one supported verification contract; it must not be generalized into proof of every possible social action.
+
+```text
+Social
+  ↓
+Server Verified
+  ↓
+Applicable Telegram / social verification source
+  ↓
+Action-specific evidence
+  ↓
+Identity correlation
+  ↓
+Server verification
+```
+
+For Telegram channel membership, the existing Telegram verification boundary may use the authenticated user and Telegram membership state. `initData` authenticates the Telegram user/session; it is not by itself evidence of joining, sharing, or completing another social action.
+
+Share, join, react, follow, and similar actions must each have a trusted completion contract before they can be represented as Server Verified. No client-side `openTelegramLink()` or click event may be promoted to completion proof without such a contract.
+
+### 5.4 Web — Server Verified
+
+For Web tasks requiring an outcome beyond opening the website:
+
+```text
+Web
+  ↓
+Server Verified
+  ↓
+External Website / Provider
+  ↓
+Signed webhook / unique token / other trusted evidence
+  ↓
+Authenticate evidence source
+  ↓
+Bind evidence to user + task
+  ↓
+Replay protection
+  ↓
+Verification
+```
+
+The exact webhook payload, token format, signing algorithm, and required creator/user inputs belong to the external provider contract. They must not be invented by the generic task configuration.
+
+### 5.5 Special / Partner — Server Verified only
+
+Special/Partner tasks have no Click Proof completion service.
+
+```text
+Special / Partner
+        ↓
+Server Verified ONLY
+        ↓
+Partner Backend
+        ↓
+Signed / HMAC evidence
+        ↓
+Authenticate partner evidence
+        ↓
+Bind evidence to user + task
+        ↓
+Replay protection
+        ↓
+DzMoney Verification
+```
+
+The exact HMAC/signature protocol, partner identifier, callback payload, correlation value, and required inputs are defined only when an actual partner contract exists.
+
+No Partner API, provider credentials, or Partner Verification Service is created merely by defining this contract.
+
+## 6. Verification contract is the source for Creator inputs
+
+The Creator UI must not contain a second hand-maintained mapping of verification fields.
+
+The dependency is:
+
+```text
+Task Type
+    ↓
+Completion Contract
+    ↓
+Applicable Verification Contract
+    ↓
+Required Inputs
+    ↓
+User Create Tasks UI
+```
+
+The UI is a consumer of the contract, not its source of truth.
+
+Examples such as `player_id`, `account_id`, `username`, or a unique code must not be added by assumption. The actual field is determined by the trusted provider/verification contract.
+
+If no user input is required, the UI must explicitly show **None required** rather than inventing a field.
+
+## 7. Mini App identity versus completion
 
 For Mini App verification, validated Telegram WebApp `initData` is used to authenticate the Telegram user/session and protect the identity boundary.
 
@@ -100,7 +270,7 @@ For Mini App verification, validated Telegram WebApp `initData` is used to authe
 
 When completion requires an action inside the Mini App, the completion contract must additionally define trusted evidence from the Mini App/backend capable of proving that outcome and correlating it to the authenticated Telegram user.
 
-## 6. User Input requirements for User Create Tasks
+## 8. User Input requirements for User Create Tasks
 
 When **Server Verified** is selected, the future User Create Tasks UI must expose the required input configuration once the applicable verification contract is defined.
 
@@ -126,11 +296,7 @@ User Create Tasks UI
 
 For Special/Partner, `Completion Service` is fixed to `Server Verified`; the UI must not render a Click Proof choice.
 
-Examples such as `player_id`, `account_id`, `username`, or a unique code must not be added by assumption. The actual field is determined by the trusted provider/verification contract.
-
-If no user input is required, the UI must explicitly show **None required** rather than inventing a field.
-
-## 7. Reward boundary
+## 9. Reward boundary
 
 Neither completion service directly grants a reward.
 
@@ -158,7 +324,7 @@ Reward
 
 The existing Economy/Ledger remains the sole economic path. Evidence, Verification Ads and provider callbacks are not independent reward sources.
 
-## 8. Phase and implementation rule
+## 10. Phase and implementation rule
 
 This document locks the contract now. It does **not** authorize production UI, provider integrations, database changes, new services, or new routes before their owning phase is opened.
 
@@ -166,7 +332,7 @@ The future User Create Tasks UI phase must consume this contract and present the
 
 Until then, unimplemented providers remain pending and must not be represented as active functionality.
 
-## 9. Architectural constraints
+## 11. Architectural constraints
 
 - One Task Catalog and one Task Execution/Verification boundary.
 - No second Task Engine.
@@ -177,6 +343,10 @@ Until then, unimplemented providers remain pending and must not be represented a
 - Client-side click events cannot prove deeper external completion.
 - Special/Partner tasks are Server Verified only; Click Proof is not a valid completion contract for this category.
 - The Special/Partner restriction must be enforced server-side as well as in the future Creator UI.
+- Each task type may have a distinct verification contract, but all contracts terminate at the existing Task Verification boundary.
+- The Creator UI must consume verification-contract metadata and must not duplicate it as a second source of truth.
+- `initData` is an identity/authentication mechanism for Mini Apps, not a universal completion-proof mechanism.
+- Social verification must be action-specific; Telegram identity is not generic proof of every social action.
 - Externally repeatable verification/reward operations must remain idempotent.
 - New provider work requires focused TDD and integration tests before enabling rewards.
 - `IMPLEMENTATION_STATUS.md` must never mark this contract as runtime-complete until code and tests prove it.
