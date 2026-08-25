@@ -27,6 +27,10 @@ async function run() {
   const app = express();
   app.use(express.json());
   app.use('/api/creator/tasks', createCreatorTaskRouter({ wallet, tasks }));
+  app.use((error, _req, res, _next) => {
+    const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
+    res.status(status).json({ ok: false, error: status === 500 ? 'Internal server error' : error.message });
+  });
   const http = require('http');
   const server = http.createServer(app);
   await new Promise(resolve => server.listen(0, resolve));
