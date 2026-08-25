@@ -20,6 +20,7 @@
     "test:daily-checkin": "node ./scripts/test-daily-checkin.js",
     "test:daily-checkin-http": "node ./scripts/test-daily-checkin-http-boundary.js",
     "test:daily-system-task-lifecycle": "node ./scripts/test-daily-system-task-lifecycle.js",
+    "test:daily-view-ads": "node ./scripts/test-daily-view-ads.js",
     "test:task-catalog": "node ./scripts/test-task-catalog.js",
     "test:task-execution": "node ./scripts/test-task-execution.js",
     "test:task-execution-active-attempt": "node ./scripts/test-task-execution-active-attempt.js",
@@ -33,7 +34,7 @@
     "test:task-verification-postback": "node ./scripts/test-task-verification-postback.js",
     "test:task-advertisement": "node ./scripts/test-task-advertisement-flow.js",
     "test:task-advertisement-concurrency": "node ./scripts/test-task-advertisement-flow-concurrency.js",
-    "test:task-advertisement-edge-hardening": "node ./scripts/test-task-advertisement-edge-hardening.js",
+    "test:task-advertisement-edge-hardening": "node ./scripts/test-task-advertisement-flow-edge-hardening.js",
     "test:task-advertisement-http": "node ./scripts/test-task-advertisement-http-boundary.js",
     "test:task-advertisement-trusted-ingress": "node ./scripts/test-task-advertisement-trusted-ingress.js",
     "test:creator-campaign-contract": "node ./scripts/test-creator-campaign-contract.js",
@@ -49,7 +50,7 @@
     "test:daily-checkin-monetag-contract": "node ./scripts/test-daily-checkin-monetag-contract.js",
     "test:monetag-sdk-readiness": "node ./scripts/test-monetag-sdk-readiness.js",
     "test:frontend": "node ./scripts/validate-frontend.js",
-    "test:all": "npm run test:monetag-sdk-readiness && npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:referral-attribution && npm run test:referral-qualification && npm run test:referral-activation && npm run test:daily-checkin && npm run test:daily-checkin-http && npm run test:daily-system-task-lifecycle && npm run test:task-catalog && npm run test:task-execution && npm run test:task-execution-active-attempt && npm run test:task-execution-http && npm run test:task-lifecycle && npm run test:task-click-http && npm run test:task-list-http && npm run test:task-list-frontend && npm run test:task-verification-config && npm run test:task-trusted-verifier && npm run test:task-verification-postback && npm run test:task-advertisement && npm run test:task-advertisement-concurrency && npm run test:task-advertisement-edge-hardening && npm run test:task-advertisement-http && npm run test:task-advertisement-trusted-ingress && npm run test:creator-campaign-contract && npm run test:creator-campaign-economics && npm run test:creator-campaign-review && npm run test:creator-campaign-tax-refund && npm run test:daily-task-check-for-update && npm run test:ad-provider-system && npm run test:onclicka-provider && npm run test:monetag-postback && npm run test:monetag-ymid && npm run test:monetag-finalization && npm run test:daily-checkin-monetag-contract && npm run reconcile:economy"
+    "test:all": "npm run test:monetag-sdk-readiness && npm run test:frontend && npm run test:phase1 && npm run test:economy-ledger && npm run test:deposit && npm run test:phase2 && npm run test:referral-attribution && npm run test:referral-qualification && npm run test:referral-activation && npm run test:daily-checkin && npm run test:daily-checkin-http && npm run test:daily-system-task-lifecycle && npm run test:daily-view-ads && npm run test:task-catalog && npm run test:task-execution && npm run test:task-execution-active-attempt && npm run test:task-execution-http && npm run test:task-lifecycle && npm run test:task-click-http && npm run test:task-list-http && npm run test:task-list-frontend && npm run test:task-verification-config && npm run test:task-trusted-verifier && npm run test:task-verification-postback && npm run test:task-advertisement && npm run test:task-advertisement-concurrency && npm run test:task-advertisement-edge-hardening && npm run test:task-advertisement-http && npm run test:task-advertisement-trusted-ingress && npm run test:creator-campaign-contract && npm run test:creator-campaign-economics && npm run test:creator-campaign-review && npm run test:creator-campaign-tax-refund && npm run test:daily-task-check-for-update && npm run test:ad-provider-system && npm run test:onclicka-provider && npm run test:monetag-postback && npm run test:monetag-ymid && npm run test:monetag-finalization && npm run test:daily-checkin-monetag-contract && npm run reconcile:economy"
   },
   "engines": { "node": ">=20" },
   "dependencies": {
