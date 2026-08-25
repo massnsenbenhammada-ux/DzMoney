@@ -23,7 +23,9 @@ async function testSignedStartParam() {
   const verified = parseVerifiedTelegramInitData(initData);
   assert.strictEqual(verified.user.id, user.id);
   assert.strictEqual(verified.startParam, 'ABC1234567');
-  assert.strictEqual(parseVerifiedTelegramInitData(`${initData.slice(0, -1)}0`), null);
+  const tampered = new URLSearchParams(initData);
+  tampered.set('hash', '0'.repeat(64));
+  assert.strictEqual(parseVerifiedTelegramInitData(tampered.toString()), null);
 }
 
 async function testFirstEntryAttribution() {
