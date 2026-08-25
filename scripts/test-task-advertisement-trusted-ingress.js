@@ -61,6 +61,15 @@ async function cleanup(userIds, taskId) {
 }
 
 async function main() {
+  assert.throws(
+    () => new AdProviderRegistry([{
+      id: 'untrusted-task-ad',
+      contexts: ['task'],
+      async verifyCompletion() { return { verified: true, reference: 'client-only' }; }
+    }]),
+    /trusted server verification contract/
+  );
+
   const userId = await createUser('trusted_task');
   const otherUserId = await createUser('other_trusted_task');
   const taskId = await createTask();
