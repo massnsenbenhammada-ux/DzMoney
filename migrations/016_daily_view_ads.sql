@@ -21,7 +21,7 @@ SELECT
   (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzp'),
   (SELECT (value #>> '{}')::integer FROM admin_settings WHERE key = 'activity.verification_ad_seconds'),
   'active',
-  '{"systemKey":"view_ads","dailyPolicy":"utc_plus_one_calendar_day","completion":{"mode":"advertisement"}}'::jsonb
+  '{"systemKey":"view_ads","dailyPolicy":"utc_plus_one_calendar_day","dailyMode":"advertisement","completion":{"mode":"server_verified"}}'::jsonb
 WHERE NOT EXISTS (
   SELECT 1
   FROM activity_tasks
