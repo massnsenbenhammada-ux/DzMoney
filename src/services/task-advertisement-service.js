@@ -1,6 +1,7 @@
 const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
+const referralService = require('./referral-service');
 const { startAdvertisementEvent, markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider } = require('./ad-provider-service');
 
@@ -98,6 +99,15 @@ async function finalizeTaskAdvertisement({ userId, adEventId }) {
     const settings = await client.query("SELECT key,value FROM admin_settings WHERE key IN ('activity.default_reward_coin','activity.default_reward_dzx','activity.default_reward_dzp')");
     const values = Object.fromEntries(settings.rows.map(row => [row.key, Number(row.value)]));
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1, dzp: values['activity.default_reward_dzp'] ?? 1, modifiers: [] });
+    if (!reward.duplicate) {
+      await referralService.creditReferralLifetime({
+        referredUserId: userId,
+        source: 'advertisement',
+        sourceReferenceId: event.id,
+        idempotencyKey: `referral-lifetime:advertisement:${event.id}`,
+        baseReward: { coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1 }
+      });
+    }
     await client.query("UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1", [event.id, JSON.stringify({ reward_transaction_id: reward.transaction.id, reward_idempotency_key: rewardIdempotencyKey })]);
     return { duplicate: reward.duplicate, rewarded: true, rewardIdempotencyKey, reward };
   });
