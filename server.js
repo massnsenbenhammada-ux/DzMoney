@@ -29,7 +29,7 @@ function monetagScriptsForClient() {
   const selected = clientAdConfig();
   const usesMonetag = Object.values(selected).some(provider => provider?.id === 'monetag');
   if (!usesMonetag) return '';
-  return '<script src="/monetag-runtime-diagnostics.js?v=__ASSET_VERSION__"></script><script src="//libtl.com/sdk.js" data-zone="11627577" data-sdk="show_11627577" onload="window.__DzMoneyMonetagSdkLoad=\'loaded\'" onerror="window.__DzMoneyMonetagSdkLoad=\'error\'"></script>';
+  return '<script src="//libtl.com/sdk.js" data-zone="11627577" data-sdk="show_11627577" onload="window.__DzMoneyMonetagSdkLoad=\'loaded\'" onerror="window.__DzMoneyMonetagSdkLoad=\'error\'"></script>';
 }
 
 app.disable('x-powered-by');
