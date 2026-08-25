@@ -70,6 +70,13 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
     const attemptId = req.body?.attemptId;
     const idempotencyKey = req.body?.idempotencyKey || `daily-system:${attemptId}`;
     if (!attemptId) return res.status(400).json({ ok: false, error: 'attemptId is required' });
+    const user = await wallet.createUser({
+      telegramUserId: String(req.telegramUser.id),
+      username: req.telegramUser.username || null,
+      firstName: req.telegramUser.first_name || null,
+      photoUrl: req.telegramUser.photo_url || null
+    });
+    await verification.getTaskVerificationStatus({ attemptId, userId: user.id });
     const result = await verification.finalizeTaskVerification({ attemptId, idempotencyKey });
     res.json({ ok: true, ...result });
   }));
