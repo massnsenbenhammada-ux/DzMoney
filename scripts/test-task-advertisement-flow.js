@@ -4,15 +4,19 @@ const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const {
   startTaskAdvertisement,
   verifyTaskAdvertisement,
+  verifyTrustedTaskAdvertisement,
   finalizeTaskAdvertisement
 } = require('../src/services/task-advertisement-service');
 
 const provider = {
   id: 'test-task-ad',
   contexts: ['task'],
-  async verifyCompletion(payload) {
+  async verifyCompletion() {
+    throw new Error('client verification must never be used for task advertisements');
+  },
+  async verifyServerCompletion(payload) {
     return payload?.accepted === true
-      ? { verified: true, reference: payload.reference || 'task-ad-ref' }
+      ? { verified: true, reference: payload.reference }
       : { verified: false, reference: 'task-ad-rejected' };
   }
 };
@@ -71,15 +75,16 @@ async function cleanup(userId, taskId) {
 async function main() {
   const userId = await createUser();
   const taskId = await createTask();
+  const providerReference = `task-ad-ref-${Date.now()}`;
   const idempotencyKey = `task-ad-${Date.now()}`;
   try {
-    const started = await startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry: registry });
+    const started = await startTaskAdvertisement({ userId, taskId, idempotencyKey, externalAdId: providerReference, providerRegistry: registry });
     assert.strictEqual(started.providerId, provider.id);
     assert.strictEqual(started.adEvent.context, 'task');
     assert.strictEqual(started.adEvent.metadata.task_id, taskId);
     assert.strictEqual(started.adEvent.verified, false);
 
-    const duplicateStart = await startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry: registry });
+    const duplicateStart = await startTaskAdvertisement({ userId, taskId, idempotencyKey, externalAdId: providerReference, providerRegistry: registry });
     assert.strictEqual(duplicateStart.duplicate, true);
     assert.strictEqual(duplicateStart.adEvent.id, started.adEvent.id);
     assert.strictEqual(duplicateStart.providerId, provider.id);
@@ -95,16 +100,16 @@ async function main() {
     );
 
     await assert.rejects(
-      () => verifyTaskAdvertisement({ userId: userId + 1, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true } }),
-      /Task advertisement event not found/
+      () => verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: providerReference } }),
+      /Task advertisement verification must use trusted provider ingress/
     );
 
     await assert.rejects(
-      () => verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: false } }),
+      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: false, reference: providerReference }, providerRegistry: registry }),
       /Advertisement provider verification failed/
     );
 
-    const verified = await verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: 'task-ad-ref-1' } });
+    const verified = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference }, providerRegistry: registry });
     assert.strictEqual(verified.adEvent.verified, true);
 
     const rewarded = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
