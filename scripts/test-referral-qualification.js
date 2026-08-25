@@ -50,7 +50,7 @@ async function main() {
       referenceId: attempt.rows[0].id,
       idempotencyKey: `qualification-invalid-user-${Date.now()}`
     }),
-    /Verified task evidence not found/
+    /Referral attribution not found/
   );
 
   const adPair = await createAttributionPair();
