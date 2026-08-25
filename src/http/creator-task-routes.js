@@ -7,6 +7,7 @@ const { telegramAuth } = require('./telegram-auth');
 
 const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
 const CREATOR_MIN_TARGET = 1000;
+const CREATOR_TARGET_STEP = 1000;
 const CONTRACT_DESCRIPTIONS = Object.freeze({
   open_link: 'Use this when opening the configured link is itself the outcome you want to reward. It does not prove a deeper external action.',
   server_verified: 'Use this when the requested external outcome must be confirmed by trusted server-verifiable evidence.'
@@ -30,7 +31,7 @@ async function getAdminNumber(query, key, fallback = null) {
 
 async function getCampaignContractPricing(query) {
   const priceDZXPerExecution = await getAdminNumber(query, 'task.campaign_price_dzx_per_execution');
-  return { minTarget: CREATOR_MIN_TARGET, priceDZXPerExecution };
+  return { minTarget: CREATOR_MIN_TARGET, targetStep: CREATOR_TARGET_STEP, priceDZXPerExecution };
 }
 
 async function getCreatorActivityRewards(query) {
@@ -83,7 +84,7 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
     requireTaskType(taskType);
     if (!req.body?.title) return res.status(400).json({ ok: false, error: 'title is required' });
     if (!req.body?.idempotencyKey) return res.status(400).json({ ok: false, error: 'idempotencyKey is required' });
-    if (!Number.isInteger(req.body?.target) || req.body.target < CREATOR_MIN_TARGET) return res.status(400).json({ ok: false, error: `target must be at least ${CREATOR_MIN_TARGET}` });
+    if (!Number.isInteger(req.body?.target) || req.body.target < CREATOR_MIN_TARGET || req.body.target % CREATOR_TARGET_STEP !== 0) return res.status(400).json({ ok: false, error: `target must be a multiple of ${CREATOR_TARGET_STEP} and at least ${CREATOR_MIN_TARGET}` });
     validateCreatorCompletion(req.body.config);
 
     const user = await wallet.createUser({
@@ -133,4 +134,4 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
   return router;
 }
 
-module.exports = { CREATOR_TASK_TYPES, CREATOR_MIN_TARGET, CONTRACT_DESCRIPTIONS, createCreatorTaskRouter };
+module.exports = { CREATOR_TASK_TYPES, CREATOR_MIN_TARGET, CREATOR_TARGET_STEP, CONTRACT_DESCRIPTIONS, createCreatorTaskRouter };
