@@ -8,13 +8,17 @@ async function createQualifiedReferral(suffix) {
   const referred = await walletService.createUser({ telegramUserId: `8${suffix}02` });
   await referralService.createAttribution({ referrerUserId: referrer.id, referredUserId: referred.id });
   const task = await pool.query(
-    `INSERT INTO task_attempts (user_id, status) VALUES ($1, 'verified') RETURNING id`,
-    [referred.id]
+    `INSERT INTO activity_tasks(task_type,title,reward_coin) VALUES('game','Referral activation test',1) RETURNING id`
+  );
+  const attempt = await pool.query(
+    `INSERT INTO task_attempts(task_id,user_id,status,execute_idempotency_key,verified_at)
+     VALUES($1,$2,'verified',$3,NOW()) RETURNING id`,
+    [task.rows[0].id, referred.id, `activation-task-${suffix}`]
   );
   await referralService.qualifyReferral({
     referredUserId: referred.id,
     source: 'task',
-    referenceId: task.rows[0].id,
+    referenceId: attempt.rows[0].id,
     idempotencyKey: `qualification-${suffix}`,
   });
   return { referrer, referred };
