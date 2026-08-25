@@ -6,9 +6,9 @@
 
 **Specification:** `PROJECT_ROADMAP.md` is the product specification. `docs/ARCHITECTURE_RULES.md` and `ADR.md` govern implementation/change control.
 
-**Current main:** `8486ca3d244f4c8565b882b393fbe4c81ffc804a`.
+**Current main:** `0a7138d1dfe2e68e3620c56c33af1698fd2d1e0d`.
 
-**Current CI evidence:** PR #111 CI run #425 (`32877728228`) completed successfully for the exact pre-merge PR head `c4f187ec24db258ef898c6d5a792482b1a3be9f6`. No GitHub Actions run is currently visible for the post-merge commit `8486ca3d244f4c8565b882b393fbe4c81ffc804a`; therefore post-merge CI is not claimed as passed here.
+**Current CI evidence:** PR #114 CI run #431 (`32881938993`) passed for the exact head `e72754cd0f9e9884c43af52c67f51e954cbec93e`; post-merge main CI run #432 (`32882089264`) also passed for exact main commit `0a7138d1dfe2e68e3620c56c33af1698fd2d1e0d`.
 
 **Important reconciliation:** This status file is reconciled to the merged `main` state. Only merged commits on `main` are treated as completed.
 
@@ -46,6 +46,7 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - 🟢 Daily `Check for Update` system task with UTC+1 calendar-day eligibility and existing Telegram membership verification.
 - 🟢 Daily `View Ads` system task with UTC+1 calendar-day eligibility and the existing Tasks-page advertisement provider flow.
 - 🟢 Daily system-task contract for rolling 24-hour versus UTC+1 calendar-day policies and permanent referral achievement thresholds.
+- 🟢 Social Telegram-channel server verification through the existing Task Verification boundary; task-specific Telegram channels are preserved through verification-config resolution.
 
 ### Referral work now present on main as Phase 3 foundation
 
@@ -62,7 +63,7 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 ### Not yet implemented / accepted
 
 - ⬜ Daily `Share with Friends` production reward flow. The requirement is Telegram share of the user's referral link once per UTC+1 calendar day, but the current backend has no trusted completion signal for an actual share. A frontend-only signal must not authorize an economic reward.
-- ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner task catalog beyond the currently implemented Daily Check for Update path.
+- ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner task catalog beyond the currently implemented Telegram Social verifier and Daily Check for Update path.
 - ⬜ Broader anti-fraud hardening around task/ad callbacks and verification.
 - ⬜ Full acceptance of advertisement-task behavior across all required providers/contexts.
 
@@ -132,7 +133,7 @@ The abandoned/closed earlier PRs that proposed a combined Referral foundation ar
 
 ## Documentation reconciliation note
 
-This update reconciles the status with merged `main` commit `8486ca3d244f4c8565b882b393fbe4c81ffc804a`. The last validated pre-merge CI was run #425 on PR #111's exact head. No production behavior is changed by this documentation update.
+This update reconciles the status with merged `main` commit `0a7138d1dfe2e68e3620c56c33af1698fd2d1e0d` (PR #114). No production behavior is changed by this documentation update.
 
 ## Update Rule
 
