@@ -42,9 +42,10 @@ async function main() {
   });
   assert.strictEqual(duplicate.duplicate, true);
 
+  const otherPair = await createAttributionPair();
   await assert.rejects(
     referralService.qualifyReferral({
-      referredUserId: referrer.id,
+      referredUserId: otherPair.referred.id,
       source: 'task',
       referenceId: attempt.rows[0].id,
       idempotencyKey: `qualification-invalid-user-${Date.now()}`
