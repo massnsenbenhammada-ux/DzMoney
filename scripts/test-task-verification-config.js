@@ -92,6 +92,20 @@ function testNoSecretsInTaskConfig() {
   );
 }
 
+function testTelegramChannelResolution() {
+  const resolved = resolveVerificationConfig({
+    taskType: 'social',
+    config: {
+      verification: {
+        provider: 'telegram_channel',
+        channel: '@creator_channel'
+      }
+    }
+  });
+  assert.strictEqual(resolved.verification.provider, 'telegram_channel');
+  assert.strictEqual(resolved.verification.channel, '@creator_channel');
+}
+
 try {
   testVerificationModes();
   testCompletionModes();
@@ -99,6 +113,7 @@ try {
   testAutomaticDefaults();
   testReferralTemplateRules();
   testNoSecretsInTaskConfig();
+  testTelegramChannelResolution();
   console.log('Task verification configuration invariants: PASS');
 } catch (error) {
   console.error('Task verification configuration invariants: FAIL');
