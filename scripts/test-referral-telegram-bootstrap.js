@@ -46,10 +46,18 @@ async function testFirstEntryAttribution() {
 
   async function callMe(startParam) {
     return new Promise((resolve, reject) => {
-      const req = { telegramUser: { id: referredTelegramId, first_name: 'New' }, telegramStartParam: startParam };
+      const req = {
+        method: 'GET',
+        url: '/',
+        originalUrl: '/',
+        telegramUser: { id: referredTelegramId, first_name: 'New' },
+        telegramStartParam: startParam
+      };
       const res = {
         statusCode: 200,
         status(code) { this.statusCode = code; return this; },
+        setHeader() {},
+        getHeader() {},
         json(payload) { resolve({ statusCode: this.statusCode, payload }); }
       };
       router.handle(req, res, reject);
