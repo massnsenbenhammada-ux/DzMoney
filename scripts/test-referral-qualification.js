@@ -31,7 +31,7 @@ async function main() {
   assert.strictEqual(qualified.duplicate, false);
   assert.strictEqual(qualified.attribution.status, 'qualified');
   assert.strictEqual(qualified.attribution.qualification_source, 'task');
-  assert.strictEqual(Number(qualified.attribution.qualification_reference_id), attempt.rows[0].id);
+  assert.strictEqual(Number(qualified.attribution.qualification_reference_id), Number(attempt.rows[0].id));
   assert.strictEqual(Number(qualified.attribution.referred_user_id), referred.id);
 
   const duplicate = await referralService.qualifyReferral({
