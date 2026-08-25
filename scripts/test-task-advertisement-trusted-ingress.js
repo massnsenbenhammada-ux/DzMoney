@@ -14,6 +14,7 @@ const provider = {
   },
   async verifyServerCompletion(payload) {
     if (payload?.accepted !== true) return { verified: false, reference: 'rejected-reference' };
+    if (payload?.missingReference === true) return { verified: true, reference: '   ', userId: payload.userId, providerId: payload.providerId || 'trusted-task-ad', context: payload.context || 'task' };
     return {
       verified: true,
       reference: payload.reference,
@@ -89,6 +90,24 @@ async function main() {
     });
     const providerReference = started.adEvent.external_ad_id;
     assert.notStrictEqual(providerReference, 'client-controlled-reference');
+
+    await assert.rejects(
+      () => verifyTrustedTaskAdvertisement({
+        providerId: provider.id,
+        providerPayload: { accepted: false, reference: providerReference, userId, providerId: provider.id, context: 'task' },
+        providerRegistry: registry
+      }),
+      /Advertisement provider verification failed/
+    );
+
+    await assert.rejects(
+      () => verifyTrustedTaskAdvertisement({
+        providerId: provider.id,
+        providerPayload: { accepted: true, missingReference: true, userId, providerId: provider.id, context: 'task' },
+        providerRegistry: registry
+      }),
+      /Trusted task provider reference is required/
+    );
 
     const verified = await verifyTrustedTaskAdvertisement({
       providerId: provider.id,
