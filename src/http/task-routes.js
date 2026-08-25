@@ -62,8 +62,6 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
       userId: user.id,
       taskId,
       idempotencyKey,
-      externalAdId: req.body?.externalAdId || null,
-      providerId: req.body?.providerId || null,
       providerRegistry
     });
     res.json({ ok: true, adEventId: result.adEvent?.id, providerId: result.providerId, duplicate: result.duplicate });
