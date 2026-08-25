@@ -91,6 +91,16 @@ async function qualifyReferral({ referredUserId, source, referenceId, idempotenc
   });
 }
 
+async function assertActivationKeyAvailable(client, key, attributionId) {
+  const result = await client.query(
+    `SELECT id FROM referral_attributions WHERE activation_idempotency_key=$1`,
+    [key]
+  );
+  if (result.rowCount && Number(result.rows[0].id) !== Number(attributionId)) {
+    throw new Error('Activation idempotency key already used');
+  }
+}
+
 /** Credits the one-time referral activation through the existing Economy and Ledger. */
 async function activateReferral({ referredUserId, idempotencyKey }) {
   const referred = requiredId(referredUserId, 'referredUserId');
@@ -102,6 +112,7 @@ async function activateReferral({ referredUserId, idempotencyKey }) {
     if (!attribution) throw new Error('Referral attribution not found');
     if (attribution.status !== 'qualified') throw new Error('Referral is not qualified');
     if (attribution.activation_at) return { attribution, duplicate: true };
+    await assertActivationKeyAvailable(client, idempotencyKey, attribution.id);
     await postEconomyTransactionOnClient(client, {
       idempotencyKey,
       userId: Number(attribution.referrer_user_id),
