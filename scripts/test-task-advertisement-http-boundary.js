@@ -12,7 +12,12 @@ function request(app, method, path, body) {
         let data = '';
         res.setEncoding('utf8');
         res.on('data', chunk => { data += chunk; });
-        res.on('end', () => { server.close(); resolve({ status: res.statusCode, body: JSON.parse(data) }); });
+        res.on('end', () => {
+          server.close();
+          let parsed = null;
+          try { parsed = JSON.parse(data); } catch {}
+          resolve({ status: res.statusCode, body: parsed });
+        });
       });
       req.on('error', error => { server.close(); reject(error); });
       req.end(payload);
@@ -26,7 +31,6 @@ async function main() {
   app.use(express.json());
   const tasks = {
     startTaskAdvertisement: async input => { calls.push(['start', input]); return { adEvent: { id: 'ad-1', context: 'task', verified: false }, providerId: 'test-task-ad', duplicate: false }; },
-    verifyTaskAdvertisement: async input => { calls.push(['verify', input]); return { adEvent: { id: input.adEventId, verified: true }, duplicate: false }; },
     finalizeTaskAdvertisement: async input => { calls.push(['finalize', input]); return { rewarded: true, duplicate: false }; }
   };
   const auth = (req, _res, next) => { req.telegramUser = { id: 12345, username: 'test-user' }; next(); };
@@ -39,18 +43,16 @@ async function main() {
   assert.strictEqual(start.body.adEventId, 'ad-1');
   assert.strictEqual(start.body.providerId, 'test-task-ad');
 
-  const verify = await request(app, 'POST', '/api/tasks/advertisement/verify', { adEventId: 'ad-1', providerPayload: { providerReference: 'trusted-1' } });
-  assert.strictEqual(verify.status, 200);
-  assert.strictEqual(verify.body.verified, true);
+  const clientVerify = await request(app, 'POST', '/api/tasks/advertisement/verify', { adEventId: 'ad-1', providerPayload: { providerReference: 'untrusted-client-input' } });
+  assert.strictEqual(clientVerify.status, 404);
 
   const finalize = await request(app, 'POST', '/api/tasks/advertisement/finalize', { adEventId: 'ad-1' });
   assert.strictEqual(finalize.status, 200);
   assert.strictEqual(finalize.body.rewarded, true);
 
-  assert.deepStrictEqual(calls.map(call => call[0]), ['start', 'verify', 'finalize']);
+  assert.deepStrictEqual(calls.map(call => call[0]), ['start', 'finalize']);
   assert.strictEqual(calls[0][1].userId, 77);
-  assert.strictEqual(calls[1][1].userId, 77);
-  assert.strictEqual(calls[2][1].userId, 77);
+  assert.strictEqual(calls[2 - 1][1].userId, 77);
 
   console.log('Task advertisement HTTP boundary invariants: PASS');
 }
