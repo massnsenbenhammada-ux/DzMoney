@@ -1,7 +1,7 @@
 const express = require('express');
 const walletService = require('../services/wallet-service');
 const taskService = require('../services/task-service');
-const { COMPLETION_MODES, CREATOR_CAMPAIGN_TYPES, resolveVerificationConfig } = require('../services/task-verification-config');
+const { resolveVerificationConfig } = require('../services/task-verification-config');
 const { telegramAuth } = require('./telegram-auth');
 
 const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
