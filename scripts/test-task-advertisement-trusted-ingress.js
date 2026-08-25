@@ -73,15 +73,16 @@ async function main() {
   const userId = await createUser('trusted_task');
   const otherUserId = await createUser('other_trusted_task');
   const taskId = await createTask();
-  const providerReference = `trusted-${Date.now()}`;
   try {
     const started = await startTaskAdvertisement({
       userId,
       taskId,
       idempotencyKey: `trusted-task-${Date.now()}`,
-      externalAdId: providerReference,
+      externalAdId: 'client-controlled-reference',
       providerRegistry: registry
     });
+    const providerReference = started.adEvent.external_ad_id;
+    assert.notStrictEqual(providerReference, 'client-controlled-reference');
 
     const verified = await verifyTrustedTaskAdvertisement({
       providerId: provider.id,
