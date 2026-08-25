@@ -60,6 +60,8 @@ async function cleanup(userId, taskId) {
     await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)', [userId]);
     await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
+    await client.query('DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)', [userId]);
+    await client.query('DELETE FROM task_attempts WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM wallet_accounts WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM users WHERE id=$1', [userId]);
     await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
@@ -80,6 +82,26 @@ async function main() {
     assert.strictEqual(started.adEvent.context, 'task');
     assert.strictEqual(started.adEvent.metadata.task_id, taskId);
     assert.strictEqual(started.adEvent.verified, false);
+
+    const taskAttemptCount = await pool.query('SELECT COUNT(*)::int AS count FROM task_attempts WHERE user_id=$1', [userId]);
+    const verificationGateCount = await pool.query('SELECT COUNT(*)::int AS count FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)', [userId]);
+    assert.strictEqual(taskAttemptCount.rows[0].count, 0);
+    assert.strictEqual(verificationGateCount.rows[0].count, 0);
+
+    await assert.rejects(
+      () => finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id }),
+      /Task advertisement must be verified first/
+    );
+
+    await assert.rejects(
+      () => verifyTaskAdvertisement({
+        userId: userId + 1,
+        adEventId: started.adEvent.id,
+        providerRegistry: registry,
+        providerPayload: { accepted: true }
+      }),
+      /Task advertisement event not found/
+    );
 
     await assert.rejects(
       () => verifyTaskAdvertisement({
