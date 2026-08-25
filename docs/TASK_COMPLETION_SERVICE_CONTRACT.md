@@ -324,7 +324,106 @@ Reward
 
 The existing Economy/Ledger remains the sole economic path. Evidence, Verification Ads and provider callbacks are not independent reward sources.
 
-## 10. Phase and implementation rule
+## 10. Architectural role of the Task Creator as service/configuration provider
+
+For **User Create Tasks**, the Task Creator is the party that supplies/configures the external service details needed to make the selected verification contract operational. This is a configuration role; it does not make the Creator the trusted evidence authority.
+
+The distinction is mandatory:
+
+```text
+Task Creator
+   ↓
+provides/configures service details
+   ↓
+Verification Contract
+   ↓
+trusted source / evidence
+   ↓
+DzMoney server verification
+```
+
+The Creator therefore must be shown the **verification method available for the selected task type**, together with the exact configuration information that the current contract permits the Creator to supply.
+
+The Creator must not be asked for arbitrary implementation details that are not part of the selected verification contract, and the UI must never imply that Creator-provided text itself is proof of user completion.
+
+### 10.1 Available Server Verified methods by Task Type
+
+The Creator-facing contract is:
+
+```text
+Daily
+  → Server Verified
+  → Ad Provider activity evidence
+  → activity_ad_events / applicable trusted provider event
+```
+
+```text
+Mini App
+  → Server Verified
+  → Mini App backend completion evidence
+  → Telegram initData for authenticated-user correlation
+```
+
+```text
+Social
+  → Server Verified
+  → Telegram/social action-specific verification
+  → authenticated Telegram identity + trusted action evidence
+```
+
+```text
+Web
+  → Server Verified
+  → External site/provider evidence
+  → signed webhook / unique token / other trusted server-verifiable mechanism
+```
+
+```text
+Special / Partner
+  → Server Verified ONLY
+  → Partner backend evidence
+  → HMAC/signature or equivalent trusted partner evidence
+```
+
+These are the **verification mechanisms available in the architecture**, not a claim that every adapter/provider is already implemented. `IMPLEMENTATION_STATUS.md` remains authoritative for runtime availability.
+
+### 10.2 What the Creator configures
+
+When the selected verification contract is implemented and enabled, the Creator UI must expose only the configuration fields defined by that contract, for example:
+
+```text
+Task Type
+   ↓
+Server Verified method
+   ↓
+Contract-defined Creator configuration
+   ↓
+Task saved
+```
+
+The generic contract does not invent provider-specific fields. If the contract has not yet defined a field, the UI must not create one merely because a provider could theoretically need it.
+
+The Creator is therefore the **configuration provider**, while the external provider/partner remains the **evidence provider** when the selected verification model depends on one.
+
+This distinction prevents a second source of truth:
+
+```text
+ONE VERIFICATION CONTRACT
+          ↓
+   Creator configuration
+          ↓
+ Existing verification boundary
+```
+
+not:
+
+```text
+Creator UI mapping + Backend mapping + Provider mapping
+        ↓
+multiple competing truths ❌
+```
+
+## 11. Phase and implementation rule
 
 This document locks the contract now. It does **not** authorize production UI, provider integrations, database changes, new services, or new routes before their owning phase is opened.
 
@@ -332,7 +431,7 @@ The future User Create Tasks UI phase must consume this contract and present the
 
 Until then, unimplemented providers remain pending and must not be represented as active functionality.
 
-## 11. Architectural constraints
+## 12. Architectural constraints
 
 - One Task Catalog and one Task Execution/Verification boundary.
 - No second Task Engine.
@@ -345,6 +444,7 @@ Until then, unimplemented providers remain pending and must not be represented a
 - The Special/Partner restriction must be enforced server-side as well as in the future Creator UI.
 - Each task type may have a distinct verification contract, but all contracts terminate at the existing Task Verification boundary.
 - The Creator UI must consume verification-contract metadata and must not duplicate it as a second source of truth.
+- The Task Creator is the configuration provider for a user-created task; the external provider/partner, where applicable, remains the trusted evidence provider.
 - `initData` is an identity/authentication mechanism for Mini Apps, not a universal completion-proof mechanism.
 - Social verification must be action-specific; Telegram identity is not generic proof of every social action.
 - Externally repeatable verification/reward operations must remain idempotent.
