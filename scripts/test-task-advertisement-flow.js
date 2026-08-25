@@ -16,7 +16,13 @@ const provider = {
   },
   async verifyServerCompletion(payload) {
     return payload?.accepted === true
-      ? { verified: true, reference: payload.reference, userId: payload.userId }
+      ? {
+          verified: true,
+          reference: payload.reference,
+          userId: payload.userId,
+          providerId: provider.id,
+          context: 'task'
+        }
       : { verified: false, reference: 'task-ad-rejected' };
   }
 };
