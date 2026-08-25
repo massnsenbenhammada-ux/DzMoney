@@ -9,6 +9,8 @@ on:
       - 'migrations/**'
       - 'public/**'
       - 'package.json'
+      - '*.md'
+      - 'docs/**'
       - '.github/workflows/**'
   push:
     branches: [main]
@@ -18,6 +20,8 @@ on:
       - 'migrations/**'
       - 'public/**'
       - 'package.json'
+      - '*.md'
+      - 'docs/**'
       - '.github/workflows/**'
   workflow_dispatch:
 

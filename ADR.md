@@ -52,7 +52,7 @@ The existing `activity_tasks` table remains the single persistence source for ta
 
 ### Context
 
-Tasks may require different external verification sources. Some sources can provide a known verifier automatically, while others require administrator configuration. Some registration tasks also need an external application's referral link, optionally followed by verification that the registered account belongs to the DzMoney task user.
+Tasks may require different external verification sources. Some sources can provide a known verifier automatically, while others require administrator configuration. Some registration tasks also need an external application's referral link, optionally followed by verification that the registered account belongs to the task user.
 
 ### Decision
 
@@ -146,3 +146,22 @@ No new database table or migration is required. A small orchestration boundary i
 ### Consequences
 
 Tasks-page ads remain independent from verification ads and Reward Pool ads. The flow can support Monetag or another provider through the existing provider registry without changing Economy/Ledger logic. The client never receives authoritative reward state from its own ad-completion signal.
+
+## ADR-0007 — Share with Friends trust boundary
+
+**Status:** Accepted  
+**Date:** 2026-08-25
+
+### Context
+
+The Daily `Share with Friends` task requires the user to open Telegram's share flow and share the user's canonical referral link once per UTC+1 calendar day. Reward eligibility and completion state remain server-authoritative. The current repository has no trusted server callback that proves the share was actually completed after the share UI is opened.
+
+### Decision
+
+Opening Telegram's share UI, a client click, or a frontend-only `shared=true` signal is not authoritative proof of completion and must not authorize an economic reward. Do not introduce a second share-tracking table, reward store, or client-side source of truth to compensate for the missing trusted signal.
+
+The existing Daily task infrastructure remains the intended execution boundary. The canonical referral-link/bootstrap path must be implemented through the existing Referral system before the Share task can expose the user's referral link. A trusted provider/Telegram completion signal may later be integrated into the existing Daily task and Economy/Ledger path without creating a parallel state system.
+
+### Consequences
+
+`Share with Friends` remains an explicit integration gap rather than a forgeable reward path. The UTC+1 daily policy remains defined, but no economic reward is enabled until server-verifiable completion exists.
