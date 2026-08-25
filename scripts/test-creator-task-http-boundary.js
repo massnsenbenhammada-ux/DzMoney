@@ -17,10 +17,11 @@ function buildInitData(userId) {
 async function run() {
   const { createCreatorTaskRouter } = require('../src/http/creator-task-routes');
   const calls = [];
-  const wallet = { createUser: async args => ({ id: 42, ...args }) };
+  const walletCalls = [];
+  const wallet = { createUser: async args => { walletCalls.push(args); return { id: 42, ...args }; } };
   const tasks = {
     createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: 9000, duplicate: false }; },
-    submitCreatorCampaignForReview: async args => { calls.push({ submit: args }); return { id: 7, status: 'pending_review', creator_id: args.creatorId }; }
+    submitCreatorCampaignForReview: async (taskId, creatorId) => { calls.push({ submit: { taskId, creatorId } }); return { id: 7, status: 'pending_review', creator_id: creatorId }; }
   };
 
   const app = express();
@@ -68,6 +69,7 @@ async function run() {
   }, auth);
   assert.strictEqual(create.status, 201);
   assert.strictEqual(create.body.task.id, 7);
+  assert.strictEqual(walletCalls[0].telegramUserId, '123');
   assert.strictEqual(calls[0].create.creatorId, 42);
   assert.strictEqual(calls[0].create.config.completion.mode, 'server_verified');
 
@@ -75,6 +77,7 @@ async function run() {
   assert.strictEqual(submit.status, 200);
   assert.strictEqual(submit.body.task.status, 'pending_review');
   assert.strictEqual(calls[1].submit.creatorId, 42);
+  assert.strictEqual(calls[1].submit.taskId, '7');
 
   const invalidType = await request('GET', '/api/creator/tasks/contracts/daily', null, auth);
   assert.strictEqual(invalidType.status, 400);
