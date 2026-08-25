@@ -165,3 +165,30 @@ The existing Daily task infrastructure remains the intended execution boundary. 
 ### Consequences
 
 `Share with Friends` remains an explicit integration gap rather than a forgeable reward path. The UTC+1 daily policy remains defined, but no economic reward is enabled until server-verifiable completion exists.
+
+## ADR-0008 — Canonical referral code is user-owned and immutable
+
+**Status:** Accepted  
+**Date:** 2026-08-25
+
+### Context
+
+Referral attribution requires one stable identifier that can be embedded in the official Telegram referral link and resolved server-side. The existing `users` table is already the canonical user identity store, while `referral_attributions` already owns referral relationships. No second referral-code table is justified.
+
+### Decision
+
+Store one unique, immutable `referral_code` on `users`. The code is generated server-side when a user is first created and is preserved on subsequent user updates. Existing users receive a one-time backfill through an append-only migration. The database uniqueness constraint is the final collision guard.
+
+The canonical referral link uses Telegram's official bot start parameter form:
+
+`https://t.me/<BOT_USERNAME>?start=<REFERRAL_CODE>`
+
+The concrete bot username is configuration/deployment data and must not be hard-coded into application source until the repository has an authoritative value for it.
+
+The existing `referral_attributions` table remains the sole attribution state store. It already enforces one attribution per referred user and rejects self-referral. A first-entry attribution may only be created by a trusted server-side Telegram bot/bootstrap boundary; a client-provided referral code is not accepted as authoritative attribution input.
+
+No new attribution table or referral service is introduced. The current `referral-service.js` remains responsible for attribution, qualification and activation.
+
+### Consequences
+
+The referral code has one source of truth and remains stable for the user's lifetime. The user-facing `/api/me` response may expose the code for display/share-link construction, but the browser cannot create or mutate attribution. The Telegram bot webhook/bootstrap boundary remains a separate integration step because no bot webhook implementation currently exists in the repository.
