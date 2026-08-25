@@ -220,4 +220,38 @@ No new table, migration, referral service or reward path is introduced.
 
 ### Consequences
 
-The first-entry rule is enforced using the existing authenticated user boundary and existing referral attribution store. Replay is naturally blocked by the user's existing database identity. The browser can display/share the canonical referral code, but cannot manufacture a trusted attribution event.
+The first-entry rule is enforced using the existing authenticated user boundary and existing referral attribution store. Replay is naturally blocked by the user's existing database identity. The browser can display/share the canonical referral code, but cannot manufacture a trusted attribution event. 
+
+## ADR-0010 — User Create Tasks exposes an explicit completion-service choice
+
+**Status:** Accepted  
+**Date:** 2026-08-25
+
+### Context
+
+User-created tasks need a clear distinction between tasks where opening a configured link is itself the intended completion and tasks where DzMoney must verify an external outcome. The existing task execution, verification-ad, verification and Economy/Ledger boundaries must remain the single path. The future User Create Tasks UI must therefore expose the creator's completion-service choice without creating a second verification or reward system.
+
+### Decision
+
+For task categories that support both modes, User Create Tasks exposes exactly two creator-facing completion-service choices:
+
+1. **Open Link → Click Proof** — use when opening the configured link is itself the task outcome. The existing click evidence boundary records the interaction; it is not a claim that a deeper external action occurred.
+2. **Server Verified** — use when the creator requires proof of an external outcome beyond opening the link. The task's verification contract defines the trusted source, evidence type, verification method and any required user input.
+
+The UI must provide concise instructions explaining the difference and must not offer a Server Verified provider as operational until its real server-side verification contract exists and is tested.
+
+Required user input is derived from the verification/provider contract. The UI must never invent fields such as player ID, account ID, username or unique codes. If no input is required, the UI explicitly shows that no input is required.
+
+For Mini Apps, validated Telegram WebApp `initData` is an identity/authentication boundary. It does not by itself prove completion of an arbitrary action inside the Mini App; trusted completion evidence must come from the Mini App/backend contract when an internal action is required.
+
+The reward boundary remains:
+
+**Execute → Task Attempt → Evidence/Proof → Server Verification → Verification Ad where configured → Final Verification → Existing Economy → Existing Ledger → Reward.**
+
+No new task engine, reward service, economy, ledger, category-specific verification service, database table or provider credential store is introduced by this decision.
+
+The normative details are recorded in `docs/TASK_COMPLETION_SERVICE_CONTRACT.md`.
+
+### Consequences
+
+The future User Create Tasks UI becomes a configuration surface for the existing task/verification contract rather than a source of verification rules. Creators can choose the appropriate completion service and understand its trust boundary. Server Verified configuration can later expose the exact required user inputs once the provider contract is available, without redesigning the task engine. Unimplemented providers remain pending and do not become fake integrations.
