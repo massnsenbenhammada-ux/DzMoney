@@ -7,6 +7,7 @@ const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
+const { createReferralRouter } = require('./src/http/referral-routes');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
 const app = express();
@@ -63,6 +64,7 @@ app.get('/health/db', async (_req, res) => {
 
 app.use('/api/me', meRoutes);
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
+app.use('/api/referral', createReferralRouter({ providerRegistry }));
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
 if (monetagPostbackSecret) {
   app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({
