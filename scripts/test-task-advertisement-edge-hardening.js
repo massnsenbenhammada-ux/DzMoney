@@ -7,7 +7,7 @@ const {
   finalizeTaskAdvertisement
 } = require('../src/services/task-advertisement-service');
 
-function makeProvider(id, contexts = ['task']) {
+function makeProvider(id, contexts = ['task'], { reportedProviderId = id } = {}) {
   return {
     id,
     contexts,
@@ -20,7 +20,7 @@ function makeProvider(id, contexts = ['task']) {
             verified: true,
             reference: payload.reference,
             userId: payload.userId,
-            providerId: id,
+            providerId: reportedProviderId,
             context: payload.context || 'task'
           }
         : { verified: false, reference: payload?.reference || 'rejected' };
@@ -30,7 +30,10 @@ function makeProvider(id, contexts = ['task']) {
 
 const provider = makeProvider('edge-task-provider');
 const otherProvider = makeProvider('other-task-provider');
-const registry = new AdProviderRegistry([provider, otherProvider]);
+const mismatchedIdentityProvider = makeProvider('mismatched-task-provider', ['task'], {
+  reportedProviderId: 'unexpected-provider'
+});
+const registry = new AdProviderRegistry([provider, otherProvider, mismatchedIdentityProvider]);
 
 async function createUser(marker) {
   const result = await pool.query(
@@ -123,7 +126,7 @@ async function main() {
     );
 
     await assert.rejects(
-      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference, userId: userA, providerId: otherProvider.id }, providerRegistry: registry }),
+      () => verifyTrustedTaskAdvertisement({ providerId: mismatchedIdentityProvider.id, providerPayload: { accepted: true, reference, userId: userA }, providerRegistry: registry }),
       /Trusted task provider identity does not match/
     );
 
