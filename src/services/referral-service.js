@@ -140,6 +140,18 @@ async function activateReferral({ referredUserId, idempotencyKey }) {
   });
 }
 
+/** Returns the number of server-qualified referrals for a referrer. */
+async function getQualifiedReferralCount(referrerUserId) {
+  const referrer = positiveId(referrerUserId, 'referrerUserId');
+  const result = await query(
+    `SELECT COUNT(*)::integer AS count
+     FROM referral_attributions
+     WHERE referrer_user_id=$1 AND status='qualified'`,
+    [referrer]
+  );
+  return Number(result.rows[0]?.count || 0);
+}
+
 /** Returns the canonical referral attribution for a referred user. */
 async function getReferralByReferredUser(referredUserId) {
   const referred = positiveId(referredUserId, 'referredUserId');
@@ -150,4 +162,4 @@ async function getReferralByReferredUser(referredUserId) {
   return result.rows[0] || null;
 }
 
-module.exports = { createAttribution, qualifyReferral, activateReferral, getReferralByReferredUser };
+module.exports = { createAttribution, qualifyReferral, activateReferral, getQualifiedReferralCount, getReferralByReferredUser };
