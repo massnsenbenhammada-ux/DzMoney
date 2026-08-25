@@ -4,13 +4,13 @@ const referralService = require('../src/services/referral-service');
 const { pool } = require('../src/db/pool');
 
 async function main() {
-  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  const referrer = await walletService.createUser({ telegramUserId: `900000000${suffix}` });
-  const referred = await walletService.createUser({ telegramUserId: `900000001${suffix}` });
-  const other = await walletService.createUser({ telegramUserId: `900000002${suffix}` });
+  const suffix = `${Date.now()}${Math.floor(Math.random() * 100)}`;
+  const referrer = await walletService.createUser({ telegramUserId: `9${suffix}01` });
+  const referred = await walletService.createUser({ telegramUserId: `9${suffix}02` });
+  const other = await walletService.createUser({ telegramUserId: `9${suffix}03` });
 
-  assert.throws(
-    () => referralService.createAttribution({ referrerUserId: referrer.id, referredUserId: referrer.id }),
+  await assert.rejects(
+    referralService.createAttribution({ referrerUserId: referrer.id, referredUserId: referrer.id }),
     /Self referral/
   );
 
