@@ -75,16 +75,28 @@ async function cleanup(userId, taskId) {
 async function main() {
   const userId = await createUser();
   const taskId = await createTask();
-  const providerReference = `task-ad-ref-${Date.now()}`;
   const idempotencyKey = `task-ad-${Date.now()}`;
+  const clientProviderId = 'attacker-provider';
+  const clientExternalAdId = 'attacker-controlled-reference';
   try {
-    const started = await startTaskAdvertisement({ userId, taskId, idempotencyKey, externalAdId: providerReference, providerRegistry: registry });
+    const started = await startTaskAdvertisement({
+      userId,
+      taskId,
+      idempotencyKey,
+      providerId: clientProviderId,
+      externalAdId: clientExternalAdId,
+      providerRegistry: registry
+    });
     assert.strictEqual(started.providerId, provider.id);
+    assert.notStrictEqual(started.providerId, clientProviderId);
     assert.strictEqual(started.adEvent.context, 'task');
     assert.strictEqual(started.adEvent.metadata.task_id, taskId);
     assert.strictEqual(started.adEvent.verified, false);
+    assert.ok(started.adEvent.external_ad_id);
+    assert.notStrictEqual(started.adEvent.external_ad_id, clientExternalAdId);
 
-    const duplicateStart = await startTaskAdvertisement({ userId, taskId, idempotencyKey, externalAdId: providerReference, providerRegistry: registry });
+    const providerReference = started.adEvent.external_ad_id;
+    const duplicateStart = await startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry: registry });
     assert.strictEqual(duplicateStart.duplicate, true);
     assert.strictEqual(duplicateStart.adEvent.id, started.adEvent.id);
     assert.strictEqual(duplicateStart.providerId, provider.id);
