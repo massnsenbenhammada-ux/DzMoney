@@ -4,10 +4,26 @@ const { creditActivityRewardOnClient } = require('./economy-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 const { resolveVerificationConfig } = require('./task-verification-config');
+const { isTelegramChannelMember } = require('./telegram-channel-verifier');
+
+const TELEGRAM_TASK_CHANNELS = {
+  'telegram.dzmoney_updates': '@dzmoneycom'
+};
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
   return value;
+}
+
+function resolveTrustedTaskVerifier({ config, telegramUserId, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
+  const verification = config?.verification || {};
+  if (!verification.provider) throw new Error('trusted task verifier provider is required');
+  if (verification.provider !== 'telegram_channel') throw new Error(`Unsupported trusted task verifier provider: ${verification.provider}`);
+  const channel = TELEGRAM_TASK_CHANNELS[verification.providerConfigRef];
+  if (!channel) throw new Error('Unsupported Telegram task verifier configuration');
+  requiredId(botToken, 'BOT_TOKEN');
+  requiredId(telegramUserId, 'telegramUserId');
+  return () => verifyMembership({ botToken, channel, userId: telegramUserId });
 }
 
 async function startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId = null, providerRegistry, providerId = null }) {
@@ -52,14 +68,15 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
   requiredId(attemptId, 'attemptId');
   requiredId(idempotencyKey, 'idempotencyKey');
   return withTransaction(async client => {
-    const result = await client.query(`SELECT a.*,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 FOR UPDATE`, [attemptId]);
+    const result = await client.query(`SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 FOR UPDATE`, [attemptId]);
     if (!result.rowCount) throw new Error('Task attempt not found');
     const row = result.rows[0];
     if (row.status === 'verified') return { duplicate: true, status: 'verified' };
     if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
     if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
 
-    const completion = resolveVerificationConfig({ taskType: 'unknown', config: row.config }).completion;
+    const resolvedConfig = resolveVerificationConfig({ taskType: row.task_type, config: row.config });
+    const completion = resolvedConfig.completion;
     let verifiedByTaskRule;
     if (completion.mode === 'open_link') {
       if (row.metadata?.link_clicked !== true) {
@@ -67,8 +84,11 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
       }
       verifiedByTaskRule = true;
     } else {
-      if (typeof verifyTaskCompletion !== 'function') throw new Error('A trusted task verifier is required');
-      verifiedByTaskRule = await verifyTaskCompletion({ attemptId });
+      const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({
+        config: resolvedConfig,
+        telegramUserId: row.telegram_user_id
+      });
+      verifiedByTaskRule = await verifier({ attemptId });
       if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
     }
 
@@ -93,4 +113,4 @@ async function getTaskVerificationStatus({ attemptId, userId }) {
   return { attemptId: row.id, status: row.status, gateStatus: row.gate_status, adEventId: row.ad_event_id, adCompletedAt: row.ad_completed_at, verifiedAt: row.verified_at, linkClicked: row.metadata?.link_clicked === true };
 }
 
-module.exports = { startTaskVerificationAd, verifyTaskAdvertisement, finalizeTaskVerification, getTaskVerificationStatus };
+module.exports = { startTaskVerificationAd, verifyTaskAdvertisement, finalizeTaskVerification, getTaskVerificationStatus, resolveTrustedTaskVerifier };
