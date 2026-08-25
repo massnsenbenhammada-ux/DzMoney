@@ -6,9 +6,9 @@
 
 **Specification:** `PROJECT_ROADMAP.md` is the product specification. `docs/ARCHITECTURE_RULES.md` and `ADR.md` govern implementation/change control.
 
-**Current main:** `193abce3baf9a4e088a635b9bc735ffa4721b313`.
+**Current main:** `2436d4a1e357903de2f9ba51488ef3c535a9bb84`.
 
-**Current CI evidence:** PR #118 CI run #439 passed for the exact head that introduced the task-type Server Verified contract documentation. The documentation-only PR was then squash-merged to `main` as `193abce3baf9a4e088a635b9bc735ffa4721b313`. No production behavior was changed by that PR.
+**Current CI evidence:** PR #118 CI run #439 passed for the exact head that introduced the task-type Server Verified contract documentation. PR #120 CI run #444 passed for the task completion-contract implementation and tests. PR #121 CI run #446 passed for the creator-input contract-state TDD, and PR #121 was then squash-merged to `main` as `2436d4a1e357903de2f9ba51488ef3c535a9bb84`.
 
 **Important reconciliation:** This status file is reconciled to the merged `main` state. Only merged commits on `main` are treated as completed.
 
@@ -50,6 +50,7 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - 🟢 Task completion-service contract: supported creator-facing modes are Open Link → Click Proof and Server Verified; Special/Partner is Server Verified only.
 - 🟢 Task-type Server Verified contract boundaries documented for Daily, Mini App, Social, Web and Special/Partner, including source, evidence, verification method, identity correlation, required user input and replay/idempotency requirements.
 - 🟢 Creator-input rule documented: future User Create Tasks UI must consume the applicable verification contract and must not maintain a second hand-authored mapping of verification fields.
+- 🟢 Creator-input contract states locked by TDD: provider-dependent Server Verified fields remain undefined until an applicable provider/partner contract exists; Special/Partner remains contract-required and Server Verified only.
 
 ### Referral work now present on main as Phase 3 foundation
 
@@ -68,6 +69,7 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - ⬜ Daily `Share with Friends` production reward flow. The requirement is Telegram share of the user's referral link once per UTC+1 calendar day, but the current backend has no trusted completion signal for an actual share. A frontend-only signal must not authorize an economic reward.
 - ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner task catalog beyond the currently implemented Telegram Social verifier and Daily Check for Update path.
 - ⬜ User Create Tasks runtime UI for the completion-service contract and task-type-specific Server Verified inputs.
+- ⬜ Provider/Partner-specific Creator Input contracts. The generic contract intentionally keeps fields empty until an actual provider/partner contract defines them.
 - ⬜ Broader anti-fraud hardening around task/ad callbacks and verification.
 - ⬜ Full acceptance of advertisement-task behavior across all required providers/contexts.
 
@@ -75,7 +77,7 @@ Phase 2 remains open until its remaining implementation and acceptance criteria 
 
 ## Task completion service contract — specification locked, runtime pending
 
-🟡 **Specification recorded; no production behavior changed by the documentation work.**
+🟡 **Specification recorded; runtime implementation remains pending for the broader user-created task catalog.**
 
 The creator-facing completion choice for supported user-created task categories is documented in `docs/TASK_COMPLETION_SERVICE_CONTRACT.md` and `ADR.md`:
 
@@ -90,9 +92,11 @@ For Server Verified tasks, the future User Create Tasks UI must derive and displ
 
 The UI must not invent required inputs, and an unimplemented provider must not be exposed as an operational verification option. Mini App `initData` is documented as an identity/authentication boundary, not by itself proof of arbitrary in-Mini-App completion.
 
-Special/Partner is contractually restricted to Server Verified only; this restriction is not merely a UI choice and must be enforced server-side when runtime task-configuration support is implemented.
+Special/Partner is contractually restricted to Server Verified only; this restriction is enforced by the existing task-verification configuration boundary and must remain enforced when runtime task-creation support is implemented.
 
-This documentation change does **not** mark the broader task adapters/verifiers or User Create Tasks UI as implemented.
+The creator-input TDD locks the current provider-dependent state; it does not claim that provider-specific fields or provider adapters already exist.
+
+This documentation and TDD work does **not** mark the broader task adapters/verifiers or User Create Tasks UI as implemented.
 
 ## Phase 3 — Referral
 
@@ -150,7 +154,7 @@ The abandoned/closed earlier PRs that proposed a combined Referral foundation ar
 
 ## Documentation reconciliation note
 
-This update reconciles the status document with merged main commit `193abce3baf9a4e088a635b9bc735ffa4721b313`. It records the task completion-service and task-type Server Verified specification as completed documentation work only. It does not change production behavior or claim runtime implementation of unimplemented providers or User Create Tasks UI.
+This update reconciles the status document with merged main commit `2436d4a1e357903de2f9ba51488ef3c535a9bb84`. It records the task completion-service and task-type Server Verified specification plus the creator-input contract-state TDD as completed documentation/test work only. It does not claim runtime implementation of unimplemented providers, Partner integrations, provider-specific Creator Input fields, or User Create Tasks UI.
 
 ## Update Rule
 
