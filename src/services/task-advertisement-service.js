@@ -43,6 +43,7 @@ async function verifyTaskAdvertisement() {
 function validateServerVerification(verification) {
   if (!verification || verification.verified !== true) throw new Error('Advertisement provider verification failed');
   if (typeof verification.reference !== 'string' || !verification.reference.trim()) throw new Error('Trusted task provider reference is required');
+  if (verification.userId === undefined || verification.userId === null || verification.userId === '') throw new Error('Trusted task provider user is required');
 }
 
 /** Verify a task advertisement from authenticated provider evidence and correlate it to the started event. */
@@ -70,6 +71,7 @@ async function verifyTrustedTaskAdvertisement({ providerId, providerPayload, pro
   );
   if (!result.rowCount) throw new Error('Trusted task provider reference cannot be verified');
   const event = result.rows[0];
+  if (String(event.user_id) !== String(verification.userId)) throw new Error('Trusted task provider user does not match advertisement owner');
   if (event.verified) return { adEvent: event, duplicate: true };
   return markAdvertisementVerified({
     adEventId: event.id,
