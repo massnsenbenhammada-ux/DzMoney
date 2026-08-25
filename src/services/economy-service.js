@@ -1,4 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
+const { qualifyReferralFromActivityOnClient } = require('./referral-service');
 
 const INTERNAL_CURRENCIES = ['COIN', 'DZX', 'DZP'];
 const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'reward_pool', 'promo'];
@@ -105,7 +106,23 @@ async function creditActivityRewardOnClient(client, args) {
   if (reward.coin > 0) movements.push({ currency: 'COIN', amount: reward.coin, source });
   if (reward.dzx > 0) movements.push({ currency: 'DZX', amount: reward.dzx, source });
   if (reward.dzp > 0) movements.push({ currency: 'DZP', amount: reward.dzp, source, dzpBucket: 'earned_dzp' });
-  return postEconomyTransactionOnClient(client, { idempotencyKey, userId, type: 'REWARD', metadata: { source, base_reward: baseReward, final_reward: reward, modifiers: normalizedModifiers }, movements });
+  const result = await postEconomyTransactionOnClient(client, {
+    idempotencyKey,
+    userId,
+    type: 'REWARD',
+    metadata: { source, base_reward: baseReward, final_reward: reward, modifiers: normalizedModifiers },
+    movements
+  });
+  if (!result.duplicate && (source === 'advertisement' || source === 'task')) {
+    const referral = await qualifyReferralFromActivityOnClient(client, {
+      referredUserId: userId,
+      source,
+      activityReference: idempotencyKey,
+      baseReward
+    });
+    return { ...result, referral };
+  }
+  return result;
 }
 
 async function creditActivityReward(args) { return withTransaction(client => creditActivityRewardOnClient(client, args)); }
