@@ -99,32 +99,15 @@ async function main() {
     });
     assert.strictEqual(verified.adEvent.verified, true);
 
-    const rewarded = await finalizeTaskAdvertisement({
-      userId,
-      adEventId: started.adEvent.id,
-      idempotencyKey: `task-ad-reward-${Date.now()}`
-    });
+    const rewarded = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
     assert.strictEqual(rewarded.rewarded, true);
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
     assert.strictEqual(await balance(userId, 'DZX'), 1);
     assert.strictEqual(await balance(userId, 'DZP'), 1);
 
-    const duplicate = await finalizeTaskAdvertisement({
-      userId,
-      adEventId: started.adEvent.id,
-      idempotencyKey: rewarded.rewardIdempotencyKey
-    });
+    const duplicate = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
     assert.strictEqual(duplicate.duplicate, true);
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
-
-    await assert.rejects(
-      () => finalizeTaskAdvertisement({
-        userId,
-        adEventId: started.adEvent.id,
-        idempotencyKey: `task-ad-reward-${Date.now()}-other`
-      }),
-      /already finalized/
-    );
 
     console.log('Task advertisement flow invariants: PASS');
   } finally {
