@@ -112,7 +112,7 @@ async function creditReferralLifetimeOnClient(client, { referredUserId, source, 
   const coin = lifetimeAmount(baseReward?.coin);
   const dzx = lifetimeAmount(baseReward?.dzx);
   const attribution = await findAttribution(client, referred, true);
-  if (!attribution) throw new Error('Referral attribution not found');
+  if (!attribution) return { qualified: false, duplicate: false };
   if (attribution.status !== 'qualified') return { qualified: false, duplicate: false };
   const movements = [];
   if (coin > 0) movements.push({ currency: 'COIN', amount: coin, source: 'referral' });
