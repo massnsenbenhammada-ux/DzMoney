@@ -16,7 +16,7 @@ const provider = {
   },
   async verifyServerCompletion(payload) {
     return payload?.accepted === true
-      ? { verified: true, reference: payload.reference }
+      ? { verified: true, reference: payload.reference, userId: payload.userId }
       : { verified: false, reference: 'task-ad-rejected' };
   }
 };
@@ -100,17 +100,25 @@ async function main() {
     );
 
     await assert.rejects(
-      () => verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: providerReference } }),
+      () => verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: providerReference, userId } }),
       /Task advertisement verification must use trusted provider ingress/
     );
 
     await assert.rejects(
-      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: false, reference: providerReference }, providerRegistry: registry }),
+      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: false, reference: providerReference, userId }, providerRegistry: registry }),
       /Advertisement provider verification failed/
     );
 
-    const verified = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference }, providerRegistry: registry });
+    await assert.rejects(
+      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId: userId + 1 }, providerRegistry: registry }),
+      /Trusted task provider user does not match advertisement owner/
+    );
+
+    const verified = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId }, providerRegistry: registry });
     assert.strictEqual(verified.adEvent.verified, true);
+
+    const duplicateVerification = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId }, providerRegistry: registry });
+    assert.strictEqual(duplicateVerification.duplicate, true);
 
     const rewarded = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
     assert.strictEqual(rewarded.rewarded, true);
