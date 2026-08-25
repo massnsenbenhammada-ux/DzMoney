@@ -20,6 +20,7 @@ function validateProvider(provider) {
 class AdProviderRegistry {
   constructor(providers = []) {
     this.providers = new Map();
+    this.contextEnabled = new Map();
     providers.forEach(provider => this.register(provider));
   }
 
@@ -27,6 +28,7 @@ class AdProviderRegistry {
     validateProvider(provider);
     if (this.providers.has(provider.id)) throw new Error(`Duplicate advertisement provider: ${provider.id}`);
     this.providers.set(provider.id, { enabled: true, priority: 100, ...provider });
+    this.contextEnabled.set(provider.id, new Map(provider.contexts.map(context => [context, true])));
     return this.providers.get(provider.id);
   }
 
@@ -38,10 +40,23 @@ class AdProviderRegistry {
     return [...this.providers.keys()];
   }
 
+  setContextEnabled(providerId, context, enabled) {
+    if (!AD_PROVIDER_CONTEXTS.includes(context)) throw new Error('Invalid advertisement context');
+    const provider = this.get(providerId);
+    if (!provider) throw new Error(`Unknown advertisement provider: ${providerId}`);
+    if (!provider.contexts.includes(context)) throw new Error(`Advertisement provider ${providerId} does not support ${context}`);
+    if (typeof enabled !== 'boolean') throw new Error('Provider context enabled state must be boolean');
+    this.contextEnabled.get(providerId).set(context, enabled);
+  }
+
+  isContextEnabled(providerId, context) {
+    return this.contextEnabled.get(providerId)?.get(context) === true;
+  }
+
   listAvailable(context) {
     if (!AD_PROVIDER_CONTEXTS.includes(context)) throw new Error('Invalid advertisement context');
     return [...this.providers.values()]
-      .filter(provider => provider.enabled && provider.contexts.includes(context))
+      .filter(provider => provider.enabled && provider.contexts.includes(context) && this.isContextEnabled(provider.id, context))
       .sort((left, right) => right.priority - left.priority);
   }
 }
@@ -50,7 +65,7 @@ function selectProvider(registry, { context, providerId = null, excludedProvider
   if (!registry || typeof registry.listAvailable !== 'function') throw new Error('Advertisement provider registry is required');
   if (providerId) {
     const provider = registry.get(providerId);
-    if (!provider || !provider.enabled || !provider.contexts.includes(context) || excludedProviderIds.includes(providerId)) {
+    if (!provider || !provider.enabled || !provider.contexts.includes(context) || !registry.isContextEnabled(providerId, context) || excludedProviderIds.includes(providerId)) {
       throw new Error(`Advertisement provider ${providerId} is not available for ${context}`);
     }
     return provider;
