@@ -38,7 +38,7 @@ if (staleDiagnosticsPage || staleDiagnosticsScript) {
 const creatorForm = index.includes('id="creatorTaskForm"');
 const creatorReviewButton = index.includes('id="creatorReviewSubmit"');
 const stableCreatorKey = creator.includes('function creatorGetIdempotencyKey()') && creator.includes('idempotencyKey: creatorGetIdempotencyKey()');
-const separateReviewBoundary = creator.includes('async function submitCreatorTaskForReview') && creator.includes("/submit'");
+const separateReviewBoundary = creator.includes('async function submitCreatorTaskForReview') && creator.includes('/submit');
 const noAutomaticReview = !creator.includes('const submit = await creatorApi(`/api/creator/tasks/${encodeURIComponent(taskId)}/submit`');
 
 if (!creatorForm || !creatorReviewButton || !stableCreatorKey || !separateReviewBoundary || !noAutomaticReview) {
