@@ -13,11 +13,10 @@ function testSystemTaskIdentifiers() {
 
 function testUtcPlusOneCalendarReset() {
   const previous = '2026-08-25T22:30:00.000Z';
-  const sameCalendarDay = '2026-08-25T23:30:00.000Z';
+  const sameCalendarDay = '2026-08-25T22:59:59.000Z';
   const nextCalendarDay = '2026-08-25T23:30:00.001Z';
   assert.strictEqual(isUtcPlusOneCalendarDayAvailable(previous, sameCalendarDay), false);
-  assert.strictEqual(isUtcPlusOneCalendarDayAvailable(previous, nextCalendarDay), false);
-  assert.strictEqual(isUtcPlusOneCalendarDayAvailable(previous, '2026-08-25T23:30:01.000Z'), true);
+  assert.strictEqual(isUtcPlusOneCalendarDayAvailable(previous, nextCalendarDay), true);
 }
 
 function testReferralAchievementIsPermanent() {
