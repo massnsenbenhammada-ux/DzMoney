@@ -119,3 +119,30 @@ The Monetag provider is disabled unless explicitly enabled by server configurati
 ### Consequences
 
 The frontend SDK is not an economic trust boundary. Monetag remains replaceable through the existing provider registry. Existing Daily Check-in and Economy/Ledger code remain the single sources of truth. No database migration is required because `activity_ad_events.external_ad_id` and existing verification state are sufficient for correlation and idempotency.
+
+## ADR-0006 — Tasks-page advertisement completion is a direct ad-to-reward flow
+
+**Status:** Accepted  
+**Date:** 2026-08-25
+
+### Context
+
+Phase 2 requires Tasks-page advertisements to remain separate from Reward Pool advertisements, Daily Check-in advertisements and verification advertisements. The existing `activity_ad_events` schema already has a `task` context, and the provider-neutral advertisement registry already permits providers to serve that context. The remaining rule needed before implementation is how a Tasks-page advertisement reaches its reward without incorrectly entering the non-ad task Execute → Verify flow.
+
+### Decision
+
+A Tasks-page advertisement is an advertisement event with `context = 'task'`. It is not an `activity_tasks` row and therefore does not create a `task_attempts` or `task_verification_gates` record.
+
+The flow is:
+
+**start task advertisement → trusted provider callback → verify the existing `task` ad event → issue the configured standard activity reward exactly once**.
+
+The existing `activity_ad_events` row is the source of truth for the advertisement attempt and idempotency. The existing provider registry is the source of truth for provider verification. The existing atomic economy/ledger primitive is the source of truth for the reward. The reward source is `advertisement` and must never be recorded as `task` merely because the advertisement appeared on the Tasks page.
+
+A Tasks-page advertisement never receives the short verification advertisement used by non-ad tasks. A provider callback is accepted only when it matches an existing `task` ad event, the authenticated Telegram identity binding, and the provider's real server-side verification contract. Duplicate callbacks and repeated finalization are idempotent.
+
+No new database table or migration is required. A small orchestration boundary is justified because completing the workflow requires coordinating the existing advertisement event, provider verification and economy primitives without moving their responsibilities into one another. It must reuse those existing primitives and must not become a second reward or verification system.
+
+### Consequences
+
+Tasks-page ads remain independent from verification ads and Reward Pool ads. The flow can support Monetag or another provider through the existing provider registry without changing Economy/Ledger logic. The client never receives authoritative reward state from its own ad-completion signal.

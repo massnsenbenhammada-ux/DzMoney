@@ -12,6 +12,9 @@ function validateProvider(provider) {
   if (!Array.isArray(provider.contexts) || !provider.contexts.length) throw new Error('Advertisement provider contexts are required');
   if (provider.contexts.some(context => !AD_PROVIDER_CONTEXTS.includes(context))) throw new Error('Invalid advertisement context');
   if (typeof provider.verifyCompletion !== 'function') throw new Error('Advertisement provider verifyCompletion is required');
+  if (provider.contexts.includes('task') && typeof provider.verifyServerCompletion !== 'function') {
+    throw new Error('Advertisement provider task context requires a trusted server verification contract');
+  }
 }
 
 class AdProviderRegistry {
