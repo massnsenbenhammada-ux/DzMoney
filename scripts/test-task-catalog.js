@@ -31,6 +31,18 @@ async function main() {
   try {
     userId = await createTestUser();
 
+    await assert.rejects(
+      () => createTask({
+        taskType: 'special',
+        title: 'Invalid Special click-proof task',
+        rewardCoin: 1000,
+        rewardDzx: 1,
+        rewardDzp: 1,
+        config: { completion: { mode: 'open_link', url: 'https://partner.example/task' } }
+      }),
+      /Special\/Partner tasks support server_verified completion only/
+    );
+
     const daily = await createTask({
       taskType: 'daily',
       title: 'Daily catalog test',
