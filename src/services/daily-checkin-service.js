@@ -137,7 +137,7 @@ async function finalizeDailyCheckin({ userId, claimIdempotencyKey }) {
       modifiers: []
     });
     if (!reward.duplicate) {
-      await referralService.creditReferralLifetime({
+      await referralService.creditReferralLifetimeOnClient(client, {
         referredUserId: userId,
         source: 'advertisement',
         sourceReferenceId: adResult.rows[0].id,
