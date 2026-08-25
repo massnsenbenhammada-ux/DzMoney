@@ -6,11 +6,11 @@
 
 **Specification:** `PROJECT_ROADMAP.md` is the product specification. `docs/ARCHITECTURE_RULES.md` and `ADR.md` govern implementation/change control.
 
-**Current main:** `808adfc052812554d1903691f948dfcddbd0a472`.
+**Current main:** `3fae7dc9cb5620625459ab398f8a5088b64cedd5`.
 
-**Current CI evidence:** GitHub Actions run #405 (`32865975721`) for the current `main` commit completed successfully. The repository must still treat any later commit as requiring its own CI result.
+**Current CI evidence:** GitHub Actions run #424 (`32877085617`) for the current `main` commit completed successfully. The repository must still treat any later commit as requiring its own CI result.
 
-**Important reconciliation:** The earlier Phase 2/Phase 3 status below had become stale as later merged PRs added Daily system tasks and Referral foundations. This file now records only the state that is actually present on `main`.
+**Important reconciliation:** This status file is reconciled to the current `main` after the merged Referral lifetime 20% work. Only merged commits on `main` are treated as completed.
 
 ## Phase 0 — Specification Lock
 
@@ -55,12 +55,13 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - 🟢 Canonical qualified-referral count used by permanent achievement eligibility.
 - 🟢 Permanent referral achievement catalog/tasks: Invite 1, 10, 20, 50 and 100 Friends.
 - 🟢 Achievement claims use existing verified `task_attempts` state and the existing verification-ad/economy path; no second achievement store exists.
+- 🟢 Referral Telegram bootstrap foundation and referral-link test coverage are present in the repository test suite.
+- 🟢 Canonical user-facing referral link support is present and covered by `test:referral-link`.
+- 🟢 Referral lifetime 20% reward from qualifying base COIN/DZX activity is merged through the existing Economy/Ledger path and covered by `test:referral-lifetime`.
 
 ### Not yet implemented / accepted
 
-- ⬜ Daily `Share with Friends` production reward flow. The user-facing requirement is Telegram share of the user's referral link once per UTC+1 calendar day, but the current backend has no trusted completion signal for an actual share and the current referral HTTP/bootstrap/link flow is not implemented. A frontend-only signal must not authorize an economic reward.
-- ⬜ Referral HTTP/bootstrap integration and user-facing canonical referral-link exposure.
-- ⬜ Referral lifetime 20% reward from qualifying daily base task/advertisement activity.
+- ⬜ Daily `Share with Friends` production reward flow. The requirement is Telegram share of the user's referral link once per UTC+1 calendar day, but the current backend has no trusted completion signal for an actual share. A frontend-only signal must not authorize an economic reward.
 - ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner task catalog beyond the currently implemented Daily Check for Update path.
 - ⬜ Broader anti-fraud hardening around task/ad callbacks and verification.
 - ⬜ Full acceptance of advertisement-task behavior across all required providers/contexts.
@@ -81,15 +82,16 @@ Phase 2 remains open until its remaining implementation and acceptance criteria 
 
 Implemented:
 - attribution;
-- qualification;
+- server-side qualification;
 - activation reward;
 - qualified referral count;
-- permanent referral achievement tasks.
+- permanent referral achievement tasks;
+- Telegram bootstrap/link foundation;
+- lifetime 20% reward from qualifying base COIN/DZX activity.
 
 Pending:
-- Telegram/user bootstrap attribution integration and canonical referral-link exposure;
-- lifetime 20% referral earnings from qualifying base activity;
-- user-facing referral UI and full acceptance tests.
+- user-facing Share with Friends production reward flow subject to a trusted completion signal;
+- full referral acceptance tests and remaining UI acceptance.
 
 The abandoned/closed earlier PRs that proposed a combined Referral foundation are not evidence of implementation; only merged commits on `main` count.
 
@@ -130,7 +132,7 @@ The abandoned/closed earlier PRs that proposed a combined Referral foundation ar
 
 ## Documentation reconciliation note
 
-The previous status file incorrectly described Phase 3 as not started and did not include the merged Daily `Check for Update`, `View Ads`, and Referral achievement work. Those statements were stale relative to `main` and have been corrected here. No production behavior is changed by this documentation reconciliation.
+This update reconciles the status with `main` commit `3fae7dc9cb5620625459ab398f8a5088b64cedd5` and CI run #424. No production behavior is changed by this documentation update.
 
 ## Update Rule
 
