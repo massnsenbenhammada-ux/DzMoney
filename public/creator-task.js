@@ -1,4 +1,9 @@
-const creatorTaskState = { contract: null, mode: 'server_verified' };
+const creatorTaskState = {
+  contract: null,
+  mode: 'server_verified',
+  idempotencyKey: null,
+  createdTaskId: null
+};
 
 function creatorEl(id) { return document.getElementById(id); }
 
@@ -21,6 +26,11 @@ async function creatorApi(path, options = {}) {
   try { data = text ? JSON.parse(text) : {}; } catch { data = { error: text || 'Request failed' }; }
   if (!response.ok) throw Object.assign(new Error(data.error || `Request failed: ${response.status}`), { status: response.status, data });
   return data;
+}
+
+function creatorGetIdempotencyKey() {
+  if (!creatorTaskState.idempotencyKey) creatorTaskState.idempotencyKey = `creator-task:${crypto.randomUUID()}`;
+  return creatorTaskState.idempotencyKey;
 }
 
 function renderCreatorContract(contract) {
@@ -75,8 +85,9 @@ function creatorConfig() {
   return config;
 }
 
-async function submitCreatorTask(event) {
+async function createCreatorTask(event) {
   event.preventDefault();
+  if (creatorTaskState.createdTaskId) return;
   const button = creatorEl('creatorSubmit');
   button.disabled = true;
   try {
@@ -92,18 +103,31 @@ async function submitCreatorTask(event) {
         rewardDzp: Number(creatorEl('creatorRewardDzp').value),
         verificationAdSeconds: Number(creatorEl('creatorVerificationAdSeconds').value || 0),
         config: creatorConfig(),
-        idempotencyKey: `creator-task:${crypto.randomUUID()}`
+        idempotencyKey: creatorGetIdempotencyKey()
       })
     });
-    const taskId = result.task?.id;
+    creatorTaskState.createdTaskId = result.task?.id || null;
     creatorToast('Task created successfully.');
-    if (taskId) {
-      const submit = await creatorApi(`/api/creator/tasks/${encodeURIComponent(taskId)}/submit`, { method: 'POST', body: '{}' });
-      creatorToast(submit.task?.status === 'pending_review' ? 'Task submitted for review.' : 'Task created.');
-    }
+    const reviewButton = creatorEl('creatorReviewSubmit');
+    if (reviewButton) reviewButton.disabled = !creatorTaskState.createdTaskId;
+    button.textContent = 'Task created';
   } catch (error) {
     creatorToast(error.message || 'Unable to create task.');
-  } finally {
+    button.disabled = false;
+  }
+}
+
+async function submitCreatorTaskForReview(event) {
+  event.preventDefault();
+  const taskId = creatorTaskState.createdTaskId;
+  if (!taskId) return;
+  const button = creatorEl('creatorReviewSubmit');
+  button.disabled = true;
+  try {
+    const result = await creatorApi(`/api/creator/tasks/${encodeURIComponent(taskId)}/submit`, { method: 'POST', body: '{}' });
+    creatorToast(result.task?.status === 'pending_review' ? 'Task submitted for review.' : 'Task submitted.');
+  } catch (error) {
+    creatorToast(error.message || 'Unable to submit task for review.');
     button.disabled = false;
   }
 }
@@ -121,10 +145,11 @@ document.addEventListener('change', event => {
 });
 
 document.addEventListener('submit', event => {
-  if (event.target.id === 'creatorTaskForm') submitCreatorTask(event);
+  if (event.target.id === 'creatorTaskForm') createCreatorTask(event);
 });
 
 document.addEventListener('click', event => {
+  if (event.target.closest('#creatorReviewSubmit')) submitCreatorTaskForReview(event);
   const nav = event.target.closest('[data-go="creator"]');
   if (nav) setTimeout(loadCreatorContract, 0);
 });
