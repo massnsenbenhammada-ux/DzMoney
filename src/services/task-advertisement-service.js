@@ -1,3 +1,4 @@
+const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const { startAdvertisementEvent, markAdvertisementVerified } = require('./ad-event-service');
@@ -23,14 +24,15 @@ async function getActiveTask(taskId) {
   return result.rows[0];
 }
 
-/** Start a Tasks-page advertisement bound to an active task and selected provider. */
-async function startTaskAdvertisement({ userId, taskId, idempotencyKey, externalAdId = null, providerRegistry, providerId = null }) {
+/** Start a Tasks-page advertisement with provider and correlation data owned by the server. */
+async function startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry }) {
   requiredId(userId, 'userId');
   requiredId(idempotencyKey, 'idempotencyKey');
   const existing = await getExistingAdvertisement({ userId, idempotencyKey, taskId });
   if (existing) return { adEvent: existing, providerId: existing.metadata?.provider_id, duplicate: true };
   await getActiveTask(taskId);
-  const provider = selectProvider(providerRegistry, { context: 'task', providerId });
+  const provider = selectProvider(providerRegistry, { context: 'task' });
+  const externalAdId = randomUUID();
   const result = await startAdvertisementEvent({ userId, context: 'task', idempotencyKey, externalAdId, metadata: { task_id: taskId, provider_id: provider.id } });
   return { ...result, providerId: provider.id };
 }
