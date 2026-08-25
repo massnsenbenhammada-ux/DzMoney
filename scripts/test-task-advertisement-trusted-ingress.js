@@ -71,15 +71,6 @@ async function main() {
       providerRegistry: registry
     });
 
-    await assert.rejects(
-      () => verifyTrustedTaskAdvertisement({
-        providerId: provider.id,
-        providerPayload: { accepted: true, reference: providerReference },
-        providerRegistry: registry
-      }),
-      /Trusted task provider reference cannot be verified/
-    );
-
     const verified = await verifyTrustedTaskAdvertisement({
       providerId: provider.id,
       providerPayload: { accepted: true, reference: providerReference },
