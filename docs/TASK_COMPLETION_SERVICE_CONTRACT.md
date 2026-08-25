@@ -19,6 +19,8 @@ The choice is a task contract decision. It must not create a second task engine,
 
 A mode may be offered only when the selected task category has a valid contract for that mode. An unimplemented provider must not be presented as a working verification option.
 
+Some task categories are intentionally restricted to one completion service. In particular, **Special/Partner tasks are Server Verified only**. The Creator must not be offered Open Link → Click Proof for this category, and the server-side task contract must reject that combination even if a client attempts to submit it.
+
 ## 2. Open Link → Click Proof
 
 ### Meaning
@@ -68,7 +70,25 @@ The intended contract is:
 | Mini App | Yes, when opening the Mini App is itself the required action | Yes when a trusted Mini App backend contract exists | Validated Telegram `initData` establishes Telegram identity/session authenticity; the Mini App backend must provide trusted completion evidence for the requested outcome |
 | Social | Yes, when opening Telegram is itself the required action | Yes for supported Telegram verification contracts | Trusted Telegram verification; `initData` is an identity/authentication boundary, not by itself proof that an external action was completed |
 | Web | Yes, when opening the site is itself the required action | Yes when an external verification contract exists | Signed webhook, unique token, or another trusted server-verifiable mechanism defined by the provider contract |
-| Special/Partner | Yes only when opening the partner link is explicitly the task outcome | Yes when a partner verification contract exists | Partner-signed evidence such as HMAC/signature, defined by the partner contract |
+| Special/Partner | **No — restricted** | **Yes — only supported completion service** | Partner-signed evidence such as HMAC/signature, defined by the partner contract |
+
+For **Special/Partner**, the restriction is contractual, not merely a UI convenience:
+
+```text
+Special / Partner
+        ↓
+Server Verified only
+        ↓
+Partner Verification Contract
+        ↓
+Trusted Partner Evidence
+        ↓
+DzMoney Verification
+```
+
+The User Create Tasks UI must therefore show only **Server Verified** for Special/Partner and explain why: partner outcomes require trusted external evidence and cannot be established by a client-side click alone.
+
+The server must reject any Special/Partner task configuration that selects Open Link / Click Proof, even if a malformed or manipulated client request attempts to submit it.
 
 The table is an architectural target. A row marked as supported by a provider is not implementation evidence. `IMPLEMENTATION_STATUS.md` remains authoritative for what is actually implemented on `main`.
 
@@ -103,6 +123,8 @@ Required User Input
     ↓
 User Create Tasks UI
 ```
+
+For Special/Partner, `Completion Service` is fixed to `Server Verified`; the UI must not render a Click Proof choice.
 
 Examples such as `player_id`, `account_id`, `username`, or a unique code must not be added by assumption. The actual field is determined by the trusted provider/verification contract.
 
@@ -140,7 +162,7 @@ The existing Economy/Ledger remains the sole economic path. Evidence, Verificati
 
 This document locks the contract now. It does **not** authorize production UI, provider integrations, database changes, new services, or new routes before their owning phase is opened.
 
-The future User Create Tasks UI phase must consume this contract and present the two completion-service choices with concise instructions. Server Verified configuration fields must be derived from the validated provider/verification contract available at that time.
+The future User Create Tasks UI phase must consume this contract and present the applicable completion-service choice(s) with concise instructions. For categories supporting both modes, it presents Open Link / Click Proof and Server Verified. For Special/Partner, it presents Server Verified only. Server Verified configuration fields must be derived from the validated provider/verification contract available at that time.
 
 Until then, unimplemented providers remain pending and must not be represented as active functionality.
 
@@ -153,6 +175,8 @@ Until then, unimplemented providers remain pending and must not be represented a
 - Provider credentials never belong in task configuration.
 - Server verification is authoritative for Server Verified tasks.
 - Client-side click events cannot prove deeper external completion.
+- Special/Partner tasks are Server Verified only; Click Proof is not a valid completion contract for this category.
+- The Special/Partner restriction must be enforced server-side as well as in the future Creator UI.
 - Externally repeatable verification/reward operations must remain idempotent.
 - New provider work requires focused TDD and integration tests before enabling rewards.
 - `IMPLEMENTATION_STATUS.md` must never mark this contract as runtime-complete until code and tests prove it.
