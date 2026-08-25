@@ -52,6 +52,60 @@ async function main() {
     /Verified task evidence not found/
   );
 
+  const adPair = await createAttributionPair();
+  const unverifiedAd = await pool.query(
+    `INSERT INTO activity_ad_events(user_id,context,idempotency_key) VALUES($1,'task',$2) RETURNING id`,
+    [adPair.referred.id, `qualification-ad-unverified-${Date.now()}`]
+  );
+  await assert.rejects(
+    referralService.qualifyReferral({
+      referredUserId: adPair.referred.id,
+      source: 'advertisement',
+      referenceId: unverifiedAd.rows[0].id,
+      idempotencyKey: `qualification-ad-invalid-${Date.now()}`
+    }),
+    /Verified advertisement evidence not found/
+  );
+
+  const verificationAd = await pool.query(
+    `INSERT INTO activity_ad_events(user_id,context,idempotency_key,verified,completed_at)
+     VALUES($1,'verification',$2,TRUE,NOW()) RETURNING id`,
+    [adPair.referred.id, `qualification-verification-ad-${Date.now()}`]
+  );
+  await assert.rejects(
+    referralService.qualifyReferral({
+      referredUserId: adPair.referred.id,
+      source: 'advertisement',
+      referenceId: verificationAd.rows[0].id,
+      idempotencyKey: `qualification-verification-invalid-${Date.now()}`
+    }),
+    /Verified advertisement evidence not found/
+  );
+
+  const verifiedAd = await pool.query(
+    `INSERT INTO activity_ad_events(user_id,context,idempotency_key,verified,completed_at)
+     VALUES($1,'task',$2,TRUE,NOW()) RETURNING id`,
+    [adPair.referred.id, `qualification-ad-valid-${Date.now()}`]
+  );
+  const results = await Promise.all([
+    referralService.qualifyReferral({
+      referredUserId: adPair.referred.id,
+      source: 'advertisement',
+      referenceId: verifiedAd.rows[0].id,
+      idempotencyKey: `qualification-ad-race-a-${Date.now()}`
+    }),
+    referralService.qualifyReferral({
+      referredUserId: adPair.referred.id,
+      source: 'advertisement',
+      referenceId: verifiedAd.rows[0].id,
+      idempotencyKey: `qualification-ad-race-b-${Date.now()}`
+    })
+  ]);
+  assert.strictEqual(results.filter(result => result.duplicate === false).length, 1);
+  assert.strictEqual(results.filter(result => result.duplicate === true).length, 1);
+  assert.strictEqual(results[0].attribution.status, 'qualified');
+  assert.strictEqual(results[1].attribution.status, 'qualified');
+
   console.log('Referral qualification invariants: PASS');
 }
 
