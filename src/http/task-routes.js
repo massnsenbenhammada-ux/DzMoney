@@ -69,19 +69,6 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
     res.json({ ok: true, adEventId: result.adEvent?.id, providerId: result.providerId, duplicate: result.duplicate });
   }));
 
-  router.post('/advertisement/verify', asyncRoute(async (req, res) => {
-    const adEventId = req.body?.adEventId;
-    if (adEventId === undefined || adEventId === null || adEventId === '') return res.status(400).json({ ok: false, error: 'adEventId is required' });
-    const user = await wallet.createUser({
-      telegramUserId: String(req.telegramUser.id),
-      username: req.telegramUser.username || null,
-      firstName: req.telegramUser.first_name || null,
-      photoUrl: req.telegramUser.photo_url || null
-    });
-    const result = await advertisement.verifyTaskAdvertisement({ userId: user.id, adEventId, providerRegistry, providerPayload: req.body?.providerPayload || {} });
-    res.json({ ok: true, adEventId: result.adEvent?.id, verified: result.adEvent?.verified === true, duplicate: result.duplicate });
-  }));
-
   router.post('/advertisement/finalize', asyncRoute(async (req, res) => {
     const adEventId = req.body?.adEventId;
     if (adEventId === undefined || adEventId === null || adEventId === '') return res.status(400).json({ ok: false, error: 'adEventId is required' });
