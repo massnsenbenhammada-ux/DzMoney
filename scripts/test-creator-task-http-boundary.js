@@ -67,6 +67,13 @@ async function run() {
   const socialContract = await request('GET', '/api/creator/tasks/contracts/social', null, auth);
   assert.deepStrictEqual(socialContract.body.availableCompletionModes, ['open_link', 'server_verified']);
   assert.strictEqual(socialContract.body.creatorInput.status, 'provider_contract_required');
+  assert.deepStrictEqual(socialContract.body.providerContracts, [{
+    id: 'telegram_channel',
+    label: 'Telegram Bot API',
+    method: 'telegram_bot_api',
+    event: 'channel_membership',
+    fields: [{ key: 'channel', label: 'Telegram channel', type: 'telegram_channel', required: true }]
+  }]);
   assert.strictEqual(socialContract.body.campaignPricing.minTarget, 1000);
   assert.strictEqual(socialContract.body.campaignPricing.targetStep, 1000);
   assert.strictEqual(socialContract.body.campaignPricing.priceDZXPerExecution, 9);
@@ -80,7 +87,16 @@ async function run() {
     rewardDzp: 999,
     verificationAdSeconds: 10,
     idempotencyKey: 'creator-task-1',
-    config: { completion: { mode: 'server_verified', url: 'https://example.test/campaign' } }
+    config: {
+      completion: { mode: 'server_verified', url: 'https://example.test/campaign' },
+      verification: {
+        mode: 'automatic',
+        provider: 'telegram_channel',
+        method: 'telegram_bot_api',
+        event: 'channel_membership',
+        requirements: { channel: '@creator_channel' }
+      }
+    }
   }, auth);
   assert.strictEqual(create.status, 201);
   assert.strictEqual(create.body.task.id, 7);
@@ -88,24 +104,33 @@ async function run() {
   assert.strictEqual(calls[0].create.creatorId, 42);
   assert.strictEqual(calls[0].create.config.completion.mode, 'server_verified');
   assert.strictEqual(calls[0].create.config.completion.url, 'https://example.test/campaign');
+  assert.strictEqual(calls[0].create.config.verification.provider, 'telegram_channel');
+  assert.strictEqual(calls[0].create.config.verification.method, 'telegram_bot_api');
+  assert.strictEqual(calls[0].create.config.verification.event, 'channel_membership');
+  assert.deepStrictEqual(calls[0].create.config.verification.requirements, { channel: '@creator_channel' });
   assert.strictEqual(calls[0].create.target, 1000);
   assert.strictEqual(calls[0].create.rewardCoin, 1000);
   assert.strictEqual(calls[0].create.rewardDzx, 1);
   assert.strictEqual(calls[0].create.rewardDzp, 1);
   assert.strictEqual(calls[0].create.verificationAdSeconds, undefined);
 
+  const missingProvider = await request('POST', '/api/creator/tasks', {
+    taskType: 'social', title: 'Missing provider', target: 1000, idempotencyKey: 'creator-task-2', config: { completion: { mode: 'server_verified', url: 'https://example.test' } }
+  }, auth);
+  assert.strictEqual(missingProvider.status, 500);
+
   const missingUrl = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Missing URL', target: 1000, idempotencyKey: 'creator-task-2', config: { completion: { mode: 'server_verified' } }
+    taskType: 'social', title: 'Missing URL', target: 1000, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'server_verified' } }
   }, auth);
   assert.strictEqual(missingUrl.status, 400);
 
   const tooSmall = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Too small', target: 999, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+    taskType: 'social', title: 'Too small', target: 999, idempotencyKey: 'creator-task-4', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
   }, auth);
   assert.strictEqual(tooSmall.status, 400);
 
   const invalidStep = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Invalid step', target: 1500, idempotencyKey: 'creator-task-4', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+    taskType: 'social', title: 'Invalid step', target: 1500, idempotencyKey: 'creator-task-5', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
   }, auth);
   assert.strictEqual(invalidStep.status, 400);
 
