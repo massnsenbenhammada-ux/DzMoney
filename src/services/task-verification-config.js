@@ -1,6 +1,7 @@
 const REFERRAL_MODES = ['disabled', 'link_only', 'link_and_owner_verification'];
 const VERIFICATION_MODES = ['automatic', 'custom'];
 const COMPLETION_MODES = ['open_link', 'server_verified'];
+const VERIFICATION_METHODS = ['api', 'webhook', 'callback', 'telegram_bot_api', 'token_callback', 'signed_webhook', 'hmac_callback'];
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
 const SECRET_KEYS = new Set(['apiKey', 'apiSecret', 'secret', 'token', 'accessToken', 'clientSecret']);
 
@@ -36,6 +37,24 @@ function rejectSecrets(value) {
   }
 }
 
+function validateProviderEvidence(verification = {}) {
+  const hasProvider = Boolean(verification.provider);
+  const hasMethod = Boolean(verification.method);
+  const hasEvent = Boolean(verification.event);
+  if (!hasProvider && (hasMethod || hasEvent)) throw new Error('provider is required when provider evidence is configured');
+  if (!hasProvider) return;
+  if (!hasMethod) {
+    if (hasEvent) throw new Error('verification method is required when an evidence event is configured');
+    if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') throw new Error('providerConfigRef must be a string');
+    return;
+  }
+  if (!VERIFICATION_METHODS.includes(verification.method)) throw new Error('Invalid verification method');
+  if (!hasEvent || typeof verification.event !== 'string') throw new Error('verification event is required');
+  if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') {
+    throw new Error('providerConfigRef must be a string');
+  }
+}
+
 /** Validate task verification configuration without accessing external providers. */
 function validateVerificationConfig(config = {}, taskType = null) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('verification config must be an object');
@@ -47,6 +66,7 @@ function validateVerificationConfig(config = {}, taskType = null) {
   if (typeof completion !== 'object' || Array.isArray(completion)) throw new Error('completion config must be an object');
   const mode = verification.mode || 'automatic';
   if (!VERIFICATION_MODES.includes(mode)) throw new Error('Invalid verification mode');
+  validateProviderEvidence(verification);
   validateCompletion(completion, taskType);
   validateReferral(config.referral);
   return true;
@@ -63,9 +83,16 @@ function resolveVerificationConfig({ taskType, config = {} }) {
     taskType,
     completion: { mode: completion.mode || 'server_verified', url: completion.url || null, urlSource: completion.urlSource || null },
     serverVerified: SERVER_VERIFIED_CONTRACTS[taskType] || null,
-    verification: { mode: verification.mode || 'automatic', provider: verification.provider || null, providerConfigRef: verification.providerConfigRef || null, channel: verification.channel || null },
+    verification: {
+      mode: verification.mode || 'automatic',
+      provider: verification.provider || null,
+      providerConfigRef: verification.providerConfigRef || null,
+      method: verification.method || null,
+      event: verification.event || null,
+      channel: verification.channel || null
+    },
     referral: { mode: referral.mode || 'disabled', referralUrlTemplate: referral.referralUrlTemplate || null, ownerVerification: referral.ownerVerification || null }
   };
 }
 
-module.exports = { REFERRAL_MODES, VERIFICATION_MODES, COMPLETION_MODES, TASK_TYPES, SERVER_VERIFIED_CONTRACTS, validateVerificationConfig, resolveVerificationConfig };
+module.exports = { REFERRAL_MODES, VERIFICATION_MODES, COMPLETION_MODES, VERIFICATION_METHODS, TASK_TYPES, SERVER_VERIFIED_CONTRACTS, validateVerificationConfig, resolveVerificationConfig };
