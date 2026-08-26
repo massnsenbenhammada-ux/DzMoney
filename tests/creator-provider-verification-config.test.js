@@ -79,6 +79,7 @@ test('Creator Server Verified accepts only an enabled provider contract', () => 
   assert.doesNotThrow(() => validateCreatorProviderConfiguration('social', config));
   assert.throws(() => validateCreatorProviderConfiguration('game', config), /No server-verified provider is enabled/);
   assert.throws(() => validateCreatorProviderConfiguration('social', { ...config, verification: { ...config.verification, provider: 'unknown' } }), /provider is not enabled/);
+  assert.throws(() => validateCreatorProviderConfiguration('social', { ...config, verification: { ...config.verification, method: 'webhook' } }), /method does not match/);
 });
 
 test('Telegram Bot API channel requirement is validated', () => {
