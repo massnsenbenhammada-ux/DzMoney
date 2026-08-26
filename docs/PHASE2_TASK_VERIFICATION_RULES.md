@@ -66,6 +66,77 @@ The repository currently defines the generic verification boundary, but it does 
 
 Therefore no concrete verifier/adapter for these categories may be invented merely to satisfy an implementation checklist. Until the evidence source and contract are defined, the category remains **pending specification** and Phase 2 remains open.
 
+### Provider-ready evidence contracts
+
+The following contracts are now the canonical preparation model for future Creator/User-created task integrations. They define the integration seam without claiming that a real provider currently exists.
+
+#### Game — Telegram Mini App
+
+**Task meaning:** a user completes an action inside a Telegram Mini App.
+
+**Preferred trusted evidence:** a server-to-server provider API or a signed callback/webhook from the Mini App's authoritative backend. A game `start` endpoint such as `POST /api/game/start` records/initiates a lifecycle event and is **not completion evidence by itself**.
+
+A completion contract must identify the exact completion event, for example `game_completed`, `level_completed`, `score_reached`, or another provider-defined event. The provider backend must bind the event to the authenticated Telegram identity and the configured task/provider identity. Signed requests must use a server-held secret or equivalent asymmetric verification contract. Provider event IDs are the preferred idempotency key, with timestamp/replay-window validation where supported.
+
+**Required contract:** provider identity + completion event + Telegram user binding + authenticity mechanism + idempotency key + replay policy + failure semantics.
+
+#### Social
+
+**Task meaning:** the user performs a specific social action.
+
+**Preferred trusted evidence:** the official API of the social platform, queried server-side with an authenticated/bound provider identity. For Telegram channel membership, the existing `getChatMember` integration is authoritative evidence for membership state and is already implemented in the repository.
+
+For other actions (follow, like, comment, subscription, etc.), the platform/provider must expose an authoritative API or signed server event capable of proving that exact action. Opening a social URL, a client click, or a client assertion is not sufficient evidence.
+
+**Required contract:** provider/platform identity + exact action + authenticated external account binding + authoritative API/event + idempotency/replay behavior + failure semantics.
+
+#### Web
+
+**Task meaning:** the user completes an action on an external website.
+
+**Preferred trusted evidence:** a signed server-to-server webhook from the website/provider. Where a webhook is not available, a callback carrying a unique, single-use token bound server-side to the authenticated Telegram user, task and provider may be used when the provider contract can prove completion rather than merely link opening.
+
+A bare redirect, URL visit, browser callback without authenticity, or client `completed=true` is not sufficient evidence.
+
+**Required contract:** provider identity + exact event + user/task binding + HMAC/signature or equivalent authenticity + event/token idempotency + replay policy + failure/reversal semantics.
+
+#### Special / Partner
+
+**Task meaning:** an externally defined activity performed for a partner. Partner tasks may represent game, social, web, survey, registration, purchase, installation, or another partner-defined action; the category describes the integration context, not a second verification engine.
+
+**Completion service:** Server Verified only, as already locked by ADR-0010.
+
+**Preferred trusted evidence:** partner backend API or signed/HMAC server-to-server webhook/callback. The partner contract must state the exact event and the identity mapping used to bind it to the authenticated Telegram user and configured task. Partner event IDs must be idempotent and replay protection must be defined.
+
+Partner credentials/secrets must remain in the protected provider integration configuration and must never be stored in `activity_tasks.config`.
+
+**Required contract:** partner identity + exact activity/event + trusted evidence source + Telegram/user identity binding + authenticity + idempotency/replay + failure/reversal semantics.
+
+#### Daily
+
+Daily tasks remain a special case because some are DzMoney-owned system activities and some may depend on an external provider. Existing server-authoritative Daily implementations remain the source of truth for the activities they already own. For any new provider-backed Daily activity, the same provider evidence contract used by Game, Social, Web, or Partner must be explicitly selected; `ad_provider` activity events alone must not be generalized into proof of an unrelated task action.
+
+**Required contract for a new provider-backed Daily task:** exact daily event + trusted source + authenticated user binding + provider authenticity + idempotency/replay + failure semantics.
+
+### Provider configuration model
+
+The Creator/User-created task configuration must remain provider-neutral. The intended configuration concept is:
+
+- task category/type;
+- provider identifier;
+- verification method;
+- exact provider event/action;
+- non-secret provider reference/configuration;
+- identity-binding mode;
+- authenticity mode;
+- idempotency/replay mode.
+
+Provider credentials, API secrets, HMAC secrets, access tokens and similar credentials are never stored in task configuration. They belong to protected provider integration configuration.
+
+No concrete provider is considered enabled merely because a configuration entry exists. A provider becomes usable only after its server-side evidence contract is implemented, tested and explicitly enabled.
+
+The existing `task-verification-service.js` remains the verification/reward boundary, `task-verification-config.js` remains the task-scoped configuration boundary, and the existing provider registries remain the provider-selection boundaries. No duplicate task verifier, Economy, Ledger, or reward system is introduced.
+
 ## Reward rules
 
 - Viewing the verification advertisement **does not create an additional task reward**.
