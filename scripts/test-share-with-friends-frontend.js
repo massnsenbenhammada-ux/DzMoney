@@ -11,8 +11,8 @@ assert.match(shareJs, /systemKey: 'share_with_friends'/);
 assert.match(shareJs, /\/api\/tasks\/click/);
 assert.match(shareJs, /\/api\/daily-tasks\/execute/);
 assert.match(shareJs, /referralLink/);
-assert.match(migration, /systemKey\\\":\\\"share_with_friends/);
-assert.match(migration, /dailyPolicy\\\":\\\"utc_plus_one_calendar_day/);
-assert.match(migration, /urlSource\\\":\\\"user_referral_link/);
+assert.match(migration, /systemKey.*share_with_friends/);
+assert.match(migration, /dailyPolicy.*utc_plus_one_calendar_day/);
+assert.match(migration, /urlSource.*user_referral_link/);
 
 console.log('Share with Friends frontend/integration contract: PASS');
