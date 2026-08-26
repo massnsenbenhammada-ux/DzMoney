@@ -1,0 +1,27 @@
+# DzMoney — Cursor / AI Rules
+
+**Mandatory first read:** `docs/CONSTITUTION_54.md`
+
+This file is an entrypoint only. The full and canonical AI governance rules are in `docs/CONSTITUTION_54.md` and MUST be read before any code change.
+
+## Non-negotiable
+
+- Follow Constitution 54 literally.
+- Zero guessing: use repository evidence, Git history, PRs, tests, CI, and project documentation.
+- Do not start DzMoney from scratch or redesign existing architecture without evidence.
+- Never output incomplete files, stubs, or placeholders.
+- Never import a package absent from `package.json` without a justified dependency change.
+- Preserve unrelated code and scope changes to the diagnosed problem.
+- Keep one source of truth for Economy, Ledger, Rewards, Tasks, Verification, Referral, Squad, and configuration.
+- Authenticate Telegram Mini App requests server-side and enforce ownership/authorization.
+- Never perform external HTTP/network calls inside DB transactions.
+- Financial mutations require idempotency and transactional integrity.
+- Never trust client-side reward, balance, identity, eligibility, price, or verification claims.
+- Never create fake verification or claim client events as proof.
+- Use TDD and minimal fixes.
+- Never merge without CI evidence for the exact commit being merged.
+- After merge, verify `main` and post-merge CI.
+
+## Required pre-flight
+
+Before generating or changing code, explicitly verify that you have read the Constitution and the relevant architecture/phase contracts. If required evidence is missing, search the repository/history/CI before asking the user.
