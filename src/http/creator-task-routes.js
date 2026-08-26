@@ -86,9 +86,9 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
       description: description || null,
       creatorId: user.id,
       target,
-      rewardCoin: rewards.coin,
-      rewardDzx: rewards.dzx,
-      rewardDzp: rewards.dzp,
+      rewardCoin: rewards.rewardCoin,
+      rewardDzx: rewards.rewardDZX,
+      rewardDzp: rewards.rewardDZP,
       config,
       idempotencyKey
     });
