@@ -3,9 +3,11 @@ const assert = require('node:assert/strict');
 const {
   resolveVerificationConfig,
   validateVerificationConfig,
+  validateCreatorProviderConfiguration,
   VERIFICATION_METHODS,
   getCreatorProviderContracts
 } = require('../src/services/task-verification-config');
+const { resolveTrustedTaskVerifier } = require('../src/services/task-verification-service');
 
 test('provider-ready creator task config accepts a game Mini App contract', () => {
   const resolved = resolveVerificationConfig({
@@ -64,6 +66,21 @@ test('creator contracts do not expose an unimplemented provider', () => {
   assert.deepEqual(getCreatorProviderContracts('web'), []);
 });
 
+test('Creator Server Verified accepts only an enabled provider contract', () => {
+  const config = {
+    completion: { mode: 'server_verified', url: 'https://example.com' },
+    verification: {
+      provider: 'telegram_channel',
+      method: 'telegram_bot_api',
+      event: 'channel_membership',
+      requirements: { channel: '@example_channel' }
+    }
+  };
+  assert.doesNotThrow(() => validateCreatorProviderConfiguration('social', config));
+  assert.throws(() => validateCreatorProviderConfiguration('game', config), /No server-verified provider is enabled/);
+  assert.throws(() => validateCreatorProviderConfiguration('social', { ...config, verification: { ...config.verification, provider: 'unknown' } }), /provider is not enabled/);
+});
+
 test('Telegram Bot API channel requirement is validated', () => {
   assert.doesNotThrow(() => validateVerificationConfig({
     completion: { mode: 'server_verified', url: 'https://example.com' },
@@ -74,7 +91,7 @@ test('Telegram Bot API channel requirement is validated', () => {
       requirements: { channel: '@example_channel' }
     }
   }, 'social'));
-  assert.throws(() => validateVerificationConfig({
+  assert.throws(() => validateCreatorProviderConfiguration('social', {
     completion: { mode: 'server_verified', url: 'https://example.com' },
     verification: {
       provider: 'telegram_channel',
@@ -82,7 +99,27 @@ test('Telegram Bot API channel requirement is validated', () => {
       event: 'channel_membership',
       requirements: { channel: 'not-a-channel' }
     }
-  }, 'social'), /Invalid Telegram channel requirement/);
+  }), /Invalid Telegram channel requirement/);
+});
+
+test('Telegram creator requirements are consumed directly by the existing verifier', async () => {
+  const verifier = resolveTrustedTaskVerifier({
+    config: {
+      verification: {
+        provider: 'telegram_channel',
+        method: 'telegram_bot_api',
+        event: 'channel_membership',
+        requirements: { channel: '@creator_channel' }
+      }
+    },
+    telegramUserId: '12345',
+    botToken: 'server-only-token',
+    verifyMembership: async input => {
+      assert.deepEqual(input, { botToken: 'server-only-token', channel: '@creator_channel', userId: '12345' });
+      return true;
+    }
+  });
+  assert.equal(await verifier({ attemptId: 1 }), true);
 });
 
 test('provider-ready creator task config accepts web webhook evidence', () => {
