@@ -8,7 +8,9 @@ function createStrictObjectValidator(rules) {
   const keys = Object.keys(rules);
 
   for (const key of keys) {
-    if (typeof rules[key] !== 'function') {
+    const rule = rules[key];
+    const validator = typeof rule === 'function' ? rule : rule?.validate;
+    if (typeof validator !== 'function') {
       throw new TypeError(`Validator for ${key} must be a function`);
     }
   }
@@ -25,9 +27,14 @@ function createStrictObjectValidator(rules) {
     }
 
     for (const key of keys) {
-      if (!Object.prototype.hasOwnProperty.call(input, key) || !rules[key](input[key])) {
-        throw new TypeError(`Invalid field: ${key}`);
+      const rule = rules[key];
+      const validator = typeof rule === 'function' ? rule : rule.validate;
+      const required = typeof rule === 'function' || rule.required === true;
+      if (!Object.prototype.hasOwnProperty.call(input, key)) {
+        if (required) throw new TypeError(`Invalid field: ${key}`);
+        continue;
       }
+      if (!validator(input[key])) throw new TypeError(`Invalid field: ${key}`);
     }
 
     return input;
