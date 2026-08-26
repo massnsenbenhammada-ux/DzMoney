@@ -28,7 +28,7 @@ async function run() {
       serverVerified: { requiredUserInput: { status: 'provider_contract_required' } },
       creatorInput: { status: 'provider_contract_required' }
     }),
-    getCreatorActivityRewards: async () => ({ coin: 1000, dzx: 1, dzp: 1 }),
+    getCreatorActivityRewards: async () => ({ rewardCoin: 1000, rewardDZX: 1, rewardDZP: 1 }),
     createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: 9000, duplicate: false }; },
     submitCreatorCampaignForReview: async (taskId, creatorId) => { calls.push({ submit: { taskId, creatorId } }); return { id: 7, status: 'pending_review', creator_id: creatorId }; }
   };
