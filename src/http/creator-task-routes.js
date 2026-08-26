@@ -1,8 +1,6 @@
 const express = require('express');
 const walletService = require('../services/wallet-service');
 const taskService = require('../services/task-service');
-const { resolveVerificationConfig } = require('../services/task-verification-config');
-const { query: defaultQuery } = require('../db/pool');
 const { telegramAuth } = require('./telegram-auth');
 
 const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
@@ -22,45 +20,6 @@ function requireTaskType(taskType) {
   return taskType;
 }
 
-async function getAdminNumber(query, key, fallback = null) {
-  const result = await query('SELECT value FROM admin_settings WHERE key=$1', [key]);
-  if (!result.rowCount) return fallback;
-  const value = Number(result.rows[0].value);
-  return Number.isFinite(value) ? value : fallback;
-}
-
-async function getCampaignContractPricing(query) {
-  const priceDZXPerExecution = await getAdminNumber(query, 'task.campaign_price_dzx_per_execution');
-  return { minTarget: CREATOR_MIN_TARGET, targetStep: CREATOR_TARGET_STEP, priceDZXPerExecution };
-}
-
-async function getCreatorActivityRewards(query) {
-  const rows = await query(
-    `SELECT key, value FROM admin_settings WHERE key = ANY($1::text[])`,
-    [['activity.default_reward_coin', 'activity.default_reward_dzx', 'activity.default_reward_dzp']]
-  );
-  const values = Object.fromEntries(rows.rows.map(row => [row.key, Number(row.value)]));
-  return {
-    coin: Number.isFinite(values['activity.default_reward_coin']) ? values['activity.default_reward_coin'] : 1000,
-    dzx: Number.isFinite(values['activity.default_reward_dzx']) ? values['activity.default_reward_dzx'] : 1,
-    dzp: Number.isFinite(values['activity.default_reward_dzp']) ? values['activity.default_reward_dzp'] : 1
-  };
-}
-
-async function contractFor(taskType, query) {
-  requireTaskType(taskType);
-  const serverVerified = resolveVerificationConfig({ taskType, config: {} }).serverVerified;
-  const availableCompletionModes = ['open_link', 'server_verified'];
-  return {
-    taskType,
-    availableCompletionModes,
-    completionServices: availableCompletionModes.map(mode => ({ mode, description: CONTRACT_DESCRIPTIONS[mode] })),
-    serverVerified,
-    creatorInput: serverVerified.requiredUserInput,
-    campaignPricing: await getCampaignContractPricing(query)
-  };
-}
-
 function validateCreatorCompletion(config) {
   const completion = config?.completion || {};
   if (!completion.url) {
@@ -70,13 +29,28 @@ function validateCreatorCompletion(config) {
   }
 }
 
-function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, auth = telegramAuth, query = defaultQuery } = {}) {
+async function contractFor(tasks, taskType) {
+  requireTaskType(taskType);
+  const contract = await tasks.getCreatorCampaignContract(taskType);
+  const availableCompletionModes = contract.availableCompletionModes || [];
+  return {
+    ...contract,
+    completionServices: availableCompletionModes.map(mode => ({ mode, description: CONTRACT_DESCRIPTIONS[mode] })),
+    campaignPricing: {
+      minTarget: CREATOR_MIN_TARGET,
+      targetStep: CREATOR_TARGET_STEP,
+      priceDZXPerExecution: contract.priceDZX
+    }
+  };
+}
+
+function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, auth = telegramAuth } = {}) {
   const router = express.Router();
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
   router.use(auth);
 
   router.get('/contracts/:taskType', asyncRoute(async (req, res) => {
-    res.json(await contractFor(req.params.taskType, query));
+    res.json(await contractFor(tasks, req.params.taskType));
   }));
 
   router.post('/', asyncRoute(async (req, res) => {
@@ -94,7 +68,7 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
       photoUrl: req.telegramUser.photo_url || null
     });
 
-    const rewards = await getCreatorActivityRewards(query);
+    const rewards = await tasks.getCreatorActivityRewards();
     const result = await tasks.createCreatorCampaign({
       taskType,
       title: req.body.title,
@@ -116,7 +90,7 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
         campaignCostDZX: result.campaignCostDZX,
         duplicate: result.duplicate
       },
-      contract: await contractFor(taskType, query)
+      contract: await contractFor(tasks, taskType)
     });
   }));
 
