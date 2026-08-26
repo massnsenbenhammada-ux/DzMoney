@@ -77,7 +77,11 @@ async function main() {
     assert.strictEqual(createdDaily.rewardCoin, 1000);
     assert.strictEqual(createdDaily.rewardDzx, 1);
     assert.strictEqual(createdDaily.rewardDzp, 1);
-    assert.deepStrictEqual(createdDaily.completion, { mode: 'open_link', url: 'https://example.test/daily' });
+    assert.deepStrictEqual(createdDaily.completion, {
+      mode: 'open_link',
+      url: 'https://example.test/daily',
+      urlSource: null
+    });
 
     console.log('Task catalog foundation invariants: PASS');
   } catch (error) {
