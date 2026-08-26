@@ -132,6 +132,8 @@ async function showTaskVerificationAd(ymid) {
 async function startTaskExecutionFlow(taskId) {
   const task = state.tasks.find(item => String(item.id) === String(taskId));
   if (!task) throw new Error('Task is no longer available');
+  const numericTaskId = Number(task.id);
+  if (!Number.isSafeInteger(numericTaskId) || numericTaskId <= 0) throw new Error('Task id is invalid');
 
   const completionWindow = task.completion?.mode === 'open_link' && task.completion?.url
     ? window.open('about:blank', '_blank', 'noopener,noreferrer')
@@ -139,7 +141,7 @@ async function startTaskExecutionFlow(taskId) {
   const idempotencyKey = `task:${task.id}:${crypto.randomUUID()}`;
   const result = await api('/api/tasks/execute', {
     method: 'POST',
-    body: JSON.stringify({ taskId: task.id, idempotencyKey, metadata: { source: 'tasks_ui' } })
+    body: JSON.stringify({ taskId: numericTaskId, idempotencyKey, metadata: { source: 'tasks_ui' } })
   });
 
   toast('Preparing the verification advertisement…');
