@@ -17,12 +17,12 @@ function requiredId(value, name) {
 }
 
 function resolveTelegramTaskChannel(verification) {
-  const configuredChannel = verification?.channel;
+  const configuredChannel = verification?.requirements?.channel || verification?.channel;
   if (configuredChannel !== undefined) {
-    if (typeof configuredChannel !== 'string' || !/^@[A-Za-z0-9_]{5,32}$/.test(configuredChannel)) {
+    if (typeof configuredChannel !== 'string' || !/^@[A-Za-z0-9_]{5,32}$/.test(configuredChannel.trim())) {
       throw new Error('Invalid Telegram task verifier channel');
     }
-    return configuredChannel;
+    return configuredChannel.trim();
   }
   const channel = TELEGRAM_TASK_CHANNELS[verification?.providerConfigRef];
   if (!channel) throw new Error('Telegram task verifier channel is required');
@@ -33,6 +33,8 @@ function resolveTrustedTaskVerifier({ config, telegramUserId, botToken = process
   const verification = config?.verification || {};
   if (!verification.provider) throw new Error('trusted task verifier provider is required');
   if (verification.provider !== 'telegram_channel') throw new Error(`Unsupported trusted task verifier provider: ${verification.provider}`);
+  if (verification.method && verification.method !== 'telegram_bot_api') throw new Error('Unsupported Telegram task verifier method');
+  if (verification.event && verification.event !== 'channel_membership') throw new Error('Unsupported Telegram task verifier event');
   const channel = resolveTelegramTaskChannel(verification);
   requiredId(botToken, 'BOT_TOKEN');
   requiredId(telegramUserId, 'telegramUserId');
