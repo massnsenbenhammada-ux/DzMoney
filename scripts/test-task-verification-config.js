@@ -27,7 +27,7 @@ function testCompletionModes() {
   assert.strictEqual(openLink.completion.mode, 'open_link');
   assert.strictEqual(openLink.completion.url, 'https://example.test/task');
 
-  assert.throws(() => validateVerificationConfig({ completion: { mode: 'open_link' } }), /completion.url is required for open_link tasks/);
+  assert.throws(() => validateVerificationConfig({ completion: { mode: 'open_link' } }), /completion.url or a supported urlSource is required for open_link tasks/);
   assert.throws(() => validateVerificationConfig({ completion: { mode: 'unknown' } }), /Invalid task completion mode/);
 }
 

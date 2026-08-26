@@ -22,7 +22,9 @@ function validateReferral(referral = {}) {
 function validateCompletion(completion = {}, taskType = null) {
   const mode = completion.mode || 'server_verified';
   if (!COMPLETION_MODES.includes(mode)) throw new Error('Invalid task completion mode');
-  if (mode === 'open_link' && !completion.url) throw new Error('completion.url is required for open_link tasks');
+  const usesDynamicReferralLink = completion.urlSource === 'user_referral_link';
+  if (mode === 'open_link' && !completion.url && !usesDynamicReferralLink) throw new Error('completion.url or a supported urlSource is required for open_link tasks');
+  if (usesDynamicReferralLink && taskType !== 'daily') throw new Error('user_referral_link urlSource is supported only for Daily tasks');
   if (taskType === 'special' && mode !== 'server_verified') throw new Error('Special/Partner tasks support server_verified completion only');
 }
 
@@ -59,7 +61,7 @@ function resolveVerificationConfig({ taskType, config = {} }) {
   const referral = source.referral || {};
   return {
     taskType,
-    completion: { mode: completion.mode || 'server_verified', url: completion.url || null },
+    completion: { mode: completion.mode || 'server_verified', url: completion.url || null, urlSource: completion.urlSource || null },
     serverVerified: SERVER_VERIFIED_CONTRACTS[taskType] || null,
     verification: { mode: verification.mode || 'automatic', provider: verification.provider || null, providerConfigRef: verification.providerConfigRef || null, channel: verification.channel || null },
     referral: { mode: referral.mode || 'disabled', referralUrlTemplate: referral.referralUrlTemplate || null, ownerVerification: referral.ownerVerification || null }
