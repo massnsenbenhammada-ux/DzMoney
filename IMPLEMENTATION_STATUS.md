@@ -4,11 +4,11 @@
 
 **Current phase:** Phase 2 — Activity / Ads / Tasks, with Phase 3 Referral core partially implemented.
 
-**Current main:** `656f26f5ee4ac9d45d7705762f91a035322fde9a` (PR #126 merged).
+**Current main:** `6239453f172d11dbf89ab633366116ab31a235aa` (PR #132 merged after PR #130).
 
-**Latest CI evidence:** PR #126 head `631a084dc968d2c1d98b2c6e8610fae37f8beafb` passed workflow run `32982388297` (`test-all`), including migrations, isolated runtime health and the full test suite. PR #126 was then merged to `main` as `656f26f5ee4ac9d45d7705762f91a035322fde9a`.
+**Latest post-merge CI evidence:** main HEAD `6239453f172d11dbf89ab633366116ab31a235aa` passed workflow run `32994916547` (`test-all`), including migrations, isolated runtime health and the full test suite. PR #130 merge commit `2c077c757e45f85632c6b5325bd89f7726b039fc` also passed its exact-head post-merge workflow run `32992834081` (`test-all`), including migrations, isolated runtime health and the full test suite.
 
-**Reconciliation rule:** Only merged commits on `main` are treated as completed. PR #125 was closed as superseded by PR #126; it is not a separate implementation milestone.
+**Reconciliation rule:** Only merged commits on `main` are treated as completed. PR #125 was closed as superseded by PR #126; PR #131 was a CI-validation mirror and was closed without merge. PR #132 was merged and added Constitution 54 governance only; it introduced no production runtime behavior.
 
 ## Phase 0 — Specification Lock
 
@@ -56,6 +56,7 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - 🟢 Creator campaign debit, review and rejection-refund paths remain on the existing Economy/Ledger source of truth.
 - 🟢 Economy idempotency ownership and operation-mismatch protections are covered by regression testing.
 - 🟢 Migration `019_creator_campaign_pricing.sql` provisions `9 DZX` as the initial value with `ON CONFLICT DO NOTHING`, preserving an existing Admin-controlled value.
+- 🟢 Daily `Share with Friends` production Click Proof flow is implemented and merged by PR #130. It reuses the existing Daily task attempt, authenticated referral link, verification boundary and Economy/Ledger path; eligibility is once per UTC+1 calendar day and server-side idempotency prevents duplicate completion/reward. It does not claim proof that Telegram completed the external share.
 
 ### Latest Creator Campaign CI evidence
 
@@ -68,10 +69,20 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - 🟢 Full test suite: passed.
 - 🟢 PR #126 merged to `main` as `656f26f5ee4ac9d45d7705762f91a035322fde9a`.
 
+### Latest Share with Friends CI evidence
+
+- 🟢 PR #130 head: `46c940ffc3b6b0ea0001c772e7ea862a1260e771`.
+- 🟢 Merge commit: `2c077c757e45f85632c6b5325bd89f7726b039fc`.
+- 🟢 Exact post-merge workflow run on the merge commit: `32992834081`.
+- 🟢 Job: `test-all`.
+- 🟢 Run migrations: passed.
+- 🟢 Isolated runtime health: passed.
+- 🟢 Full test suite: passed.
+- 🟢 Main subsequently advanced to `6239453f172d11dbf89ab633366116ab31a235aa`; its latest `test-all` run `32994916547` also passed migrations, isolated runtime health and the full test suite.
+
 ### Not yet implemented / accepted
 
-- ⬜ Daily `Share with Friends` production reward flow; no trusted backend completion signal exists for an actual Telegram share.
-- ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner catalog beyond the currently implemented Telegram Social verifier and Daily Check for Update path.
+- ⬜ Real trusted task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner catalog beyond the currently implemented Telegram Social verifier and Daily Check for Update path. New concrete verifiers remain blocked until their trusted evidence contracts are defined.
 - ⬜ Provider/Partner-specific Creator Input contracts where the generic contract intentionally remains undefined.
 - ⬜ Broader anti-fraud hardening around task/ad callbacks and verification.
 - ⬜ Full acceptance of advertisement-task behavior across all required providers/contexts.
@@ -102,10 +113,10 @@ Implemented:
 - qualified referral count;
 - permanent referral achievement tasks;
 - Telegram bootstrap/link foundation;
-- lifetime 20% reward from qualifying base COIN/DZX activity.
+- lifetime 20% reward from qualifying base COIN/DZX activity;
+- Share with Friends Daily Click Proof integration through PR #130, using the existing Referral canonical link and existing Daily/Task Verification/Economy paths.
 
 Pending:
-- user-facing Share with Friends production reward flow subject to a trusted completion signal;
 - full referral acceptance tests and remaining UI acceptance.
 
 ## Later phases
@@ -145,7 +156,7 @@ Pending:
 
 ## Documentation reconciliation note
 
-This update reconciles the status document with merged main commit `656f26f5ee4ac9d45d7705762f91a035322fde9a`. It records the validated User Create Tasks runtime boundary, Admin-controlled campaign pricing, initial `9 DZX` provisioning migration, and related regression coverage as completed. It does not claim implementation of provider-specific verification contracts, broader task adapters, Share with Friends reward authorization, or full Phase 2 acceptance.
+This update reconciles the status document with the current merged main state `6239453f172d11dbf89ab633366116ab31a235aa`. It records PR #130's validated Share with Friends Click Proof implementation and post-merge CI, and records PR #132 as governance-only. It does not claim implementation of undefined provider-specific verification contracts, broader task adapters, broader anti-fraud hardening, full advertisement-provider acceptance, or full Phase 2 acceptance.
 
 ## Update Rule
 
