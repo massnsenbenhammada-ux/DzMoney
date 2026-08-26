@@ -4,6 +4,23 @@ const COMPLETION_MODES = ['open_link', 'server_verified'];
 const VERIFICATION_METHODS = ['api', 'webhook', 'callback', 'telegram_bot_api', 'token_callback', 'signed_webhook', 'hmac_callback'];
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
 const SECRET_KEYS = new Set(['apiKey', 'apiSecret', 'secret', 'token', 'accessToken', 'clientSecret']);
+const TELEGRAM_CHANNEL_PATTERN = /^@[A-Za-z0-9_]{5,32}$/;
+
+const CREATOR_PROVIDER_CONTRACTS = Object.freeze({
+  social: Object.freeze([
+    Object.freeze({
+      id: 'telegram_channel',
+      label: 'Telegram Bot API',
+      method: 'telegram_bot_api',
+      event: 'channel_membership',
+      fields: Object.freeze([
+        Object.freeze({ key: 'channel', label: 'Telegram channel', type: 'telegram_channel', required: true })
+      ])
+    })
+  ]),
+  game: Object.freeze([]),
+  web: Object.freeze([])
+});
 
 const SERVER_VERIFIED_CONTRACTS = Object.freeze({
   daily: Object.freeze({ status: 'contract', source: 'ad_provider', evidence: 'activity_ad_events', method: 'provider_event_validation', identity: 'user_and_task_correlation', requiredUserInput: Object.freeze({ status: 'provider_contract_required', fields: Object.freeze([]) }), replay: 'provider_event_idempotency' }),
@@ -55,6 +72,41 @@ function validateProviderEvidence(verification = {}) {
   }
 }
 
+function getCreatorProviderContracts(taskType) {
+  if (!['game', 'social', 'web'].includes(taskType)) throw new Error('Invalid creator task type');
+  return (CREATOR_PROVIDER_CONTRACTS[taskType] || []).map(contract => ({
+    id: contract.id,
+    label: contract.label,
+    method: contract.method,
+    event: contract.event,
+    fields: contract.fields.map(field => ({ ...field }))
+  }));
+}
+
+function validateCreatorProviderRequirements(provider, requirements = {}) {
+  if (!requirements || typeof requirements !== 'object' || Array.isArray(requirements)) throw new Error('provider requirements must be an object');
+  if (provider.id === 'telegram_channel') {
+    if (typeof requirements.channel !== 'string' || !TELEGRAM_CHANNEL_PATTERN.test(requirements.channel.trim())) throw new Error('Invalid Telegram channel requirement');
+    return { channel: requirements.channel.trim() };
+  }
+  throw new Error(`Unsupported creator provider: ${provider.id}`);
+}
+
+function validateCreatorProviderConfiguration(taskType, config = {}) {
+  validateVerificationConfig(config, taskType);
+  const completion = config.completion || {};
+  if (completion.mode !== 'server_verified') return true;
+  const verification = config.verification || {};
+  const providers = getCreatorProviderContracts(taskType);
+  if (!providers.length) throw new Error(`No server-verified provider is enabled for creator task type: ${taskType}`);
+  const provider = providers.find(item => item.id === verification.provider);
+  if (!provider) throw new Error('Creator server-verified provider is not enabled for this task type');
+  if (verification.method !== provider.method) throw new Error('Creator provider verification method does not match the provider contract');
+  if (verification.event !== provider.event) throw new Error('Creator provider verification event does not match the provider contract');
+  validateCreatorProviderRequirements(provider, verification.requirements);
+  return true;
+}
+
 /** Validate task verification configuration without accessing external providers. */
 function validateVerificationConfig(config = {}, taskType = null) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('verification config must be an object');
@@ -89,10 +141,23 @@ function resolveVerificationConfig({ taskType, config = {} }) {
       providerConfigRef: verification.providerConfigRef || null,
       method: verification.method || null,
       event: verification.event || null,
-      channel: verification.channel || null
+      channel: verification.channel || null,
+      requirements: verification.requirements && typeof verification.requirements === 'object' ? { ...verification.requirements } : {}
     },
     referral: { mode: referral.mode || 'disabled', referralUrlTemplate: referral.referralUrlTemplate || null, ownerVerification: referral.ownerVerification || null }
   };
 }
 
-module.exports = { REFERRAL_MODES, VERIFICATION_MODES, COMPLETION_MODES, VERIFICATION_METHODS, TASK_TYPES, SERVER_VERIFIED_CONTRACTS, validateVerificationConfig, resolveVerificationConfig };
+module.exports = {
+  REFERRAL_MODES,
+  VERIFICATION_MODES,
+  COMPLETION_MODES,
+  VERIFICATION_METHODS,
+  TASK_TYPES,
+  SERVER_VERIFIED_CONTRACTS,
+  CREATOR_PROVIDER_CONTRACTS,
+  getCreatorProviderContracts,
+  validateCreatorProviderConfiguration,
+  validateVerificationConfig,
+  resolveVerificationConfig
+};

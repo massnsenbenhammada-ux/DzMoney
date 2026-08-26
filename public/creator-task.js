@@ -1,6 +1,7 @@
 const creatorTaskState = {
   contract: null,
   mode: 'server_verified',
+  providerId: null,
   idempotencyKey: null,
   createdTaskId: null
 };
@@ -60,18 +61,36 @@ function renderCreatorContract(contract) {
 
 function creatorContractDescription(contract, mode) {
   if (mode === 'open_link') return 'The configured link opening is the completion outcome. This is Click Proof and does not claim a deeper external action.';
-  const verified = contract.serverVerified || {};
-  const input = verified.requiredUserInput || {};
-  if (input.status === 'provider_contract_required') return `Source: ${verified.source || 'provider'}. Evidence: ${verified.evidence || 'trusted evidence'}. Method: ${verified.method || 'provider validation'}. Server Verified confirms the external outcome; the destination URL is supplied separately and is not itself proof.`;
-  return `Source: ${verified.source || 'provider'}. Evidence: ${verified.evidence || 'trusted evidence'}. Method: ${verified.method || 'provider validation'}.`;
+  const providers = contract.providerContracts || [];
+  if (!providers.length) return `No operational Server Verified provider is enabled for ${contract.taskType || 'this task type'} yet.`;
+  return 'Choose an enabled verification provider. The required fields are supplied by that provider contract and are used by the server verifier.';
+}
+
+function renderProviderFields() {
+  const providers = creatorTaskState.contract?.providerContracts || [];
+  const provider = providers.find(item => item.id === creatorTaskState.providerId) || providers[0];
+  creatorTaskState.providerId = provider?.id || null;
+  if (!provider) return '<div class="creator-note"><strong>Server Verified unavailable</strong><span>No provider contract is enabled for this task type yet.</span></div>';
+  const fields = provider.fields || [];
+  const fieldHtml = fields.map(field => {
+    if (field.type === 'telegram_channel') return `<label class="form-label">${field.label}<input id="creatorProviderField_${field.key}" type="text" required placeholder="@channel_username"></label>`;
+    return `<label class="form-label">${field.label}<input id="creatorProviderField_${field.key}" type="text" ${field.required ? 'required' : ''}></label>`;
+  }).join('');
+  return `<label class="form-label">Server Verified type<select id="creatorProviderSelect">${providers.map(item => `<option value="${item.id}" ${item.id === provider.id ? 'selected' : ''}>${item.label}</option>`).join('')}</select></label>${fieldHtml}<div class="creator-note"><strong>${provider.label}</strong><span>DzMoney will use these requirements directly during server-side verification. Provider credentials remain server-side.</span></div>`;
 }
 
 function renderCreatorModeFields() {
   const container = creatorEl('creatorModeFields');
-  container.innerHTML = '<label class="form-label">Destination URL<input id="creatorCompletionUrl" type="url" required placeholder="https://example.com"></label>' +
-    (creatorTaskState.mode === 'open_link'
-      ? '<div class="creator-note">Open Link uses Click Proof. Do not describe this as proof of a deeper external action.</div>'
-      : '<div class="creator-note"><strong>Server Verified</strong><span>The URL identifies the destination where the user performs the external action. Completion is accepted only from the trusted verification contract.</span></div>');
+  const url = '<label class="form-label">Destination URL<input id="creatorCompletionUrl" type="url" required placeholder="https://example.com"></label>';
+  if (creatorTaskState.mode === 'open_link') {
+    container.innerHTML = `${url}<div class="creator-note">Open Link uses Click Proof. Do not describe this as proof of a deeper external action.</div>`;
+    return;
+  }
+  container.innerHTML = `${url}${renderProviderFields()}`;
+  creatorEl('creatorProviderSelect')?.addEventListener('change', () => {
+    creatorTaskState.providerId = creatorEl('creatorProviderSelect').value;
+    renderCreatorModeFields();
+  });
 }
 
 function updateCreatorCampaignCost() {
@@ -91,6 +110,7 @@ async function loadCreatorContract() {
   creatorEl('creatorContract').innerHTML = '<article class="info-card"><strong>Loading verification contract…</strong></article>';
   try {
     const contract = await creatorApi(`/api/creator/tasks/contracts/${encodeURIComponent(taskType)}`);
+    creatorTaskState.providerId = null;
     renderCreatorContract(contract);
   } catch (error) {
     creatorEl('creatorContract').innerHTML = `<article class="info-card"><strong>Unable to load contract</strong><p>${String(error.message || 'Please try again.')}</p></article>`;
@@ -98,12 +118,29 @@ async function loadCreatorContract() {
 }
 
 function creatorConfig() {
-  return {
+  const config = {
     completion: {
       mode: creatorTaskState.mode,
       url: creatorEl('creatorCompletionUrl')?.value?.trim() || ''
     }
   };
+  if (creatorTaskState.mode !== 'server_verified') return config;
+  const provider = (creatorTaskState.contract?.providerContracts || []).find(item => item.id === creatorTaskState.providerId);
+  if (!provider) throw new Error('No Server Verified provider is enabled for this task type.');
+  const requirements = {};
+  for (const field of provider.fields || []) {
+    const value = creatorEl(`creatorProviderField_${field.key}`)?.value?.trim() || '';
+    if (field.required && !value) throw new Error(`${field.label} is required.`);
+    requirements[field.key] = value;
+  }
+  config.verification = {
+    mode: 'automatic',
+    provider: provider.id,
+    method: provider.method,
+    event: provider.event,
+    requirements
+  };
+  return config;
 }
 
 async function createCreatorTask(event) {
