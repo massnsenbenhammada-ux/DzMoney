@@ -43,7 +43,12 @@ function validateProviderEvidence(verification = {}) {
   const hasEvent = Boolean(verification.event);
   if (!hasProvider && (hasMethod || hasEvent)) throw new Error('provider is required when provider evidence is configured');
   if (!hasProvider) return;
-  if (!hasMethod || !VERIFICATION_METHODS.includes(verification.method)) throw new Error('Invalid verification method');
+  if (!hasMethod) {
+    if (hasEvent) throw new Error('verification method is required when an evidence event is configured');
+    if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') throw new Error('providerConfigRef must be a string');
+    return;
+  }
+  if (!VERIFICATION_METHODS.includes(verification.method)) throw new Error('Invalid verification method');
   if (!hasEvent || typeof verification.event !== 'string') throw new Error('verification event is required');
   if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') {
     throw new Error('providerConfigRef must be a string');
