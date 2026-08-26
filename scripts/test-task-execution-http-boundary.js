@@ -48,6 +48,16 @@ async function run() {
     assert.strictEqual(calls[2].startVerification.attemptId, 41);
     assert.strictEqual(calls[2].startVerification.idempotencyKey, 'verification:41');
     assert.ok(calls[2].startVerification.providerRegistry);
+
+    const unknownField = await request(server.address().port, { taskId: 12, idempotencyKey: 'exec-http-2', metadata: { source: 'ui' }, unexpected: true });
+    assert.strictEqual(unknownField.status, 400);
+
+    const invalidTaskId = await request(server.address().port, { taskId: '12', idempotencyKey: 'exec-http-3', metadata: { source: 'ui' } });
+    assert.strictEqual(invalidTaskId.status, 400);
+
+    const invalidMetadata = await request(server.address().port, { taskId: 12, idempotencyKey: 'exec-http-4', metadata: 'ui' });
+    assert.strictEqual(invalidMetadata.status, 400);
+
     console.log('Task execution HTTP boundary: PASS');
   } finally {
     await new Promise(resolve => server.close(resolve));
