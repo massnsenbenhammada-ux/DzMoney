@@ -40,32 +40,50 @@ function renderCreatorContract(contract) {
   const descriptions = new Map((contract.completionServices || []).map(item => [item.mode, item.description]));
   const selected = modes.includes(creatorTaskState.mode) ? creatorTaskState.mode : modes[0];
   creatorTaskState.mode = selected;
+  const pricing = contract.campaignPricing || {};
   container.innerHTML = `
     <div class="creator-mode-grid">
       ${modes.map(mode => `<button type="button" class="creator-mode ${mode === selected ? 'active' : ''}" data-creator-mode="${mode}"><strong>${mode === 'open_link' ? 'Open Link' : 'Server Verified'}</strong><span>${descriptions.get(mode) || ''}</span></button>`).join('')}
+    </div>
+    <div class="creator-contract-detail">
+      <span class="eyebrow">CAMPAIGN PRICING</span>
+      <p>${pricing.priceDZXPerExecution ? `Reference: ${pricing.minTarget} → ${(pricing.minTarget * pricing.priceDZXPerExecution).toLocaleString()} DZX (${pricing.priceDZXPerExecution} DZX per valid execution).` : 'Campaign pricing is controlled by Admin.'}</p>
+      <div id="creatorCampaignCost" class="creator-cost"></div>
     </div>
     <div class="creator-contract-detail">
       <span class="eyebrow">VERIFICATION CONTRACT</span>
       <p>${creatorContractDescription(contract, selected)}</p>
     </div>`;
   renderCreatorModeFields();
+  updateCreatorCampaignCost();
 }
 
 function creatorContractDescription(contract, mode) {
   if (mode === 'open_link') return 'The configured link opening is the completion outcome. This is Click Proof and does not claim a deeper external action.';
   const verified = contract.serverVerified || {};
   const input = verified.requiredUserInput || {};
-  if (input.status === 'provider_contract_required') return `Source: ${verified.source || 'provider'}. Evidence: ${verified.evidence || 'trusted evidence'}. Method: ${verified.method || 'provider validation'}. Required creator input: no provider-specific fields are currently defined; a real provider contract is required before additional fields can be shown.`;
+  if (input.status === 'provider_contract_required') return `Source: ${verified.source || 'provider'}. Evidence: ${verified.evidence || 'trusted evidence'}. Method: ${verified.method || 'provider validation'}. Server Verified confirms the external outcome; the destination URL is supplied separately and is not itself proof.`;
   return `Source: ${verified.source || 'provider'}. Evidence: ${verified.evidence || 'trusted evidence'}. Method: ${verified.method || 'provider validation'}.`;
 }
 
 function renderCreatorModeFields() {
   const container = creatorEl('creatorModeFields');
-  if (creatorTaskState.mode === 'open_link') {
-    container.innerHTML = '<label class="form-label">Destination URL<input id="creatorCompletionUrl" type="url" required placeholder="https://example.com"></label><div class="creator-note">Open Link uses Click Proof. Do not describe this as proof of a deeper external action.</div>';
+  container.innerHTML = '<label class="form-label">Destination URL<input id="creatorCompletionUrl" type="url" required placeholder="https://example.com"></label>' +
+    (creatorTaskState.mode === 'open_link'
+      ? '<div class="creator-note">Open Link uses Click Proof. Do not describe this as proof of a deeper external action.</div>'
+      : '<div class="creator-note"><strong>Server Verified</strong><span>The URL identifies the destination where the user performs the external action. Completion is accepted only from the trusted verification contract.</span></div>');
+}
+
+function updateCreatorCampaignCost() {
+  const target = Number(creatorEl('creatorTarget')?.value || 0);
+  const pricing = creatorTaskState.contract?.campaignPricing || {};
+  const cost = creatorEl('creatorCampaignCost');
+  if (!cost) return;
+  if (!Number.isFinite(target) || target < (pricing.minTarget || 1000) || !Number.isFinite(pricing.priceDZXPerExecution)) {
+    cost.textContent = `Minimum target: ${pricing.minTarget || 1000}`;
     return;
   }
-  container.innerHTML = '<div class="creator-note"><strong>Server Verified</strong><span>The required provider-specific input is intentionally not invented. This contract currently declares that a provider contract is required and defines no fields yet.</span></div>';
+  cost.textContent = `Campaign cost: ${(target * pricing.priceDZXPerExecution).toLocaleString()} DZX`;
 }
 
 async function loadCreatorContract() {
@@ -80,9 +98,12 @@ async function loadCreatorContract() {
 }
 
 function creatorConfig() {
-  const config = { completion: { mode: creatorTaskState.mode } };
-  if (creatorTaskState.mode === 'open_link') config.completion.url = creatorEl('creatorCompletionUrl')?.value?.trim() || '';
-  return config;
+  return {
+    completion: {
+      mode: creatorTaskState.mode,
+      url: creatorEl('creatorCompletionUrl')?.value?.trim() || ''
+    }
+  };
 }
 
 async function createCreatorTask(event) {
@@ -98,16 +119,12 @@ async function createCreatorTask(event) {
         title: creatorEl('creatorTitle').value.trim(),
         description: creatorEl('creatorDescription').value.trim() || null,
         target: Number(creatorEl('creatorTarget').value),
-        rewardCoin: Number(creatorEl('creatorRewardCoin').value),
-        rewardDzx: Number(creatorEl('creatorRewardDzx').value),
-        rewardDzp: Number(creatorEl('creatorRewardDzp').value),
-        verificationAdSeconds: Number(creatorEl('creatorVerificationAdSeconds').value || 0),
         config: creatorConfig(),
         idempotencyKey: creatorGetIdempotencyKey()
       })
     });
     creatorTaskState.createdTaskId = result.task?.id || null;
-    creatorToast('Task created successfully.');
+    creatorToast(`Task created. Reserved ${Number(result.campaign?.campaignCostDZX || 0).toLocaleString()} DZX.`);
     const reviewButton = creatorEl('creatorReviewSubmit');
     if (reviewButton) reviewButton.disabled = !creatorTaskState.createdTaskId;
     button.textContent = 'Task created';
@@ -142,6 +159,10 @@ document.addEventListener('click', event => {
 
 document.addEventListener('change', event => {
   if (event.target.id === 'creatorTaskType') loadCreatorContract();
+});
+
+document.addEventListener('input', event => {
+  if (event.target.id === 'creatorTarget') updateCreatorCampaignCost();
 });
 
 document.addEventListener('submit', event => {

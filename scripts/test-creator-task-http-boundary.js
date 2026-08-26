@@ -20,6 +20,15 @@ async function run() {
   const walletCalls = [];
   const wallet = { createUser: async args => { walletCalls.push(args); return { id: 42, ...args }; } };
   const tasks = {
+    getCreatorCampaignContract: async taskType => ({
+      taskType,
+      priceDZX: 9,
+      availableCompletionModes: ['open_link', 'server_verified'],
+      completionServices: [],
+      serverVerified: { requiredUserInput: { status: 'provider_contract_required' } },
+      creatorInput: { status: 'provider_contract_required' }
+    }),
+    getCreatorActivityRewards: async () => ({ rewardCoin: 1000, rewardDZX: 1, rewardDZP: 1 }),
     createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: 9000, duplicate: false }; },
     submitCreatorCampaignForReview: async (taskId, creatorId) => { calls.push({ submit: { taskId, creatorId } }); return { id: 7, status: 'pending_review', creator_id: creatorId }; }
   };
@@ -53,29 +62,52 @@ async function run() {
   const auth = buildInitData(123);
 
   const specialContract = await request('GET', '/api/creator/tasks/contracts/special', null, auth);
-  assert.strictEqual(specialContract.status, 200);
-  assert.deepStrictEqual(specialContract.body.availableCompletionModes, ['server_verified']);
-  assert.strictEqual(specialContract.body.serverVerified.source, 'partner_backend');
+  assert.strictEqual(specialContract.status, 400);
 
   const socialContract = await request('GET', '/api/creator/tasks/contracts/social', null, auth);
   assert.deepStrictEqual(socialContract.body.availableCompletionModes, ['open_link', 'server_verified']);
   assert.strictEqual(socialContract.body.creatorInput.status, 'provider_contract_required');
+  assert.strictEqual(socialContract.body.campaignPricing.minTarget, 1000);
+  assert.strictEqual(socialContract.body.campaignPricing.targetStep, 1000);
+  assert.strictEqual(socialContract.body.campaignPricing.priceDZXPerExecution, 9);
 
   const create = await request('POST', '/api/creator/tasks', {
     taskType: 'social',
     title: 'Telegram test campaign',
     target: 1000,
-    rewardCoin: 1000,
-    rewardDzx: 1,
-    rewardDzp: 1,
+    rewardCoin: 999999,
+    rewardDzx: 999,
+    rewardDzp: 999,
+    verificationAdSeconds: 10,
     idempotencyKey: 'creator-task-1',
-    config: { completion: { mode: 'server_verified' } }
+    config: { completion: { mode: 'server_verified', url: 'https://example.test/campaign' } }
   }, auth);
   assert.strictEqual(create.status, 201);
   assert.strictEqual(create.body.task.id, 7);
   assert.strictEqual(walletCalls[0].telegramUserId, '123');
   assert.strictEqual(calls[0].create.creatorId, 42);
   assert.strictEqual(calls[0].create.config.completion.mode, 'server_verified');
+  assert.strictEqual(calls[0].create.config.completion.url, 'https://example.test/campaign');
+  assert.strictEqual(calls[0].create.target, 1000);
+  assert.strictEqual(calls[0].create.rewardCoin, 1000);
+  assert.strictEqual(calls[0].create.rewardDzx, 1);
+  assert.strictEqual(calls[0].create.rewardDzp, 1);
+  assert.strictEqual(calls[0].create.verificationAdSeconds, undefined);
+
+  const missingUrl = await request('POST', '/api/creator/tasks', {
+    taskType: 'social', title: 'Missing URL', target: 1000, idempotencyKey: 'creator-task-2', config: { completion: { mode: 'server_verified' } }
+  }, auth);
+  assert.strictEqual(missingUrl.status, 400);
+
+  const tooSmall = await request('POST', '/api/creator/tasks', {
+    taskType: 'social', title: 'Too small', target: 999, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+  }, auth);
+  assert.strictEqual(tooSmall.status, 400);
+
+  const invalidStep = await request('POST', '/api/creator/tasks', {
+    taskType: 'social', title: 'Invalid step', target: 1500, idempotencyKey: 'creator-task-4', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+  }, auth);
+  assert.strictEqual(invalidStep.status, 400);
 
   const submit = await request('POST', '/api/creator/tasks/7/submit', {}, auth);
   assert.strictEqual(submit.status, 200);
