@@ -117,7 +117,7 @@ async function run() {
   const missingProvider = await request('POST', '/api/creator/tasks', {
     taskType: 'social', title: 'Missing provider', target: 1000, idempotencyKey: 'creator-task-2', config: { completion: { mode: 'server_verified', url: 'https://example.test' } }
   }, auth);
-  assert.strictEqual(missingProvider.status, 500);
+  assert.strictEqual(missingProvider.status, 400);
 
   const missingUrl = await request('POST', '/api/creator/tasks', {
     taskType: 'social', title: 'Missing URL', target: 1000, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'server_verified' } }
