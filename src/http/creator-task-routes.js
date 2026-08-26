@@ -15,6 +15,7 @@ const CONTRACT_DESCRIPTIONS = Object.freeze({
 const isNonEmptyString = value => typeof value === 'string' && value.trim().length > 0;
 const isCreatorTaskType = value => CREATOR_TASK_TYPES.includes(value);
 const isValidTarget = value => Number.isInteger(value) && value >= CREATOR_MIN_TARGET && value % CREATOR_TARGET_STEP === 0;
+const isOptionalNonNegativeInteger = value => value === undefined || value === null || (Number.isInteger(value) && value >= 0);
 const isCreatorConfig = value => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const completion = value.completion;
@@ -26,6 +27,10 @@ const validateCreatorTaskBody = createStrictObjectValidator({
   title: isNonEmptyString,
   description: { validate: value => value === undefined || value === null || typeof value === 'string' },
   target: isValidTarget,
+  rewardCoin: { validate: isOptionalNonNegativeInteger },
+  rewardDzx: { validate: isOptionalNonNegativeInteger },
+  rewardDzp: { validate: isOptionalNonNegativeInteger },
+  verificationAdSeconds: { validate: isOptionalNonNegativeInteger },
   config: { validate: isCreatorConfig },
   idempotencyKey: isNonEmptyString
 });
