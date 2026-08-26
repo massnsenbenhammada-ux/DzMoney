@@ -4,11 +4,11 @@
 
 **Current phase:** Phase 2 — Activity / Ads / Tasks, with Phase 3 Referral core partially implemented.
 
-**Current main:** `656f26f5ee4ac9d45d7705762f91a035322fde9a` (PR #126 merged).
+**Current main:** `fe3802e5e40dc86383e429a536535cec48e1da76` (PR #136 merged).
 
-**Latest CI evidence:** PR #126 head `631a084dc968d2c1d98b2c6e8610fae37f8beafb` passed workflow run `32982388297` (`test-all`), including migrations, isolated runtime health and the full test suite. PR #126 was then merged to `main` as `656f26f5ee4ac9d45d7705762f91a035322fde9a`.
+**Latest CI evidence:** PR #136 exact head `ee9aaea43f498cfb8e59559132da265d0edd5a2d` passed the Phase 2 boundaries workflow on the exact branch head. PR #136 was then merged to `main` as `fe3802e5e40dc86383e429a536535cec48e1da76`; the post-merge workflow `33006198804` passed migrations, isolated runtime health and the full test suite.
 
-**Reconciliation rule:** Only merged commits on `main` are treated as completed. PR #125 was closed as superseded by PR #126; it is not a separate implementation milestone.
+**Reconciliation rule:** Only merged commits on `main` are treated as completed. Superseded or closed PRs are not separate implementation milestones.
 
 ## Phase 0 — Specification Lock
 
@@ -56,27 +56,32 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - 🟢 Creator campaign debit, review and rejection-refund paths remain on the existing Economy/Ledger source of truth.
 - 🟢 Economy idempotency ownership and operation-mismatch protections are covered by regression testing.
 - 🟢 Migration `019_creator_campaign_pricing.sql` provisions `9 DZX` as the initial value with `ON CONFLICT DO NOTHING`, preserving an existing Admin-controlled value.
+- 🟢 Provider-neutral trusted evidence contract is documented for future Creator/User-created integrations across Game/Mini App, Social, Web and Special/Partner.
+- 🟢 Creator task verification configuration now accepts provider identifier, verification method, exact provider event and non-secret provider configuration reference while preserving the existing task-verification source of truth.
+- 🟢 Provider verification methods are validated server-side and task configuration rejects provider credentials/secrets.
+- 🟢 No real external task provider is registered or treated as enabled merely because provider configuration exists.
 
-### Latest Creator Campaign CI evidence
+### Latest Creator Provider Configuration CI evidence
 
-- 🟢 Exact PR #126 head: `631a084dc968d2c1d98b2c6e8610fae37f8beafb`.
-- 🟢 Workflow run: `32982388297`.
-- 🟢 Job: `test-all`.
-- 🟢 Install dependencies: passed.
-- 🟢 Run migrations: passed.
-- 🟢 Isolated runtime health: passed.
-- 🟢 Full test suite: passed.
-- 🟢 PR #126 merged to `main` as `656f26f5ee4ac9d45d7705762f91a035322fde9a`.
+- 🟢 Exact PR #136 head: `ee9aaea43f498cfb8e59559132da265d0edd5a2d`.
+- 🟢 Exact-head workflow: `33005214918`, job `98297083314`.
+- 🟢 Exact-head checkout was verified against `ee9aaea43f498cfb8e59559132da265d0edd5a2d`.
+- 🟢 Migrations passed.
+- 🟢 Isolated runtime health passed.
+- 🟢 Full test suite passed.
+- 🟢 Economy reconciliation passed with no negative wallets, source mismatches or ledger mismatches.
+- 🟢 PR #136 merged to `main` as `fe3802e5e40dc86383e429a536535cec48e1da76`.
+- 🟢 Post-merge workflow `33006198804`, job `98300462102`, passed migrations, isolated runtime health and the full test suite.
 
 ### Not yet implemented / accepted
 
 - ⬜ Daily `Share with Friends` production reward flow; no trusted backend completion signal exists for an actual Telegram share.
 - ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner catalog beyond the currently implemented Telegram Social verifier and Daily Check for Update path.
-- ⬜ Provider/Partner-specific Creator Input contracts where the generic contract intentionally remains undefined.
+- 🟡 Provider/Partner-specific Creator Input contracts are prepared by the generic provider-neutral configuration seam, but concrete provider-specific fields remain undefined until an actual provider/partner contract exists.
 - ⬜ Broader anti-fraud hardening around task/ad callbacks and verification.
 - ⬜ Full acceptance of advertisement-task behavior across all required providers/contexts.
 
-Phase 2 remains open until the remaining implementation and acceptance criteria are completed and verified.
+Phase 2 remains open until the remaining implementation and acceptance criteria are completed and verified. Provider configuration readiness does not constitute provider verification implementation.
 
 ## Task completion service contract — runtime partially implemented
 
@@ -145,7 +150,7 @@ Pending:
 
 ## Documentation reconciliation note
 
-This update reconciles the status document with merged main commit `656f26f5ee4ac9d45d7705762f91a035322fde9a`. It records the validated User Create Tasks runtime boundary, Admin-controlled campaign pricing, initial `9 DZX` provisioning migration, and related regression coverage as completed. It does not claim implementation of provider-specific verification contracts, broader task adapters, Share with Friends reward authorization, or full Phase 2 acceptance.
+This update reconciles the status document with merged main commit `fe3802e5e40dc86383e429a536535cec48e1da76`. It records the validated provider-neutral trusted evidence contract and Creator task provider verification configuration as completed preparation work, together with exact-head and post-merge CI evidence. It does not claim implementation of a real external task provider, provider-specific verifier, Share with Friends reward authorization, broader task adapters, or full Phase 2 acceptance.
 
 ## Update Rule
 
