@@ -4,13 +4,11 @@
 
 **Current phase:** Phase 2 — Activity / Ads / Tasks, with Phase 3 Referral core partially implemented.
 
-**Specification:** `PROJECT_ROADMAP.md` is the product specification. `docs/ARCHITECTURE_RULES.md` and `ADR.md` govern implementation/change control.
+**Current main:** `656f26f5ee4ac9d45d7705762f91a035322fde9a` (PR #126 merged).
 
-**Current main:** `2436d4a1e357903de2f9ba51488ef3c535a9bb84`.
+**Latest CI evidence:** PR #126 head `631a084dc968d2c1d98b2c6e8610fae37f8beafb` passed workflow run `32982388297` (`test-all`), including migrations, isolated runtime health and the full test suite. PR #126 was then merged to `main` as `656f26f5ee4ac9d45d7705762f91a035322fde9a`.
 
-**Current CI evidence:** PR #118 CI run #439 passed for the exact head that introduced the task-type Server Verified contract documentation. PR #120 CI run #444 passed for the task completion-contract implementation and tests. PR #121 CI run #446 passed for the creator-input contract-state TDD, and PR #121 was then squash-merged to `main` as `2436d4a1e357903de2f9ba51488ef3c535a9bb84`.
-
-**Important reconciliation:** This status file is reconciled to the merged `main` state. Only merged commits on `main` are treated as completed.
+**Reconciliation rule:** Only merged commits on `main` are treated as completed. PR #125 was closed as superseded by PR #126; it is not a separate implementation milestone.
 
 ## Phase 0 — Specification Lock
 
@@ -46,57 +44,52 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - 🟢 Daily `Check for Update` system task with UTC+1 calendar-day eligibility and existing Telegram membership verification.
 - 🟢 Daily `View Ads` system task with UTC+1 calendar-day eligibility and the existing Tasks-page advertisement provider flow.
 - 🟢 Daily system-task contract for rolling 24-hour versus UTC+1 calendar-day policies and permanent referral achievement thresholds.
-- 🟢 Social Telegram-channel server verification through the existing Task Verification boundary; task-specific Telegram channels are preserved through verification-config resolution.
-- 🟢 Task completion-service contract: supported creator-facing modes are Open Link → Click Proof and Server Verified; Special/Partner is Server Verified only.
-- 🟢 Task-type Server Verified contract boundaries documented for Daily, Mini App, Social, Web and Special/Partner, including source, evidence, verification method, identity correlation, required user input and replay/idempotency requirements.
-- 🟢 Creator-input rule documented: future User Create Tasks UI must consume the applicable verification contract and must not maintain a second hand-authored mapping of verification fields.
-- 🟢 Creator-input contract states locked by TDD: provider-dependent Server Verified fields remain undefined until an applicable provider/partner contract exists; Special/Partner remains contract-required and Server Verified only.
+- 🟢 Social Telegram-channel server verification through the existing Task Verification boundary.
+- 🟢 Task completion-service contract: Open Link → Click Proof and Server Verified; Special/Partner is Server Verified only.
+- 🟢 Task-type Server Verified contract boundaries documented for Daily, Mini App, Social, Web and Special/Partner.
+- 🟢 User Create Tasks runtime UI and authenticated HTTP boundary for Game/Social/Web.
+- 🟢 User Creator is prevented from creating Special/Partner campaigns; Special/Partner remains Admin-only.
+- 🟢 Creator target is server-enforced at minimum `1000`, in steps of `1000`.
+- 🟢 Creator campaign pricing is Admin-controlled; `9 DZX` per valid execution is the initial/default reference value and campaign cost is calculated from target.
+- 🟢 Creator cannot control COIN/DZX/DZP reward values or verification-ad duration; authoritative Admin settings are used server-side.
+- 🟢 Creator supplies the destination URL for Open Link and Server Verified; the URL is not verification evidence.
+- 🟢 Creator campaign debit, review and rejection-refund paths remain on the existing Economy/Ledger source of truth.
+- 🟢 Economy idempotency ownership and operation-mismatch protections are covered by regression testing.
+- 🟢 Migration `019_creator_campaign_pricing.sql` provisions `9 DZX` as the initial value with `ON CONFLICT DO NOTHING`, preserving an existing Admin-controlled value.
 
-### Referral work now present on main as Phase 3 foundation
+### Latest Creator Campaign CI evidence
 
-- 🟢 Immutable one-level referral attribution.
-- 🟢 Server-side qualification from verified task or advertisement evidence.
-- 🟢 One-time referral activation reward through the existing Economy/Ledger path.
-- 🟢 Canonical qualified-referral count used by permanent achievement eligibility.
-- 🟢 Permanent referral achievement catalog/tasks: Invite 1, 10, 20, 50 and 100 Friends.
-- 🟢 Achievement claims use existing verified `task_attempts` state and the existing verification-ad/economy path; no second achievement store exists.
-- 🟢 Referral Telegram bootstrap foundation and referral-link test coverage are present in the repository test suite.
-- 🟢 Canonical user-facing referral link support is present and covered by `test:referral-link`.
-- 🟢 Referral lifetime 20% reward from qualifying base COIN/DZX activity is merged through the existing Economy/Ledger path and covered by `test:referral-lifetime`.
+- 🟢 Exact PR #126 head: `631a084dc968d2c1d98b2c6e8610fae37f8beafb`.
+- 🟢 Workflow run: `32982388297`.
+- 🟢 Job: `test-all`.
+- 🟢 Install dependencies: passed.
+- 🟢 Run migrations: passed.
+- 🟢 Isolated runtime health: passed.
+- 🟢 Full test suite: passed.
+- 🟢 PR #126 merged to `main` as `656f26f5ee4ac9d45d7705762f91a035322fde9a`.
 
 ### Not yet implemented / accepted
 
-- ⬜ Daily `Share with Friends` production reward flow. The requirement is Telegram share of the user's referral link once per UTC+1 calendar day, but the current backend has no trusted completion signal for an actual share. A frontend-only signal must not authorize an economic reward.
-- ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner task catalog beyond the currently implemented Telegram Social verifier and Daily Check for Update path.
-- ⬜ User Create Tasks runtime UI for the completion-service contract and task-type-specific Server Verified inputs.
-- ⬜ Provider/Partner-specific Creator Input contracts. The generic contract intentionally keeps fields empty until an actual provider/partner contract defines them.
+- ⬜ Daily `Share with Friends` production reward flow; no trusted backend completion signal exists for an actual Telegram share.
+- ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner catalog beyond the currently implemented Telegram Social verifier and Daily Check for Update path.
+- ⬜ Provider/Partner-specific Creator Input contracts where the generic contract intentionally remains undefined.
 - ⬜ Broader anti-fraud hardening around task/ad callbacks and verification.
 - ⬜ Full acceptance of advertisement-task behavior across all required providers/contexts.
 
-Phase 2 remains open until its remaining implementation and acceptance criteria are completed and verified.
+Phase 2 remains open until the remaining implementation and acceptance criteria are completed and verified.
 
-## Task completion service contract — specification locked, runtime pending
+## Task completion service contract — runtime partially implemented
 
-🟡 **Specification recorded; runtime implementation remains pending for the broader user-created task catalog.**
+🟡 Specification is locked and the User Create Tasks runtime boundary is implemented for the currently supported Game/Social/Web creator surface. Provider-specific verification remains pending where the contract is intentionally undefined.
 
-The creator-facing completion choice for supported user-created task categories is documented in `docs/TASK_COMPLETION_SERVICE_CONTRACT.md` and `ADR.md`:
+The creator-facing completion choices are:
 
-- **Open Link → Click Proof** — use when opening the configured link is itself the task outcome.
-- **Server Verified** — use when the creator requires trusted proof of an external outcome beyond opening the link.
+- **Open Link → Click Proof** — opening the configured link is itself the task outcome.
+- **Server Verified** — trusted server-verifiable evidence is required for the external outcome.
 
-For Server Verified tasks, the future User Create Tasks UI must derive and display, when the applicable provider contract exists:
-- Verification Source;
-- Evidence Type;
-- Verification Method;
-- Required User Input.
+The Creator UI consumes the existing verification contract rather than maintaining a second source of truth. Special/Partner remains excluded from the User Creator surface and remains Admin-only.
 
-The UI must not invent required inputs, and an unimplemented provider must not be exposed as an operational verification option. Mini App `initData` is documented as an identity/authentication boundary, not by itself proof of arbitrary in-Mini-App completion.
-
-Special/Partner is contractually restricted to Server Verified only; this restriction is enforced by the existing task-verification configuration boundary and must remain enforced when runtime task-creation support is implemented.
-
-The creator-input TDD locks the current provider-dependent state; it does not claim that provider-specific fields or provider adapters already exist.
-
-This documentation and TDD work does **not** mark the broader task adapters/verifiers or User Create Tasks UI as implemented.
+Provider-specific Server Verified fields remain undefined until an applicable provider/partner contract exists. The UI must not invent required inputs, and an unimplemented provider must not be exposed as operational verification.
 
 ## Phase 3 — Referral
 
@@ -114,8 +107,6 @@ Implemented:
 Pending:
 - user-facing Share with Friends production reward flow subject to a trusted completion signal;
 - full referral acceptance tests and remaining UI acceptance.
-
-The abandoned/closed earlier PRs that proposed a combined Referral foundation are not evidence of implementation; only merged commits on `main` count.
 
 ## Later phases
 
@@ -154,7 +145,7 @@ The abandoned/closed earlier PRs that proposed a combined Referral foundation ar
 
 ## Documentation reconciliation note
 
-This update reconciles the status document with merged main commit `2436d4a1e357903de2f9ba51488ef3c535a9bb84`. It records the task completion-service and task-type Server Verified specification plus the creator-input contract-state TDD as completed documentation/test work only. It does not claim runtime implementation of unimplemented providers, Partner integrations, provider-specific Creator Input fields, or User Create Tasks UI.
+This update reconciles the status document with merged main commit `656f26f5ee4ac9d45d7705762f91a035322fde9a`. It records the validated User Create Tasks runtime boundary, Admin-controlled campaign pricing, initial `9 DZX` provisioning migration, and related regression coverage as completed. It does not claim implementation of provider-specific verification contracts, broader task adapters, Share with Friends reward authorization, or full Phase 2 acceptance.
 
 ## Update Rule
 
