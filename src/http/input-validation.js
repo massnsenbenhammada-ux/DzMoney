@@ -41,6 +41,25 @@ function createStrictObjectValidator(rules) {
   };
 }
 
+function createValidationMiddleware(validator, source = 'body') {
+  if (typeof validator !== 'function') {
+    throw new TypeError('Validation middleware requires a validator');
+  }
+  if (!['body', 'params', 'query'].includes(source)) {
+    throw new TypeError('Validation source must be body, params, or query');
+  }
+
+  return (req, res, next) => {
+    try {
+      req[source] = validator(req[source]);
+      next();
+    } catch (error) {
+      res.status(400).json({ ok: false, error: error.message });
+    }
+  };
+}
+
 module.exports = {
   createStrictObjectValidator,
+  createValidationMiddleware,
 };
