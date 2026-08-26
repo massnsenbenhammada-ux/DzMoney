@@ -45,6 +45,15 @@ function requireTaskType(taskType) {
   return taskType;
 }
 
+function validateCreatorProvider(taskType, config) {
+  try {
+    validateCreatorProviderConfiguration(taskType, config);
+  } catch (error) {
+    if (!Number.isInteger(error.statusCode)) error.statusCode = 400;
+    throw error;
+  }
+}
+
 async function contractFor(tasks, taskType) {
   requireTaskType(taskType);
   const contract = await tasks.getCreatorCampaignContract(taskType);
@@ -73,7 +82,7 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
   router.post('/', createValidationMiddleware(validateCreatorTaskBody), asyncRoute(async (req, res) => {
     const { taskType, title, description, target, config, idempotencyKey } = req.body;
     requireTaskType(taskType);
-    validateCreatorProviderConfiguration(taskType, config);
+    validateCreatorProvider(taskType, config);
 
     const user = await wallet.createUser({
       telegramUserId: String(req.telegramUser.id),
