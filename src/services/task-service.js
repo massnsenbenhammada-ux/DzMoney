@@ -18,9 +18,12 @@ function money(value) { return Number(Number(value).toFixed(8)); }
 async function getCreatorCampaignContract(queryFn = query) {
   const result = await queryFn(`SELECT key, value FROM admin_settings WHERE key IN ('task.campaign_price_dzx_per_execution', 'campaign_price_dzx_per_execution', 'verification_ad_seconds')`);
   const settings = Object.fromEntries(result.rows.map(row => [row.key, row.value]));
-  const price = settings['task.campaign_price_dzx_per_execution'] ?? settings.campaign_price_dzx_per_execution ?? '1';
+  const rawPrice = settings['task.campaign_price_dzx_per_execution'] ?? settings.campaign_price_dzx_per_execution;
+  if (rawPrice === undefined || rawPrice === null || rawPrice === '') throw new Error('Creator campaign price setting is not configured');
+  const price = Number(rawPrice);
+  if (!Number.isFinite(price) || price <= 0) throw new Error('Creator campaign price setting must be a positive finite number');
   const verificationAdSeconds = settings.verification_ad_seconds ?? '30';
-  return { priceDZX: Number(price), availableCompletionModes: ['open_link', 'server_verified'], verificationAdSeconds: Number(verificationAdSeconds) };
+  return { priceDZX: price, availableCompletionModes: ['open_link', 'server_verified'], verificationAdSeconds: Number(verificationAdSeconds) };
 }
 
 async function getCreatorActivityRewards(queryFn = query) {
