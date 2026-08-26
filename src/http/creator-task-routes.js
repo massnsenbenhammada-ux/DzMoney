@@ -2,6 +2,7 @@ const express = require('express');
 const walletService = require('../services/wallet-service');
 const taskService = require('../services/task-service');
 const { telegramAuth } = require('./telegram-auth');
+const { createStrictObjectValidator, createValidationMiddleware } = require('./input-validation');
 
 const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
 const CREATOR_MIN_TARGET = 1000;
@@ -11,6 +12,24 @@ const CONTRACT_DESCRIPTIONS = Object.freeze({
   server_verified: 'Use this when the requested external outcome must be confirmed by trusted server-verifiable evidence.'
 });
 
+const isNonEmptyString = value => typeof value === 'string' && value.trim().length > 0;
+const isCreatorTaskType = value => CREATOR_TASK_TYPES.includes(value);
+const isValidTarget = value => Number.isInteger(value) && value >= CREATOR_MIN_TARGET && value % CREATOR_TARGET_STEP === 0;
+const isCreatorConfig = value => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const completion = value.completion;
+  return Boolean(completion && typeof completion === 'object' && !Array.isArray(completion) && isNonEmptyString(completion.url));
+};
+
+const validateCreatorTaskBody = createStrictObjectValidator({
+  taskType: isCreatorTaskType,
+  title: isNonEmptyString,
+  description: { validate: value => value === undefined || value === null || typeof value === 'string' },
+  target: isValidTarget,
+  config: { validate: isCreatorConfig },
+  idempotencyKey: isNonEmptyString
+});
+
 function requireTaskType(taskType) {
   if (!CREATOR_TASK_TYPES.includes(taskType)) {
     const error = new Error('Invalid creator task type');
@@ -18,15 +37,6 @@ function requireTaskType(taskType) {
     throw error;
   }
   return taskType;
-}
-
-function validateCreatorCompletion(config) {
-  const completion = config?.completion || {};
-  if (!completion.url) {
-    const error = new Error('completion.url is required for creator campaigns');
-    error.statusCode = 400;
-    throw error;
-  }
 }
 
 async function contractFor(tasks, taskType) {
@@ -53,13 +63,9 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
     res.json(await contractFor(tasks, req.params.taskType));
   }));
 
-  router.post('/', asyncRoute(async (req, res) => {
-    const taskType = req.body?.taskType;
+  router.post('/', createValidationMiddleware(validateCreatorTaskBody), asyncRoute(async (req, res) => {
+    const { taskType, title, description, target, config, idempotencyKey } = req.body;
     requireTaskType(taskType);
-    if (!req.body?.title) return res.status(400).json({ ok: false, error: 'title is required' });
-    if (!req.body?.idempotencyKey) return res.status(400).json({ ok: false, error: 'idempotencyKey is required' });
-    if (!Number.isInteger(req.body?.target) || req.body.target < CREATOR_MIN_TARGET || req.body.target % CREATOR_TARGET_STEP !== 0) return res.status(400).json({ ok: false, error: `target must be a multiple of ${CREATOR_TARGET_STEP} and at least ${CREATOR_MIN_TARGET}` });
-    validateCreatorCompletion(req.body.config);
 
     const user = await wallet.createUser({
       telegramUserId: String(req.telegramUser.id),
@@ -71,15 +77,15 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
     const rewards = await tasks.getCreatorActivityRewards();
     const result = await tasks.createCreatorCampaign({
       taskType,
-      title: req.body.title,
-      description: req.body.description || null,
+      title,
+      description: description || null,
       creatorId: user.id,
-      target: req.body.target,
+      target,
       rewardCoin: rewards.coin,
       rewardDzx: rewards.dzx,
       rewardDzp: rewards.dzp,
-      config: req.body.config || {},
-      idempotencyKey: req.body.idempotencyKey
+      config,
+      idempotencyKey
     });
 
     res.status(201).json({
