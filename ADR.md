@@ -66,7 +66,7 @@ External referral configuration has exactly these modes:
 - `link_only`
 - `link_and_owner_verification`
 
-`link_only` means DzMoney may provide the external application's referral link, but the link itself is not proof of registration or task completion. `link_and_owner_verification` requires a trusted external verification source capable of proving that the completed external account belongs to the task user before a reward can be issued.
+`link_only` means DzMoney may provide the external application's referral link, but the link itself is not proof of registration or task completion. `link_and_owner_verification` requires a trusted external verification source capable of proving that the registered external account belongs to the task user before a reward can be issued.
 
 Provider credentials must not be stored in task configuration. They belong to a separate protected provider-credential mechanism to be added only when an actual admin/provider integration requires it.
 
@@ -242,3 +242,46 @@ This decision does not create a Partner provider, Partner API, new task engine, 
 ### Consequences
 
 The Creator UI has a category-dependent completion-service model: categories supporting both modes expose both choices, while Special/Partner exposes Server Verified only. Server-side validation remains authoritative and prevents a manipulated client from bypassing the restriction. Actual Partner verification remains pending until a real partner contract exists and is implemented with focused TDD and integration tests.
+
+## ADR-0011 — Provider-neutral trusted evidence contracts for Creator tasks
+
+**Status:** Accepted  
+**Date:** 2026-08-26
+
+### Context
+
+DzMoney is not yet in production and does not currently have real external task providers for every Creator/User-created task category. Phase 2 nevertheless needs a stable integration seam so a real provider can later be connected through configuration without redesigning Task Execution, Task Verification, Economy or Ledger. The canonical `docs/PHASE2_TASK_VERIFICATION_RULES.md` must define the evidence contract before any concrete verifier is implemented.
+
+### Decision
+
+Separate **task category**, **verification provider**, **verification method**, and **trusted evidence event**. A Creator task may therefore describe its category (Game, Social, Web, or Special/Partner) independently from the provider that will prove completion.
+
+The provider-ready configuration concept is:
+
+- provider identifier;
+- verification method (`api`, `webhook`, `callback`, `telegram_bot_api`, or token-bound callback where appropriate);
+- exact provider event/action;
+- non-secret provider reference/configuration;
+- identity-binding mode;
+- authenticity mode;
+- idempotency/replay mode.
+
+No provider credential, API secret, HMAC secret, access token or equivalent secret may be stored in `activity_tasks.config`.
+
+For **Game**, where the task is a Telegram Mini App, the preferred evidence is a server-to-server API or signed callback/webhook from the authoritative Mini App backend. `POST /api/game/start` is a lifecycle/start event and is not completion evidence by itself. Completion must be represented by an exact provider event such as `game_completed`, `level_completed`, `score_reached`, or an equivalent provider-defined event.
+
+For **Social**, the preferred evidence is the official platform API queried server-side against an authenticated external identity. Telegram channel membership uses the existing Bot API `getChatMember` integration. Other actions require an authoritative platform/provider API or signed server event proving the exact action.
+
+For **Web**, the preferred evidence is a signed server-to-server webhook. A unique single-use token bound to the authenticated Telegram user, task and provider may be used as a fallback only when the provider contract can establish completion rather than merely link opening.
+
+For **Special/Partner**, the category is an integration context that may contain game, social, web, survey, registration, purchase, installation or other partner-defined activities. It remains Server Verified only. Preferred evidence is a partner backend API or signed/HMAC server-to-server callback/webhook with explicit identity correlation and event idempotency.
+
+Daily tasks remain governed by their existing DzMoney-owned server-authoritative contracts. A new provider-backed Daily activity must explicitly select and document its evidence source rather than treating advertisement events as generic proof of an unrelated activity.
+
+A provider configuration entry alone never enables verification. A provider becomes usable only after its server-side evidence contract is implemented, tested and explicitly enabled. Until then, the task remains unavailable for server verification rather than falling back to a client assertion.
+
+### Consequences
+
+The project can prepare Creator/User-created task configuration before real providers exist. When a provider becomes available, its adapter can be attached through the existing provider-selection boundary without introducing a second task verifier or reward path. `task-verification-service.js` remains the verification/reward boundary and the existing Economy/Ledger remains the sole economic source of truth.
+
+No new database table or migration is required by this decision. Concrete provider integrations remain separate implementation work and must follow TDD, exact identity binding, authenticity validation, idempotency/replay protection, integration testing and exact-HEAD CI before activation.
