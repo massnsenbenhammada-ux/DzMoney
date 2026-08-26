@@ -48,6 +48,14 @@ async function waitForShareVerification(attemptId) {
   return shareApi(`/api/tasks/attempt/${encodeURIComponent(attemptId)}`);
 }
 
+function openTelegramShare(url) {
+  if (typeof shareTelegram?.openTelegramLink === 'function') {
+    shareTelegram.openTelegramLink(url);
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 async function startShareWithFriends() {
   const button = document.getElementById('shareReferral');
   if (!button || button.disabled) return;
@@ -64,7 +72,7 @@ async function startShareWithFriends() {
     });
     await showShareVerificationAd(result.verificationAdId);
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(referralLink)}`;
-    window.open(shareUrl, '_blank', 'noopener,noreferrer');
+    openTelegramShare(shareUrl);
     const click = await shareApi('/api/tasks/click', {
       method: 'POST',
       body: JSON.stringify({ attemptId: result.attemptId })
