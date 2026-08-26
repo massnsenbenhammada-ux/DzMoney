@@ -18,6 +18,14 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
     if (body.metadata !== undefined && (typeof body.metadata !== 'object' || body.metadata === null || Array.isArray(body.metadata))) return 'metadata must be an object';
     return null;
   };
+  const validateAdvertisementStartBody = body => {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return 'request body must be an object';
+    const allowed = new Set(['taskId', 'idempotencyKey']);
+    if (Object.keys(body).some(key => !allowed.has(key))) return 'unknown request field';
+    if (!Number.isInteger(body.taskId) || body.taskId <= 0) return 'taskId must be a positive integer';
+    if (typeof body.idempotencyKey !== 'string' || body.idempotencyKey.trim() === '') return 'idempotencyKey is required';
+    return null;
+  };
 
   router.use(auth);
 
@@ -56,10 +64,9 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
   }));
 
   router.post('/advertisement/start', asyncRoute(async (req, res) => {
-    const taskId = req.body?.taskId;
-    const idempotencyKey = req.body?.idempotencyKey;
-    if (taskId === undefined || taskId === null || taskId === '') return res.status(400).json({ ok: false, error: 'taskId is required' });
-    if (idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === '') return res.status(400).json({ ok: false, error: 'idempotencyKey is required' });
+    const validationError = validateAdvertisementStartBody(req.body);
+    if (validationError) return res.status(400).json({ ok: false, error: validationError });
+    const { taskId, idempotencyKey } = req.body;
     const user = await wallet.createUser({
       telegramUserId: String(req.telegramUser.id),
       username: req.telegramUser.username || null,
