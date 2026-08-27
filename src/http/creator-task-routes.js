@@ -7,7 +7,7 @@ const { getCreatorProviderContracts, validateCreatorProviderConfiguration } = re
 
 const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
 const CREATOR_MIN_TARGET = 1000;
-const CREATOR_TARGET_STEP = 1000;
+const CREATOR_TARGET_STEP = 1;
 const CONTRACT_DESCRIPTIONS = Object.freeze({
   open_link: 'Use this when opening the configured link is itself the outcome you want to reward. It does not prove a deeper external action.',
   server_verified: 'Use this when the requested external outcome must be confirmed by trusted server-verifiable evidence.'
@@ -15,7 +15,7 @@ const CONTRACT_DESCRIPTIONS = Object.freeze({
 
 const isNonEmptyString = value => typeof value === 'string' && value.trim().length > 0;
 const isCreatorTaskType = value => CREATOR_TASK_TYPES.includes(value);
-const isValidTarget = value => Number.isInteger(value) && value >= CREATOR_MIN_TARGET && value % CREATOR_TARGET_STEP === 0;
+const isValidTarget = value => Number.isInteger(value) && value >= CREATOR_MIN_TARGET;
 const isOptionalNonNegativeInteger = value => value === undefined || value === null || (Number.isInteger(value) && value >= 0);
 const isCreatorConfig = value => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -65,7 +65,9 @@ async function contractFor(tasks, taskType) {
     campaignPricing: {
       minTarget: CREATOR_MIN_TARGET,
       targetStep: CREATOR_TARGET_STEP,
-      priceDZXPerExecution: contract.priceDZX
+      maxTarget: null,
+      priceDZXPerExecution: contract.priceDZX,
+      cpmDZX: contract.priceDZX * 1000
     }
   };
 }
