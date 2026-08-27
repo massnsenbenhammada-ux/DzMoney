@@ -89,8 +89,8 @@ function findTraceTransaction(trace, txHash) {
 }
 
 function isFinalized(trace, transaction) {
-  if (Number(transaction?.mc_block_seqno) > 0) return true;
-  return Number(trace?.mc_seqno_end) > 0 && trace?.is_incomplete === false;
+  if (!trace || trace.is_incomplete !== false) return false;
+  return Number(trace.mc_seqno_end) > 0;
 }
 
 function assertIncomingTransfer(transaction, expectedDestination, expectedNano) {
@@ -163,7 +163,7 @@ async function verifyTonDeposit({
     destination,
     amountNano: expectedNano.toString(),
     finality: 'FINALIZED',
-    masterchainSeqno: Number(trace?.mc_seqno_end || transaction.mc_block_seqno),
+    masterchainSeqno: Number(trace.mc_seqno_end),
     transaction,
   };
 }
