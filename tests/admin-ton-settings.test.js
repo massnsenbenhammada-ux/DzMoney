@@ -9,7 +9,7 @@ const {
 } = require('../src/services/admin-settings-service');
 
 const MAINNET = 'UQAaRNqn01vjTzDdSaN8LtsWpZRWkhRQZkXCNzfb3z0ZDeI0';
-const TESTNET = 'kQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwM';
+const TESTNET = 'kQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHTW';
 
 test('accepts the configured Mainnet address and verifies checksum', () => {
   const decoded = decodeTonAddress(MAINNET);
@@ -34,7 +34,7 @@ test('rejects a valid-length address with an invalid checksum', () => {
   assert.throws(() => normalizeTonAddress(tampered), /Invalid TON address checksum/);
 });
 
-test('accepts the supported Testnet tag only with valid checksum', () => {
+test('accepts a valid Testnet address with the Testnet tag', () => {
   assert.doesNotThrow(() => assertAddressNetwork(TESTNET, 'testnet'));
   assert.throws(() => assertAddressNetwork(TESTNET, 'mainnet'), /does not match mainnet/);
 });
