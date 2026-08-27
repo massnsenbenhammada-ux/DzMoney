@@ -8,9 +8,7 @@ const NETWORK_BASE_URLS = Object.freeze({
 });
 
 function assertNetwork(network) {
-  if (!Object.prototype.hasOwnProperty.call(NETWORK_BASE_URLS, network)) {
-    throw new Error('Unsupported TON network');
-  }
+  if (!Object.prototype.hasOwnProperty.call(NETWORK_BASE_URLS, network)) throw new Error('Unsupported TON network');
 }
 
 function toRawAddress(address) {
@@ -33,21 +31,16 @@ function canonicalAddress(address) {
 
 function tonToNano(value) {
   const text = String(value).trim();
-  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) {
-    throw new Error('TON amount must be a positive decimal');
-  }
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) throw new Error('TON amount must be a positive decimal');
   const [whole, fraction = ''] = text.split('.');
   if (fraction.length > 9) throw new Error('TON amount exceeds nanoTON precision');
-  const nano = BigInt(whole || '0') * 1000000000n
-    + BigInt((fraction + '000000000').slice(0, 9) || '0');
+  const nano = BigInt(whole || '0') * 1000000000n + BigInt((fraction + '000000000').slice(0, 9) || '0');
   if (nano <= 0n) throw new Error('TON amount must be positive');
   return nano;
 }
 
 function assertTransactionHash(txHash) {
-  if (typeof txHash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(txHash.trim())) {
-    throw new Error('TON transaction hash must be a 64-character hexadecimal hash');
-  }
+  if (typeof txHash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(txHash.trim())) throw new Error('TON transaction hash must be a 64-character hexadecimal hash');
   return txHash.trim().toLowerCase();
 }
 
@@ -84,94 +77,49 @@ function findTransaction(payload, txHash) {
 function findTraceTransaction(trace, txHash) {
   const transactions = trace?.transactions;
   if (!transactions || typeof transactions !== 'object') return null;
-  return Object.values(transactions)
-    .find(tx => hashesEqual(tx?.hash, txHash) || hashesEqual(tx?.hash_norm, txHash)) || null;
+  return Object.values(transactions).find(tx => hashesEqual(tx?.hash, txHash) || hashesEqual(tx?.hash_norm, txHash)) || null;
 }
 
-function isFinalized(trace, transaction) {
-  if (!trace || trace.is_incomplete !== false) return false;
-  return Number(trace.mc_seqno_end) > 0;
+function isFinalized(trace) {
+  return Boolean(trace && trace.is_incomplete === false && Number(trace.mc_seqno_end) > 0);
 }
 
 function assertIncomingTransfer(transaction, expectedDestination, expectedNano) {
   if (!transaction?.in_msg) throw new Error('TON transaction has no inbound message');
   if (transaction.description?.aborted) throw new Error('TON transaction was aborted');
   if (transaction.in_msg.bounced) throw new Error('TON inbound message was bounced');
-
   const destination = canonicalAddress(transaction.in_msg.destination);
   const account = canonicalAddress(transaction.account);
   const expected = canonicalAddress(expectedDestination);
-  if (destination !== expected || account !== expected) {
-    throw new Error('TON transaction destination mismatch');
-  }
-
+  if (destination !== expected || account !== expected) throw new Error('TON transaction destination mismatch');
   const actualNano = BigInt(String(transaction.in_msg.value || '0'));
   if (actualNano !== expectedNano) throw new Error('TON transaction amount mismatch');
 }
 
-async function verifyTonDeposit({
-  network,
-  txHash,
-  expectedAmountTon,
-  expectedDestination,
-  apiKey = '',
-  fetchImpl,
-  baseUrl,
-}) {
+async function verifyTonDeposit({ network, txHash, expectedAmountTon, expectedDestination, apiKey = '', fetchImpl, baseUrl }) {
   assertNetwork(network);
   const hash = assertTransactionHash(txHash);
   const expectedNano = tonToNano(expectedAmountTon);
   const destination = canonicalAddress(expectedDestination);
   const root = (baseUrl || NETWORK_BASE_URLS[network]).replace(/\/$/, '');
-
   let transactionPayload;
   let tracePayload;
   try {
-    transactionPayload = await fetchJson(
-      `${root}/transactions?hash=${encodeURIComponent(hash)}&limit=10`,
-      apiKey,
-      fetchImpl
-    );
-    tracePayload = await fetchJson(
-      `${root}/traces?tx_hash=${encodeURIComponent(hash)}&limit=1`,
-      apiKey,
-      fetchImpl
-    );
+    transactionPayload = await fetchJson(`${root}/transactions?hash=${encodeURIComponent(hash)}&limit=10`, apiKey, fetchImpl);
+    tracePayload = await fetchJson(`${root}/traces?tx_hash=${encodeURIComponent(hash)}&limit=1`, apiKey, fetchImpl);
   } catch (error) {
     return { status: 'HOLD', reason: 'PROVIDER_FAILURE', providerError: error.message };
   }
-
-  const transaction = findTransaction(transactionPayload, hash)
-    || findTraceTransaction(tracePayload?.traces?.[0], hash);
+  const transaction = findTransaction(transactionPayload, hash) || findTraceTransaction(tracePayload?.traces?.[0], hash);
   if (!transaction) return { status: 'HOLD', reason: 'TRANSACTION_NOT_FOUND' };
-
   const trace = tracePayload?.traces?.[0] || null;
-  if (!isFinalized(trace, transaction)) {
-    return { status: 'HOLD', reason: 'NOT_FINALIZED', transaction };
-  }
-
+  if (!isFinalized(trace)) return { status: 'HOLD', reason: 'NOT_FINALIZED', transaction };
   try {
     assertIncomingTransfer(transaction, destination, expectedNano);
   } catch (error) {
     return { status: 'REJECT', reason: error.message, transaction };
   }
-
-  return {
-    status: 'VERIFIED',
-    network,
-    transactionHash: hash,
-    destination,
-    amountNano: expectedNano.toString(),
-    finality: 'FINALIZED',
-    masterchainSeqno: Number(trace.mc_seqno_end),
-    transaction,
-  };
+  return { status: 'VERIFIED', network, transactionHash: hash, destination, amountNano: expectedNano.toString(), finality: 'FINALIZED', masterchainSeqno: Number(trace.mc_seqno_end), transaction };
 }
 
-module.exports = {
-  NETWORK_BASE_URLS,
-  canonicalAddress,
-  tonToNano,
-  assertTransactionHash,
-  verifyTonDeposit,
-};
+module.exports = { NETWORK_BASE_URLS, canonicalAddress, tonToNano, assertTransactionHash, verifyTonDeposit };
