@@ -20,3 +20,7 @@ This document records the single approved contract for Social Creator Tasks.
 - Additional Target minimum is 1, maximum unlimited, step 1.
 - Add Target charges only the newly added target quantity using the campaign's existing CPM.
 - The additional amount is deducted immediately through the existing Economy/Ledger.
+
+## Single source of truth
+- `config.target` is the canonical Telegram target for Social Creator Tasks.
+- Provider requirements may be derived from the canonical target for runtime compatibility, but they must not define a different target.
