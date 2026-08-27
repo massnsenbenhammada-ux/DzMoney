@@ -81,23 +81,12 @@ async function run() {
   assert.strictEqual(socialContract.body.campaignPricing.cpmDZX, 9000);
 
   const create = await request('POST', '/api/creator/tasks', {
-    taskType: 'social',
-    title: 'Telegram test campaign',
-    target: 1000,
-    rewardCoin: 999999,
-    rewardDzx: 999,
-    rewardDzp: 999,
-    verificationAdSeconds: 10,
+    taskType: 'social', title: 'Telegram test campaign', target: 1000,
+    rewardCoin: 999999, rewardDzx: 999, rewardDzp: 999, verificationAdSeconds: 10,
     idempotencyKey: 'creator-task-1',
     config: {
       completion: { mode: 'server_verified', url: 'https://example.test/campaign' },
-      verification: {
-        mode: 'automatic',
-        provider: 'telegram_channel',
-        method: 'telegram_bot_api',
-        event: 'channel_membership',
-        requirements: { channel: '@creator_channel' }
-      }
+      verification: { mode: 'automatic', provider: 'telegram_channel', method: 'telegram_bot_api', event: 'channel_membership', requirements: { channel: '@creator_channel' } }
     }
   }, auth);
   assert.strictEqual(create.status, 201);
@@ -141,7 +130,7 @@ async function run() {
   assert.strictEqual(submit.status, 200);
   assert.strictEqual(submit.body.task.status, 'pending_review');
   assert.strictEqual(calls[2].submit.creatorId, 42);
-  assert.strictEqual(calls[2].submit.taskId, '7');
+  assert.strictEqual(calls[2].submit.taskId, 7);
 
   const invalidType = await request('GET', '/api/creator/tasks/contracts/daily', null, auth);
   assert.strictEqual(invalidType.status, 400);

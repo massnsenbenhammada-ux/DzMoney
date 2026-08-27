@@ -3,6 +3,8 @@ const { query } = require('../db/pool');
 const { ONCLICKA_PROVIDER_ID } = require('../services/onclicka-adapter');
 const { verifyDailyCheckinAd, finalizeDailyCheckin } = require('../services/daily-checkin-service');
 const { verifyTaskAdvertisement, finalizeTaskVerification } = require('../services/task-verification-service');
+const { assertProviderSecret } = require('./provider-auth');
+const { createRateLimit } = require('./rate-limit');
 
 const CONTEXTS = new Set(['daily_checkin', 'verification']);
 
@@ -10,14 +12,15 @@ function createOnclickaPostbackRouter({ providerRegistry, secret }) {
   if (!providerRegistry) throw new Error('Advertisement provider registry is required');
   if (!secret) throw new Error('OnClickA confirmation secret is required');
   const router = express.Router();
+  router.use(createRateLimit({ windowMs: 60_000, max: 60, key: req => `provider:${req.ip || 'unknown'}` }));
 
   router.get('/:context', async (req, res, next) => {
     const context = req.params.context;
     const userId = String(req.query.USERID || '');
     try {
       if (!CONTEXTS.has(context)) return res.status(404).json({ ok: false, error: 'Unsupported advertisement context' });
-      if (req.query.token !== secret) return res.status(401).json({ ok: false, error: 'Unauthorized' });
-      if (!userId) return res.status(400).json({ ok: false, error: 'USERID is required' });
+      assertProviderSecret(req, secret);
+      if (!userId || !/^\d{1,20}$/.test(userId)) return res.status(400).json({ ok: false, error: 'USERID is invalid' });
 
       const eventResult = await query(
         `SELECT a.id,a.user_id,a.context,a.verified,a.metadata,d.claim_idempotency_key,g.attempt_id,u.telegram_user_id

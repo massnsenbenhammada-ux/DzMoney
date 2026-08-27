@@ -57,16 +57,16 @@ async function run() {
     req.end();
   });
 
-  assert.strictEqual((await request('POST', '/api/tasks/click', { attemptId: 'attempt-1' })).status, 401);
+  assert.strictEqual((await request('POST', '/api/tasks/click', { attemptId: 1 })).status, 401);
 
   const auth = buildInitData(123);
-  const click = await request('POST', '/api/tasks/click', { attemptId: 'attempt-1' }, auth);
+  const click = await request('POST', '/api/tasks/click', { attemptId: 1 }, auth);
   assert.strictEqual(click.status, 200);
   assert.deepStrictEqual(click.body, { ok: true, clicked: true, duplicate: false, status: 'verified', rewarded: true, reason: null });
   assert.strictEqual(calls.length, 2);
-  assert.strictEqual(calls[0].attemptId, 'attempt-1');
+  assert.strictEqual(calls[0].attemptId, 1);
   assert.strictEqual(calls[0].userId, 42);
-  assert.deepStrictEqual(calls[1], { finalize: { attemptId: 'attempt-1', idempotencyKey: 'task:attempt-1' } });
+  assert.deepStrictEqual(calls[1], { finalize: { attemptId: 1, idempotencyKey: 'task:1' } });
 
   const missingAttempt = await request('POST', '/api/tasks/click', {}, auth);
   assert.strictEqual(missingAttempt.status, 400);

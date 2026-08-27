@@ -9,6 +9,7 @@ const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-rou
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
+const { createRateLimit } = require('./src/http/rate-limit');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
 const app = express();
@@ -35,6 +36,13 @@ function monetagScriptsForClient() {
 }
 
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 app.use(express.json({ limit: '64kb' }));
 app.use(express.static(publicDir, {
   index: false,
@@ -63,22 +71,18 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
+const publicApiRateLimit = createRateLimit({ windowMs: 60_000, max: 300, key: req => `ip:${req.ip || 'unknown'}` });
+app.use('/api', publicApiRateLimit);
 app.use('/api/me', meRoutes);
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
 app.use('/api/creator/tasks', createCreatorTaskRouter());
 app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
 if (monetagPostbackSecret) {
-  app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({
-    providerRegistry,
-    secret: monetagPostbackSecret
-  }));
+  app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry, secret: monetagPostbackSecret }));
 }
 if (onclickaConfirmationSecret) {
-  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({
-    providerRegistry,
-    secret: onclickaConfirmationSecret
-  }));
+  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry, secret: onclickaConfirmationSecret }));
 }
 
 app.get('/', (_req, res) => {
@@ -94,7 +98,8 @@ app.use((error, _req, res, _next) => {
   console.error('Unhandled request error:', error);
   const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
   const payload = { ok: false, error: status === 500 ? 'Internal server error' : error.message };
-  if (status === 429 && error.nextEligibleAt) payload.nextEligibleAt = error.nextEligibleAt;
+  if (error.nextEligibleAt) payload.nextEligibleAt = error.nextEligibleAt;
+  if (status === 429 && error.retryAfterSeconds) payload.retryAfterSeconds = error.retryAfterSeconds;
   res.status(status).json(payload);
 });
 

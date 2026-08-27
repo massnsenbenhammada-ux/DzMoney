@@ -30,7 +30,7 @@ async function main() {
   const app = express();
   app.use(express.json());
   const tasks = {
-    startTaskAdvertisement: async input => { calls.push(['start', input]); return { adEvent: { id: 'ad-1', context: 'task', verified: false }, providerId: 'test-task-ad', duplicate: false }; },
+    startTaskAdvertisement: async input => { calls.push(['start', input]); return { adEvent: { id: 1, context: 'task', verified: false }, providerId: 'test-task-ad', duplicate: false }; },
     finalizeTaskAdvertisement: async input => { calls.push(['finalize', input]); return { rewarded: true, duplicate: false }; }
   };
   const auth = (req, _res, next) => { req.telegramUser = { id: 12345, username: 'test-user' }; next(); };
@@ -40,19 +40,19 @@ async function main() {
   const start = await request(app, 'POST', '/api/tasks/advertisement/start', { taskId: 42, idempotencyKey: 'task-ad-http-1' });
   assert.strictEqual(start.status, 200);
   assert.strictEqual(start.body.ok, true);
-  assert.strictEqual(start.body.adEventId, 'ad-1');
+  assert.strictEqual(start.body.adEventId, 1);
   assert.strictEqual(start.body.providerId, 'test-task-ad');
 
-  const clientVerify = await request(app, 'POST', '/api/tasks/advertisement/verify', { adEventId: 'ad-1', providerPayload: { providerReference: 'untrusted-client-input' } });
+  const clientVerify = await request(app, 'POST', '/api/tasks/advertisement/verify', { adEventId: 1, providerPayload: { providerReference: 'untrusted-client-input' } });
   assert.strictEqual(clientVerify.status, 404);
 
-  const finalize = await request(app, 'POST', '/api/tasks/advertisement/finalize', { adEventId: 'ad-1' });
+  const finalize = await request(app, 'POST', '/api/tasks/advertisement/finalize', { adEventId: 1 });
   assert.strictEqual(finalize.status, 200);
   assert.strictEqual(finalize.body.rewarded, true);
 
   assert.deepStrictEqual(calls.map(call => call[0]), ['start', 'finalize']);
   assert.strictEqual(calls[0][1].userId, 77);
-  assert.strictEqual(calls[2 - 1][1].userId, 77);
+  assert.strictEqual(calls[1][1].userId, 77);
 
   console.log('Task advertisement HTTP boundary invariants: PASS');
 }

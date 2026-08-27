@@ -5,7 +5,7 @@ const sslEnabled = process.env.DATABASE_SSL === 'true' || (hasDatabaseUrl && pro
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: sslEnabled ? { rejectUnauthorized: false } : undefined,
+  ssl: sslEnabled ? { rejectUnauthorized: true } : undefined,
 });
 
 async function query(text, params) {

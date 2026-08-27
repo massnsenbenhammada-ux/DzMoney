@@ -6,10 +6,13 @@ const { finalizeTaskVerification, verifyTaskAdvertisement } = require('../servic
 const { verifyWithProvider } = require('../services/ad-provider-service');
 const { MONETAG_PROVIDER_ID } = require('../services/monetag-adapter');
 const { validateMonetagPostback } = require('../services/monetag-postback-service');
+const { assertProviderSecret } = require('./provider-auth');
+const { createRateLimit } = require('./rate-limit');
 
 function createMonetagPostbackRouter({ providerRegistry, secret }) {
   const router = express.Router();
   if (!secret) throw new Error('Monetag postback secret is required');
+  router.use(createRateLimit({ windowMs: 60_000, max: 60, key: req => `provider:${req.ip || 'unknown'}` }));
 
   router.get('/', async (req, res, next) => {
     const payload = req.query;
@@ -24,7 +27,7 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
     });
 
     try {
-      if (req.query.token !== secret) return res.status(401).json({ ok: false, error: 'Unauthorized' });
+      assertProviderSecret(req, secret);
       const eventResult = await query(
         `SELECT a.id,a.user_id,a.context,a.external_ad_id,a.verified,u.telegram_user_id,d.claim_idempotency_key,g.attempt_id
          FROM activity_ad_events a

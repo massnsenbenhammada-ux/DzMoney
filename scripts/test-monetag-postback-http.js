@@ -38,6 +38,10 @@ async function run() {
   const { createMonetagPostbackRouter } = require('../src/http/monetag-postback-routes');
   const app = express();
   app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry: {}, secret: 'secret' }));
+  app.use((error, _req, res, _next) => {
+    const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
+    res.status(status).json({ ok: false, error: status === 500 ? 'Internal server error' : error.message });
+  });
   const server = http.createServer(app);
   await new Promise(resolve => server.listen(0, resolve));
   const port = server.address().port;
@@ -48,10 +52,10 @@ async function run() {
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
         try {
-          const body = JSON.parse(data);
+          const body = data ? JSON.parse(data) : null;
           resolve({ status: res.statusCode, body });
-        } catch (error) {
-          reject(new Error(`Expected JSON response, received HTTP ${res.statusCode}: ${data.slice(0, 500)}`));
+        } catch (_error) {
+          resolve({ status: res.statusCode, body: null });
         }
       });
     }).on('error', reject);
