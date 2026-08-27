@@ -31,6 +31,7 @@ async function main() {
        WHERE lt.idempotency_key = $1 AND le.currency = 'COIN'`,
       [`${marker}:decimal-modifier`, '0.11']
     );
+    assert.equal(reward.rows.length, 1);
     assert.equal(reward.rows[0].amount_matches, true);
 
     console.log('Monetary precision invariants: PASS');
