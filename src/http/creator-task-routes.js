@@ -9,8 +9,8 @@ const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
 const CREATOR_MIN_TARGET = 1000;
 const CREATOR_TARGET_STEP = 1;
 const CONTRACT_DESCRIPTIONS = Object.freeze({
-  open_link: 'Use this when opening the configured link is itself the outcome you want to reward. It does not prove a deeper external action.',
-  server_verified: 'Use this when the requested external outcome must be confirmed by trusted server-verifiable evidence.'
+  open_link: 'Open the configured Telegram target link. DzMoney proves the click only; it does not prove subscription.',
+  server_verified: 'Telegram Bot API verifies the requested Telegram membership server-side.'
 });
 
 const isNonEmptyString = value => typeof value === 'string' && value.trim().length > 0;
@@ -20,7 +20,10 @@ const isOptionalNonNegativeInteger = value => value === undefined || value === n
 const isCreatorConfig = value => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const completion = value.completion;
-  return Boolean(completion && typeof completion === 'object' && !Array.isArray(completion) && isNonEmptyString(completion.url));
+  if (!completion || typeof completion !== 'object' || Array.isArray(completion)) return false;
+  if (completion.mode === 'open_link') return isNonEmptyString(completion.url);
+  if (completion.mode === 'server_verified') return true;
+  return isNonEmptyString(completion.url);
 };
 
 const validateCreatorTaskBody = createStrictObjectValidator({
@@ -58,17 +61,24 @@ async function contractFor(tasks, taskType) {
   requireTaskType(taskType);
   const contract = await tasks.getCreatorCampaignContract(taskType);
   const availableCompletionModes = contract.availableCompletionModes || [];
+  const campaignPricing = {
+    minTarget: CREATOR_MIN_TARGET,
+    targetStep: CREATOR_TARGET_STEP,
+    maxTarget: null,
+    priceDZXPerExecution: contract.priceDZX,
+    cpmDZX: contract.priceDZX * 1000
+  };
+  if (taskType === 'social') {
+    campaignPricing.completionModes = {
+      open_link: { proof: 'click', cpmDZX: 5000 },
+      server_verified: { proof: 'server_verification', provider: 'telegram_bot_api', cpmDZX: 9000 }
+    };
+  }
   return {
     ...contract,
     completionServices: availableCompletionModes.map(mode => ({ mode, description: CONTRACT_DESCRIPTIONS[mode] })),
     providerContracts: getCreatorProviderContracts(taskType),
-    campaignPricing: {
-      minTarget: CREATOR_MIN_TARGET,
-      targetStep: CREATOR_TARGET_STEP,
-      maxTarget: null,
-      priceDZXPerExecution: contract.priceDZX,
-      cpmDZX: contract.priceDZX * 1000
-    }
+    campaignPricing
   };
 }
 
