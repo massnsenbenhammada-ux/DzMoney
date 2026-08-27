@@ -112,7 +112,6 @@ function validateCreatorProviderConfiguration(taskType, config = {}) {
   return true;
 }
 
-/** Validate task verification configuration without accessing external providers. */
 function validateVerificationConfig(config = {}, taskType = null) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('verification config must be an object');
   if (taskType !== null && !TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
@@ -130,7 +129,6 @@ function validateVerificationConfig(config = {}, taskType = null) {
   return true;
 }
 
-/** Resolve safe verification defaults and task-specific overrides. */
 function resolveVerificationConfig({ taskType, config = {} }) {
   const source = config && typeof config === 'object' ? config : {};
   validateVerificationConfig(source, taskType);
