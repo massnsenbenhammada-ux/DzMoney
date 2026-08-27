@@ -7,6 +7,25 @@ const TON_COIN = 10000000;
 const DZX_COIN = 1000;
 const DZP_COIN = 10000;
 const DZP_DZX = 10;
+const NUMERIC_PATTERN = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
+const NUMERIC_SCALE = 9;
+
+function numericInput(value, name, { allowZero = true } = {}) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) {
+      throw new Error(`${name} must be a finite safe numeric value`);
+    }
+  }
+  const text = String(value).trim();
+  if (!NUMERIC_PATTERN.test(text)) throw new Error(`${name} must be a valid decimal number`);
+  const [integerPart, fractionPart = ''] = text.replace('-', '').split('.');
+  if (integerPart.replace(/^0+/, '').length > 21 || fractionPart.length > NUMERIC_SCALE) {
+    throw new Error(`${name} exceeds NUMERIC(30,9) precision`);
+  }
+  const isZero = /^0+(?:\.0*)?$/.test(text);
+  if (!allowZero && isZero) throw new Error(`${name} must be non-zero`);
+  return text;
+}
 
 function positiveNumber(value, name) {
   const n = Number(value);
@@ -36,19 +55,29 @@ async function walletForUpdate(client, userId, currency) {
 
 async function applyMovement(client, { userId, currency, amount, source, dzpBucket = null }) {
   const wallet = await walletForUpdate(client, userId, currency);
-  const before = Number(wallet.balance);
-  const delta = Number(amount);
-  const after = before + delta;
-  if (after < -1e-9) throw new Error(`Insufficient ${currency} balance`);
-  const updates = ['balance = $1', 'updated_at = NOW()'];
-  const params = [after, wallet.id];
-  if (currency === 'DZP' && delta > 0 && dzpBucket) {
+  const delta = numericInput(amount, 'amount', { allowZero: false });
+  const updates = ['balance = balance + $1::numeric', 'updated_at = NOW()'];
+  const params = [delta, wallet.id];
+  if (currency === 'DZP' && !delta.startsWith('-') && !/^0+(?:\.0*)?$/.test(delta) && dzpBucket) {
     if (!['earned_dzp', 'converted_dzp', 'purchased_dzp'].includes(dzpBucket)) throw new Error('Invalid DZP source bucket');
-    updates.push(`${dzpBucket} = ${dzpBucket} + $3`);
-    params.push(delta);
+    updates.push(`${dzpBucket} = ${dzpBucket} + $1::numeric`);
   }
-  await client.query(`UPDATE wallet_accounts SET ${updates.join(', ')} WHERE id = $2`, params);
-  return { walletId: wallet.id, currency, amount: delta, before, after, source };
+  const updated = await client.query(
+    `UPDATE wallet_accounts
+     SET ${updates.join(', ')}
+     WHERE id = $2 AND balance + $1::numeric >= 0
+     RETURNING balance`,
+    params
+  );
+  if (!updated.rowCount) throw new Error(`Insufficient ${currency} balance`);
+  return {
+    walletId: wallet.id,
+    currency,
+    amount: delta,
+    before: wallet.balance,
+    after: updated.rows[0].balance,
+    source,
+  };
 }
 
 async function createTransaction(client, { idempotencyKey, userId, type, metadata }) {
@@ -72,7 +101,7 @@ async function postEconomyTransactionOnClient(client, { idempotencyKey, userId, 
   const entries = [];
   for (const movement of movements) {
     if (!INTERNAL_CURRENCIES.includes(movement.currency)) throw new Error('Unsupported internal currency');
-    if (!Number.isFinite(Number(movement.amount)) || Number(movement.amount) === 0) throw new Error('Invalid economy movement amount');
+    numericInput(movement.amount, 'movement amount', { allowZero: false });
     const entry = await applyMovement(client, { userId, ...movement });
     const row = await client.query(`INSERT INTO ledger_entries (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`, [created.transaction.id, entry.walletId, entry.amount, entry.before, entry.after, entry.source || null, entry.currency]);
     entries.push(row.rows[0]);
