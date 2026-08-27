@@ -25,7 +25,7 @@ const isCreatorConfig = value => {
   if (!target || typeof target !== 'object' || Array.isArray(target)) return false;
   if (target.type !== 'telegram_channel' || !isNonEmptyString(target.value)) return false;
   if (!completion || typeof completion !== 'object' || Array.isArray(completion)) return false;
-  if (completion.mode === 'open_link') return isNonEmptyString(completion.url);
+  if (completion.mode === 'open_link') return true;
   if (completion.mode === 'server_verified') return true;
   return isNonEmptyString(completion.url);
 };
