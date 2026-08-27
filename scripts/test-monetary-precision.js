@@ -73,7 +73,7 @@ async function main() {
     const pendingDeposit = await processDeposit({
       idempotencyKey: `${marker}:ton-precision`,
       userId: user.id,
-      txHash: `${marker}-ton-precision-tx-1234567890`,
+      txHash: '0000000000000000000000000000000000000000000000000000000000000001',
       tonAmount: exactTonAmount,
       confirmationCount: 0,
     });
