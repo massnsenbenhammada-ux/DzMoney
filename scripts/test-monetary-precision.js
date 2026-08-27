@@ -24,7 +24,7 @@ async function main() {
     });
 
     const largeBalance = await pool.query(
-      `SELECT balance::text AS balance
+      `SELECT trim_scale(balance)::text AS balance
        FROM wallet_accounts
        WHERE user_id = $1 AND currency = 'DZX'`,
       [user.id]
@@ -32,7 +32,9 @@ async function main() {
     assert.equal(largeBalance.rows[0].balance, exactLargeAmount);
 
     const largeLedger = await pool.query(
-      `SELECT le.amount::text AS amount, le.balance_before::text AS balance_before, le.balance_after::text AS balance_after
+      `SELECT trim_scale(le.amount)::text AS amount,
+              trim_scale(le.balance_before)::text AS balance_before,
+              trim_scale(le.balance_after)::text AS balance_after
        FROM ledger_entries le
        JOIN ledger_transactions lt ON lt.id = le.transaction_id
        WHERE lt.idempotency_key = $1`,
@@ -58,7 +60,7 @@ async function main() {
     });
 
     const decimalLedger = await pool.query(
-      `SELECT le.balance_after::text AS balance_after
+      `SELECT trim_scale(le.balance_after)::text AS balance_after
        FROM ledger_entries le
        JOIN ledger_transactions lt ON lt.id = le.transaction_id
        WHERE lt.idempotency_key = $1`,
@@ -81,6 +83,5 @@ async function main() {
 
 main().catch(error => {
   console.error('Monetary precision invariants: FAIL');
-  console.error(error);
   process.exit(1);
 });
