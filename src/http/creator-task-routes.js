@@ -3,6 +3,7 @@ const walletService = require('../services/wallet-service');
 const taskService = require('../services/task-service');
 const { telegramAuth } = require('./telegram-auth');
 const { createStrictObjectValidator, createValidationMiddleware } = require('./input-validation');
+const { createRateLimit } = require('./rate-limit');
 const { getCreatorProviderContracts, validateCreatorProviderConfiguration } = require('../services/task-verification-config');
 
 const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
@@ -76,12 +77,13 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
   const router = express.Router();
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
   router.use(auth);
+  router.use(createRateLimit({ windowMs: 60_000, max: 60 }));
 
   router.get('/contracts/:taskType', asyncRoute(async (req, res) => {
     res.json(await contractFor(tasks, req.params.taskType));
   }));
 
-  router.post('/', createValidationMiddleware(validateCreatorTaskBody), asyncRoute(async (req, res) => {
+  router.post('/', createRateLimit({ windowMs: 60_000, max: 10 }), createValidationMiddleware(validateCreatorTaskBody), asyncRoute(async (req, res) => {
     const { taskType, title, description, target, config, idempotencyKey } = req.body;
     requireTaskType(taskType);
     validateCreatorProvider(taskType, config);
@@ -119,14 +121,16 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
     });
   }));
 
-  router.post('/:taskId/submit', asyncRoute(async (req, res) => {
+  router.post('/:taskId/submit', createRateLimit({ windowMs: 60_000, max: 10 }), asyncRoute(async (req, res) => {
+    const taskId = Number(req.params.taskId);
+    if (!Number.isInteger(taskId) || taskId <= 0) return res.status(400).json({ ok: false, error: 'taskId must be a positive integer' });
     const user = await wallet.createUser({
       telegramUserId: String(req.telegramUser.id),
       username: req.telegramUser.username || null,
       firstName: req.telegramUser.first_name || null,
       photoUrl: req.telegramUser.photo_url || null
     });
-    const task = await tasks.submitCreatorCampaignForReview(req.params.taskId, user.id);
+    const task = await tasks.submitCreatorCampaignForReview(taskId, user.id);
     res.json({ ok: true, task });
   }));
 
