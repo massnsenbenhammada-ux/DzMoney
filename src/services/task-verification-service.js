@@ -79,34 +79,43 @@ async function verifyTaskAdvertisement({ adEventId, providerRegistry, providerId
   return marked;
 }
 
+async function loadTaskVerificationAttempt(attemptId, lock = false, client = null) {
+  const runner = client || { query };
+  const suffix = lock ? ' FOR UPDATE' : '';
+  const result = await runner.query(`SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1${suffix}`, [attemptId]);
+  if (!result.rowCount) throw new Error('Task attempt not found');
+  return result.rows[0];
+}
+
+function validateTaskVerificationState(row) {
+  if (row.status === 'verified') return { duplicate: true, status: 'verified' };
+  if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
+  if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
+  return null;
+}
+
 async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskCompletion }) {
   requiredId(attemptId, 'attemptId');
   requiredId(idempotencyKey, 'idempotencyKey');
+  const initialRow = await loadTaskVerificationAttempt(attemptId);
+  const initialState = validateTaskVerificationState(initialRow);
+  if (initialState) return initialState;
+  const resolvedConfig = resolveVerificationConfig({ taskType: initialRow.task_type, config: initialRow.config });
+  let verifiedByTaskRule = true;
+  if (resolvedConfig.completion.mode === 'open_link') {
+    if (initialRow.metadata?.link_clicked !== true) return { duplicate: false, status: 'verification_pending', rewarded: false, reason: 'link_click_required' };
+  } else {
+    const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id });
+    verifiedByTaskRule = await verifier({ attemptId });
+    if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
+  }
   return withTransaction(async client => {
-    const result = await client.query(`SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 FOR UPDATE`, [attemptId]);
-    if (!result.rowCount) throw new Error('Task attempt not found');
-    const row = result.rows[0];
-    if (row.status === 'verified') return { duplicate: true, status: 'verified' };
-    if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
-    if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
-
-    const resolvedConfig = resolveVerificationConfig({ taskType: row.task_type, config: row.config });
-    const completion = resolvedConfig.completion;
-    let verifiedByTaskRule;
-    if (completion.mode === 'open_link') {
-      if (row.metadata?.link_clicked !== true) {
-        return { duplicate: false, status: 'verification_pending', rewarded: false, reason: 'link_click_required' };
-      }
-      verifiedByTaskRule = true;
-    } else {
-      const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({
-        config: resolvedConfig,
-        telegramUserId: row.telegram_user_id
-      });
-      verifiedByTaskRule = await verifier({ attemptId });
-      if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
+    const row = await loadTaskVerificationAttempt(attemptId, true, client);
+    const state = validateTaskVerificationState(row);
+    if (state) return state;
+    if (resolvedConfig.completion.mode === 'open_link' && row.metadata?.link_clicked !== true) {
+      return { duplicate: false, status: 'verification_pending', rewarded: false, reason: 'link_click_required' };
     }
-
     if (verifiedByTaskRule !== true) {
       await client.query(`UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`, [attemptId]);
       await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
