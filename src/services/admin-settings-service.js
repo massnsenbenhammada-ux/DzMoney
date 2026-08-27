@@ -5,13 +5,43 @@ const TON_ADDRESS_KEYS = new Set([
   'deposit.ton.mainnet_address',
 ]);
 
-function normalizeTonAddress(value) {
+const TON_TAGS = {
+  mainnet: new Set([0x11, 0x51]),
+  testnet: new Set([0x91, 0xd1]),
+};
+
+function crc16Ccitt(data) {
+  let crc = 0;
+  for (const byte of data) {
+    crc ^= byte << 8;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+    }
+  }
+  return crc;
+}
+
+function decodeTonAddress(value) {
   if (typeof value !== 'string') throw new Error('TON address must be a string');
   const address = value.trim();
-  if (!/^(?:EQ|UQ|kQ|0Q)[A-Za-z0-9_-]{46}$/.test(address)) {
+  if (!/^[A-Za-z0-9_-]{48}$/.test(address)) {
     throw new Error('Invalid TON user-friendly address');
   }
-  return address;
+  let bytes;
+  try {
+    bytes = Buffer.from(address.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  } catch {
+    throw new Error('Invalid TON user-friendly address');
+  }
+  if (bytes.length !== 36) throw new Error('Invalid TON user-friendly address');
+  const expected = crc16Ccitt(bytes.subarray(0, 34));
+  const actual = bytes.readUInt16BE(34);
+  if (expected !== actual) throw new Error('Invalid TON address checksum');
+  return { address, tag: bytes[0], workchain: bytes.readInt8(1) };
+}
+
+function normalizeTonAddress(value) {
+  return decodeTonAddress(value).address;
 }
 
 function assertNetworkKey(key) {
@@ -20,9 +50,8 @@ function assertNetworkKey(key) {
 }
 
 function assertAddressNetwork(address, network) {
-  const mainnet = address.startsWith('EQ') || address.startsWith('UQ');
-  const testnet = address.startsWith('kQ') || address.startsWith('0Q');
-  if ((network === 'mainnet' && !mainnet) || (network === 'testnet' && !testnet)) {
+  const decoded = decodeTonAddress(address);
+  if (!TON_TAGS[network]?.has(decoded.tag)) {
     throw new Error(`TON address does not match ${network} network`);
   }
 }
@@ -60,4 +89,10 @@ async function setTonDepositAddress({ key, address, actorTelegramUserId, reason 
   });
 }
 
-module.exports = { getTonDepositAddresses, setTonDepositAddress, normalizeTonAddress, assertAddressNetwork };
+module.exports = {
+  getTonDepositAddresses,
+  setTonDepositAddress,
+  normalizeTonAddress,
+  assertAddressNetwork,
+  decodeTonAddress,
+};
