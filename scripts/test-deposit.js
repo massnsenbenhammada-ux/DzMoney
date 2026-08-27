@@ -104,7 +104,16 @@ async function main() {
     assert.equal(rollbackDeposit.rows[0].status, 'PENDING');
     await withTransaction(client => ensureWallets(client, rollbackUser.id));
 
-    const ledger = await query(`SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id=le.transaction_id JOIN deposits d ON d.id=(lt.metadata->>'deposit_id')::bigint WHERE d.user_id=$1 AND d.status='CONFIRMED' AND lt.transaction_type='DEPOSIT'`, [user.id]);
+    const ledger = await query(`SELECT COUNT(*)::int AS count
+      FROM ledger_entries le
+      JOIN ledger_transactions lt ON lt.id=le.transaction_id
+      WHERE lt.user_id=$1
+        AND lt.transaction_type='DEPOSIT'
+        AND lt.idempotency_key IN (
+          SELECT 'deposit:' || d.id::text
+          FROM deposits d
+          WHERE d.user_id=$1 AND d.status='CONFIRMED'
+        )`, [user.id]);
     const confirmedDeposits = await query(`SELECT COUNT(*)::int AS count FROM deposits WHERE user_id=$1 AND status='CONFIRMED'`, [user.id]);
     assert.equal(Number(ledger.rows[0].count), Number(confirmedDeposits.rows[0].count));
     assert.equal((await getDepositByTxHash(validHash)).status, 'CONFIRMED');
