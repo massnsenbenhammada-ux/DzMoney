@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { pool, withTransaction } = require('../src/db/pool');
-const { createTask, transitionTaskStatus, activateTask, executeTask, recordTaskClick } = require('../src/services/task-service');
+const { createTask, transitionTaskStatus, activateTask, executeTask } = require('../src/services/task-service');
 const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const { startTaskVerificationAd, verifyTaskAdvertisement, finalizeTaskVerification } = require('../src/services/task-verification-service');
 
@@ -117,7 +117,7 @@ async function main() {
 
     const openLinkTask = await createTask({
       taskType: 'web',
-      title: 'Phase 2 open link test',
+      title: 'Phase 2 open link security test',
       creatorId: userId,
       target: 1000,
       rewardCoin: 500,
@@ -132,20 +132,15 @@ async function main() {
     const openExecution = await executeTask({ taskId: openLinkTask.id, userId, idempotencyKey: `phase2-open-exec-${Date.now()}` });
     const openAd = await startVerificationAd(openExecution.attempt.id, `phase2-open-ad-${Date.now()}`, 'phase2-open-test-ad');
     await verifyAd(openAd.adEvent.id, { accepted: true, reference: 'test-open-provider-ref' });
-    const openWithoutClick = await finalizeTaskVerification({ attemptId: openExecution.attempt.id, idempotencyKey: `phase2-open-no-click-${Date.now()}` });
-    assert.strictEqual(openWithoutClick.rewarded, false, 'open_link must not reward before link click');
-    assert.strictEqual(openWithoutClick.status, 'verification_pending', 'missing click must not permanently reject the attempt');
+
+    await assert.rejects(
+      () => finalizeTaskVerification({ attemptId: openExecution.attempt.id, idempotencyKey: `phase2-open-no-trusted-evidence-${Date.now()}` }),
+      /open_link completion is not a trusted verification method/
+    );
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
-
-    const click = await recordTaskClick({ attemptId: openExecution.attempt.id, userId });
-    assert.strictEqual(click.clicked, true);
-    const duplicateClick = await recordTaskClick({ attemptId: openExecution.attempt.id, userId });
-    assert.strictEqual(duplicateClick.duplicate, true);
-
-    const openVerified = await finalizeTaskVerification({ attemptId: openExecution.attempt.id, idempotencyKey: `phase2-open-reward-${Date.now()}` });
-    assert.strictEqual(openVerified.rewarded, true);
-    assert.strictEqual(await balance(userId, 'COIN'), 1500);
-    assert.strictEqual(await balance(userId, 'DZX'), 2);
+    assert.strictEqual(await balance(userId, 'DZX'), 1);
+    const openState = await pool.query('SELECT status FROM task_attempts WHERE id=$1', [openExecution.attempt.id]);
+    assert.strictEqual(openState.rows[0].status, 'verification_pending');
 
     const ads = await pool.query(`SELECT context, verified, metadata->>'provider_id' AS provider_id FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
     assert.strictEqual(ads.rows.length, 4);
@@ -154,7 +149,7 @@ async function main() {
     assert.strictEqual(ads.rows.filter(row => !row.verified).length, 0);
 
     const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`, [userId]);
-    assert.strictEqual(ledger.rows[0].count, 5);
+    assert.strictEqual(ledger.rows[0].count, 3);
 
     console.log('Phase 2 task verification invariants: PASS');
   } catch (error) {
