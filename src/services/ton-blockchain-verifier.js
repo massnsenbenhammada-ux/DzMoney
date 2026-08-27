@@ -15,8 +15,7 @@ function toRawAddress(address) {
   const decoded = decodeTonAddress(address);
   const encoded = address.replace(/-/g, '+').replace(/_/g, '/');
   const bytes = Buffer.from(encoded, 'base64');
-  const hash = bytes.subarray(2, 34).toString('hex');
-  return `${decoded.workchain}:${hash}`;
+  return `${decoded.workchain}:${bytes.subarray(2, 34).toString('hex')}`;
 }
 
 function canonicalAddress(address) {
@@ -63,8 +62,7 @@ function hashesEqual(left, right) {
 
 async function fetchJson(url, apiKey, fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== 'function') throw new Error('Fetch implementation is required');
-  const headers = apiKey ? { 'X-API-Key': apiKey } : {};
-  const response = await fetchImpl(url, { headers });
+  const response = await fetchImpl(url, { headers: apiKey ? { 'X-API-Key': apiKey } : {} });
   if (!response.ok) throw new Error(`TON provider HTTP ${response.status}`);
   return response.json();
 }
@@ -81,7 +79,7 @@ function findTraceTransaction(trace, txHash) {
 }
 
 function isFinalized(trace) {
-  return Boolean(trace && trace.is_incomplete === false && Number(trace.mc_seqno_end) > 0);
+  return Boolean(trace && trace.is_incomplete === false && Number.isInteger(Number(trace.mc_seqno_end)) && Number(trace.mc_seqno_end) > 0);
 }
 
 function assertIncomingTransfer(transaction, expectedDestination, expectedNano) {
@@ -110,9 +108,9 @@ async function verifyTonDeposit({ network, txHash, expectedAmountTon, expectedDe
   } catch (error) {
     return { status: 'HOLD', reason: 'PROVIDER_FAILURE', providerError: error.message };
   }
-  const transaction = findTransaction(transactionPayload, hash) || findTraceTransaction(tracePayload?.traces?.[0], hash);
-  if (!transaction) return { status: 'HOLD', reason: 'TRANSACTION_NOT_FOUND' };
   const trace = tracePayload?.traces?.[0] || null;
+  const transaction = findTransaction(transactionPayload, hash) || findTraceTransaction(trace, hash);
+  if (!transaction) return { status: 'HOLD', reason: 'TRANSACTION_NOT_FOUND' };
   if (!isFinalized(trace)) return { status: 'HOLD', reason: 'NOT_FINALIZED', transaction };
   try {
     assertIncomingTransfer(transaction, destination, expectedNano);
