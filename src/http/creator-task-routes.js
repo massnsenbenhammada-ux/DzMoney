@@ -35,10 +35,10 @@ const validateCreatorTaskBody = createStrictObjectValidator({
   title: isNonEmptyString,
   description: { validate: value => value === undefined || value === null || typeof value === 'string' },
   target: isValidTarget,
-  rewardCoin: { validate: isOptionalNonNegativeInteger },
-  rewardDzx: { validate: isOptionalNonNegativeInteger },
-  rewardDzp: { validate: isOptionalNonNegativeInteger },
-  verificationAdSeconds: { validate: isOptionalNonNegativeInteger },
+  rewardCoin: { validate: value => isOptionalNonNegativeInteger(value) },
+  rewardDzx: { validate: value => isOptionalNonNegativeInteger(value) },
+  rewardDzp: { validate: value => isOptionalNonNegativeInteger(value) },
+  verificationAdSeconds: { validate: value => isOptionalNonNegativeInteger(value) },
   config: { validate: isCreatorConfig },
   idempotencyKey: isNonEmptyString
 });
