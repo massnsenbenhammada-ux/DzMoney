@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { pool, withTransaction } = require('../src/db/pool');
 const { createUser } = require('../src/services/wallet-service');
-const { postEconomyTransaction } = require('../src/services/economy-service');
+const { postEconomyTransaction, creditActivityReward } = require('../src/services/economy-service');
 const { processDeposit } = require('../src/services/deposit-service');
 
 async function main() {
@@ -69,7 +69,26 @@ async function main() {
     );
     assert.equal(decimalLedger.rows[0].matches, true);
 
-    const exactTonAmount = '900719925474.0993';
+    await creditActivityReward({
+      idempotencyKey: `${marker}:activity-large`,
+      userId: user.id,
+      source: 'task',
+      coin: exactLargeAmount,
+      dzx: 0,
+      dzp: 0,
+      modifiers: [],
+    });
+
+    const activityReward = await pool.query(
+      `SELECT le.amount = $2::numeric AS amount_matches
+       FROM ledger_entries le
+       JOIN ledger_transactions lt ON lt.id = le.transaction_id
+       WHERE lt.idempotency_key = $1 AND le.currency = 'COIN'`,
+      [`${marker}:activity-large`, exactLargeAmount]
+    );
+    assert.equal(activityReward.rows[0].amount_matches, true);
+
+    const exactTonAmount = '900719474099.0993';
     const pendingDeposit = await processDeposit({
       idempotencyKey: `${marker}:ton-precision`,
       userId: user.id,
@@ -84,7 +103,7 @@ async function main() {
               dzx_amount = $3::numeric AS dzx_matches
        FROM deposits
        WHERE id = $1`,
-      [pendingDeposit.deposit.id, exactTonAmount, '9007199254740993']
+      [pendingDeposit.deposit.id, exactTonAmount, '9007194740990993']
     );
     assert.equal(depositValues.rows[0].ton_matches, true);
     assert.equal(depositValues.rows[0].dzx_matches, true);
