@@ -46,6 +46,12 @@ function validateCompletion(completion = {}, taskType = null) {
   if (taskType === 'special' && mode !== 'server_verified') throw new Error('Special/Partner tasks support server_verified completion only');
 }
 
+function validateTelegramTarget(target = {}) {
+  if (!target || typeof target !== 'object' || Array.isArray(target)) throw new Error('Telegram target is required');
+  if (target.type !== 'telegram_channel' || typeof target.value !== 'string' || !TELEGRAM_CHANNEL_PATTERN.test(target.value.trim())) throw new Error('Telegram target is required');
+  return target.value.trim();
+}
+
 function rejectSecrets(value) {
   if (!value || typeof value !== 'object') return;
   for (const [key, child] of Object.entries(value)) {
@@ -67,27 +73,24 @@ function validateProviderEvidence(verification = {}) {
   }
   if (!VERIFICATION_METHODS.includes(verification.method)) throw new Error('Invalid verification method');
   if (!hasEvent || typeof verification.event !== 'string') throw new Error('verification event is required');
-  if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') {
-    throw new Error('providerConfigRef must be a string');
-  }
+  if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') throw new Error('providerConfigRef must be a string');
 }
 
 function getCreatorProviderContracts(taskType) {
   if (!['game', 'social', 'web'].includes(taskType)) throw new Error('Invalid creator task type');
   return (CREATOR_PROVIDER_CONTRACTS[taskType] || []).map(contract => ({
-    id: contract.id,
-    label: contract.label,
-    method: contract.method,
-    event: contract.event,
+    id: contract.id, label: contract.label, method: contract.method, event: contract.event,
     fields: contract.fields.map(field => ({ ...field }))
   }));
 }
 
-function validateCreatorProviderRequirements(provider, requirements = {}) {
+function validateCreatorProviderRequirements(provider, requirements = {}, targetValue = null) {
   if (!requirements || typeof requirements !== 'object' || Array.isArray(requirements)) throw new Error('provider requirements must be an object');
   if (provider.id === 'telegram_channel') {
-    if (typeof requirements.channel !== 'string' || !TELEGRAM_CHANNEL_PATTERN.test(requirements.channel.trim())) throw new Error('Invalid Telegram channel requirement');
-    return { channel: requirements.channel.trim() };
+    const requirementChannel = typeof requirements.channel === 'string' ? requirements.channel.trim() : '';
+    if (!TELEGRAM_CHANNEL_PATTERN.test(requirementChannel)) throw new Error('Invalid Telegram channel requirement');
+    if (targetValue !== null && requirementChannel !== targetValue) throw new Error('provider requirement must use the same Telegram target');
+    return { channel: requirementChannel };
   }
   throw new Error(`Unsupported creator provider: ${provider.id}`);
 }
@@ -95,6 +98,7 @@ function validateCreatorProviderRequirements(provider, requirements = {}) {
 function validateCreatorProviderConfiguration(taskType, config = {}) {
   validateVerificationConfig(config, taskType);
   const completion = config.completion || {};
+  if (taskType === 'social') validateTelegramTarget(config.target);
   if (completion.mode !== 'server_verified') return true;
   const verification = config.verification || {};
   const providers = getCreatorProviderContracts(taskType);
@@ -103,7 +107,8 @@ function validateCreatorProviderConfiguration(taskType, config = {}) {
   if (!provider) throw new Error('Creator server-verified provider is not enabled for this task type');
   if (verification.method !== provider.method) throw new Error('Creator provider verification method does not match the provider contract');
   if (verification.event !== provider.event) throw new Error('Creator provider verification event does not match the provider contract');
-  validateCreatorProviderRequirements(provider, verification.requirements);
+  const targetValue = taskType === 'social' ? validateTelegramTarget(config.target) : null;
+  validateCreatorProviderRequirements(provider, verification.requirements, targetValue);
   return true;
 }
 
@@ -120,6 +125,7 @@ function validateVerificationConfig(config = {}, taskType = null) {
   if (!VERIFICATION_MODES.includes(mode)) throw new Error('Invalid verification mode');
   validateProviderEvidence(verification);
   validateCompletion(completion, taskType);
+  if (taskType === 'social') validateTelegramTarget(config.target);
   validateReferral(config.referral);
   return true;
 }
@@ -133,15 +139,12 @@ function resolveVerificationConfig({ taskType, config = {} }) {
   const referral = source.referral || {};
   return {
     taskType,
+    target: source.target && typeof source.target === 'object' ? { ...source.target } : null,
     completion: { mode: completion.mode || 'server_verified', url: completion.url || null, urlSource: completion.urlSource || null },
     serverVerified: SERVER_VERIFIED_CONTRACTS[taskType] || null,
     verification: {
-      mode: verification.mode || 'automatic',
-      provider: verification.provider || null,
-      providerConfigRef: verification.providerConfigRef || null,
-      method: verification.method || null,
-      event: verification.event || null,
-      channel: verification.channel || null,
+      mode: verification.mode || 'automatic', provider: verification.provider || null, providerConfigRef: verification.providerConfigRef || null,
+      method: verification.method || null, event: verification.event || null, channel: verification.channel || null,
       requirements: verification.requirements && typeof verification.requirements === 'object' ? { ...verification.requirements } : {}
     },
     referral: { mode: referral.mode || 'disabled', referralUrlTemplate: referral.referralUrlTemplate || null, ownerVerification: referral.ownerVerification || null }
@@ -149,15 +152,7 @@ function resolveVerificationConfig({ taskType, config = {} }) {
 }
 
 module.exports = {
-  REFERRAL_MODES,
-  VERIFICATION_MODES,
-  COMPLETION_MODES,
-  VERIFICATION_METHODS,
-  TASK_TYPES,
-  SERVER_VERIFIED_CONTRACTS,
-  CREATOR_PROVIDER_CONTRACTS,
-  getCreatorProviderContracts,
-  validateCreatorProviderConfiguration,
-  validateVerificationConfig,
-  resolveVerificationConfig
+  REFERRAL_MODES, VERIFICATION_MODES, COMPLETION_MODES, VERIFICATION_METHODS, TASK_TYPES,
+  SERVER_VERIFIED_CONTRACTS, CREATOR_PROVIDER_CONTRACTS, getCreatorProviderContracts,
+  validateCreatorProviderConfiguration, validateVerificationConfig, resolveVerificationConfig
 };
