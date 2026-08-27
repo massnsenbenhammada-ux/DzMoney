@@ -48,7 +48,7 @@ function renderCreatorContract(contract) {
     </div>
     <div class="creator-contract-detail">
       <span class="eyebrow">CAMPAIGN PRICING</span>
-      <p>${pricing.priceDZXPerExecution ? `Reference: ${pricing.minTarget} → ${(pricing.minTarget * pricing.priceDZXPerExecution).toLocaleString()} DZX (${pricing.priceDZXPerExecution} DZX per valid execution).` : 'Campaign pricing is controlled by Admin.'}</p>
+      <p>${Number.isFinite(pricing.cpmDZX) ? `CPM: ${pricing.cpmDZX.toLocaleString()} DZX. Minimum target: ${pricing.minTarget}. Maximum target: ∞.` : 'Campaign pricing is controlled by Admin.'}</p>
       <div id="creatorCampaignCost" class="creator-cost"></div>
     </div>
     <div class="creator-contract-detail">
