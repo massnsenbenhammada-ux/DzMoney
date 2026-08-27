@@ -1,6 +1,7 @@
 'use strict';
 
 const buckets = new Map();
+const MAX_BUCKETS = 10_000;
 
 function createRateLimit({ windowMs, max, key = request => request.telegramUser?.id ? `telegram:${request.telegramUser.id}` : request.ip || 'unknown' }) {
   if (!Number.isInteger(windowMs) || windowMs <= 0) throw new TypeError('windowMs must be a positive integer');
@@ -17,6 +18,8 @@ function createRateLimit({ windowMs, max, key = request => request.telegramUser?
 
     bucket.count += 1;
     buckets.set(bucketKey, bucket);
+    if (buckets.size > MAX_BUCKETS) pruneExpiredBuckets(now);
+
     res.setHeader('RateLimit-Limit', String(max));
     res.setHeader('RateLimit-Remaining', String(Math.max(0, max - bucket.count)));
     res.setHeader('RateLimit-Reset', String(Math.ceil((bucket.resetAt - now) / 1000)));
@@ -30,6 +33,20 @@ function createRateLimit({ windowMs, max, key = request => request.telegramUser?
     }
     return next();
   };
+}
+
+function pruneExpiredBuckets(now = Date.now()) {
+  for (const [key, bucket] of buckets) {
+    if (bucket.resetAt <= now) buckets.delete(key);
+  }
+  if (buckets.size <= MAX_BUCKETS) return;
+  const excess = buckets.size - MAX_BUCKETS;
+  let removed = 0;
+  for (const key of buckets.keys()) {
+    buckets.delete(key);
+    removed += 1;
+    if (removed >= excess) break;
+  }
 }
 
 function clearRateLimitBuckets() {
