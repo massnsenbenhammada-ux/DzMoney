@@ -79,16 +79,10 @@ app.use('/api/creator/tasks', createCreatorTaskRouter());
 app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
 if (monetagPostbackSecret) {
-  app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({
-    providerRegistry,
-    secret: monetagPostbackSecret
-  }));
+  app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry, secret: monetagPostbackSecret }));
 }
 if (onclickaConfirmationSecret) {
-  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({
-    providerRegistry,
-    secret: onclickaConfirmationSecret
-  }));
+  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry, secret: onclickaConfirmationSecret }));
 }
 
 app.get('/', (_req, res) => {
@@ -104,9 +98,8 @@ app.use((error, _req, res, _next) => {
   console.error('Unhandled request error:', error);
   const status = Number.isInteger(error.statusCode) ? error.statusCode : 500;
   const payload = { ok: false, error: status === 500 ? 'Internal server error' : error.message };
-  if (status === 429 && error.retryAfterSeconds) {
-    payload.retryAfterSeconds = error.retryAfterSeconds;
-  }
+  if (error.nextEligibleAt) payload.nextEligibleAt = error.nextEligibleAt;
+  if (status === 429 && error.retryAfterSeconds) payload.retryAfterSeconds = error.retryAfterSeconds;
   res.status(status).json(payload);
 });
 
