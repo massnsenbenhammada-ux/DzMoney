@@ -64,6 +64,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Run migrations
         run: npm run migrate
+      - name: Run TON admin configuration boundary tests
+        run: node --test ./tests/admin-ton-settings.test.js
       - name: Verify isolated runtime health
         run: |
           node server.js > /tmp/dzmoney-server.log 2>&1 &

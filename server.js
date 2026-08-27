@@ -9,6 +9,7 @@ const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-rou
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
+const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-routes');
 const { createRateLimit } = require('./src/http/rate-limit');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
@@ -74,6 +75,7 @@ app.get('/health/db', async (_req, res) => {
 const publicApiRateLimit = createRateLimit({ windowMs: 60_000, max: 300, key: req => `ip:${req.ip || 'unknown'}` });
 app.use('/api', publicApiRateLimit);
 app.use('/api/me', meRoutes);
+app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
 app.use('/api/creator/tasks', createCreatorTaskRouter());
 app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));
