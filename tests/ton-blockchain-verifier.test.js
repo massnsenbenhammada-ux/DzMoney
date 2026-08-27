@@ -12,6 +12,7 @@ const {
 const MAINNET = 'UQAaRNqn01vjTzDdSaN8LtsWpZRWkhRQZkXCNzfb3z0ZDeI0';
 const RAW_MAINNET = '0:1a44daa7d35be34f30dd49a37c2edb16a594569214506645c23737dbdf3d190d';
 const TX_HASH = 'a'.repeat(64);
+const TX_HASH_BASE64 = 'qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqo=';
 
 function response(payload, ok = true, status = 200) {
   return {
@@ -21,9 +22,9 @@ function response(payload, ok = true, status = 200) {
   };
 }
 
-function transaction({ value = '100000000', destination = RAW_MAINNET, account = RAW_MAINNET, bounced = false, aborted = false } = {}) {
+function transaction({ value = '100000000', destination = RAW_MAINNET, account = RAW_MAINNET, bounced = false, aborted = false, hash = TX_HASH } = {}) {
   return {
-    hash: TX_HASH,
+    hash,
     account,
     mc_block_seqno: 123,
     description: { aborted },
@@ -68,6 +69,20 @@ test('verifies finalized destination and exact amount from blockchain evidence',
   assert.equal(result.status, 'VERIFIED');
   assert.equal(result.finality, 'FINALIZED');
   assert.equal(result.amountNano, '100000000');
+});
+
+test('matches a provider transaction hash returned as base64', async () => {
+  const fetchImpl = async url => url.includes('/transactions?')
+    ? response({ transactions: [transaction({ hash: TX_HASH_BASE64 })] })
+    : response({ traces: [{ mc_seqno_end: 123, is_incomplete: false }] });
+  const result = await verifyTonDeposit({
+    network: 'mainnet',
+    txHash: 'aa'.repeat(32),
+    expectedAmountTon: '0.1',
+    expectedDestination: MAINNET,
+    fetchImpl,
+  });
+  assert.equal(result.status, 'VERIFIED');
 });
 
 test('holds when the provider fails', async () => {
