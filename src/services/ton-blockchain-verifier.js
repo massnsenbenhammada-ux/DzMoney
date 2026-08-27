@@ -77,6 +77,10 @@ function traceBindsToTransaction(trace, txHash) {
 function isFinalized(trace) {
   return Boolean(trace && trace.is_incomplete === false && Number.isInteger(Number(trace.mc_seqno_end)) && Number(trace.mc_seqno_end) > 0);
 }
+function masterchainSeqno(payload) {
+  const seqno = Number(payload?.last?.seqno);
+  return Number.isInteger(seqno) && seqno >= 0 ? seqno : null;
+}
 function assertIncomingTransfer(transaction, expectedDestination, expectedNano) {
   if (!transaction?.in_msg) throw new Error('TON transaction has no inbound message');
   if (transaction.description?.aborted) throw new Error('TON transaction was aborted');
@@ -106,11 +110,33 @@ async function verifyTonDeposit({ network, txHash, expectedAmountTon, expectedDe
   if (!transaction) return { status: 'HOLD', reason: 'TRANSACTION_NOT_FOUND' };
   if (!traceBindsToTransaction(trace, hash)) return { status: 'HOLD', reason: 'TRACE_TRANSACTION_MISMATCH', transaction };
   if (!isFinalized(trace)) return { status: 'HOLD', reason: 'NOT_FINALIZED', transaction };
+  let currentMasterchainSeqno;
+  try {
+    const payload = await fetchJson(`${root}/masterchainInfo`, apiKey, fetchImpl);
+    currentMasterchainSeqno = masterchainSeqno(payload);
+  } catch (error) {
+    return { status: 'HOLD', reason: 'MASTERCHAIN_INFO_UNAVAILABLE', providerError: error.message, transaction };
+  }
+  const evidenceMasterchainSeqno = Number(trace.mc_seqno_end);
+  if (currentMasterchainSeqno === null) return { status: 'HOLD', reason: 'MASTERCHAIN_INFO_INVALID', transaction };
+  if (currentMasterchainSeqno < evidenceMasterchainSeqno) {
+    return { status: 'HOLD', reason: 'MASTERCHAIN_BEHIND_EVIDENCE', transaction, evidenceMasterchainSeqno, observedMasterchainSeqno: currentMasterchainSeqno };
+  }
   try {
     assertIncomingTransfer(transaction, destination, expectedNano);
   } catch (error) {
     return { status: 'REJECT', reason: error.message, transaction };
   }
-  return { status: 'VERIFIED', network, transactionHash: hash, destination, amountNano: expectedNano.toString(), finality: 'FINALIZED', masterchainSeqno: Number(trace.mc_seqno_end), transaction };
+  return {
+    status: 'VERIFIED',
+    network,
+    transactionHash: hash,
+    destination,
+    amountNano: expectedNano.toString(),
+    finality: 'FINALIZED',
+    masterchainSeqno: evidenceMasterchainSeqno,
+    observedMasterchainSeqno: currentMasterchainSeqno,
+    transaction,
+  };
 }
 module.exports = { NETWORK_BASE_URLS, canonicalAddress, tonToNano, assertTransactionHash, verifyTonDeposit };
