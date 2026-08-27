@@ -1,10 +1,18 @@
 const { withTransaction, query } = require('../db/pool');
 const { postEconomyTransactionOnClient, TON_DZX } = require('./economy-service');
 
-function positiveNumber(value, name) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n <= 0) throw new Error(`${name} must be a positive number`);
-  return n;
+const NUMERIC_PATTERN = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
+const NUMERIC_SCALE = 9;
+
+function positiveNumeric(value, name) {
+  const text = String(value).trim();
+  if (!NUMERIC_PATTERN.test(text)) throw new Error(`${name} must be a valid decimal number`);
+  const [integerPart, fractionPart = ''] = text.replace('-', '').split('.');
+  if (integerPart.replace(/^0+/, '').length > 21 || fractionPart.length > NUMERIC_SCALE) {
+    throw new Error(`${name} exceeds NUMERIC(30,9) precision`);
+  }
+  if (text.startsWith('-') || /^0+(?:\.0*)?$/.test(text)) throw new Error(`${name} must be a positive number`);
+  return text;
 }
 
 async function settingNumber(client, key, fallback) {
@@ -59,9 +67,6 @@ async function expireStalePendingDeposits(client, userId, timeoutHours) {
 async function reserveDailyDepositQuota(client, userId, tonAmount) {
   const limit = await settingNumber(client, 'deposit.daily_limit_ton', 10);
 
-  // A single per-user/per-day row is the serialization point for the quota.
-  // The conditional UPDATE is atomic under PostgreSQL row locking, so two
-  // concurrent confirmations cannot both consume the same remaining quota.
   await client.query(
     `INSERT INTO deposit_daily_usage (user_id, usage_date, ton_used)
      VALUES ($1, CURRENT_DATE, 0)
@@ -71,21 +76,24 @@ async function reserveDailyDepositQuota(client, userId, tonAmount) {
 
   const result = await client.query(
     `UPDATE deposit_daily_usage
-     SET ton_used = ton_used + $2,
+     SET ton_used = ton_used + $2::numeric,
          updated_at = NOW()
      WHERE user_id = $1
        AND usage_date = CURRENT_DATE
-       AND ton_used + $2 <= $3
-     RETURNING ton_used`,
-    [userId, tonAmount, limit]
+       AND ton_used + $2::numeric <= $3::numeric
+     RETURNING ton_used, GREATEST($3::numeric - ton_used, 0) AS remaining`,
+    [userId, tonAmount, String(limit)]
   );
 
   if (!result.rowCount) {
     throw new Error(`Daily deposit limit exceeded: ${limit} TON`);
   }
 
-  const used = Number(result.rows[0].ton_used);
-  return { limit, used, remaining: Math.max(0, limit - used) };
+  return {
+    limit,
+    used: result.rows[0].ton_used,
+    remaining: result.rows[0].remaining,
+  };
 }
 
 async function creditConfirmedDeposit(client, deposit, confirmationCount, extraMetadata = {}) {
@@ -98,19 +106,23 @@ async function creditConfirmedDeposit(client, deposit, confirmationCount, extraM
       deposit_id: deposit.id,
       blockchain: deposit.blockchain,
       tx_hash: deposit.tx_hash,
-      ton_amount: Number(deposit.ton_amount),
-      dzx_amount: Number(deposit.dzx_amount),
+      ton_amount: deposit.ton_amount,
+      dzx_amount: deposit.dzx_amount,
       confirmation_count: confirmationCount,
-      required_confirmations: Number(deposit.required_confirmations),
+      required_confirmations: deposit.required_confirmations,
       ...extraMetadata,
     },
-    movements: [{ currency: 'DZX', amount: Number(deposit.dzx_amount), source: 'deposit' }],
+    movements: [{ currency: 'DZX', amount: deposit.dzx_amount, source: 'deposit' }],
   });
 }
 
 async function calculateDZX(client, tonAmount) {
   const rate = await settingNumber(client, 'economy.dzx_per_ton', TON_DZX);
-  return { rate, dzxAmount: tonAmount * rate };
+  const result = await client.query(
+    'SELECT $1::numeric * $2::numeric AS dzx_amount',
+    [tonAmount, String(rate)]
+  );
+  return { rate, dzxAmount: result.rows[0].dzx_amount };
 }
 
 async function processDeposit({
@@ -124,7 +136,7 @@ async function processDeposit({
   if (!idempotencyKey) throw new Error('idempotencyKey is required');
   if (!userId) throw new Error('userId is required');
   const hash = assertTxHash(txHash);
-  const amount = positiveNumber(tonAmount, 'tonAmount');
+  const amount = positiveNumeric(tonAmount, 'tonAmount');
   const confirmations = Number(confirmationCount);
   if (!Number.isInteger(confirmations) || confirmations < 0) {
     throw new Error('confirmationCount must be a non-negative integer');
@@ -179,9 +191,9 @@ async function processDeposit({
       if (!existing.rowCount) throw new Error('Unable to resolve idempotent deposit');
       const previous = existing.rows[0];
       if (
-        Number(previous.user_id) !== Number(userId)
+        String(previous.user_id) !== String(userId)
         || previous.tx_hash !== hash
-        || Number(previous.ton_amount) !== amount
+        || previous.ton_amount !== amount
       ) {
         throw new Error('Idempotency key was already used with different deposit data');
       }
@@ -191,7 +203,7 @@ async function processDeposit({
     const deposit = inserted.rows[0];
     if (!confirmed) return { deposit, duplicate: false, credited: false };
 
-    await reserveDailyDepositQuota(client, userId, amount);
+    await reserveDailyDepositQuota(client, userId, deposit.ton_amount);
     const economy = await creditConfirmedDeposit(client, deposit, confirmations, { rate_dzx_per_ton: rate });
     return { deposit, economy, duplicate: false, credited: true };
   });
@@ -248,7 +260,7 @@ async function confirmDeposit({ idempotencyKey, confirmationCount, metadata = {}
       return { deposit: updated.rows[0], duplicate: false, credited: false };
     }
 
-    await reserveDailyDepositQuota(client, deposit.user_id, Number(deposit.ton_amount));
+    await reserveDailyDepositQuota(client, deposit.user_id, deposit.ton_amount);
     const economy = await creditConfirmedDeposit(client, deposit, confirmations, metadata);
     const updated = await client.query(
       `UPDATE deposits
