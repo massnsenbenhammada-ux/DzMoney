@@ -1,34 +1,32 @@
-# DzMoney 2.0 — Implementation Status
+# DzMoney — Implementation Status
+
+> **Authoritative baseline:** `main` at `de1280d42f3f2d438665b9708f1ac2ae9c3abc99` (PR #148 milestone), subject to the current post-merge repository state.
+>
+> This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
 ## Current state
 
-**Current phase:** Phase 2 — Activity / Ads / Tasks, with Phase 3 Referral core partially implemented.
-
-**Current main:** `efc567b8a90672eed4122728d2a3d7e8839851ac` (PR #139 merged).
-
-**Latest CI evidence:** PR #139 exact head `44667705caad60616c03b3fcf5b2d8596c2f0b96` passed the Phase 2 boundaries workflow `33027628310`, job `98372573027`, including migrations, isolated runtime health and the full test suite. PR #139 was then merged to `main` as `efc567b8a90672eed4122728d2a3d7e8839851ac`.
-
-**Post-merge CI:** No workflow run was returned for the merge commit itself; the successful exact-head PR workflow is the available CI evidence. No post-merge green result is assumed from the merge alone.
-
-**Reconciliation rule:** Only merged commits on `main` are treated as completed. Superseded or closed PRs are not separate implementation milestones.
+- **Current phase:** Phase 2 — Activity / Ads / Tasks remains open.
+- **Phase 3:** Referral core is partially implemented; Share with Friends production reward remains pending trusted completion evidence.
+- **Latest audited TON/Deposit milestone:** PR #148.
+- **Post-#150 documentation state:** PR #150 restored the repository to the prior documented state because the earlier reconciliation had been written directly to `main`. No direct-to-main documentation change is authorized going forward.
 
 ## Phase 0 — Specification Lock
 
-🟢 Completed
+🟢 Completed.
 
-The economic and architectural rules remain those defined in `PROJECT_ROADMAP.md`, including COIN/DZX/DZP internal currencies, TON as external reference/settlement only, atomic idempotent Economy/Ledger movements, and strict separation of Referral, Squad and Reward Pool.
+Economic and architectural rules remain those defined by the roadmap, architecture rules, ADRs, Constitution 54, and phase-specific contracts.
 
 ## Phase 1 — Economy & Currency Core
 
 🟢 Runtime verified and signed off.
 
 - Internal wallet currencies: COIN, DZX, DZP.
-- TON is not an internal wallet currency.
-- Economy conversions and ledger-backed movements exist.
-- Deposit foundation exists.
+- TON is external settlement/reference, not an internal wallet currency.
+- Economy/Ledger remains the single economic source of truth.
 - Economy reconciliation exists.
 
-No new Phase 1 refactor is in scope unless a new invariant/security defect is discovered.
+No Phase 1 refactor is authorized unless a new invariant or security defect is proven.
 
 ## Phase 2 — Activity / Ads / Tasks
 
@@ -36,122 +34,101 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 
 ### Implemented and merged
 
-- 🟢 `activity_tasks`, task attempts, verification gates and Daily Check-in state.
-- 🟢 Non-ad Task Execute → Verify flow.
-- 🟢 Server-authoritative task verification.
-- 🟢 Verification-ad gate before trusted task verification.
-- 🟢 Provider-neutral advertisement registry and trusted provider ingress.
-- 🟢 Tasks-page advertisement direct ad → reward flow using existing advertisement/Economy/Ledger boundaries.
-- 🟢 Daily Check-in with backend rolling 24-hour cooldown and advertisement gate.
-- 🟢 Daily `Check for Update` system task with UTC+1 calendar-day eligibility and existing Telegram membership verification.
-- 🟢 Daily `View Ads` system task with UTC+1 calendar-day eligibility and the existing Tasks-page advertisement provider flow.
-- 🟢 Daily system-task contract for rolling 24-hour versus UTC+1 calendar-day policies and permanent referral achievement thresholds.
-- 🟢 Social Telegram-channel server verification through the existing Task Verification boundary.
-- 🟢 Task completion-service contract: Open Link → Click Proof and Server Verified; Special/Partner is Server Verified only.
-- 🟢 Task-type Server Verified contract boundaries documented for Daily, Mini App, Social, Web and Special/Partner.
-- 🟢 User Create Tasks runtime UI and authenticated HTTP boundary for Game/Social/Web.
-- 🟢 User Creator is prevented from creating Special/Partner campaigns; Special/Partner remains Admin-only.
-- 🟢 Creator target is server-enforced at minimum `1000` with no maximum and accepts arbitrary positive integer targets at or above the minimum.
-- 🟢 Creator campaign pricing is Admin-controlled; `9 DZX` per valid execution is the initial/default reference value, displayed as `9,000 DZX` CPM, and campaign cost is calculated from the exact target.
-- 🟢 Creator cannot control COIN/DZX/DZP reward values or verification-ad duration; authoritative Admin settings are used server-side.
-- 🟢 Creator supplies the destination URL for Open Link and Server Verified; the URL is not verification evidence.
-- 🟢 Creator campaign debit, review and rejection-refund paths remain on the existing Economy/Ledger source of truth.
-- 🟢 Migration `019_creator_campaign_pricing.sql` provisions `9 DZX` as the initial value with `ON CONFLICT DO NOTHING`, preserving an existing Admin-controlled value.
-- 🟢 Provider-neutral trusted evidence contract is documented for future Creator/User-created integrations across Game/Mini App, Social, Web and Special/Partner.
-- 🟢 Creator task verification configuration now accepts provider identifier, verification method, exact provider event and non-secret provider configuration reference while preserving the existing task-verification source of truth.
-- 🟢 Provider verification methods are validated server-side and task configuration rejects provider credentials/secrets.
-- 🟢 No real external task provider is registered or treated as enabled merely because provider configuration exists.
+- `activity_tasks`, task attempts, verification gates and Daily Check-in state.
+- Non-ad Task Execute → Verify flow.
+- Server-authoritative task verification boundary.
+- Verification-ad gate before trusted task verification.
+- Provider-neutral advertisement registry and trusted provider ingress.
+- Tasks-page advertisement direct-ad → reward flow through existing Advertisement/Economy/Ledger boundaries.
+- Daily Check-in with backend rolling 24-hour cooldown and advertisement gate.
+- Daily `Check for Update` with UTC+1 calendar-day eligibility and Telegram membership verification.
+- Daily `View Ads` with UTC+1 calendar-day eligibility and the existing trusted task-ad flow.
+- Daily system-task contract for rolling 24-hour versus UTC+1 calendar-day policies and permanent referral achievement thresholds.
+- Telegram-channel server verification through the existing Task Verification boundary.
+- User Create Tasks runtime UI and authenticated HTTP boundary for Game/Social/Web.
+- Creator/Admin target, pricing, review/rejection and Economy/Ledger debit/refund boundaries.
+- Provider-neutral trusted-evidence configuration seam; configuration is not provider proof.
+- Server-side rejection of provider credentials/secrets in task configuration.
+- Existing Monetag and OnClickA advertisement-provider evidence boundaries.
 
-### Latest Creator Provider Configuration CI evidence
+### Trusted evidence status
 
-- 🟢 Exact PR #136 head: `ee9aaea43f498cfb8e59559132da265d0edd5a2d`.
-- 🟢 Exact-head workflow: `33005214918`, job `98297083314`.
-- 🟢 Exact-head checkout was verified against `ee9aaea43f498cfb8e59559132da265d0edd5a2d`.
-- 🟢 Migrations passed.
-- 🟢 Isolated runtime health passed.
-- 🟢 Full test suite passed.
-- 🟢 Economy reconciliation passed with no negative wallets, source mismatches or ledger mismatches.
-- 🟢 PR #136 merged to `main` as `fe3802e5e40dc86383e429a536535cec48e1da76`.
-- 🟢 Post-merge workflow `33006198804`, job `98300462102`, passed migrations, isolated runtime health and the full test suite.
+🟢 **Proven:** Telegram Channel Membership through the existing `telegram-channel-verifier.js` and Telegram Bot API `getChatMember` using authenticated Telegram identity.
 
-### Not yet implemented / accepted
+🟢 **Proven as advertisement-provider evidence:** Monetag and OnClickA postback contracts. These are not generic proof of arbitrary task completion.
 
-- ⬜ Daily `Share with Friends` production reward flow; no trusted backend completion signal exists for an actual Telegram share.
-- ⬜ Real task adapters/verifiers for the broader Daily/Game/Social/Web/Special-Partner catalog beyond the currently implemented Telegram Social verifier and Daily Check for Update path.
-- 🟡 Provider/Partner-specific Creator Input contracts are prepared by the generic provider-neutral configuration seam, but concrete provider-specific fields remain undefined until an actual provider/partner contract exists.
-- ⬜ Broader anti-fraud hardening around task/ad callbacks and verification.
-- ⬜ Full acceptance of advertisement-task behavior across all required providers/contexts.
+🟡 **Requires concrete evidence contracts before new verifier implementation:**
 
-Phase 2 remains open until the remaining implementation and acceptance criteria are completed and verified. Provider configuration readiness does not constitute provider verification implementation.
+- Daily provider-specific completion beyond the existing advertisement-event boundary.
+- Game / Mini App completion from an actual trusted backend contract.
+- Non-Telegram social actions without an authoritative provider event/API.
+- Web completion without a signed S2S webhook or authenticated server-bound single-use token.
+- Special/Partner completion without a concrete authenticity/signature/HMAC contract and identity binding.
 
-## Task completion service contract — runtime partially implemented
+Generic `SERVER_VERIFIED_CONTRACTS` entries are contracts/placeholders, not evidence that a provider exists or is enabled.
 
-🟡 Specification is locked and the User Create Tasks runtime boundary is implemented for the currently supported Game/Social/Web creator surface. Provider-specific verification remains pending where the contract is intentionally undefined.
+### Phase 2 remaining acceptance
 
-The creator-facing completion choices are:
+- Broader real task adapters/verifiers only where concrete provider evidence exists.
+- Broader anti-fraud and provider/context acceptance hardening.
+- Full acceptance of advertisement-task behavior across required providers/contexts.
 
-- **Open Link → Click Proof** — opening the configured link is itself the task outcome.
-- **Server Verified** — trusted server-verifiable evidence is required for the external outcome.
-
-The Creator UI consumes the existing verification contract rather than maintaining a second source of truth. Special/Partner remains excluded from the User Creator surface and remains Admin-only.
-
-Provider-specific Server Verified fields remain undefined until an applicable provider/partner contract exists. The UI must not invent required inputs, and an unimplemented provider must not be exposed as operational verification.
+**Phase 2 remains open until its acceptance criteria are satisfied and verified.**
 
 ## Phase 3 — Referral
 
-🟡 Core foundation partially implemented; Phase 3 is not closed.
+🟡 Core foundation implemented; Phase 3 is not closed.
 
 Implemented:
+
 - attribution;
 - server-side qualification;
 - activation reward;
 - qualified referral count;
 - permanent referral achievement tasks;
-- Telegram bootstrap/link foundation;
-- lifetime 20% reward from qualifying base COIN/DZX activity.
+- Telegram bootstrap/referral-link foundation;
+- lifetime 20% reward from qualifying base COIN/DZX activity through the existing Economy/Ledger boundary.
 
 Pending:
-- user-facing Share with Friends production reward flow subject to a trusted completion signal;
-- full referral acceptance tests and remaining UI acceptance.
+
+- user-facing Share with Friends production reward flow requiring a trusted completion signal;
+- remaining referral UI/acceptance coverage.
+
+## TON Deposit
+
+🟢 Implementation and automated validation for the audited milestone.
+
+The audited milestone includes server-side blockchain evidence validation, transaction normalization, finality handling, trace binding, persisted network handling and the deposit evidence gate.
+
+🟡 Production acceptance remains a separate operational gate and is not inferred from tests alone.
+
+## Issue / PR interpretation
+
+- Open Issues are not automatically unimplemented features.
+- Work already present in merged `main` must be reconciled rather than reimplemented.
+- PRs #146/#147 are not separate implementation milestones where superseded by PR #148.
+- Issue #100's 20% lifetime reward is already implemented; it must not be reimplemented.
+- Issue #106's old description must be reconciled against the current referral bootstrap/link implementation before any new work is authorized.
+- Issue #134 remains the Phase 2 evidence-contract gate for new provider-specific verifiers.
 
 ## Later phases
 
-### Phase 4 — Squad
-⬜ Not started.
+- Phase 4 — Squad: not started.
+- Phase 5 — Reward Pool: not started.
+- Phase 6 — Packages: not started.
+- Phase 7 — Buying Points & Conversion UI: not started.
+- Phase 9 — Withdrawal: not started.
+- Phase 10 — Promo Codes: not started.
+- Phase 12 — Admin Panel: not started.
+- Final release/security hardening remains gated by the roadmap.
 
-### Phase 5 — Reward Pool
-⬜ Not started.
+## Next authorized work
 
-### Phase 6 — Packages
-⬜ Not started.
-
-### Phase 7 — Buying Points & Conversion UI
-⬜ Not started.
-
-### Phase 8 — Deposit
-🟡 Foundation exists ahead of phase order; final implementation/verification pending.
-
-### Phase 9 — Withdrawal
-⬜ Not started.
-
-### Phase 10 — Promo Codes
-⬜ Not started.
-
-### Phase 11 — User UI/UX
-⬜ Foundation only; full acceptance pending.
-
-### Phase 12 — Admin Panel
-⬜ Not started.
-
-### Phase 13 — Ledger / Security / Anti-Fraud hardening
-⬜ Not started.
-
-### Phase 14 — Final Testing & Production Release
-⬜ Not started.
-
-## Documentation reconciliation note
-
-This update reconciles the status document with merged main commit `efc567b8a90672eed4122728d2a3d7e8839851ac`. It records the validated Creator target/pricing presentation change: minimum target `1000`, no maximum, arbitrary integer target, and `9 DZX` per valid execution represented as `9,000 DZX` CPM. It preserves the existing Admin-controlled pricing and Economy/Ledger debit path. It does not claim implementation of a real external task provider, provider-specific verifier beyond the existing Telegram Social path, Share with Friends reward authorization, broader task adapters, or full Phase 2 acceptance.
+1. Keep the authoritative baseline synchronized through PR workflow.
+2. Complete Phase 2 evidence-contract work (Issue #134) only where a concrete, testable provider/evidence source exists.
+3. Write tests before implementation of any newly authorized verifier.
+4. Reuse the existing Task, Verification, Advertisement, Referral and Economy/Ledger boundaries.
+5. Do not begin the next phase until current phase acceptance criteria are satisfied.
 
 ## Update Rule
 
