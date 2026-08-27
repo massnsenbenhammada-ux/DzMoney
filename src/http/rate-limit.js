@@ -2,15 +2,17 @@
 
 const buckets = new Map();
 const MAX_BUCKETS = 10_000;
+let nextLimiterId = 1;
 
 function createRateLimit({ windowMs, max, key = request => request.telegramUser?.id ? `telegram:${request.telegramUser.id}` : request.ip || 'unknown' }) {
   if (!Number.isInteger(windowMs) || windowMs <= 0) throw new TypeError('windowMs must be a positive integer');
   if (!Number.isInteger(max) || max <= 0) throw new TypeError('max must be a positive integer');
   if (typeof key !== 'function') throw new TypeError('key must be a function');
+  const scope = `limiter:${nextLimiterId++}`;
 
   return (req, res, next) => {
     const now = Date.now();
-    const bucketKey = key(req);
+    const bucketKey = `${scope}:${key(req)}`;
     const current = buckets.get(bucketKey);
     const bucket = !current || now >= current.resetAt
       ? { count: 0, resetAt: now + windowMs }
