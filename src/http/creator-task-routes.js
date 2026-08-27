@@ -8,6 +8,7 @@ const { getCreatorProviderContracts, validateCreatorProviderConfiguration } = re
 const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
 const CREATOR_MIN_TARGET = 1000;
 const CREATOR_TARGET_STEP = 1;
+const SOCIAL_CPM_DZX = Object.freeze({ open_link: 5000, server_verified: 9000 });
 const CONTRACT_DESCRIPTIONS = Object.freeze({
   open_link: 'Open the configured Telegram target link. DzMoney proves the click only; it does not prove subscription.',
   server_verified: 'Telegram Bot API verifies the requested Telegram membership server-side.'
@@ -21,8 +22,8 @@ const isCreatorConfig = value => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const completion = value.completion;
   if (!completion || typeof completion !== 'object' || Array.isArray(completion)) return false;
-  if (completion.mode === 'open_link') return isNonEmptyString(completion.url);
-  if (completion.mode === 'server_verified') return true;
+  if (completion.mode === 'open_link') return isNonEmptyString(completion.url) && isNonEmptyString(completion.telegramTarget);
+  if (completion.mode === 'server_verified') return isNonEmptyString(completion.telegramTarget);
   return isNonEmptyString(completion.url);
 };
 
@@ -70,8 +71,8 @@ async function contractFor(tasks, taskType) {
   };
   if (taskType === 'social') {
     campaignPricing.completionModes = {
-      open_link: { proof: 'click', cpmDZX: 5000 },
-      server_verified: { proof: 'server_verification', provider: 'telegram_bot_api', cpmDZX: 9000 }
+      open_link: { telegramTarget: true, proof: 'click', cpmDZX: SOCIAL_CPM_DZX.open_link },
+      server_verified: { provider: 'telegram_bot_api', telegramTarget: true, proof: 'server_verification', cpmDZX: SOCIAL_CPM_DZX.server_verified }
     };
   }
   return {
@@ -143,4 +144,4 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
   return router;
 }
 
-module.exports = { CREATOR_TASK_TYPES, CREATOR_MIN_TARGET, CREATOR_TARGET_STEP, CONTRACT_DESCRIPTIONS, createCreatorTaskRouter };
+module.exports = { CREATOR_TASK_TYPES, CREATOR_MIN_TARGET, CREATOR_TARGET_STEP, SOCIAL_CPM_DZX, CONTRACT_DESCRIPTIONS, createCreatorTaskRouter };
