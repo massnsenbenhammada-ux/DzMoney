@@ -4,8 +4,11 @@ const dailyTasks = require('../services/daily-system-task-service');
 const taskVerificationService = require('../services/task-verification-service');
 const taskAdvertisementService = require('../services/task-advertisement-service');
 const providerRegistryRuntime = require('../services/ad-provider-registry-runtime');
+const { DAILY_SYSTEM_TASKS } = require('../services/daily-system-task-contract');
 const { telegramAuth } = require('./telegram-auth');
 const { createRateLimit } = require('./rate-limit');
+
+const SYSTEM_TASK_KEYS = new Set(Object.values(DAILY_SYSTEM_TASKS));
 
 function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTasks, verification = taskVerificationService, advertisement = taskAdvertisementService, providerRegistry = providerRegistryRuntime, auth = telegramAuth } = {}) {
   const router = express.Router();
@@ -17,9 +20,8 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
   router.use(userRateLimit);
 
   router.get('/', asyncRoute(async (req, res) => {
-    const systemKey = String(req.query?.systemKey || 'check_for_update');
-    const allowedSystemKeys = new Set(['check_for_update', 'view_ads', 'referral_achievement']);
-    if (!allowedSystemKeys.has(systemKey)) return res.status(400).json({ ok: false, error: 'Unsupported system task' });
+    const systemKey = String(req.query?.systemKey || DAILY_SYSTEM_TASKS.CHECK_FOR_UPDATE);
+    if (!SYSTEM_TASK_KEYS.has(systemKey)) return res.status(400).json({ ok: false, error: 'Unsupported system task' });
     const user = await wallet.createUser({
       telegramUserId: String(req.telegramUser.id),
       username: req.telegramUser.username || null,
@@ -27,7 +29,7 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
       photoUrl: req.telegramUser.photo_url || null
     });
     const task = await tasks.getSystemTask(systemKey);
-    const available = systemKey === 'view_ads'
+    const available = systemKey === DAILY_SYSTEM_TASKS.VIEW_ADS
       ? await tasks.assertAdvertisementAvailable(task, user.id)
       : task.config?.achievementThreshold !== undefined
         ? await tasks.assertReferralAchievementAvailable(task, user.id)
@@ -54,9 +56,8 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
     if (Object.keys(body).some(key => !allowed.has(key))) return res.status(400).json({ ok: false, error: 'unknown request field' });
     if (typeof body.idempotencyKey !== 'string' || body.idempotencyKey.trim() === '') return res.status(400).json({ ok: false, error: 'idempotencyKey is required' });
     const idempotencyKey = body.idempotencyKey;
-    const systemKey = String(body.systemKey || 'check_for_update');
-    const allowedSystemKeys = new Set(['check_for_update', 'view_ads', 'referral_achievement']);
-    if (!allowedSystemKeys.has(systemKey)) return res.status(400).json({ ok: false, error: 'Unsupported system task' });
+    const systemKey = String(body.systemKey || DAILY_SYSTEM_TASKS.CHECK_FOR_UPDATE);
+    if (!SYSTEM_TASK_KEYS.has(systemKey)) return res.status(400).json({ ok: false, error: 'Unsupported system task' });
     if (body.metadata !== undefined && (typeof body.metadata !== 'object' || body.metadata === null || Array.isArray(body.metadata))) return res.status(400).json({ ok: false, error: 'metadata must be an object' });
     const user = await wallet.createUser({
       telegramUserId: String(req.telegramUser.id),
@@ -64,7 +65,7 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
       firstName: req.telegramUser.first_name || null,
       photoUrl: req.telegramUser.photo_url || null
     });
-    if (systemKey === 'view_ads') {
+    if (systemKey === DAILY_SYSTEM_TASKS.VIEW_ADS) {
       const task = await tasks.getSystemTask(systemKey);
       if (!await tasks.assertAdvertisementAvailable(task, user.id)) {
         throw new Error('Daily task is already completed for the current UTC+1 day');
