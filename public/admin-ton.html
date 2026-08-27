@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>DzMoney TON Admin</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body{font-family:system-ui,sans-serif;margin:0;padding:24px;background:#101716;color:#eef8f5}main{max-width:620px;margin:auto}section{background:#17211f;border-radius:16px;padding:18px;margin:14px 0}input,button,textarea{width:100%;box-sizing:border-box;margin-top:8px;padding:12px;border-radius:10px;border:1px solid #36534d;background:#0f1716;color:inherit}button{cursor:pointer;font-weight:700}small{opacity:.7}.status{margin-top:12px;white-space:pre-wrap}
+  </style>
+</head>
+<body>
+<main>
+  <h1>TON Deposit Settings</h1>
+  <p><small>Admin-only configuration. Changes are audited server-side.</small></p>
+  <section><label>Testnet address<input id="testnet" autocomplete="off"></label><button data-network="testnet">Save Testnet</button></section>
+  <section><label>Mainnet address<input id="mainnet" autocomplete="off"></label><button data-network="mainnet">Save Mainnet</button></section>
+  <section><label>Reason<textarea id="reason" maxlength="500"></textarea></label><button id="refresh">Refresh</button><div class="status" id="status"></div></section>
+</main>
+<script>
+(() => {
+  const tg = window.Telegram?.WebApp;
+  tg?.ready();
+  tg?.expand();
+  const status = document.getElementById('status');
+  const headers = () => ({'Content-Type':'application/json','X-Telegram-Init-Data':tg?.initData || ''});
+  async function load(){
+    const response=await fetch('/api/admin/ton/addresses',{headers:headers()});
+    const data=await response.json();
+    if(!response.ok) throw new Error(data.error || 'Unable to load settings');
+    document.getElementById('testnet').value=data.addresses['deposit.ton.testnet_address']?.address || '';
+    document.getElementById('mainnet').value=data.addresses['deposit.ton.mainnet_address']?.address || '';
+    status.textContent='Loaded.';
+  }
+  async function save(network){
+    const address=document.getElementById(network).value.trim();
+    const reason=document.getElementById('reason').value.trim();
+    const response=await fetch(`/api/admin/ton/addresses/${network}`,{method:'PUT',headers:headers(),body:JSON.stringify({address,reason})});
+    const data=await response.json();
+    if(!response.ok) throw new Error(data.error || 'Unable to save address');
+    status.textContent=`Saved ${network}: ${data.address}`;
+    await load();
+  }
+  document.querySelectorAll('button[data-network]').forEach(button=>button.addEventListener('click',()=>save(button.dataset.network).catch(error=>status.textContent=error.message)));
+  document.getElementById('refresh').addEventListener('click',()=>load().catch(error=>status.textContent=error.message));
+  load().catch(error=>status.textContent=error.message);
+})();
+</script>
+</body>
+</html>
