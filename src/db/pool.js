@@ -2,17 +2,10 @@ const { Pool } = require('pg');
 
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
 const sslEnabled = process.env.DATABASE_SSL === 'true' || (hasDatabaseUrl && process.env.DATABASE_SSL !== 'false');
-const sslRejectUnauthorized = process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false';
-const sslCa = process.env.DATABASE_SSL_CA;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: sslEnabled
-    ? {
-        rejectUnauthorized: sslRejectUnauthorized,
-        ...(sslCa ? { ca: sslCa } : {})
-      }
-    : undefined,
+  ssl: sslEnabled ? { rejectUnauthorized: true } : undefined,
 });
 
 async function query(text, params) {
