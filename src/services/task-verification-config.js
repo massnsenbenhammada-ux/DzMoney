@@ -9,13 +9,8 @@ const TELEGRAM_CHANNEL_PATTERN = /^@[A-Za-z0-9_]{5,32}$/;
 const CREATOR_PROVIDER_CONTRACTS = Object.freeze({
   social: Object.freeze([
     Object.freeze({
-      id: 'telegram_channel',
-      label: 'Telegram Bot API',
-      method: 'telegram_bot_api',
-      event: 'channel_membership',
-      fields: Object.freeze([
-        Object.freeze({ key: 'channel', label: 'Telegram channel', type: 'telegram_channel', required: true })
-      ])
+      id: 'telegram_channel', label: 'Telegram Bot API', method: 'telegram_bot_api', event: 'channel_membership',
+      fields: Object.freeze([Object.freeze({ key: 'channel', label: 'Telegram channel', type: 'telegram_channel', required: true })])
     })
   ]),
   game: Object.freeze([]),
@@ -37,19 +32,19 @@ function validateReferral(referral = {}) {
   if (mode === 'link_and_owner_verification' && !referral.ownerVerification) throw new Error('owner verification configuration is required');
 }
 
-function validateCompletion(completion = {}, taskType = null) {
-  const mode = completion.mode || 'server_verified';
-  if (!COMPLETION_MODES.includes(mode)) throw new Error('Invalid task completion mode');
-  const usesDynamicReferralLink = completion.urlSource === 'user_referral_link';
-  if (mode === 'open_link' && !completion.url && !usesDynamicReferralLink) throw new Error('completion.url or a supported urlSource is required for open_link tasks');
-  if (usesDynamicReferralLink && taskType !== 'daily') throw new Error('user_referral_link urlSource is supported only for Daily tasks');
-  if (taskType === 'special' && mode !== 'server_verified') throw new Error('Special/Partner tasks support server_verified completion only');
-}
-
 function validateTelegramTarget(target = {}) {
   if (!target || typeof target !== 'object' || Array.isArray(target)) throw new Error('Telegram target is required');
   if (target.type !== 'telegram_channel' || typeof target.value !== 'string' || !TELEGRAM_CHANNEL_PATTERN.test(target.value.trim())) throw new Error('Telegram target is required');
   return target.value.trim();
+}
+
+function validateCompletion(completion = {}, taskType = null) {
+  const mode = completion.mode || 'server_verified';
+  if (!COMPLETION_MODES.includes(mode)) throw new Error('Invalid task completion mode');
+  const usesDynamicReferralLink = completion.urlSource === 'user_referral_link';
+  if (mode === 'open_link' && !completion.url && !usesDynamicReferralLink && taskType !== 'social') throw new Error('completion.url or a supported urlSource is required for open_link tasks');
+  if (usesDynamicReferralLink && taskType !== 'daily') throw new Error('user_referral_link urlSource is supported only for Daily tasks');
+  if (taskType === 'special' && mode !== 'server_verified') throw new Error('Special/Partner tasks support server_verified completion only');
 }
 
 function rejectSecrets(value) {
@@ -88,9 +83,9 @@ function validateCreatorProviderRequirements(provider, requirements = {}, target
   if (!requirements || typeof requirements !== 'object' || Array.isArray(requirements)) throw new Error('provider requirements must be an object');
   if (provider.id === 'telegram_channel') {
     const requirementChannel = typeof requirements.channel === 'string' ? requirements.channel.trim() : '';
-    if (!TELEGRAM_CHANNEL_PATTERN.test(requirementChannel)) throw new Error('Invalid Telegram channel requirement');
-    if (targetValue !== null && requirementChannel !== targetValue) throw new Error('provider requirement must use the same Telegram target');
-    return { channel: requirementChannel };
+    if (targetValue === null && !TELEGRAM_CHANNEL_PATTERN.test(requirementChannel)) throw new Error('Invalid Telegram channel requirement');
+    if (targetValue !== null && requirementChannel && requirementChannel !== targetValue) throw new Error('provider requirement must use the same Telegram target');
+    return { channel: targetValue || requirementChannel };
   }
   throw new Error(`Unsupported creator provider: ${provider.id}`);
 }
@@ -135,15 +130,17 @@ function resolveVerificationConfig({ taskType, config = {} }) {
   const verification = source.verification || {};
   const completion = source.completion || {};
   const referral = source.referral || {};
+  const target = source.target && typeof source.target === 'object' ? { ...source.target } : null;
+  const requirements = verification.requirements && typeof verification.requirements === 'object' ? { ...verification.requirements } : {};
+  if (taskType === 'social' && target) requirements.channel = validateTelegramTarget(target);
   return {
     taskType,
-    target: source.target && typeof source.target === 'object' ? { ...source.target } : null,
+    target,
     completion: { mode: completion.mode || 'server_verified', url: completion.url || null, urlSource: completion.urlSource || null },
     serverVerified: SERVER_VERIFIED_CONTRACTS[taskType] || null,
     verification: {
       mode: verification.mode || 'automatic', provider: verification.provider || null, providerConfigRef: verification.providerConfigRef || null,
-      method: verification.method || null, event: verification.event || null, channel: verification.channel || null,
-      requirements: verification.requirements && typeof verification.requirements === 'object' ? { ...verification.requirements } : {}
+      method: verification.method || null, event: verification.event || null, channel: verification.channel || null, requirements
     },
     referral: { mode: referral.mode || 'disabled', referralUrlTemplate: referral.referralUrlTemplate || null, ownerVerification: referral.ownerVerification || null }
   };
