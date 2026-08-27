@@ -17,9 +17,8 @@ function toRawAddress(address) {
   const decoded = decodeTonAddress(address);
   const encoded = address.replace(/-/g, '+').replace(/_/g, '/');
   const bytes = Buffer.from(encoded, 'base64');
-  const workchain = decoded.workchain;
   const hash = bytes.subarray(2, 34).toString('hex');
-  return `${workchain}:${hash}`;
+  return `${decoded.workchain}:${hash}`;
 }
 
 function canonicalAddress(address) {
@@ -52,6 +51,23 @@ function assertTransactionHash(txHash) {
   return txHash.trim().toLowerCase();
 }
 
+function hashToHex(value) {
+  const text = String(value || '').trim();
+  if (/^[0-9a-fA-F]{64}$/.test(text)) return text.toLowerCase();
+  const normalized = text.replace(/-/g, '+').replace(/_/g, '/');
+  try {
+    const bytes = Buffer.from(normalized, 'base64');
+    if (bytes.length === 32) return bytes.toString('hex');
+  } catch {}
+  return null;
+}
+
+function hashesEqual(left, right) {
+  const leftHex = hashToHex(left);
+  const rightHex = hashToHex(right);
+  return Boolean(leftHex && rightHex && leftHex === rightHex);
+}
+
 async function fetchJson(url, apiKey, fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== 'function') throw new Error('Fetch implementation is required');
   const headers = apiKey ? { 'X-API-Key': apiKey } : {};
@@ -62,23 +78,14 @@ async function fetchJson(url, apiKey, fetchImpl = globalThis.fetch) {
 
 function findTransaction(payload, txHash) {
   const transactions = Array.isArray(payload?.transactions) ? payload.transactions : [];
-  const wanted = txHash.toLowerCase();
-  return transactions.find(tx => {
-    const hash = String(tx?.hash || '').toLowerCase();
-    const hashNorm = String(tx?.hash_norm || '').toLowerCase();
-    return hash === wanted || hashNorm === wanted;
-  }) || null;
+  return transactions.find(tx => hashesEqual(tx?.hash, txHash) || hashesEqual(tx?.hash_norm, txHash)) || null;
 }
 
 function findTraceTransaction(trace, txHash) {
   const transactions = trace?.transactions;
   if (!transactions || typeof transactions !== 'object') return null;
-  const wanted = txHash.toLowerCase();
-  return Object.values(transactions).find(tx => {
-    const hash = String(tx?.hash || '').toLowerCase();
-    const hashNorm = String(tx?.hash_norm || '').toLowerCase();
-    return hash === wanted || hashNorm === wanted;
-  }) || null;
+  return Object.values(transactions)
+    .find(tx => hashesEqual(tx?.hash, txHash) || hashesEqual(tx?.hash_norm, txHash)) || null;
 }
 
 function isFinalized(trace, transaction) {
@@ -131,11 +138,7 @@ async function verifyTonDeposit({
       fetchImpl
     );
   } catch (error) {
-    return {
-      status: 'HOLD',
-      reason: 'PROVIDER_FAILURE',
-      providerError: error.message,
-    };
+    return { status: 'HOLD', reason: 'PROVIDER_FAILURE', providerError: error.message };
   }
 
   const transaction = findTransaction(transactionPayload, hash)
