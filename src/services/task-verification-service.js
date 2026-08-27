@@ -7,9 +7,7 @@ const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 const { resolveVerificationConfig } = require('./task-verification-config');
 const { isTelegramChannelMember } = require('./telegram-channel-verifier');
 
-const TELEGRAM_TASK_CHANNELS = {
-  'telegram.dzmoney_updates': '@dzmoneycom'
-};
+const TELEGRAM_TASK_CHANNELS = { 'telegram.dzmoney_updates': '@dzmoneycom' };
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -19,9 +17,7 @@ function requiredId(value, name) {
 function resolveTelegramTaskChannel(verification) {
   const configuredChannel = verification?.requirements?.channel || verification?.channel;
   if (configuredChannel !== undefined) {
-    if (typeof configuredChannel !== 'string' || !/^@[A-Za-z0-9_]{5,32}$/.test(configuredChannel.trim())) {
-      throw new Error('Invalid Telegram task verifier channel');
-    }
+    if (typeof configuredChannel !== 'string' || !/^@[A-Za-z0-9_]{5,32}$/.test(configuredChannel.trim())) throw new Error('Invalid Telegram task verifier channel');
     return configuredChannel.trim();
   }
   const channel = TELEGRAM_TASK_CHANNELS[verification?.providerConfigRef];
@@ -73,9 +69,7 @@ async function verifyTaskAdvertisement({ adEventId, providerRegistry, providerId
   if (!result.verification.verified) throw new Error('Advertisement provider verification failed');
   const marked = await markAdvertisementVerified({ adEventId, providerReference: result.verification.reference, verificationMetadata: { ...result.verification.metadata, provider_id: result.providerId } });
   if (marked.duplicate) return marked;
-  await withTransaction(async client => {
-    await client.query(`UPDATE task_verification_gates SET status='ad_completed',ad_completed_at=NOW() WHERE ad_event_id=$1 AND status='pending'`, [adEventId]);
-  });
+  await withTransaction(async client => { await client.query(`UPDATE task_verification_gates SET status='ad_completed',ad_completed_at=NOW() WHERE ad_event_id=$1 AND status='pending'`, [adEventId]); });
   return marked;
 }
 
@@ -101,36 +95,21 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
   const initialState = validateTaskVerificationState(initialRow);
   if (initialState) return initialState;
   const resolvedConfig = resolveVerificationConfig({ taskType: initialRow.task_type, config: initialRow.config });
-  let verifiedByTaskRule = true;
-  if (resolvedConfig.completion.mode === 'open_link') {
-    if (initialRow.metadata?.link_clicked !== true) return { duplicate: false, status: 'verification_pending', rewarded: false, reason: 'link_click_required' };
-  } else {
-    const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id });
-    verifiedByTaskRule = await verifier({ attemptId });
-    if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
-  }
+  if (resolvedConfig.completion.mode === 'open_link') throw new Error('open_link completion is not a trusted verification method');
+  const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id });
+  const verifiedByTaskRule = await verifier({ attemptId });
+  if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
   return withTransaction(async client => {
     const row = await loadTaskVerificationAttempt(attemptId, true, client);
     const state = validateTaskVerificationState(row);
     if (state) return state;
-    if (resolvedConfig.completion.mode === 'open_link' && row.metadata?.link_clicked !== true) {
-      return { duplicate: false, status: 'verification_pending', rewarded: false, reason: 'link_click_required' };
-    }
     if (verifiedByTaskRule !== true) {
       await client.query(`UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`, [attemptId]);
       await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
       return { duplicate: false, status: 'rejected', rewarded: false };
     }
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', coin: Number(row.reward_coin), dzx: Number(row.reward_dzx), dzp: Number(row.reward_dzp), modifiers: [] });
-    if (!reward.duplicate) {
-      await referralService.creditReferralLifetimeOnClient(client, {
-        referredUserId: row.user_id,
-        source: 'task',
-        sourceReferenceId: attemptId,
-        idempotencyKey: `referral-lifetime:task:${attemptId}`,
-        baseReward: { coin: Number(row.reward_coin), dzx: Number(row.reward_dzx) }
-      });
-    }
+    if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: Number(row.reward_coin), dzx: Number(row.reward_dzx) } });
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
     return { duplicate: false, status: 'verified', rewarded: true, reward };
