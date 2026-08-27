@@ -25,25 +25,25 @@ async function main() {
     });
 
     const largeBalance = await pool.query(
-      `SELECT trim_scale(balance)::text AS balance
+      `SELECT balance = $2::numeric AS matches
        FROM wallet_accounts
        WHERE user_id = $1 AND currency = 'DZX'`,
-      [user.id]
+      [user.id, exactLargeAmount]
     );
-    assert.equal(largeBalance.rows[0].balance, exactLargeAmount);
+    assert.equal(largeBalance.rows[0].matches, true);
 
     const largeLedger = await pool.query(
-      `SELECT trim_scale(le.amount)::text AS amount,
-              trim_scale(le.balance_before)::text AS balance_before,
-              trim_scale(le.balance_after)::text AS balance_after
+      `SELECT le.amount = $2::numeric AS amount_matches,
+              le.balance_before = 0::numeric AS before_matches,
+              le.balance_after = $2::numeric AS after_matches
        FROM ledger_entries le
        JOIN ledger_transactions lt ON lt.id = le.transaction_id
        WHERE lt.idempotency_key = $1`,
-      [`${marker}:large`]
+      [`${marker}:large`, exactLargeAmount]
     );
-    assert.equal(largeLedger.rows[0].amount, exactLargeAmount);
-    assert.equal(largeLedger.rows[0].balance_before, '0');
-    assert.equal(largeLedger.rows[0].balance_after, exactLargeAmount);
+    assert.equal(largeLedger.rows[0].amount_matches, true);
+    assert.equal(largeLedger.rows[0].before_matches, true);
+    assert.equal(largeLedger.rows[0].after_matches, true);
 
     await postEconomyTransaction({
       idempotencyKey: `${marker}:decimal-a`,
@@ -61,13 +61,13 @@ async function main() {
     });
 
     const decimalLedger = await pool.query(
-      `SELECT trim_scale(le.balance_after)::text AS balance_after
+      `SELECT le.balance_after = $2::numeric AS matches
        FROM ledger_entries le
        JOIN ledger_transactions lt ON lt.id = le.transaction_id
        WHERE lt.idempotency_key = $1`,
-      [`${marker}:decimal-b`]
+      [`${marker}:decimal-b`, '9007199254740993.3']
     );
-    assert.equal(decimalLedger.rows[0].balance_after, '9007199254740993.3');
+    assert.equal(decimalLedger.rows[0].matches, true);
 
     const exactTonAmount = '900719925474.0993';
     const pendingDeposit = await processDeposit({
@@ -79,7 +79,14 @@ async function main() {
     });
     assert.equal(pendingDeposit.deposit.status, 'PENDING');
     assert.equal(pendingDeposit.deposit.ton_amount, exactTonAmount);
-    assert.equal(pendingDeposit.deposit.dzx_amount, '9007199254740993');
+    const expectedDZX = '9007199254740993';
+    const depositAmountMatches = await pool.query(
+      `SELECT dzx_amount = $2::numeric AS matches
+       FROM deposits
+       WHERE id = $1`,
+      [pendingDeposit.deposit.id, expectedDZX]
+    );
+    assert.equal(depositAmountMatches.rows[0].matches, true);
 
     console.log('Monetary precision invariants: PASS');
   } finally {
