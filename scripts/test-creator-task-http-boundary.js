@@ -29,7 +29,7 @@ async function run() {
       creatorInput: { status: 'provider_contract_required' }
     }),
     getCreatorActivityRewards: async () => ({ rewardCoin: 1000, rewardDZX: 1, rewardDZP: 1 }),
-    createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: 9000, duplicate: false }; },
+    createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: Number(args.target) * 9, duplicate: false }; },
     submitCreatorCampaignForReview: async (taskId, creatorId) => { calls.push({ submit: { taskId, creatorId } }); return { id: 7, status: 'pending_review', creator_id: creatorId }; }
   };
 
@@ -75,8 +75,10 @@ async function run() {
     fields: [{ key: 'channel', label: 'Telegram channel', type: 'telegram_channel', required: true }]
   }]);
   assert.strictEqual(socialContract.body.campaignPricing.minTarget, 1000);
-  assert.strictEqual(socialContract.body.campaignPricing.targetStep, 1000);
+  assert.strictEqual(socialContract.body.campaignPricing.targetStep, 1);
+  assert.strictEqual(socialContract.body.campaignPricing.maxTarget, null);
   assert.strictEqual(socialContract.body.campaignPricing.priceDZXPerExecution, 9);
+  assert.strictEqual(socialContract.body.campaignPricing.cpmDZX, 9000);
 
   const create = await request('POST', '/api/creator/tasks', {
     taskType: 'social',
@@ -114,31 +116,32 @@ async function run() {
   assert.strictEqual(calls[0].create.rewardDzp, 1);
   assert.strictEqual(calls[0].create.verificationAdSeconds, undefined);
 
+  const arbitraryTarget = await request('POST', '/api/creator/tasks', {
+    taskType: 'social', title: 'Arbitrary target', target: 1245, idempotencyKey: 'creator-task-2', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+  }, auth);
+  assert.strictEqual(arbitraryTarget.status, 201);
+  assert.strictEqual(arbitraryTarget.body.campaign.campaignCostDZX, 11205);
+
   const missingProvider = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Missing provider', target: 1000, idempotencyKey: 'creator-task-2', config: { completion: { mode: 'server_verified', url: 'https://example.test' } }
+    taskType: 'social', title: 'Missing provider', target: 1000, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'server_verified', url: 'https://example.test' } }
   }, auth);
   assert.strictEqual(missingProvider.status, 400);
 
   const missingUrl = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Missing URL', target: 1000, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'server_verified' } }
+    taskType: 'social', title: 'Missing URL', target: 1000, idempotencyKey: 'creator-task-4', config: { completion: { mode: 'server_verified' } }
   }, auth);
   assert.strictEqual(missingUrl.status, 400);
 
   const tooSmall = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Too small', target: 999, idempotencyKey: 'creator-task-4', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+    taskType: 'social', title: 'Too small', target: 999, idempotencyKey: 'creator-task-5', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
   }, auth);
   assert.strictEqual(tooSmall.status, 400);
-
-  const invalidStep = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Invalid step', target: 1500, idempotencyKey: 'creator-task-5', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
-  }, auth);
-  assert.strictEqual(invalidStep.status, 400);
 
   const submit = await request('POST', '/api/creator/tasks/7/submit', {}, auth);
   assert.strictEqual(submit.status, 200);
   assert.strictEqual(submit.body.task.status, 'pending_review');
-  assert.strictEqual(calls[1].submit.creatorId, 42);
-  assert.strictEqual(calls[1].submit.taskId, '7');
+  assert.strictEqual(calls[2].submit.creatorId, 42);
+  assert.strictEqual(calls[2].submit.taskId, '7');
 
   const invalidType = await request('GET', '/api/creator/tasks/contracts/daily', null, auth);
   assert.strictEqual(invalidType.status, 400);
