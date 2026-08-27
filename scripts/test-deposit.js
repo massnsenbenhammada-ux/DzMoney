@@ -39,6 +39,7 @@ async function main() {
   const telegramUserId = -Date.now();
   const rollbackTelegramUserId = telegramUserId - 1;
   let user;
+  let concurrencyUser;
   let rollbackUser;
   let provider;
   const originals = {};
@@ -87,9 +88,12 @@ async function main() {
     assert.equal(staleConfirmation.deposit.status, 'REJECTED');
     assert.equal(staleConfirmation.credited, false);
 
+    // Use a fresh user for the quota race so the user's prior successful deposit
+    // cannot consume part of the concurrency test's daily allowance.
+    concurrencyUser = await createUser({ telegramUserId: telegramUserId - 2, username:`${marker}:concurrency-user`, firstName:'Concurrency Test' });
     await setSetting('deposit.daily_limit_ton', 0.15);
     const concurrent = [{ key:`${marker}:concurrent-a`, hash:makeHash('4') }, { key:`${marker}:concurrent-b`, hash:makeHash('5') }];
-    for (const item of concurrent) await processDeposit({ idempotencyKey:item.key,userId:user.id,txHash:item.hash,tonAmount:0.1,confirmationCount:0 });
+    for (const item of concurrent) await processDeposit({ idempotencyKey:item.key,userId:concurrencyUser.id,txHash:item.hash,tonAmount:0.1,confirmationCount:0 });
     const concurrentResults = await Promise.allSettled(concurrent.map(item => confirmDeposit({ idempotencyKey:item.key })));
     assert.equal(concurrentResults.filter(r => r.status==='fulfilled').length, 1);
     assert.equal(concurrentResults.filter(r => r.status==='rejected').length, 1);
@@ -129,7 +133,7 @@ async function main() {
     if (provider) await new Promise(resolve => provider.close(resolve));
     delete process.env.TONCENTER_API_BASE_URL;
     for (const [key,value] of Object.entries(originals)) await setSetting(key,value);
-    for (const testUser of [user,rollbackUser]) {
+    for (const testUser of [user,concurrencyUser,rollbackUser]) {
       if (!testUser) continue;
       await withTransaction(async client => {
         await client.query('DELETE FROM deposits WHERE user_id=$1',[testUser.id]);
