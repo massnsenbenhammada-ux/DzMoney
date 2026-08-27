@@ -78,15 +78,16 @@ async function main() {
       confirmationCount: 0,
     });
     assert.equal(pendingDeposit.deposit.status, 'PENDING');
-    assert.equal(pendingDeposit.deposit.ton_amount, exactTonAmount);
-    const expectedDZX = '9007199254740993';
-    const depositAmountMatches = await pool.query(
-      `SELECT dzx_amount = $2::numeric AS matches
+
+    const depositValues = await pool.query(
+      `SELECT ton_amount = $2::numeric AS ton_matches,
+              dzx_amount = $3::numeric AS dzx_matches
        FROM deposits
        WHERE id = $1`,
-      [pendingDeposit.deposit.id, expectedDZX]
+      [pendingDeposit.deposit.id, exactTonAmount, '9007199254740993']
     );
-    assert.equal(depositAmountMatches.rows[0].matches, true);
+    assert.equal(depositValues.rows[0].ton_matches, true);
+    assert.equal(depositValues.rows[0].dzx_matches, true);
 
     console.log('Monetary precision invariants: PASS');
   } finally {
