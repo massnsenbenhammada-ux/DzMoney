@@ -143,9 +143,13 @@ async function main() {
     throw error;
   } finally {
     if (provider) await new Promise(resolve => provider.close(resolve));
-    if (user) await query('DELETE FROM users WHERE id=$1', [user.id]);
-    if (concurrencyUser) await query('DELETE FROM users WHERE id=$1', [concurrencyUser.id]);
-    if (rollbackUser) await query('DELETE FROM users WHERE id=$1', [rollbackUser.id]);
+    const testUserIds = [user?.id, concurrencyUser?.id, rollbackUser?.id].filter(Boolean);
+    if (testUserIds.length) {
+      await query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[]))', [testUserIds]);
+      await query('DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])', [testUserIds]);
+      await query('DELETE FROM deposits WHERE user_id = ANY($1::bigint[])', [testUserIds]);
+      await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [testUserIds]);
+    }
     for (const [key, value] of Object.entries(originals)) await setSetting(key, value);
     await pool.end();
   }
