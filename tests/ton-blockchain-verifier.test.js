@@ -10,7 +10,7 @@ const {
 } = require('../src/services/ton-blockchain-verifier');
 
 const MAINNET = 'UQAaRNqn01vjTzDdSaN8LtsWpZRWkhRQZkXCNzfb3z0ZDeI0';
-const RAW_MAINNET = '0:1a9a9e6f8e3b8c7a0d2f6f4f7c2c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8';
+const RAW_MAINNET = '0:1a44daa7d35be34f30dd49a37c2edb16a594569214506645c23737dbdf3d190d';
 const TX_HASH = 'a'.repeat(64);
 
 function response(payload, ok = true, status = 200) {
@@ -43,7 +43,7 @@ test('converts TON decimal exactly to nanoTON', () => {
 });
 
 test('canonicalizes configured user-friendly address', () => {
-  assert.match(canonicalAddress(MAINNET), /^0:[0-9a-f]{64}$/);
+  assert.equal(canonicalAddress(MAINNET), RAW_MAINNET);
   assert.equal(canonicalAddress(RAW_MAINNET), RAW_MAINNET);
 });
 
