@@ -25,9 +25,18 @@ function startProvider() {
     const url = new URL(req.url, 'http://127.0.0.1');
     const hash = (url.searchParams.get('hash') || url.searchParams.get('tx_hash') || makeHash('a')).toLowerCase();
     const value = expectedNanoFor(hash);
-    const payload = url.pathname.endsWith('/transactions')
-      ? { transactions: [{ hash, account: RAW_MAINNET, mc_block_seqno: 123, description: { aborted: false }, in_msg: { destination: RAW_MAINNET, value, bounced: false } }] }
-      : { traces: [{ tx_hash: hash, mc_seqno_end: 123, is_incomplete: false }] };
+    let payload;
+    if (url.pathname.endsWith('/transactions')) {
+      payload = { transactions: [{ hash, account: RAW_MAINNET, mc_block_seqno: 123, description: { aborted: false }, in_msg: { destination: RAW_MAINNET, value, bounced: false } }] };
+    } else if (url.pathname.endsWith('/traces')) {
+      payload = { traces: [{ tx_hash: hash, mc_seqno_end: 123, is_incomplete: false }] };
+    } else if (url.pathname.endsWith('/masterchainInfo')) {
+      payload = { first: { seqno: 0 }, last: { seqno: 130 } };
+    } else {
+      res.writeHead(404, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'not found' }));
+      return;
+    }
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify(payload));
   });
@@ -129,25 +138,17 @@ async function main() {
     console.log('  ✓ duplicate TX and idempotency protection');
     console.log('  ✓ pending timeout and daily limit');
     console.log('  ✓ economy rollback and ledger audit');
+  } catch (error) {
+    console.error('Server-side TON deposit evidence gate: FAIL');
+    throw error;
   } finally {
     if (provider) await new Promise(resolve => provider.close(resolve));
-    delete process.env.TONCENTER_API_BASE_URL;
-    for (const [key,value] of Object.entries(originals)) await setSetting(key,value);
-    for (const testUser of [user,concurrencyUser,rollbackUser]) {
-      if (!testUser) continue;
-      await withTransaction(async client => {
-        await client.query('DELETE FROM deposits WHERE user_id=$1',[testUser.id]);
-        await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)',[testUser.id]);
-        await client.query('DELETE FROM ledger_transactions WHERE user_id=$1',[testUser.id]);
-        await client.query('DELETE FROM users WHERE id=$1',[testUser.id]);
-      });
-    }
+    if (user) await query('DELETE FROM users WHERE id=$1', [user.id]);
+    if (concurrencyUser) await query('DELETE FROM users WHERE id=$1', [concurrencyUser.id]);
+    if (rollbackUser) await query('DELETE FROM users WHERE id=$1', [rollbackUser.id]);
+    for (const [key, value] of Object.entries(originals)) await setSetting(key, value);
     await pool.end();
   }
 }
 
-main().catch(error => {
-  console.error('Server-side TON deposit evidence gate: FAIL');
-  console.error(error);
-  process.exit(1);
-});
+main();
