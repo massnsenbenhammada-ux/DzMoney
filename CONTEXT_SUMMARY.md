@@ -1,43 +1,76 @@
 # DzMoney — Context Summary
 
-## Snapshot
+## Authoritative snapshot
 
-- Current main commit: `808adfc052812554d1903691f948dfcddbd0a472`.
-- Current main CI: GitHub Actions run #405 (`32865975721`) passed.
-- Current phase: Phase 2 Activity/Ads/Tasks remains open; Phase 3 Referral core is partially implemented.
-- Open PR at the time of this summary: PR #103, a documentation-only Share-with-Friends trust-boundary change based on the previous `main` commit and therefore stale relative to current main.
+- Audited baseline: `main` at `de1280d42f3f2d438665b9708f1ac2ae9c3abc99` (PR #148 milestone).
+- PR #150 was merged as `ba3a003b6f674c7091a8981abd8d3ea7508048aa` to revert the earlier unauthorized direct-to-main documentation mutation.
+- Documentation changes from this point forward must use branch → PR → CI → review/authorization → merge.
+- The repository's existing `IMPLEMENTATION_STATUS.md` was stale relative to the audited baseline; this branch reconciles it without changing runtime behavior.
 
-## Recently completed validated milestones
+## Current phase
 
-1. Daily system-task contract (#98) — merged.
-2. Daily Check for Update lifecycle (#101) — merged; UTC+1 calendar-day eligibility and server-side Telegram membership verification.
-3. Daily View Ads lifecycle (#102) — merged; UTC+1 calendar-day eligibility and existing trusted task-advertisement flow.
-4. Referral activation (#96) — merged; one-time 10,000 COIN + 10 DZX + 10 DZP through the existing Economy/Ledger path.
-5. Permanent Referral achievements (#104) — merged; Invite 1/10/20/50/100 based on canonical qualified referrals and existing task verification state.
+- Phase 2 — Activity / Ads / Tasks: open.
+- Phase 3 — Referral: core implemented, not closed.
+- Later phases remain gated by roadmap/phase isolation.
 
-## Architectural decisions
+## Validated architecture
 
 - `activity_tasks` remains the task catalog/source of truth.
 - Existing Task Execution, Task Verification, Advertisement, Referral and Economy/Ledger boundaries must be reused.
 - No second reward store, ledger, economy, verification system or referral counter is allowed.
-- Daily Check-in uses rolling 24 hours; Check for Update and View Ads use UTC+1 calendar-day eligibility.
-- Referral achievements are permanent, not time-based; each threshold is claimable once.
-- Share with Friends must not reward from an untrusted frontend-only share/click/dialog signal.
-- Referral lifetime 20% applies only to qualifying base task/advertisement activity before Squad modifiers and excludes activation, Squad, Reward Pool, Promo, packages and referral earnings.
+- Verification must be server-authoritative; frontend flags are not trusted evidence.
+- Verification-ad gating remains distinct from task completion evidence.
+- Daily Check-in uses rolling 24 hours; applicable Daily system tasks use the documented UTC+1 calendar-day policy.
+- Referral achievements are permanent and threshold-based.
+- Share with Friends must not reward from frontend-only share/click/dialog signals.
 
-## Remaining work
+## Phase 2 evidence status
 
-- Share with Friends: implement only after the existing codebase provides or can safely integrate a trusted server-verifiable completion signal and canonical referral-link bootstrap. Do not invent a callback or second state store.
-- Referral HTTP/bootstrap and user-facing referral-link exposure.
-- Referral lifetime 20% through the existing Economy/Ledger boundary.
-- Broader real task adapters/verifiers for Game, Social, Web and Special/Partner tasks.
-- Anti-fraud and full Phase 2/3 acceptance hardening.
-- Later phases: Squad, Reward Pool, Packages, Conversion UI, Withdrawal, Promo, full UI, Admin, final security/release.
+### Proven
 
-## Tests / CI
+- Telegram Channel Membership: existing verifier uses authenticated Telegram identity and Bot API `getChatMember`.
+- Monetag and OnClickA: existing provider postback boundaries provide advertisement-provider evidence; these are not generic task-completion evidence.
 
-The repository `test:all` suite includes frontend, Phase 1, Economy/Ledger, Deposit, Phase 2, Referral attribution/qualification/activation/achievements, Daily Check-in, Daily system-task lifecycle, View Ads, Task Catalog/Execution/Verification, advertisement provider flows, creator campaigns, Monetag/OnClickA provider contracts and economy reconciliation.
+### Not yet proven as generic task-completion evidence
 
-## Documentation risk
+- Provider-specific Daily completion beyond the existing ad-event boundary.
+- Game / Mini App completion from a concrete trusted backend contract.
+- Non-Telegram social actions without an authoritative provider event/API.
+- Web completion without a signed S2S webhook or authenticated server-bound single-use token.
+- Special/Partner completion without a concrete authenticity/signature/HMAC contract and identity binding.
 
-`IMPLEMENTATION_STATUS.md` had become stale relative to the merged Daily and Referral work. It was reconciled on branch `docs/reconcile-current-state`. This summary is created now because the validated milestone count since the prior known summary boundary has reached five.
+Issue #134 remains the evidence-contract gate. No new verifier is authorized merely because a generic provider configuration entry exists.
+
+## Referral status
+
+Implemented in the audited codebase:
+
+- attribution;
+- server-side qualification;
+- activation;
+- qualified referral count;
+- permanent achievements;
+- Telegram bootstrap/referral-link foundation;
+- lifetime 20% reward through the existing Economy/Ledger path.
+
+Pending:
+
+- trusted production Share with Friends completion/reward;
+- remaining referral UI/acceptance coverage.
+
+## TON Deposit
+
+The audited PR #148 milestone contains server-side blockchain evidence validation, transaction normalization, finality handling, trace binding, persisted network handling and the deposit evidence gate. Automated validation is part of the audited CI evidence. Production acceptance remains a separate operational gate.
+
+## Reconciliation rules
+
+- Open Issues/PRs are not proof of missing implementation.
+- Merged `main` code, tests and CI are the implementation evidence.
+- Already-implemented behavior must be reconciled, not reimplemented.
+- PRs #146/#147 are superseded by the PR #148 milestone where their changes overlap.
+- Issue #100's 20% lifetime reward is already implemented.
+- Issue #106 must be reconciled against the current referral bootstrap implementation before new work is authorized.
+
+## Next authorized action
+
+After this documentation reconciliation PR is validated and merged, freeze the baseline and proceed with Phase 2 / Issue #134: identify a concrete, testable evidence contract before writing any new verifier. Tests must precede newly authorized implementation, and all changes must follow the normal PR workflow.
