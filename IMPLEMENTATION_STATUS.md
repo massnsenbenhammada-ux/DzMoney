@@ -4,9 +4,11 @@
 
 **Current phase:** Phase 2 — Activity / Ads / Tasks, with Phase 3 Referral core partially implemented.
 
-**Current main:** `fe3802e5e40dc86383e429a536535cec48e1da76` (PR #136 merged).
+**Current main:** `efc567b8a90672eed4122728d2a3d7e8839851ac` (PR #139 merged).
 
-**Latest CI evidence:** PR #136 exact head `ee9aaea43f498cfb8e59559132da265d0edd5a2d` passed the Phase 2 boundaries workflow on the exact branch head. PR #136 was then merged to `main` as `fe3802e5e40dc86383e429a536535cec48e1da76`; the post-merge workflow `33006198804` passed migrations, isolated runtime health and the full test suite.
+**Latest CI evidence:** PR #139 exact head `44667705caad60616c03b3fcf5b2d8596c2f0b96` passed the Phase 2 boundaries workflow `33027628310`, job `98372573027`, including migrations, isolated runtime health and the full test suite. PR #139 was then merged to `main` as `efc567b8a90672eed4122728d2a3d7e8839851ac`.
+
+**Post-merge CI:** No workflow run was returned for the merge commit itself; the successful exact-head PR workflow is the available CI evidence. No post-merge green result is assumed from the merge alone.
 
 **Reconciliation rule:** Only merged commits on `main` are treated as completed. Superseded or closed PRs are not separate implementation milestones.
 
@@ -49,12 +51,11 @@ No new Phase 1 refactor is in scope unless a new invariant/security defect is di
 - 🟢 Task-type Server Verified contract boundaries documented for Daily, Mini App, Social, Web and Special/Partner.
 - 🟢 User Create Tasks runtime UI and authenticated HTTP boundary for Game/Social/Web.
 - 🟢 User Creator is prevented from creating Special/Partner campaigns; Special/Partner remains Admin-only.
-- 🟢 Creator target is server-enforced at minimum `1000`, in steps of `1000`.
-- 🟢 Creator campaign pricing is Admin-controlled; `9 DZX` per valid execution is the initial/default reference value and campaign cost is calculated from target.
+- 🟢 Creator target is server-enforced at minimum `1000` with no maximum and accepts arbitrary positive integer targets at or above the minimum.
+- 🟢 Creator campaign pricing is Admin-controlled; `9 DZX` per valid execution is the initial/default reference value, displayed as `9,000 DZX` CPM, and campaign cost is calculated from the exact target.
 - 🟢 Creator cannot control COIN/DZX/DZP reward values or verification-ad duration; authoritative Admin settings are used server-side.
 - 🟢 Creator supplies the destination URL for Open Link and Server Verified; the URL is not verification evidence.
 - 🟢 Creator campaign debit, review and rejection-refund paths remain on the existing Economy/Ledger source of truth.
-- 🟢 Economy idempotency ownership and operation-mismatch protections are covered by regression testing.
 - 🟢 Migration `019_creator_campaign_pricing.sql` provisions `9 DZX` as the initial value with `ON CONFLICT DO NOTHING`, preserving an existing Admin-controlled value.
 - 🟢 Provider-neutral trusted evidence contract is documented for future Creator/User-created integrations across Game/Mini App, Social, Web and Special/Partner.
 - 🟢 Creator task verification configuration now accepts provider identifier, verification method, exact provider event and non-secret provider configuration reference while preserving the existing task-verification source of truth.
@@ -150,7 +151,7 @@ Pending:
 
 ## Documentation reconciliation note
 
-This update reconciles the status document with merged main commit `fe3802e5e40dc86383e429a536535cec48e1da76`. It records the validated provider-neutral trusted evidence contract and Creator task provider verification configuration as completed preparation work, together with exact-head and post-merge CI evidence. It does not claim implementation of a real external task provider, provider-specific verifier, Share with Friends reward authorization, broader task adapters, or full Phase 2 acceptance.
+This update reconciles the status document with merged main commit `efc567b8a90672eed4122728d2a3d7e8839851ac`. It records the validated Creator target/pricing presentation change: minimum target `1000`, no maximum, arbitrary integer target, and `9 DZX` per valid execution represented as `9,000 DZX` CPM. It preserves the existing Admin-controlled pricing and Economy/Ledger debit path. It does not claim implementation of a real external task provider, provider-specific verifier beyond the existing Telegram Social path, Share with Friends reward authorization, broader task adapters, or full Phase 2 acceptance.
 
 ## Update Rule
 
