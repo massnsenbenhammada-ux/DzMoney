@@ -57,7 +57,7 @@ function validateCreatorProvider(taskType, config) {
 
 async function contractFor(tasks, taskType) {
   requireTaskType(taskType);
-  const contract = await tasks.getCreatorCampaignContract(taskType);
+  const contract = await tasks.getCreatorCampaignContract();
   const availableCompletionModes = contract.availableCompletionModes || [];
   return {
     ...contract,
