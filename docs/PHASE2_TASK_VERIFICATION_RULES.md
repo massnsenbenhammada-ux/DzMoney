@@ -2,211 +2,328 @@
 
 ## Status
 
-Design decision locked before Phase 2 implementation.
+**Canonical Task Model — locked.** This document is the canonical Phase 2 task-verification contract. It defines Tasks, not campaigns or creator ownership.
 
-## Scope
+## 1. Scope and terminology
 
-These rules apply to **all task categories except advertisement tasks**.
+- **Task Type** = what kind of task the user is completing.
+- **Verification Method** = how that task is verified.
+- **Provider** = an external trusted system used by a selected verification contract.
+- **User Creator** and **Partner/Special** describe the task/campaign context; they are not interchangeable with Task Type.
+- A task has exactly **one** verification method. Verification methods cannot be combined for one task.
 
-Advertisement items are already ad-based and therefore do not receive a second verification advertisement.
+## 2. Canonical Task model
 
-## Task interaction flow
+```text
+TASK
+│
+├─ Daily
+│  ├─ Daily Check-in → Ad Provider
+│  ├─ Check for Update → Telegram Membership → Bot API
+│  ├─ Ad View → Ad Provider
+│  ├─ Share with Friends → User Referral Link → Click Proof
+│  ├─ Invite 1 Friend → User Referral Link → Qualified Referral Count → Threshold → Invite / Claim
+│  ├─ Invite 10 Friends → User Referral Link → Qualified Referral Count → Threshold → Invite / Claim
+│  ├─ Invite 20 Friends → User Referral Link → Qualified Referral Count → Threshold → Invite / Claim
+│  ├─ Invite 50 Friends → User Referral Link → Qualified Referral Count → Threshold → Invite / Claim
+│  └─ Invite 100 Friends → User Referral Link → Qualified Referral Count → Threshold → Invite / Claim
+│
+├─ Game
+│  ├─ Click Proof
+│  └─ URL Format Match → External Mini App → Referral URL
+│
+├─ Social
+│  ├─ Click Proof
+│  └─ Bot API
+│
+├─ Web
+│  └─ Click Proof
+│
+└─ Partner / Special
+   ├─ Mini App → mini_app_backend
+   ├─ Social → Bot API
+   └─ Web → HMAC / Webhook
+```
 
-Every non-advertisement task exposes two separate actions:
+**Important:** `Game` is the ordinary user-created Mini App task type. `Partner/Special → Mini App` is a partner integration subtype and must not be confused with the ordinary Game task type.
 
-1. **Execute** — the user performs the required task action.
-2. **Verify** — the user requests server-side verification after attempting the task.
+## 3. User-created task verification
 
-The verification flow is:
+### Game
 
-**Execute → Verify → short verification advertisement → server-side verification → reward**
+The task creator chooses exactly one:
 
-## Verification advertisement
+- **Click Proof**; or
+- **URL Format Match**.
 
-When the user presses **Verify**, the system must require completion of a short advertisement before performing the final verification/reward step.
+For URL Format Match, the campaign/task creator supplies the referral URL of the **external Mini App** they want to receive referrals for. The user supplies the referral URL obtained for that external application. Verification is **URL Format Match** against the campaign's configured target URL format. A format match does not claim proof of downstream conversion that DzMoney cannot independently establish.
 
-The verification advertisement duration is configurable between the agreed short durations:
+### Social
 
-- 5 seconds; or
-- 10 seconds.
+The task creator chooses exactly one:
 
-The exact duration/configuration is controlled by the backend/Admin configuration and must not be trusted from the frontend.
+- **Click Proof**; or
+- **Bot API**.
 
-## Trusted evidence contract
+Bot API is used only where it can provide authoritative evidence for the required action. Click Proof and Bot API cannot be combined for one task.
 
-A verifier must derive its decision from **server-trusted evidence appropriate to the task type**.
+### Web
 
-The following are never sufficient evidence by themselves:
+The user-created Web verification method is:
+
+- **Click Proof**.
+
+HMAC/Webhook is not implied for an ordinary user-created Web task.
+
+## 4. Daily tasks
+
+### Daily Check-in
+
+```text
+Daily Check-in → Ad Provider
+```
+
+Supported ad providers are configurable and may include Monetag, OnClickA, and AdsGram when actually enabled. Provider evidence must be authenticated and bound to the relevant user/task according to the provider contract. The 24-hour policy remains server-authoritative.
+
+### Check for Update
+
+```text
+Check for Update → Telegram Membership → Bot API
+```
+
+The server-side Telegram membership result is the trusted evidence.
+
+### Ad View
+
+```text
+Ad View → Ad Provider → completion evidence → server verification
+```
+
+The selected provider supplies the completion evidence. Provider configuration does not itself constitute proof or enablement.
+
+### Share with Friends
+
+```text
+Share with Friends
+        ↓
+User Referral Link
+        ↓
+Click Proof
+```
+
+The task uses the user's canonical DzMoney referral link. The recorded click proof is the completion evidence for this task.
+
+### Invite Friends
+
+```text
+Invite Friends
+        ↓
+User Referral Link
+        ↓
+Qualified Referral Count
+        ↓
+Threshold
+        ↓
+Invite / Claim
+```
+
+The qualified count is derived from the existing referral source of truth. It must not be replaced by a client-supplied counter.
+
+The displayed count stops at the configured threshold:
+
+```text
+display_count = min(qualified_count, threshold)
+```
+
+Before the threshold is reached, the action is **Invite** and uses the user's referral link. When the threshold is reached, the action becomes **Claim**.
+
+Claim requires the configured advertisement gate:
+
+```text
+Claim
+ ↓
+Advertisement
+ ↓
+Server Verification
+ ↓
+Reward
+```
+
+Failure to complete the required advertisement produces no reward. The reward remains idempotent.
+
+## 5. Partner / Special
+
+Partner/Special is intended for large sites, channels, applications, and other partner integrations. It is not the ordinary User Creator task path.
+
+Its supported subtypes are:
+
+```text
+PARTNER / SPECIAL
+│
+├─ Mini App → mini_app_backend
+├─ Social   → Bot API
+└─ Web      → HMAC / Webhook
+```
+
+Partner/Special does **not** permit Click Proof or URL Format Match as its verification method.
+
+### Partner Mini App
+
+Trusted completion evidence comes from the partner's authoritative `mini_app_backend`. The contract must define the exact completion event, identity binding, authenticity, idempotency/replay policy, and failure behavior.
+
+### Partner Social
+
+Trusted evidence comes from the partner/provider Bot API or another explicitly supported authoritative API capable of proving the exact required action.
+
+### Partner Web
+
+Trusted evidence comes from an authenticated HMAC/signature webhook or equivalent server-to-server callback. A bare redirect or client assertion is insufficient.
+
+Partner credentials and secrets belong only to protected provider integration configuration and never to task configuration.
+
+## 6. Verification-method selection
+
+```text
+Task Type
+   ↓
+Allowed Verification Methods
+   ↓
+Creator selects exactly ONE
+   ↓
+Task stores the selected method
+   ↓
+Execution
+   ↓
+Evidence
+   ↓
+Server Verification
+```
+
+Required combinations:
+
+- `GAME + Click Proof` → allowed.
+- `GAME + URL Format Match` → allowed.
+- `GAME + Click Proof + URL Format Match` → forbidden.
+- `SOCIAL + Click Proof` → allowed.
+- `SOCIAL + Bot API` → allowed.
+- `SOCIAL + Click Proof + Bot API` → forbidden.
+- `WEB + Click Proof` → allowed.
+- `PARTNER/SPECIAL + Mini App` → allowed only through the partner Mini App backend contract.
+- `PARTNER/SPECIAL + Social` → allowed only through the partner Bot API contract.
+- `PARTNER/SPECIAL + Web` → allowed only through the partner HMAC/Webhook contract.
+- `PARTNER/SPECIAL + Click Proof` → forbidden.
+- `PARTNER/SPECIAL + URL Format Match` → forbidden.
+
+## 7. Evidence and security rules
+
+The following are never sufficient by themselves:
 
 - client-provided `completed=true`;
 - arbitrary client timestamps;
 - arbitrary client counters;
 - client-only success flags;
-- equivalent frontend assertions that are not independently verified by the backend.
+- an unauthenticated callback;
+- a browser navigation treated as provider-confirmed completion.
 
-The existing task verification service is the verification/reward boundary. A concrete verifier must return a success decision only; it must not mint rewards or write Economy/Ledger state directly.
+Every provider-backed contract must define:
 
-Before a concrete verifier is implemented for a category, the repository must define:
+1. exact action/event;
+2. trusted evidence source;
+3. Telegram/user identity binding where applicable;
+4. authenticity mechanism;
+5. replay/idempotency behavior;
+6. failure and, where relevant, reversal behavior.
 
-1. the exact user action/event being verified;
-2. the trusted evidence source;
-3. identity binding between that evidence and the authenticated Telegram user;
-4. replay/idempotency behavior;
-5. failure behavior and, where relevant, reversal behavior.
+The existing security boundary that prevents untrusted `open_link` completion from becoming trusted verification must remain intact. A Click Proof contract must not be implemented by weakening that boundary.
 
-### Current category status
+## 8. Verification and reward boundary
 
-The repository currently defines the generic verification boundary, but it does **not** define complete trusted evidence sources for the following categories:
+The existing task-verification service remains the verification/reward boundary. Concrete verification returns a decision; it does not independently mint rewards or bypass Economy/Ledger.
 
-- **Daily:** evidence source not yet specified;
-- **Game:** evidence source not yet specified;
-- **Social:** evidence source and supported platform/provider not yet specified;
-- **Web:** evidence source not yet specified;
-- **Special/Partner:** partner/provider identity and trusted callback/evidence contract not yet specified.
+```text
+Task Creation
+    ↓
+Task Type + ONE Verification Method
+    ↓
+Task Execution
+    ↓
+Evidence
+    ↓
+Server Verification
+    ↓
+PASS → Idempotency Check → Existing Economy → Reward → Ledger
+  │
+  └→ FAIL → No Task Reward
+```
 
-Therefore no concrete verifier/adapter for these categories may be invented merely to satisfy an implementation checklist. Until the evidence source and contract are defined, the category remains **pending specification** and Phase 2 remains open.
+## 9. Advertisement gate
 
-### Provider-ready evidence contracts
+Where the Phase 2 product contract requires a verification advertisement:
 
-The following contracts are now the canonical preparation model for future Creator/User-created task integrations. They define the integration seam without claiming that a real provider currently exists.
+```text
+Execute → Verify → configured short advertisement → server verification → reward
+```
 
-#### Game — Telegram Mini App
+The advertisement is a prerequisite/gate, not a second task reward. Advertisement tasks do not receive a second verification advertisement.
 
-**Task meaning:** a user completes an action inside a Telegram Mini App.
+## 10. Reward and Economy rules
 
-**Preferred trusted evidence:** a server-to-server provider API or a signed callback/webhook from the Mini App's authoritative backend. A game `start` endpoint such as `POST /api/game/start` records/initiates a lifecycle event and is **not completion evidence by itself**.
+- Reward is issued only after successful verification.
+- Verification-gate viewing does not create an additional task reward.
+- Successful verification issues the configured task reward exactly once.
+- Repeated requests, callbacks, refreshes, retries, or idempotency keys cannot duplicate the reward.
+- Failed verification produces no reward.
+- Existing Economy and Ledger remain the only reward/accounting path.
 
-A completion contract must identify the exact completion event, for example `game_completed`, `level_completed`, `score_reached`, or another provider-defined event. The provider backend must bind the event to the authenticated Telegram identity and the configured task/provider identity. Signed requests must use a server-held secret or equivalent asymmetric verification contract. Provider event IDs are the preferred idempotency key, with timestamp/replay-window validation where supported.
+The standard qualifying activity reward remains **1,000 COIN + 1 DZX + 1 DZP**, subject to Admin configuration. Task-earned activity DZP is the only DZP from this flow that contributes to Daily Activity / Reward Pool weighting.
 
-**Required contract:** provider identity + completion event + Telegram user binding + authenticity mechanism + idempotency key + replay policy + failure semantics.
+## 11. Referral independence
 
-#### Social
+Daily `Share with Friends` and `Invite Friends` use the existing user referral system. Do not create a second referral system.
 
-**Task meaning:** the user performs a specific social action.
+`Game → URL Format Match` is separate: it concerns an external Mini App referral URL supplied by the campaign/task creator and verified by URL Format Match. It must not reuse the Daily `user_referral_link` as its source of truth.
 
-**Preferred trusted evidence:** the official API of the social platform, queried server-side with an authenticated/bound provider identity. For Telegram channel membership, the existing `getChatMember` integration is authoritative evidence for membership state and is already implemented in the repository.
+## 12. Configuration rules
 
-For other actions (follow, like, comment, subscription, etc.), the platform/provider must expose an authoritative API or signed server event capable of proving that exact action. Opening a social URL, a client click, or a client assertion is not sufficient evidence.
+Task configuration may contain only non-secret values required by the selected contract, including task type, selected method, provider identifier, exact event/action, non-secret references, identity-binding mode, authenticity mode, and idempotency/replay mode.
 
-**Required contract:** provider/platform identity + exact action + authenticated external account binding + authoritative API/event + idempotency/replay behavior + failure semantics.
+Secrets, API keys, access tokens, HMAC secrets, and equivalent credentials must remain in protected provider configuration.
 
-#### Web
+No configuration entry is proof that a provider exists or is enabled.
 
-**Task meaning:** the user completes an action on an external website.
+## 13. Implementation constraints
 
-**Preferred trusted evidence:** a signed server-to-server webhook from the website/provider. Where a webhook is not available, a callback carrying a unique, single-use token bound server-side to the authenticated Telegram user, task and provider may be used when the provider contract can prove completion rather than merely link opening.
+- Do not create a duplicate Task system.
+- Do not create a duplicate Verification system.
+- Do not create a duplicate Referral system.
+- Do not create a duplicate Economy or Ledger.
+- Do not create provider adapters before their evidence contracts are defined.
+- Do not weaken the existing `open_link` security invariant.
+- Reuse the existing verification runtime and provider boundaries.
+- Keep changes scoped and TDD-first.
+- Use migrations for schema changes.
+- Reconcile existing open PRs before creating another overlapping correction.
 
-A bare redirect, URL visit, browser callback without authenticity, or client `completed=true` is not sufficient evidence.
+## 14. Acceptance criteria
 
-**Required contract:** provider identity + exact event + user/task binding + HMAC/signature or equivalent authenticity + event/token idempotency + replay policy + failure/reversal semantics.
+- [ ] Daily contains Check-in, Check for Update, Ad View, Share with Friends, and Invite Friends thresholds 1/10/20/50/100.
+- [ ] Share with Friends uses User Referral Link + Click Proof.
+- [ ] Invite Friends uses User Referral Link + qualified referral count + threshold + Invite/Claim behavior.
+- [ ] Displayed referral count is capped at the threshold.
+- [ ] Claim requires the configured advertisement gate before reward.
+- [ ] Game supports Click Proof OR URL Format Match.
+- [ ] Game URL Format Match uses an external Mini App referral URL and matches the configured URL format.
+- [ ] Social supports Click Proof OR Bot API.
+- [ ] Web uses Click Proof for User Creator tasks.
+- [ ] Partner/Special uses Mini App, Social, or Web subtypes with their respective provider contracts.
+- [ ] Partner/Special does not use Click Proof or URL Format Match.
+- [ ] No verification methods are combined for one task.
+- [ ] Evidence is server-validated and idempotent.
+- [ ] Existing Economy/Ledger remain the only reward path.
+- [ ] The existing `open_link` security boundary remains intact.
 
-#### Special / Partner
+## 15. Canonicality
 
-**Task meaning:** an externally defined activity performed for a partner. Partner tasks may represent game, social, web, survey, registration, purchase, installation, or another partner-defined action; the category describes the integration context, not a second verification engine.
+**This document is the canonical Phase 2 Task Verification contract.** Older descriptions that treat `special` as an ordinary User Creator task type, use `Game Backend` as the ordinary Game verifier, combine verification methods, or use Daily `user_referral_link` for external Game referrals are superseded.
 
-**Completion service:** Server Verified only, as already locked by ADR-0010.
-
-**Preferred trusted evidence:** partner backend API or signed/HMAC server-to-server webhook/callback. The partner contract must state the exact event and the identity mapping used to bind it to the authenticated Telegram user and configured task. Partner event IDs must be idempotent and replay protection must be defined.
-
-Partner credentials/secrets must remain in the protected provider integration configuration and must never be stored in `activity_tasks.config`.
-
-**Required contract:** partner identity + exact activity/event + trusted evidence source + Telegram/user identity binding + authenticity + idempotency/replay + failure/reversal semantics.
-
-#### Daily
-
-Daily tasks remain a special case because some are DzMoney-owned system activities and some may depend on an external provider. Existing server-authoritative Daily implementations remain the source of truth for the activities they already own. For any new provider-backed Daily activity, the same provider evidence contract used by Game, Social, Web, or Partner must be explicitly selected; `ad_provider` activity events alone must not be generalized into proof of an unrelated task action.
-
-**Required contract for a new provider-backed Daily task:** exact daily event + trusted source + authenticated user binding + provider authenticity + idempotency/replay + failure semantics.
-
-### Provider configuration model
-
-The Creator/User-created task configuration must remain provider-neutral. The intended configuration concept is:
-
-- task category/type;
-- provider identifier;
-- verification method;
-- exact provider event/action;
-- non-secret provider reference/configuration;
-- identity-binding mode;
-- authenticity mode;
-- idempotency/replay mode.
-
-Provider credentials, API secrets, HMAC secrets, access tokens and similar credentials are never stored in task configuration. They belong to protected provider integration configuration.
-
-No concrete provider is considered enabled merely because a configuration entry exists. A provider becomes usable only after its server-side evidence contract is implemented, tested and explicitly enabled.
-
-The existing `task-verification-service.js` remains the verification/reward boundary, `task-verification-config.js` remains the task-scoped configuration boundary, and the existing provider registries remain the provider-selection boundaries. No duplicate task verifier, Economy, Ledger, or reward system is introduced.
-
-## Reward rules
-
-- Viewing the verification advertisement **does not create an additional task reward**.
-- The verification advertisement is a prerequisite/gate for verification, not a separate reward source.
-- The task reward is issued only after the server confirms that the task requirements were actually satisfied.
-- A user cannot obtain the task reward merely by opening or completing the verification advertisement.
-- A successful task verification issues the configured task reward exactly once.
-- Duplicate Verify requests, repeated advertisement callbacks, refreshes, retries, or repeated idempotency keys must not create duplicate rewards.
-
-## Economy rules
-
-For standard qualifying activity, the default reward remains:
-
-**1,000 COIN + 1 DZX + 1 DZP**
-
-The exact reward is Admin-configurable.
-
-Only the **earned activity DZP** issued for the qualifying task contributes to Daily Activity / Reward Pool weighting.
-
-The verification advertisement itself:
-
-- does not add another DZP;
-- does not add another DZX;
-- does not add another COIN;
-- does not create earned activity DZP separately.
-
-## Ledger requirements
-
-The backend must record the task reward with its real source as `task` (or the final agreed task source identifier).
-
-The verification advertisement must remain distinguishable in audit metadata as a verification gate and must never be silently reclassified as a separate task reward.
-
-The final reward transaction must be atomic and idempotent.
-
-## Independence rules
-
-Task verification must remain independent from:
-
-- Referral lifetime rewards;
-- Squad modifiers;
-- Reward Pool distributions;
-- Promo rewards;
-- unrelated advertisement contexts.
-
-A verifier must never write to those systems directly.
-
-## Acceptance criteria
-
-A Phase 2 implementation is not accepted unless all of the following pass:
-
-- [ ] Every non-ad task has Execute and Verify actions.
-- [ ] Advertisement tasks do not receive a second verification advertisement.
-- [ ] Verify cannot finalize a reward before the configured short ad gate is completed.
-- [ ] The backend performs the authoritative task verification.
-- [ ] Every implemented task category has a defined trusted evidence source.
-- [ ] Evidence is bound to the authenticated Telegram user where applicable.
-- [ ] Failed verification produces no task reward.
-- [ ] Successful verification produces exactly one configured reward.
-- [ ] Repeated Verify attempts cannot duplicate the reward.
-- [ ] Repeated ad callbacks cannot duplicate the reward.
-- [ ] The verification advertisement does not create an additional reward.
-- [ ] Task-earned DZP is the only DZP from this flow that contributes to activity weight.
-- [ ] The transaction and ledger records preserve the task source and verification-gate metadata.
-- [ ] Squad, Referral, Reward Pool and Promo logic remain independent from the task verification mechanism.
-- [ ] Tests exist for each concrete verifier before its category is considered complete.
-
-## Implementation constraint
-
-**Do not implement a concrete Phase 2 task verifier until its trusted evidence contract is defined and the corresponding TDD behavior is specified.**
-
-If the required evidence source is not specified, the correct state is **pending specification**, not a guessed adapter.
-
-**Do not create another Phase 2 specification file for this contract. This file is the canonical task-verification behavior document.**
+No second Phase 2 task-verification specification should be created for this model.
