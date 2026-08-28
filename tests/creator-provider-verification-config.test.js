@@ -48,6 +48,7 @@ test('Game URL Format Match cannot be configured for another task type', () => {
 
 test('Game URL Format Match requires the campaign target URL', () => {
   assert.throws(() => validateVerificationConfig({
+    completion: { mode: 'server_verified' },
     verification: { method: 'url_format_match' }
   }, 'game'), /completion.url is required/);
 });
