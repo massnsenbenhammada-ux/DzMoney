@@ -179,11 +179,19 @@ Partner/Special campaigns require contacting Admin.
 
 Creator pays the task campaign cost.
 
-Reference pricing:
+### User Creator campaign pricing
 
-**1,000 valid visits/executions = 0.90 TON = 9,000 DZX**
+The User Creator campaign CPM is **uniform across verification methods**.
 
-The pricing model scales from this reference and is Admin-configurable.
+**Canonical price: 10,000 DZX per CPM.**
+
+The previous differentiated pricing is superseded and must not be used:
+- Click Proof CPM: 5,000 DZX — **obsolete**;
+- Server Verified CPM: 9,000 DZX — **obsolete**.
+
+Verification method does **not** change the User Creator campaign CPM. For example, Game + Click Proof, Game + Referral URL, Social + Click Proof, Social + Bot API, and Web + Click Proof all use the same **10,000 DZX CPM**.
+
+This pricing rule applies to User Creator campaigns only. Partner/Special commercial pricing is not defined by this rule.
 
 Task lifecycle:
 
