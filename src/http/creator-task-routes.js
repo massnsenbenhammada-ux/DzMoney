@@ -87,49 +87,16 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
     const { taskType, title, description, target, config, idempotencyKey } = req.body;
     requireTaskType(taskType);
     validateCreatorProvider(taskType, config);
-
-    const user = await wallet.createUser({
-      telegramUserId: String(req.telegramUser.id),
-      username: req.telegramUser.username || null,
-      firstName: req.telegramUser.first_name || null,
-      photoUrl: req.telegramUser.photo_url || null
-    });
-
+    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null });
     const rewards = await tasks.getCreatorActivityRewards();
-    const result = await tasks.createCreatorCampaign({
-      taskType,
-      title,
-      description: description || null,
-      creatorId: user.id,
-      target,
-      rewardCoin: rewards.rewardCoin,
-      rewardDzx: rewards.rewardDZX,
-      rewardDzp: rewards.rewardDZP,
-      config,
-      idempotencyKey
-    });
-
-    res.status(201).json({
-      ok: true,
-      task: result.task,
-      campaign: {
-        appliedPriceDZX: result.appliedPriceDZX,
-        campaignCostDZX: result.campaignCostDZX,
-        duplicate: result.duplicate
-      },
-      contract: await contractFor(tasks, taskType)
-    });
+    const result = await tasks.createCreatorCampaign({ taskType, title, description: description || null, creatorId: user.id, target, rewardCoin: rewards.rewardCoin, rewardDzx: rewards.rewardDZX, rewardDzp: rewards.rewardDZP, config, idempotencyKey });
+    res.status(201).json({ ok: true, task: result.task, campaign: { appliedPriceDZX: result.appliedPriceDZX, campaignCostDZX: result.campaignCostDZX, duplicate: result.duplicate }, contract: await contractFor(tasks, taskType) });
   }));
 
   router.post('/:taskId/submit', createRateLimit({ windowMs: 60_000, max: 10 }), asyncRoute(async (req, res) => {
     const taskId = Number(req.params.taskId);
     if (!Number.isInteger(taskId) || taskId <= 0) return res.status(400).json({ ok: false, error: 'taskId must be a positive integer' });
-    const user = await wallet.createUser({
-      telegramUserId: String(req.telegramUser.id),
-      username: req.telegramUser.username || null,
-      firstName: req.telegramUser.first_name || null,
-      photoUrl: req.telegramUser.photo_url || null
-    });
+    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null });
     const task = await tasks.submitCreatorCampaignForReview(taskId, user.id);
     res.json({ ok: true, task });
   }));
