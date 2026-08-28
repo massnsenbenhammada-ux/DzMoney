@@ -29,6 +29,14 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
     if (typeof body.idempotencyKey !== 'string' || body.idempotencyKey.trim() === '') return 'idempotencyKey is required';
     return null;
   };
+  const validateUrlFormatBody = body => {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return 'request body must be an object';
+    const allowed = new Set(['attemptId', 'userUrl']);
+    if (Object.keys(body).some(key => !allowed.has(key))) return 'unknown request field';
+    if (!Number.isInteger(body.attemptId) || body.attemptId <= 0) return 'attemptId must be a positive integer';
+    if (typeof body.userUrl !== 'string' || body.userUrl.trim() === '') return 'userUrl is required';
+    return null;
+  };
 
   router.use(auth);
   router.use(userRateLimit);
@@ -97,6 +105,18 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
     });
     const result = await advertisement.finalizeTaskAdvertisement({ userId: user.id, adEventId });
     res.json({ ok: true, rewarded: result.rewarded === true, duplicate: result.duplicate, rewardIdempotencyKey: result.rewardIdempotencyKey || null });
+  }));
+
+  router.post('/url-format', sensitiveRateLimit, asyncRoute(async (req, res) => {
+    const validationError = validateUrlFormatBody(req.body);
+    if (validationError) return res.status(400).json({ ok: false, error: validationError });
+    const { attemptId, userUrl } = req.body;
+    const result = await verification.finalizeTaskVerification({
+      attemptId,
+      idempotencyKey: `task:${attemptId}`,
+      userSubmittedUrl: userUrl
+    });
+    res.json({ ok: true, status: result.status, rewarded: result.rewarded === true, duplicate: result.duplicate });
   }));
 
   router.post('/click', sensitiveRateLimit, asyncRoute(async (req, res) => {

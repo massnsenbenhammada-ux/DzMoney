@@ -27,6 +27,43 @@ test('provider-ready creator task config accepts a game Mini App contract', () =
   assert.equal(resolved.verification.event, 'game_completed');
 });
 
+test('Game URL Format Match uses the single campaign URL as its reference', () => {
+  const config = {
+    completion: { mode: 'server_verified', url: 'https://t.me/MBuxBot/app?startapp=r_5459324721' },
+    verification: { method: 'url_format_match' }
+  };
+  assert.doesNotThrow(() => validateVerificationConfig(config, 'game'));
+  const resolved = resolveVerificationConfig({ taskType: 'game', config });
+  assert.equal(resolved.completion.url, config.completion.url);
+  assert.equal(resolved.verification.method, 'url_format_match');
+  assert.equal(resolved.verification.provider, null);
+});
+
+test('Game URL Format Match cannot be configured for another task type', () => {
+  assert.throws(() => validateVerificationConfig({
+    completion: { mode: 'server_verified', url: 'https://example.com' },
+    verification: { method: 'url_format_match' }
+  }, 'web'), /supported only for Game tasks/);
+});
+
+test('Game URL Format Match requires the campaign target URL', () => {
+  assert.throws(() => validateVerificationConfig({
+    completion: { mode: 'server_verified' },
+    verification: { method: 'url_format_match' }
+  }, 'game'), /completion.url is required/);
+});
+
+test('Game URL Format Match verifier uses campaign URL format and not the exact referral value', async () => {
+  const config = {
+    completion: { mode: 'server_verified', url: 'https://t.me/MBuxBot/app?startapp=r_5459324721' },
+    verification: { method: 'url_format_match' }
+  };
+  const verifier = resolveTrustedTaskVerifier({ config, userSubmittedUrl: 'https://t.me/MBuxBot/app?startapp=r_8654896543' });
+  assert.equal(await verifier({ attemptId: 1 }), true);
+  const mismatch = resolveTrustedTaskVerifier({ config, userSubmittedUrl: 'https://t.me/surf_earn_bot/app?startapp=r_5459324721' });
+  assert.equal(await mismatch({ attemptId: 1 }), false);
+});
+
 test('provider-ready creator task config accepts Telegram social evidence', () => {
   const resolved = resolveVerificationConfig({
     taskType: 'social',
@@ -172,5 +209,6 @@ assert.deepEqual(VERIFICATION_METHODS, [
   'telegram_bot_api',
   'token_callback',
   'signed_webhook',
-  'hmac_callback'
+  'hmac_callback',
+  'url_format_match'
 ]);
