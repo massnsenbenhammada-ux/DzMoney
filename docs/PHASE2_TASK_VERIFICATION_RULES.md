@@ -30,7 +30,7 @@ TASK
 │
 ├─ Game
 │  ├─ Click Proof
-│  └─ Referral URL → External Mini App → Format Match
+│  └─ URL Format Match → External Mini App → Referral URL
 │
 ├─ Social
 │  ├─ Click Proof
@@ -54,9 +54,9 @@ TASK
 The task creator chooses exactly one:
 
 - **Click Proof**; or
-- **Referral URL**.
+- **URL Format Match**.
 
-For Referral URL, the campaign/task creator supplies the referral URL of the **external Mini App** they want to receive referrals for. The user supplies the referral URL obtained for that external application. Verification is **Format Match** against the campaign's configured referral URL format. A format match does not claim proof of downstream conversion that DzMoney cannot independently establish.
+For URL Format Match, the campaign/task creator supplies the referral URL of the **external Mini App** they want to receive referrals for. The user supplies the referral URL obtained for that external application. Verification is **URL Format Match** against the campaign's configured target URL format. A format match does not claim proof of downstream conversion that DzMoney cannot independently establish.
 
 ### Social
 
@@ -165,7 +165,7 @@ PARTNER / SPECIAL
 └─ Web      → HMAC / Webhook
 ```
 
-Partner/Special does **not** permit Click Proof or Referral URL as its verification method.
+Partner/Special does **not** permit Click Proof or URL Format Match as its verification method.
 
 ### Partner Mini App
 
@@ -202,8 +202,8 @@ Server Verification
 Required combinations:
 
 - `GAME + Click Proof` → allowed.
-- `GAME + Referral URL` → allowed.
-- `GAME + Click Proof + Referral URL` → forbidden.
+- `GAME + URL Format Match` → allowed.
+- `GAME + Click Proof + URL Format Match` → forbidden.
 - `SOCIAL + Click Proof` → allowed.
 - `SOCIAL + Bot API` → allowed.
 - `SOCIAL + Click Proof + Bot API` → forbidden.
@@ -212,7 +212,7 @@ Required combinations:
 - `PARTNER/SPECIAL + Social` → allowed only through the partner Bot API contract.
 - `PARTNER/SPECIAL + Web` → allowed only through the partner HMAC/Webhook contract.
 - `PARTNER/SPECIAL + Click Proof` → forbidden.
-- `PARTNER/SPECIAL + Referral URL` → forbidden.
+- `PARTNER/SPECIAL + URL Format Match` → forbidden.
 
 ## 7. Evidence and security rules
 
@@ -281,7 +281,7 @@ The standard qualifying activity reward remains **1,000 COIN + 1 DZX + 1 DZP**, 
 
 Daily `Share with Friends` and `Invite Friends` use the existing user referral system. Do not create a second referral system.
 
-`Game → Referral URL` is separate: it concerns an external Mini App referral URL supplied by the campaign/task creator and verified by Format Match. It must not reuse the Daily `user_referral_link` as its source of truth.
+`Game → URL Format Match` is separate: it concerns an external Mini App referral URL supplied by the campaign/task creator and verified by URL Format Match. It must not reuse the Daily `user_referral_link` as its source of truth.
 
 ## 12. Configuration rules
 
@@ -311,12 +311,12 @@ No configuration entry is proof that a provider exists or is enabled.
 - [ ] Invite Friends uses User Referral Link + qualified referral count + threshold + Invite/Claim behavior.
 - [ ] Displayed referral count is capped at the threshold.
 - [ ] Claim requires the configured advertisement gate before reward.
-- [ ] Game supports Click Proof OR Referral URL.
-- [ ] Game Referral URL uses an external Mini App referral URL and Format Match.
+- [ ] Game supports Click Proof OR URL Format Match.
+- [ ] Game URL Format Match uses an external Mini App referral URL and matches the configured URL format.
 - [ ] Social supports Click Proof OR Bot API.
 - [ ] Web uses Click Proof for User Creator tasks.
 - [ ] Partner/Special uses Mini App, Social, or Web subtypes with their respective provider contracts.
-- [ ] Partner/Special does not use Click Proof or Referral URL.
+- [ ] Partner/Special does not use Click Proof or URL Format Match.
 - [ ] No verification methods are combined for one task.
 - [ ] Evidence is server-validated and idempotent.
 - [ ] Existing Economy/Ledger remain the only reward path.
