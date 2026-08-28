@@ -52,6 +52,17 @@ test('Game URL Format Match requires the campaign target URL', () => {
   }, 'game'), /completion.url is required/);
 });
 
+test('Game URL Format Match verifier uses campaign URL format and not the exact referral value', async () => {
+  const config = {
+    completion: { mode: 'server_verified', url: 'https://t.me/MBuxBot/app?startapp=r_5459324721' },
+    verification: { method: 'url_format_match' }
+  };
+  const verifier = resolveTrustedTaskVerifier({ config, userSubmittedUrl: 'https://t.me/MBuxBot/app?startapp=r_8654896543' });
+  assert.equal(await verifier({ attemptId: 1 }), true);
+  const mismatch = resolveTrustedTaskVerifier({ config, userSubmittedUrl: 'https://t.me/surf_earn_bot/app?startapp=r_5459324721' });
+  assert.equal(await mismatch({ attemptId: 1 }), false);
+});
+
 test('provider-ready creator task config accepts Telegram social evidence', () => {
   const resolved = resolveVerificationConfig({
     taskType: 'social',
