@@ -1,7 +1,8 @@
 const REFERRAL_MODES = ['disabled', 'link_only', 'link_and_owner_verification'];
 const VERIFICATION_MODES = ['automatic', 'custom'];
 const COMPLETION_MODES = ['open_link', 'server_verified'];
-const VERIFICATION_METHODS = ['api', 'webhook', 'callback', 'telegram_bot_api', 'token_callback', 'signed_webhook', 'hmac_callback'];
+const VERIFICATION_METHODS = ['api', 'webhook', 'callback', 'telegram_bot_api', 'token_callback', 'signed_webhook', 'hmac_callback', 'url_format_match'];
+const INTERNAL_VERIFICATION_METHODS = new Set(['url_format_match']);
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
 const SECRET_KEYS = new Set(['apiKey', 'apiSecret', 'secret', 'token', 'accessToken', 'clientSecret']);
 const TELEGRAM_CHANNEL_PATTERN = /^@[A-Za-z0-9_]{5,32}$/;
@@ -46,6 +47,13 @@ function validateCompletion(completion = {}, taskType = null) {
   if (taskType === 'special' && mode !== 'server_verified') throw new Error('Special/Partner tasks support server_verified completion only');
 }
 
+function validateGameUrlFormatMatch(verification, completion, taskType) {
+  if (taskType !== 'game') throw new Error('url_format_match is supported only for Game tasks');
+  if (verification.provider || verification.event || verification.providerConfigRef) throw new Error('url_format_match does not use a provider contract');
+  if (completion.mode !== 'server_verified') throw new Error('url_format_match requires server_verified completion');
+  if (typeof completion.url !== 'string' || completion.url.trim() === '') throw new Error('completion.url is required for url_format_match');
+}
+
 function rejectSecrets(value) {
   if (!value || typeof value !== 'object') return;
   for (const [key, child] of Object.entries(value)) {
@@ -58,6 +66,10 @@ function validateProviderEvidence(verification = {}) {
   const hasProvider = Boolean(verification.provider);
   const hasMethod = Boolean(verification.method);
   const hasEvent = Boolean(verification.event);
+  if (!hasProvider && hasMethod && INTERNAL_VERIFICATION_METHODS.has(verification.method)) {
+    if (hasEvent) throw new Error('url_format_match does not use a verification event');
+    return;
+  }
   if (!hasProvider && (hasMethod || hasEvent)) throw new Error('provider is required when provider evidence is configured');
   if (!hasProvider) return;
   if (!hasMethod) {
@@ -66,10 +78,9 @@ function validateProviderEvidence(verification = {}) {
     return;
   }
   if (!VERIFICATION_METHODS.includes(verification.method)) throw new Error('Invalid verification method');
+  if (INTERNAL_VERIFICATION_METHODS.has(verification.method)) throw new Error('url_format_match does not use a provider contract');
   if (!hasEvent || typeof verification.event !== 'string') throw new Error('verification event is required');
-  if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') {
-    throw new Error('providerConfigRef must be a string');
-  }
+  if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') throw new Error('providerConfigRef must be a string');
 }
 
 function getCreatorProviderContracts(taskType) {
@@ -95,8 +106,9 @@ function validateCreatorProviderRequirements(provider, requirements = {}) {
 function validateCreatorProviderConfiguration(taskType, config = {}) {
   validateVerificationConfig(config, taskType);
   const completion = config.completion || {};
-  if (completion.mode !== 'server_verified') return true;
   const verification = config.verification || {};
+  if (verification.method === 'url_format_match') return true;
+  if (completion.mode !== 'server_verified') return true;
   const providers = getCreatorProviderContracts(taskType);
   if (!providers.length) throw new Error(`No server-verified provider is enabled for creator task type: ${taskType}`);
   const provider = providers.find(item => item.id === verification.provider);
@@ -120,6 +132,7 @@ function validateVerificationConfig(config = {}, taskType = null) {
   if (!VERIFICATION_MODES.includes(mode)) throw new Error('Invalid verification mode');
   validateProviderEvidence(verification);
   validateCompletion(completion, taskType);
+  if (verification.method === 'url_format_match') validateGameUrlFormatMatch(verification, completion, taskType);
   validateReferral(config.referral);
   return true;
 }
