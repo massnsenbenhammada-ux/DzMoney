@@ -9,6 +9,7 @@ const DZP_COIN = 10000;
 const DZP_DZX = 10;
 const NUMERIC_PATTERN = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
 const NUMERIC_SCALE = 9;
+const DECIMAL_SCALE = 1000000000n;
 
 function numericInput(value, name, { allowZero = true } = {}) {
   if (typeof value === 'number') {
@@ -31,6 +32,34 @@ function positiveNumber(value, name) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) throw new Error(`${name} must be a positive number`);
   return n;
+}
+
+function decimalToScaled(value, name) {
+  const text = numericInput(value, name);
+  const negative = text.startsWith('-');
+  const unsigned = negative ? text.slice(1) : text;
+  const [integerPart, fractionPart = ''] = unsigned.split('.');
+  const fraction = fractionPart.padEnd(NUMERIC_SCALE, '0');
+  const scaled = BigInt(integerPart || '0') * DECIMAL_SCALE + BigInt(fraction || '0');
+  return negative ? -scaled : scaled;
+}
+
+function scaledToDecimal(value) {
+  const negative = value < 0n;
+  const absolute = negative ? -value : value;
+  const integerPart = absolute / DECIMAL_SCALE;
+  const fractionPart = String(absolute % DECIMAL_SCALE).padStart(NUMERIC_SCALE, '0').replace(/0+$/, '');
+  return `${negative ? '-' : ''}${integerPart}${fractionPart ? `.${fractionPart}` : ''}`;
+}
+
+function multiplyScaled(left, right) {
+  const product = left * right;
+  const quotient = product / DECIMAL_SCALE;
+  const remainder = product % DECIMAL_SCALE;
+  if (remainder !== 0n && (remainder < 0n ? -remainder : remainder) * 2n >= DECIMAL_SCALE) {
+    return quotient + (product < 0n ? -1n : 1n);
+  }
+  return quotient;
 }
 
 async function settingNumber(client, key, fallback) {
@@ -113,20 +142,22 @@ async function postEconomyTransaction(args) { return withTransaction(client => p
 
 function normalizeActivityReward({ source, coin, dzx, dzp, modifiers }) {
   if (!ACTIVITY_REWARD_SOURCES.includes(source)) throw new Error('Invalid activity reward source');
-  const baseReward = { coin: Number(coin), dzx: Number(dzx), dzp: Number(dzp) };
-  for (const [currency, amount] of Object.entries(baseReward)) if (!Number.isFinite(amount) || amount < 0) throw new Error(`${currency} must be a non-negative number`);
-  if (baseReward.coin === 0 && baseReward.dzx === 0 && baseReward.dzp === 0) throw new Error('At least one reward currency is required');
+  const baseReward = { coin: numericInput(coin, 'coin'), dzx: numericInput(dzx, 'dzx'), dzp: numericInput(dzp, 'dzp') };
+  const baseScaled = Object.fromEntries(Object.entries(baseReward).map(([currency, amount]) => [currency, decimalToScaled(amount, currency)]));
+  for (const [currency, amount] of Object.entries(baseScaled)) if (amount < 0n) throw new Error(`${currency} must be a non-negative number`);
+  if (baseScaled.coin === 0n && baseScaled.dzx === 0n && baseScaled.dzp === 0n) throw new Error('At least one reward currency is required');
   if (!Array.isArray(modifiers)) throw new Error('modifiers must be an array');
-  let multiplier = 1;
+  let multiplier = DECIMAL_SCALE;
   const normalizedModifiers = [];
   for (const modifier of modifiers) {
     if (!modifier || modifier.type !== 'squad') throw new Error('Unsupported reward modifier');
-    const rate = Number(modifier.rate);
-    if (!Number.isFinite(rate) || rate < 0) throw new Error('Invalid squad modifier rate');
-    multiplier *= 1 + rate;
+    const rate = numericInput(modifier.rate, 'squad modifier rate');
+    const rateScaled = decimalToScaled(rate, 'squad modifier rate');
+    if (rateScaled < 0n) throw new Error('Invalid squad modifier rate');
+    multiplier = multiplyScaled(multiplier, DECIMAL_SCALE + rateScaled);
     normalizedModifiers.push({ type: 'squad', rate });
   }
-  const reward = { coin: baseReward.coin * multiplier, dzx: baseReward.dzx * multiplier, dzp: baseReward.dzp * multiplier };
+  const reward = Object.fromEntries(Object.entries(baseScaled).map(([currency, amount]) => [currency, scaledToDecimal(multiplyScaled(amount, multiplier))]));
   return { baseReward, reward, normalizedModifiers };
 }
 
@@ -134,9 +165,9 @@ async function creditActivityRewardOnClient(client, args) {
   const { idempotencyKey, userId, source = 'advertisement', coin = 0, dzx = 0, dzp = 0, modifiers = [] } = args;
   const { baseReward, reward, normalizedModifiers } = normalizeActivityReward({ source, coin, dzx, dzp, modifiers });
   const movements = [];
-  if (reward.coin > 0) movements.push({ currency: 'COIN', amount: reward.coin, source });
-  if (reward.dzx > 0) movements.push({ currency: 'DZX', amount: reward.dzx, source });
-  if (reward.dzp > 0) movements.push({ currency: 'DZP', amount: reward.dzp, source, dzpBucket: 'earned_dzp' });
+  if (reward.coin !== '0') movements.push({ currency: 'COIN', amount: reward.coin, source });
+  if (reward.dzx !== '0') movements.push({ currency: 'DZX', amount: reward.dzx, source });
+  if (reward.dzp !== '0') movements.push({ currency: 'DZP', amount: reward.dzp, source, dzpBucket: 'earned_dzp' });
   return postEconomyTransactionOnClient(client, { idempotencyKey, userId, type: 'REWARD', metadata: { source, base_reward: baseReward, final_reward: reward, modifiers: normalizedModifiers }, movements });
 }
 
