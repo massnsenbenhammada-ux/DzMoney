@@ -1,15 +1,13 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` at `a0cd4c9b6b3cf829428b2475089f41d78ff0aeac` (post-PR #154 monetary precision milestone), subject to the current post-merge repository state.
->
-> This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
+> **Authoritative baseline:** `main` at `eb69894a3c3576aae1f48388db8d3bc05b60b062` (post-PR #155 documentation reconciliation). This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
 ## Current state
 
 - **Current phase:** Phase 2 — Activity / Ads / Tasks remains open.
 - **Phase 3:** Referral core is partially implemented; Share with Friends production reward remains pending trusted completion evidence.
 - **Latest audited TON/Deposit milestone:** PR #148.
-- **Post-#150 documentation state:** PR #150 restored the repository to the prior documented state because the earlier reconciliation had been written directly to `main`. No direct-to-main documentation change is authorized going forward.
+- **Post-#155 state:** monetary precision milestone is recorded; the authoritative baseline is the current `main` commit above.
 
 ## Phase 0 — Specification Lock
 
