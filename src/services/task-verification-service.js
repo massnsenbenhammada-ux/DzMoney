@@ -95,9 +95,9 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
   const initialState = validateTaskVerificationState(initialRow);
   if (initialState) return initialState;
   const resolvedConfig = resolveVerificationConfig({ taskType: initialRow.task_type, config: initialRow.config });
-  if (resolvedConfig.completion.mode === 'open_link') throw new Error('open_link completion is not a trusted verification method');
-  const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id });
-  const verifiedByTaskRule = await verifier({ attemptId });
+  const verifiedByTaskRule = resolvedConfig.completion.mode === 'open_link'
+    ? initialRow.metadata?.link_clicked === true
+    : await (verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id }))({ attemptId });
   if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
   return withTransaction(async client => {
     const row = await loadTaskVerificationAttempt(attemptId, true, client);
