@@ -9,6 +9,13 @@ test('Game URL format matches the same Telegram Mini App with a different referr
   ), true);
 });
 
+test('Game URL format matches Telegram bot referral links with the same value shape', () => {
+  assert.equal(matchesUrlFormat(
+    'https://t.me/BirdsEmpireBot?start=303162',
+    'https://t.me/BirdsEmpireBot?start=865489'
+  ), true);
+});
+
 test('Game URL format rejects a different Telegram Mini App', () => {
   assert.equal(matchesUrlFormat(
     'https://t.me/MBuxBot/app?startapp=r_5459324721',
