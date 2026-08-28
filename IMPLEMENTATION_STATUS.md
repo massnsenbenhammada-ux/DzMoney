@@ -1,6 +1,6 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` at `de1280d42f3f2d438665b9708f1ac2ae9c3abc99` (PR #148 milestone), subject to the current post-merge repository state.
+> **Authoritative baseline:** `main` at `a0cd4c9b6b3cf829428b2475089f41d78ff0aeac` (post-PR #154 monetary precision milestone), subject to the current post-merge repository state.
 >
 > This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
@@ -25,6 +25,7 @@ Economic and architectural rules remain those defined by the roadmap, architectu
 - TON is external settlement/reference, not an internal wallet currency.
 - Economy/Ledger remains the single economic source of truth.
 - Economy reconciliation exists.
+- Activity reward decimal arithmetic now preserves exact fixed-point values through the existing Economy/Ledger boundary (PR #154).
 
 No Phase 1 refactor is authorized unless a new invariant or security defect is proven.
 
@@ -50,6 +51,7 @@ No Phase 1 refactor is authorized unless a new invariant or security defect is p
 - Provider-neutral trusted-evidence configuration seam; configuration is not provider proof.
 - Server-side rejection of provider credentials/secrets in task configuration.
 - Existing Monetag and OnClickA advertisement-provider evidence boundaries.
+- Exact fixed-point decimal activity reward calculation through the existing Economy/Ledger path, covered by the monetary precision invariant in PR #154.
 
 ### Trusted evidence status
 
