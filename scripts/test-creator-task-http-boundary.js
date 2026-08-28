@@ -20,14 +20,16 @@ async function run() {
   const walletCalls = [];
   const wallet = { createUser: async args => { walletCalls.push(args); return { id: 42, ...args }; } };
   const tasks = {
-    getCreatorCampaignContract: async taskType => ({
-      taskType,
-      priceDZX: 9,
-      availableCompletionModes: ['open_link', 'server_verified'],
-      completionServices: [],
-      serverVerified: { requiredUserInput: { status: 'provider_contract_required' } },
-      creatorInput: { status: 'provider_contract_required' }
-    }),
+    getCreatorCampaignContract: async (...args) => {
+      assert.strictEqual(args.length, 0, 'creator campaign contract must not receive taskType as queryFn');
+      return {
+        priceDZX: 9,
+        availableCompletionModes: ['open_link', 'server_verified'],
+        completionServices: [],
+        serverVerified: { requiredUserInput: { status: 'provider_contract_required' } },
+        creatorInput: { status: 'provider_contract_required' }
+      };
+    },
     getCreatorActivityRewards: async () => ({ rewardCoin: 1000, rewardDZX: 1, rewardDZP: 1 }),
     createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: Number(args.target) * 9, duplicate: false }; },
     submitCreatorCampaignForReview: async (taskId, creatorId) => { calls.push({ submit: { taskId, creatorId } }); return { id: 7, status: 'pending_review', creator_id: creatorId }; }
