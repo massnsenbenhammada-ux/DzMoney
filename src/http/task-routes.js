@@ -50,25 +50,59 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
     const validationError = validateExecuteBody(req.body);
     if (validationError) return res.status(400).json({ ok: false, error: validationError });
     const { taskId, idempotencyKey, metadata = {} } = req.body;
-    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null });
+
+    const user = await wallet.createUser({
+      telegramUserId: String(req.telegramUser.id),
+      username: req.telegramUser.username || null,
+      firstName: req.telegramUser.first_name || null,
+      photoUrl: req.telegramUser.photo_url || null
+    });
+
     const result = await tasks.executeTask({ taskId, userId: user.id, idempotencyKey, metadata });
-    const verificationAd = await verification.startTaskVerificationAd({ attemptId: result.attempt?.id, idempotencyKey: result.gate?.idempotency_key || `verification:${result.attempt?.id}`, providerRegistry });
-    res.json({ ok: true, attemptId: result.attempt?.id, gateId: result.gate?.id, verificationAdId: verificationAd.adEvent?.external_ad_id || null, verificationProvider: verificationAd.providerId || null, verificationStatus: result.gate?.status || 'pending', duplicate: result.duplicate });
+    const verificationAd = await verification.startTaskVerificationAd({
+      attemptId: result.attempt?.id,
+      idempotencyKey: result.gate?.idempotency_key || `verification:${result.attempt?.id}`,
+      providerRegistry
+    });
+    res.json({
+      ok: true,
+      attemptId: result.attempt?.id,
+      gateId: result.gate?.id,
+      verificationAdId: verificationAd.adEvent?.external_ad_id || null,
+      verificationProvider: verificationAd.providerId || null,
+      verificationStatus: result.gate?.status || 'pending',
+      duplicate: result.duplicate
+    });
   }));
 
   router.post('/advertisement/start', sensitiveRateLimit, asyncRoute(async (req, res) => {
     const validationError = validateAdvertisementStartBody(req.body);
     if (validationError) return res.status(400).json({ ok: false, error: validationError });
     const { taskId, idempotencyKey } = req.body;
-    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null });
-    const result = await advertisement.startTaskAdvertisement({ userId: user.id, taskId, idempotencyKey, providerRegistry });
+    const user = await wallet.createUser({
+      telegramUserId: String(req.telegramUser.id),
+      username: req.telegramUser.username || null,
+      firstName: req.telegramUser.first_name || null,
+      photoUrl: req.telegramUser.photo_url || null
+    });
+    const result = await advertisement.startTaskAdvertisement({
+      userId: user.id,
+      taskId,
+      idempotencyKey,
+      providerRegistry
+    });
     res.json({ ok: true, adEventId: result.adEvent?.id, providerId: result.providerId, duplicate: result.duplicate });
   }));
 
   router.post('/advertisement/finalize', sensitiveRateLimit, asyncRoute(async (req, res) => {
     const adEventId = req.body?.adEventId;
     if (!Number.isInteger(adEventId) || adEventId <= 0) return res.status(400).json({ ok: false, error: 'adEventId must be a positive integer' });
-    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null });
+    const user = await wallet.createUser({
+      telegramUserId: String(req.telegramUser.id),
+      username: req.telegramUser.username || null,
+      firstName: req.telegramUser.first_name || null,
+      photoUrl: req.telegramUser.photo_url || null
+    });
     const result = await advertisement.finalizeTaskAdvertisement({ userId: user.id, adEventId });
     res.json({ ok: true, rewarded: result.rewarded === true, duplicate: result.duplicate, rewardIdempotencyKey: result.rewardIdempotencyKey || null });
   }));
@@ -77,23 +111,51 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
     const validationError = validateUrlFormatBody(req.body);
     if (validationError) return res.status(400).json({ ok: false, error: validationError });
     const { attemptId, userUrl } = req.body;
-    const result = await verification.finalizeTaskVerification({ attemptId, idempotencyKey: `task:${attemptId}`, userSubmittedUrl: userUrl });
+    const result = await verification.finalizeTaskVerification({
+      attemptId,
+      idempotencyKey: `task:${attemptId}`,
+      userSubmittedUrl: userUrl
+    });
     res.json({ ok: true, status: result.status, rewarded: result.rewarded === true, duplicate: result.duplicate });
   }));
 
   router.post('/click', sensitiveRateLimit, asyncRoute(async (req, res) => {
     const attemptId = req.body?.attemptId;
-    if (!Number.isInteger(attemptId) || attemptId <= 0) return res.status(400).json({ ok: false, error: 'attemptId must be a positive integer' });
-    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null });
+    if (!Number.isInteger(attemptId) || attemptId <= 0) {
+      return res.status(400).json({ ok: false, error: 'attemptId must be a positive integer' });
+    }
+
+    const user = await wallet.createUser({
+      telegramUserId: String(req.telegramUser.id),
+      username: req.telegramUser.username || null,
+      firstName: req.telegramUser.first_name || null,
+      photoUrl: req.telegramUser.photo_url || null
+    });
+
     const result = await tasks.recordTaskClick({ attemptId, userId: user.id });
-    const finalization = await verification.finalizeTaskVerification({ attemptId, idempotencyKey: `task:${attemptId}` });
-    res.json({ ok: true, clicked: result.clicked, duplicate: result.duplicate, status: finalization.status, rewarded: finalization.rewarded === true, reason: finalization.reason || null });
+    const finalization = await verification.finalizeTaskVerification({
+      attemptId,
+      idempotencyKey: `task:${attemptId}`
+    });
+    res.json({
+      ok: true,
+      clicked: result.clicked,
+      duplicate: result.duplicate,
+      status: finalization.status,
+      rewarded: finalization.rewarded === true,
+      reason: finalization.reason || null
+    });
   }));
 
   router.get('/attempt/:attemptId', asyncRoute(async (req, res) => {
     const attemptId = Number(req.params.attemptId);
     if (!Number.isInteger(attemptId) || attemptId <= 0) return res.status(400).json({ ok: false, error: 'attemptId must be a positive integer' });
-    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null });
+    const user = await wallet.createUser({
+      telegramUserId: String(req.telegramUser.id),
+      username: req.telegramUser.username || null,
+      firstName: req.telegramUser.first_name || null,
+      photoUrl: req.telegramUser.photo_url || null
+    });
     const status = await verification.getTaskVerificationStatus({ attemptId, userId: user.id });
     res.json({ ok: true, ...status });
   }));
