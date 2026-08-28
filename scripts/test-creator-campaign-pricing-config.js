@@ -7,10 +7,10 @@ const queryWith = rows => async () => ({ rows });
 
 async function run() {
   const configured = await getCreatorCampaignContract(queryWith([
-    { key: 'task.campaign_price_dzx_per_execution', value: '9' },
+    { key: 'task.campaign_price_dzx_per_execution', value: '10' },
     { key: 'verification_ad_seconds', value: '30' }
   ]));
-  assert.equal(configured.priceDZX, 9);
+  assert.equal(configured.priceDZX, 10);
 
   await assert.rejects(
     () => getCreatorCampaignContract(queryWith([{ key: 'verification_ad_seconds', value: '30' }])),

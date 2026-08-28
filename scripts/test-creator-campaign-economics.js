@@ -23,7 +23,7 @@ async function main() {
     await pool.query(
       `INSERT INTO admin_settings(key, value) VALUES ($1, $2::jsonb)
        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-      [PRICE_KEY, '9']
+      [PRICE_KEY, '10']
     );
 
     await postEconomyTransaction({
@@ -48,8 +48,8 @@ async function main() {
     });
 
     taskId = campaign.task.id;
-    assert.equal(Number(campaign.appliedPriceDZX), 9);
-    assert.equal(Number(campaign.campaignCostDZX), 9000);
+    assert.equal(Number(campaign.appliedPriceDZX), 10);
+    assert.equal(Number(campaign.campaignCostDZX), 10000);
     assert.equal(Number(campaign.task.target), 1000);
     assert.equal(String(campaign.task.creator_id), String(user.id));
 
@@ -57,7 +57,7 @@ async function main() {
       `SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZX'`,
       [user.id]
     );
-    assert.equal(Number(wallet.rows[0].balance), 1000);
+    assert.equal(Number(wallet.rows[0].balance), 0);
 
     const ledger = await pool.query(
       `SELECT lt.metadata, le.amount, le.source
@@ -67,10 +67,10 @@ async function main() {
        ORDER BY le.id DESC LIMIT 1`,
       [user.id]
     );
-    assert.equal(Number(ledger.rows[0].amount), -9000);
+    assert.equal(Number(ledger.rows[0].amount), -10000);
     assert.equal(ledger.rows[0].metadata.target, 1000);
-    assert.equal(Number(ledger.rows[0].metadata.applied_price_dzx), 9);
-    assert.equal(Number(ledger.rows[0].metadata.campaign_cost_dzx), 9000);
+    assert.equal(Number(ledger.rows[0].metadata.applied_price_dzx), 10);
+    assert.equal(Number(ledger.rows[0].metadata.campaign_cost_dzx), 10000);
 
     // Replaying the same idempotency key must not debit the Creator twice.
     const duplicate = await createCreatorCampaign({
@@ -92,7 +92,7 @@ async function main() {
       `SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZX'`,
       [user.id]
     );
-    assert.equal(Number(walletAfterDuplicate.rows[0].balance), 1000);
+    assert.equal(Number(walletAfterDuplicate.rows[0].balance), 0);
 
     // A campaign must never calculate its authoritative price from Creator input.
     await assert.rejects(
