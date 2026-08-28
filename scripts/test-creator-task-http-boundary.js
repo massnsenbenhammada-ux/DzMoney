@@ -23,7 +23,7 @@ async function run() {
     getCreatorCampaignContract: async (...args) => {
       assert.strictEqual(args.length, 0, 'creator campaign contract must not receive taskType as queryFn');
       return {
-        priceDZX: 9,
+        priceDZX: 10,
         availableCompletionModes: ['open_link', 'server_verified'],
         completionServices: [],
         serverVerified: { requiredUserInput: { status: 'provider_contract_required' } },
@@ -31,7 +31,7 @@ async function run() {
       };
     },
     getCreatorActivityRewards: async () => ({ rewardCoin: 1000, rewardDZX: 1, rewardDZP: 1 }),
-    createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 9, campaignCostDZX: Number(args.target) * 9, duplicate: false }; },
+    createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 10, campaignCostDZX: Number(args.target) * 10, duplicate: false }; },
     submitCreatorCampaignForReview: async (taskId, creatorId) => { calls.push({ submit: { taskId, creatorId } }); return { id: 7, status: 'pending_review', creator_id: creatorId }; }
   };
 
@@ -79,8 +79,8 @@ async function run() {
   assert.strictEqual(socialContract.body.campaignPricing.minTarget, 1000);
   assert.strictEqual(socialContract.body.campaignPricing.targetStep, 1);
   assert.strictEqual(socialContract.body.campaignPricing.maxTarget, null);
-  assert.strictEqual(socialContract.body.campaignPricing.priceDZXPerExecution, 9);
-  assert.strictEqual(socialContract.body.campaignPricing.cpmDZX, 9000);
+  assert.strictEqual(socialContract.body.campaignPricing.priceDZXPerExecution, 10);
+  assert.strictEqual(socialContract.body.campaignPricing.cpmDZX, 10000);
 
   const create = await request('POST', '/api/creator/tasks', {
     taskType: 'social', title: 'Telegram test campaign', target: 1000,
@@ -111,7 +111,7 @@ async function run() {
     taskType: 'social', title: 'Arbitrary target', target: 1245, idempotencyKey: 'creator-task-2', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
   }, auth);
   assert.strictEqual(arbitraryTarget.status, 201);
-  assert.strictEqual(arbitraryTarget.body.campaign.campaignCostDZX, 11205);
+  assert.strictEqual(arbitraryTarget.body.campaign.campaignCostDZX, 12450);
 
   const missingProvider = await request('POST', '/api/creator/tasks', {
     taskType: 'social', title: 'Missing provider', target: 1000, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'server_verified', url: 'https://example.test' } }
