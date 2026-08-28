@@ -5,6 +5,7 @@ const referralService = require('./referral-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 const { resolveVerificationConfig } = require('./task-verification-config');
+const { matchesUrlFormat } = require('./game-url-format-match');
 const { isTelegramChannelMember } = require('./telegram-channel-verifier');
 
 const TELEGRAM_TASK_CHANNELS = { 'telegram.dzmoney_updates': '@dzmoneycom' };
@@ -25,8 +26,12 @@ function resolveTelegramTaskChannel(verification) {
   return channel;
 }
 
-function resolveTrustedTaskVerifier({ config, telegramUserId, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
+function resolveTrustedTaskVerifier({ config, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
   const verification = config?.verification || {};
+  if (verification.method === 'url_format_match') {
+    const referenceUrl = config?.completion?.url;
+    return () => matchesUrlFormat(referenceUrl, userSubmittedUrl);
+  }
   if (!verification.provider) throw new Error('trusted task verifier provider is required');
   if (verification.provider !== 'telegram_channel') throw new Error(`Unsupported trusted task verifier provider: ${verification.provider}`);
   if (verification.method && verification.method !== 'telegram_bot_api') throw new Error('Unsupported Telegram task verifier method');
@@ -88,7 +93,7 @@ function validateTaskVerificationState(row) {
   return null;
 }
 
-async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskCompletion }) {
+async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmittedUrl, verifyTaskCompletion }) {
   requiredId(attemptId, 'attemptId');
   requiredId(idempotencyKey, 'idempotencyKey');
   const initialRow = await loadTaskVerificationAttempt(attemptId);
@@ -96,8 +101,8 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, verifyTaskC
   if (initialState) return initialState;
   const resolvedConfig = resolveVerificationConfig({ taskType: initialRow.task_type, config: initialRow.config });
   if (resolvedConfig.completion.mode === 'open_link') throw new Error('open_link completion is not a trusted verification method');
-  const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id });
-  const verifiedByTaskRule = await verifier({ attemptId });
+  const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id, userSubmittedUrl });
+  const verifiedByTaskRule = await verifier({ attemptId, userSubmittedUrl });
   if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
   return withTransaction(async client => {
     const row = await loadTaskVerificationAttempt(attemptId, true, client);
