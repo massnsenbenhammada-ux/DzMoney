@@ -43,9 +43,12 @@ function testDailyClickProof() {
   assert.strictEqual(resolved.campaignUrl, null);
 }
 
-function testUnsupportedGenericProviderMethodsRejected() {
+function testUnsupportedCreatorMethodsRejected() {
   assert.throws(
-    () => validateVerificationConfig({ verification: { provider: 'web-provider', method: 'signed_webhook', event: 'registration_completed' } }, 'web'),
+    () => validateCreatorProviderConfiguration('web', {
+      campaignUrl: 'https://example.test',
+      verification: { method: 'signed_webhook', provider: 'web-provider', event: 'registration_completed' }
+    }),
     /Invalid verification method for web creator task/
   );
   assert.throws(
@@ -55,6 +58,9 @@ function testUnsupportedGenericProviderMethodsRejected() {
     }),
     /Invalid verification method for social creator task/
   );
+}
+
+function testGenericProviderValidation() {
   assert.throws(
     () => validateVerificationConfig({ verification: { provider: 'x', event: 'completed' } }, 'web'),
     /verification method is required/
@@ -103,7 +109,8 @@ try {
   testLegacyCompletionRejected();
   testCreatorContracts();
   testDailyClickProof();
-  testUnsupportedGenericProviderMethodsRejected();
+  testUnsupportedCreatorMethodsRejected();
+  testGenericProviderValidation();
   testReferralModes();
   testReferralTemplateRules();
   testNoSecretsInTaskConfig();
