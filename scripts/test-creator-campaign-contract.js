@@ -31,7 +31,7 @@ async function main() {
   try {
     userId = await createTestUser();
 
-    // Creator campaigns require explicit ownership and a positive target.
+    // Creator campaigns require explicit ownership, a positive target, and a canonical verification contract.
     const campaign = await createTask({
       taskType: 'social',
       title: 'Creator campaign contract',
@@ -41,7 +41,11 @@ async function main() {
       rewardDzx: 1,
       rewardDzp: 1,
       verificationAdSeconds: 5,
-      config: { test: true }
+      config: {
+        campaignUrl: 'https://t.me/example_bot?start=campaign',
+        verification: { method: 'click_proof' },
+        test: true
+      }
     });
     taskIds.push(campaign.id);
 

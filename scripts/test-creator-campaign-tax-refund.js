@@ -11,13 +11,18 @@ async function main() {
   let user;
   let taskId;
   const marker = `campaign-tax-refund-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const creatorConfig = {
+    campaignUrl: 'https://t.me/example_bot?start=campaign',
+    verification: { method: 'click_proof' },
+    test: true
+  };
   try {
     user = await createUser({ telegramUserId: -Date.now(), username: marker, firstName: 'Campaign Tax Refund Test' });
     await pool.query(`INSERT INTO admin_settings(key,value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`, [PRICE_KEY, '9']);
     await pool.query(`INSERT INTO admin_settings(key,value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`, [TAX_KEY, '10']);
     await postEconomyTransaction({ idempotencyKey: `${marker}:fund`, userId: user.id, type: 'TEST_CREDIT', metadata: { source: 'test' }, movements: [{ currency: 'DZX', amount: 100, source: 'test' }] });
 
-    const campaign = await createCreatorCampaign({ taskType: 'social', title: 'Tax refund contract', creatorId: user.id, target: 10, idempotencyKey: `${marker}:campaign`, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
+    const campaign = await createCreatorCampaign({ taskType: 'social', title: 'Tax refund contract', creatorId: user.id, target: 10, idempotencyKey: `${marker}:campaign`, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: creatorConfig });
     taskId = campaign.task.id;
     assert.equal(Number(campaign.campaignCostDZX), 90);
     const pending = await submitCreatorCampaignForReview(taskId, user.id);
@@ -52,10 +57,8 @@ async function main() {
     const walletAfterDuplicate = await pool.query(`SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency='DZX'`, [user.id]);
     assert.equal(Number(walletAfterDuplicate.rows[0].balance), 91);
 
-    // Admin may set rejection tax to the full 0-100% range. At 100%, refund is exactly zero,
-    // but the idempotent financial transaction must still be recorded.
     await pool.query(`INSERT INTO admin_settings(key,value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value,updated_at=NOW()`, [TAX_KEY, '100']);
-    const fullTaxCampaign = await createCreatorCampaign({ taskType: 'social', title: 'Full tax contract', creatorId: user.id, target: 1, idempotencyKey: `${marker}:full-tax-campaign`, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
+    const fullTaxCampaign = await createCreatorCampaign({ taskType: 'social', title: 'Full tax contract', creatorId: user.id, target: 1, idempotencyKey: `${marker}:full-tax-campaign`, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: creatorConfig });
     const fullTaxTaskId = fullTaxCampaign.task.id;
     await submitCreatorCampaignForReview(fullTaxTaskId, user.id);
     const fullTaxRejected = await rejectCreatorCampaign(fullTaxTaskId, user.id);
