@@ -43,12 +43,22 @@ function testDailyClickProof() {
   assert.strictEqual(resolved.campaignUrl, null);
 }
 
-function testProviderEvidence() {
-  const resolved = resolveVerificationConfig({ taskType: 'web', config: { verification: { provider: 'web-provider', method: 'signed_webhook', event: 'registration_completed' } } });
-  assert.strictEqual(resolved.verification.provider, 'web-provider');
-  assert.strictEqual(resolved.verification.method, 'signed_webhook');
-  assert.strictEqual(resolved.verification.event, 'registration_completed');
-  assert.throws(() => validateVerificationConfig({ verification: { provider: 'x', event: 'completed' } }, 'web'), /verification method is required/);
+function testUnsupportedGenericProviderMethodsRejected() {
+  assert.throws(
+    () => validateVerificationConfig({ verification: { provider: 'web-provider', method: 'signed_webhook', event: 'registration_completed' } }, 'web'),
+    /Invalid verification method for web creator task/
+  );
+  assert.throws(
+    () => validateCreatorProviderConfiguration('social', {
+      campaignUrl: 'https://example.test',
+      verification: { method: 'telegram_bot_api', provider: 'telegram_channel', event: 'channel_membership', requirements: { channel: '@example_channel' } }
+    }),
+    /Invalid verification method for social creator task/
+  );
+  assert.throws(
+    () => validateVerificationConfig({ verification: { provider: 'x', event: 'completed' } }, 'web'),
+    /verification method is required/
+  );
 }
 
 function testReferralModes() {
@@ -68,10 +78,24 @@ function testNoSecretsInTaskConfig() {
   assert.throws(() => validateVerificationConfig({ referral: { ownerVerification: { provider: 'partner', credentials: { token: 'secret' } } } }), /credentials must not be stored in task config/);
 }
 
-function testTelegramChannelResolution() {
-  const resolved = resolveVerificationConfig({ taskType: 'social', config: { verification: { provider: 'telegram_channel', channel: '@creator_channel' } } });
+function testTelegramBotApiContract() {
+  const config = {
+    taskType: 'social',
+    config: {
+      campaignUrl: 'https://example.test',
+      verification: {
+        method: 'bot_api',
+        provider: 'telegram_channel',
+        event: 'channel_membership',
+        requirements: { channel: '@creator_channel' }
+      }
+    }
+  };
+  const resolved = resolveVerificationConfig(config);
+  assert.strictEqual(resolved.verification.method, 'bot_api');
   assert.strictEqual(resolved.verification.provider, 'telegram_channel');
-  assert.strictEqual(resolved.verification.channel, '@creator_channel');
+  assert.strictEqual(resolved.verification.event, 'channel_membership');
+  assert.strictEqual(resolved.verification.requirements.channel, '@creator_channel');
 }
 
 try {
@@ -79,11 +103,11 @@ try {
   testLegacyCompletionRejected();
   testCreatorContracts();
   testDailyClickProof();
-  testProviderEvidence();
+  testUnsupportedGenericProviderMethodsRejected();
   testReferralModes();
   testReferralTemplateRules();
   testNoSecretsInTaskConfig();
-  testTelegramChannelResolution();
+  testTelegramBotApiContract();
   console.log('Task verification configuration invariants: PASS');
 } catch (error) {
   console.error('Task verification configuration invariants: FAIL');
