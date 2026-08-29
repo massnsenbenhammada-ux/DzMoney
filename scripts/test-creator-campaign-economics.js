@@ -11,6 +11,11 @@ async function main() {
   let taskId;
   const marker = `campaign-economics-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const campaignKey = `${marker}:campaign`;
+  const creatorConfig = {
+    campaignUrl: 'https://t.me/example_bot?start=campaign',
+    verification: { method: 'click_proof' },
+    test: true
+  };
 
   try {
     user = await createUser({
@@ -44,7 +49,7 @@ async function main() {
       rewardDzx: 1,
       rewardDzp: 1,
       verificationAdSeconds: 5,
-      config: { test: true }
+      config: creatorConfig
     });
 
     taskId = campaign.task.id;
@@ -83,7 +88,7 @@ async function main() {
       rewardDzx: 1,
       rewardDzp: 1,
       verificationAdSeconds: 5,
-      config: { test: true }
+      config: creatorConfig
     });
     assert.equal(duplicate.duplicate, true);
     assert.equal(String(duplicate.task.id), String(taskId));

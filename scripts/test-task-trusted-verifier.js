@@ -5,8 +5,7 @@ async function run() {
   const calls = [];
   const verifier = resolveTrustedTaskVerifier({
     config: {
-      completion: { mode: 'server_verified' },
-      verification: { provider: 'telegram_channel', providerConfigRef: 'telegram.dzmoney_updates' }
+      verification: { provider: 'telegram_channel', method: 'bot_api', providerConfigRef: 'telegram.dzmoney_updates' }
     },
     telegramUserId: 123,
     botToken: 'test-token',
@@ -25,25 +24,19 @@ async function run() {
   }]);
 
   assert.throws(() => resolveTrustedTaskVerifier({
-    config: { completion: { mode: 'server_verified' } },
+    config: { verification: { method: 'bot_api' } },
     telegramUserId: 123,
     botToken: 'test-token'
   }), /trusted task verifier provider is required/);
 
   assert.throws(() => resolveTrustedTaskVerifier({
-    config: {
-      completion: { mode: 'server_verified' },
-      verification: { provider: 'unknown', providerConfigRef: 'x' }
-    },
+    config: { verification: { provider: 'unknown', method: 'bot_api', providerConfigRef: 'x' } },
     telegramUserId: 123,
     botToken: 'test-token'
   }), /Unsupported trusted task verifier provider/);
 
   assert.throws(() => resolveTrustedTaskVerifier({
-    config: {
-      completion: { mode: 'server_verified' },
-      verification: { provider: 'telegram_channel', providerConfigRef: 'telegram.dzmoney_updates' }
-    },
+    config: { verification: { provider: 'telegram_channel', method: 'bot_api', providerConfigRef: 'telegram.dzmoney_updates' } },
     telegramUserId: 123
   }), /BOT_TOKEN is required/);
 

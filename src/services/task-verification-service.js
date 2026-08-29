@@ -28,13 +28,21 @@ function resolveTelegramTaskChannel(verification) {
 
 function resolveTrustedTaskVerifier({ config, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
   const verification = config?.verification || {};
+  if (verification.method === 'click_proof') {
+    return async ({ attemptId }) => {
+      const result = await query('SELECT metadata FROM task_attempts WHERE id=$1', [requiredId(attemptId, 'attemptId')]);
+      if (!result.rowCount) throw new Error('Task attempt not found');
+      return result.rows[0].metadata?.link_clicked === true;
+    };
+  }
   if (verification.method === 'url_format_match') {
-    const referenceUrl = config?.completion?.url;
+    const referenceUrl = config?.campaignUrl;
+    if (typeof referenceUrl !== 'string' || referenceUrl.trim() === '') throw new Error('campaignUrl is required for url_format_match');
     return () => matchesUrlFormat(referenceUrl, userSubmittedUrl);
   }
   if (!verification.provider) throw new Error('trusted task verifier provider is required');
   if (verification.provider !== 'telegram_channel') throw new Error(`Unsupported trusted task verifier provider: ${verification.provider}`);
-  if (verification.method && verification.method !== 'telegram_bot_api') throw new Error('Unsupported Telegram task verifier method');
+  if (verification.method && verification.method !== 'bot_api') throw new Error('Unsupported Telegram task verifier method');
   if (verification.event && verification.event !== 'channel_membership') throw new Error('Unsupported Telegram task verifier event');
   const channel = resolveTelegramTaskChannel(verification);
   requiredId(botToken, 'BOT_TOKEN');
@@ -100,7 +108,6 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
   const initialState = validateTaskVerificationState(initialRow);
   if (initialState) return initialState;
   const resolvedConfig = resolveVerificationConfig({ taskType: initialRow.task_type, config: initialRow.config });
-  if (resolvedConfig.completion.mode === 'open_link') throw new Error('open_link completion is not a trusted verification method');
   const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id, userSubmittedUrl });
   const verifiedByTaskRule = await verifier({ attemptId, userSubmittedUrl });
   if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');

@@ -34,14 +34,17 @@ async function main() {
     await assert.rejects(
       () => createTask({
         taskType: 'special',
-        title: 'Invalid Special click-proof task',
+        title: 'Invalid Special legacy task',
         rewardCoin: 1000,
         rewardDzx: 1,
         rewardDzp: 1,
-        config: { completion: { mode: 'open_link', url: 'https://partner.example/task' } }
+        config: { completion: { mode: 'server_verified' } }
       }),
-      /Special\/Partner tasks support server_verified completion only/
+      /Legacy completion configuration is not supported/
     );
+
+    const legacyState = await pool.query("SELECT id FROM activity_tasks WHERE config ? 'completion'");
+    assert.strictEqual(legacyState.rowCount, 0, 'database must contain no legacy completion configuration');
 
     const daily = await createTask({
       taskType: 'daily',
@@ -51,7 +54,9 @@ async function main() {
       rewardDzx: 1,
       rewardDzp: 1,
       verificationAdSeconds: 5,
-      config: { completion: { mode: 'open_link', url: 'https://example.test/daily' } }
+      config: {
+        verification: { method: 'click_proof' }
+      }
     });
     const social = await createTask({
       taskType: 'social',
@@ -61,7 +66,11 @@ async function main() {
       rewardCoin: 1000,
       rewardDzx: 1,
       rewardDzp: 1,
-      verificationAdSeconds: 10
+      verificationAdSeconds: 10,
+      config: {
+        campaignUrl: 'https://example.test',
+        verification: { method: 'click_proof' }
+      }
     });
     taskIds.push(daily.id, social.id);
     await activateTask(daily.id);
@@ -77,10 +86,13 @@ async function main() {
     assert.strictEqual(createdDaily.rewardCoin, 1000);
     assert.strictEqual(createdDaily.rewardDzx, 1);
     assert.strictEqual(createdDaily.rewardDzp, 1);
-    assert.deepStrictEqual(createdDaily.completion, {
-      mode: 'open_link',
-      url: 'https://example.test/daily',
-      urlSource: null
+    assert.deepStrictEqual(createdDaily.verification, {
+      provider: null,
+      providerConfigRef: null,
+      method: 'click_proof',
+      event: null,
+      channel: null,
+      requirements: {}
     });
 
     console.log('Task catalog foundation invariants: PASS');

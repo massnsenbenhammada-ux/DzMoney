@@ -55,7 +55,7 @@ async function main() {
   const taskIds = [];
   try {
     userId = await createTestUser();
-    const task = await createTask({ taskType: 'social', title: 'Phase 2 verification test', creatorId: userId, target: 1000, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { test: true } });
+    const task = await createTask({ taskType: 'social', title: 'Phase 2 verification test', creatorId: userId, target: 1000, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: { verification: { method: 'click_proof' } } });
     taskIds.push(task.id);
     await transitionTaskStatus(task.id, 'pending_review');
     await activateTask(task.id);
@@ -115,37 +115,25 @@ async function main() {
     assert.strictEqual(await balance(userId, 'DZX'), 1);
     assert.strictEqual(await balance(userId, 'DZP'), 1);
 
-    const openLinkTask = await createTask({
-      taskType: 'web',
-      title: 'Phase 2 open link security test',
-      creatorId: userId,
-      target: 1000,
-      rewardCoin: 500,
-      rewardDzx: 1,
-      rewardDzp: 0,
-      verificationAdSeconds: 5,
-      config: { completion: { mode: 'open_link', url: 'https://example.test/task' } }
-    });
-    taskIds.push(openLinkTask.id);
-    await transitionTaskStatus(openLinkTask.id, 'pending_review');
-    await activateTask(openLinkTask.id);
-    const openExecution = await executeTask({ taskId: openLinkTask.id, userId, idempotencyKey: `phase2-open-exec-${Date.now()}` });
-    const openAd = await startVerificationAd(openExecution.attempt.id, `phase2-open-ad-${Date.now()}`, 'phase2-open-test-ad');
-    await verifyAd(openAd.adEvent.id, { accepted: true, reference: 'test-open-provider-ref' });
-
     await assert.rejects(
-      () => finalizeTaskVerification({ attemptId: openExecution.attempt.id, idempotencyKey: `phase2-open-no-trusted-evidence-${Date.now()}` }),
-      /open_link completion is not a trusted verification method/
+      () => createTask({
+        taskType: 'web',
+        title: 'Phase 2 legacy completion rejection',
+        creatorId: userId,
+        target: 1000,
+        rewardCoin: 500,
+        rewardDzx: 1,
+        rewardDzp: 0,
+        verificationAdSeconds: 5,
+        config: { completion: { mode: 'open_link', url: 'https://example.test/task' } }
+      }),
+      /Legacy completion configuration is not supported/
     );
-    assert.strictEqual(await balance(userId, 'COIN'), 1000);
-    assert.strictEqual(await balance(userId, 'DZX'), 1);
-    const openState = await pool.query('SELECT status FROM task_attempts WHERE id=$1', [openExecution.attempt.id]);
-    assert.strictEqual(openState.rows[0].status, 'verification_pending');
 
     const ads = await pool.query(`SELECT context, verified, metadata->>'provider_id' AS provider_id FROM activity_ad_events WHERE user_id=$1 ORDER BY id`, [userId]);
-    assert.strictEqual(ads.rows.length, 4);
-    assert.strictEqual(ads.rows.filter(row => row.context === 'verification').length, 4);
-    assert.strictEqual(ads.rows.filter(row => row.verified && row.provider_id === 'test-ads').length, 4);
+    assert.strictEqual(ads.rows.length, 3);
+    assert.strictEqual(ads.rows.filter(row => row.context === 'verification').length, 3);
+    assert.strictEqual(ads.rows.filter(row => row.verified && row.provider_id === 'test-ads').length, 3);
     assert.strictEqual(ads.rows.filter(row => !row.verified).length, 0);
 
     const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_entries le JOIN ledger_transactions lt ON lt.id = le.transaction_id WHERE lt.user_id=$1 AND le.source='task'`, [userId]);

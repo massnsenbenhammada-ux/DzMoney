@@ -22,13 +22,7 @@ async function run() {
   const tasks = {
     getCreatorCampaignContract: async (...args) => {
       assert.strictEqual(args.length, 0, 'creator campaign contract must not receive taskType as queryFn');
-      return {
-        priceDZX: 10,
-        availableCompletionModes: ['open_link', 'server_verified'],
-        completionServices: [],
-        serverVerified: { requiredUserInput: { status: 'provider_contract_required' } },
-        creatorInput: { status: 'provider_contract_required' }
-      };
+      return { priceDZX: 10, verificationAdSeconds: 5 };
     },
     getCreatorActivityRewards: async () => ({ rewardCoin: 1000, rewardDZX: 1, rewardDZP: 1 }),
     createCreatorCampaign: async args => { calls.push({ create: args }); return { task: { id: 7, task_type: args.taskType, config: args.config }, appliedPriceDZX: 10, campaignCostDZX: Number(args.target) * 10, duplicate: false }; },
@@ -67,12 +61,11 @@ async function run() {
   assert.strictEqual(specialContract.status, 400);
 
   const socialContract = await request('GET', '/api/creator/tasks/contracts/social', null, auth);
-  assert.deepStrictEqual(socialContract.body.availableCompletionModes, ['open_link', 'server_verified']);
-  assert.strictEqual(socialContract.body.creatorInput.status, 'provider_contract_required');
+  assert.deepStrictEqual(socialContract.body.verificationMethods, ['click_proof', 'bot_api']);
   assert.deepStrictEqual(socialContract.body.providerContracts, [{
     id: 'telegram_channel',
     label: 'Telegram Bot API',
-    method: 'telegram_bot_api',
+    method: 'bot_api',
     event: 'channel_membership',
     fields: [{ key: 'channel', label: 'Telegram channel', type: 'telegram_channel', required: true }]
   }]);
@@ -87,18 +80,17 @@ async function run() {
     rewardCoin: 999999, rewardDzx: 999, rewardDzp: 999, verificationAdSeconds: 10,
     idempotencyKey: 'creator-task-1',
     config: {
-      completion: { mode: 'server_verified', url: 'https://example.test/campaign' },
-      verification: { mode: 'automatic', provider: 'telegram_channel', method: 'telegram_bot_api', event: 'channel_membership', requirements: { channel: '@creator_channel' } }
+      campaignUrl: 'https://example.test/campaign',
+      verification: { provider: 'telegram_channel', method: 'bot_api', event: 'channel_membership', requirements: { channel: '@creator_channel' } }
     }
   }, auth);
   assert.strictEqual(create.status, 201);
   assert.strictEqual(create.body.task.id, 7);
   assert.strictEqual(walletCalls[0].telegramUserId, '123');
   assert.strictEqual(calls[0].create.creatorId, 42);
-  assert.strictEqual(calls[0].create.config.completion.mode, 'server_verified');
-  assert.strictEqual(calls[0].create.config.completion.url, 'https://example.test/campaign');
+  assert.strictEqual(calls[0].create.config.campaignUrl, 'https://example.test/campaign');
   assert.strictEqual(calls[0].create.config.verification.provider, 'telegram_channel');
-  assert.strictEqual(calls[0].create.config.verification.method, 'telegram_bot_api');
+  assert.strictEqual(calls[0].create.config.verification.method, 'bot_api');
   assert.strictEqual(calls[0].create.config.verification.event, 'channel_membership');
   assert.deepStrictEqual(calls[0].create.config.verification.requirements, { channel: '@creator_channel' });
   assert.strictEqual(calls[0].create.target, 1000);
@@ -107,24 +99,33 @@ async function run() {
   assert.strictEqual(calls[0].create.rewardDzp, 1);
   assert.strictEqual(calls[0].create.verificationAdSeconds, undefined);
 
-  const arbitraryTarget = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Arbitrary target', target: 1245, idempotencyKey: 'creator-task-2', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+  const clickProof = await request('POST', '/api/creator/tasks', {
+    taskType: 'social', title: 'Click proof campaign', target: 1245, idempotencyKey: 'creator-task-2',
+    config: { campaignUrl: 'https://example.test', verification: { method: 'click_proof' } }
   }, auth);
-  assert.strictEqual(arbitraryTarget.status, 201);
-  assert.strictEqual(arbitraryTarget.body.campaign.campaignCostDZX, 12450);
+  assert.strictEqual(clickProof.status, 201);
+  assert.strictEqual(clickProof.body.campaign.campaignCostDZX, 12450);
 
   const missingProvider = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Missing provider', target: 1000, idempotencyKey: 'creator-task-3', config: { completion: { mode: 'server_verified', url: 'https://example.test' } }
+    taskType: 'social', title: 'Missing provider', target: 1000, idempotencyKey: 'creator-task-3',
+    config: { campaignUrl: 'https://example.test', verification: { method: 'bot_api', event: 'channel_membership', requirements: { channel: '@creator_channel' } } }
   }, auth);
   assert.strictEqual(missingProvider.status, 400);
 
   const missingUrl = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Missing URL', target: 1000, idempotencyKey: 'creator-task-4', config: { completion: { mode: 'server_verified' } }
+    taskType: 'social', title: 'Missing URL', target: 1000, idempotencyKey: 'creator-task-4', config: { verification: { method: 'click_proof' } }
   }, auth);
   assert.strictEqual(missingUrl.status, 400);
 
+  const legacyCompletion = await request('POST', '/api/creator/tasks', {
+    taskType: 'social', title: 'Legacy completion', target: 1000, idempotencyKey: 'creator-task-5',
+    config: { completion: { mode: 'open_link', url: 'https://example.test' }, verification: { method: 'click_proof' }, campaignUrl: 'https://example.test' }
+  }, auth);
+  assert.strictEqual(legacyCompletion.status, 400);
+
   const tooSmall = await request('POST', '/api/creator/tasks', {
-    taskType: 'social', title: 'Too small', target: 999, idempotencyKey: 'creator-task-5', config: { completion: { mode: 'open_link', url: 'https://example.test' } }
+    taskType: 'social', title: 'Too small', target: 999, idempotencyKey: 'creator-task-6',
+    config: { campaignUrl: 'https://example.test', verification: { method: 'click_proof' } }
   }, auth);
   assert.strictEqual(tooSmall.status, 400);
 
