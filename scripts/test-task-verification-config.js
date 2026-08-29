@@ -1,76 +1,54 @@
 const assert = require('assert');
 const {
   REFERRAL_MODES,
-  VERIFICATION_MODES,
-  COMPLETION_MODES,
   TASK_TYPES,
-  SERVER_VERIFIED_CONTRACTS,
+  CREATOR_VERIFICATION_METHODS,
   resolveVerificationConfig,
-  validateVerificationConfig
+  validateVerificationConfig,
+  validateCreatorProviderConfiguration
 } = require('../src/services/task-verification-config');
 
-function testVerificationModes() {
-  assert.deepStrictEqual(VERIFICATION_MODES, ['automatic', 'custom']);
-  assert.strictEqual(resolveVerificationConfig({ taskType: 'web', config: {} }).verification.mode, 'automatic');
-  assert.strictEqual(resolveVerificationConfig({ taskType: 'web', config: { verification: { mode: 'custom', provider: 'partner' } } }).verification.mode, 'custom');
-  assert.throws(() => validateVerificationConfig({ verification: { mode: 'unknown' } }), /Invalid verification mode/);
-}
-
-function testCompletionModes() {
-  assert.deepStrictEqual(COMPLETION_MODES, ['open_link', 'server_verified']);
+function testCanonicalCreatorMethods() {
+  assert.deepStrictEqual(CREATOR_VERIFICATION_METHODS, {
+    game: ['click_proof', 'url_format_match'],
+    social: ['click_proof', 'bot_api'],
+    web: ['click_proof']
+  });
   assert.deepStrictEqual(TASK_TYPES, ['daily', 'game', 'social', 'web', 'special']);
-  const defaultConfig = resolveVerificationConfig({ taskType: 'daily', config: {} });
-  assert.strictEqual(defaultConfig.completion.mode, 'server_verified');
-  assert.strictEqual(defaultConfig.completion.url, null);
-
-  const openLink = resolveVerificationConfig({ taskType: 'web', config: { completion: { mode: 'open_link', url: 'https://example.test/task' } } });
-  assert.strictEqual(openLink.completion.mode, 'open_link');
-  assert.strictEqual(openLink.completion.url, 'https://example.test/task');
-
-  assert.throws(() => validateVerificationConfig({ completion: { mode: 'open_link' } }), /completion.url or a supported urlSource is required for open_link tasks/);
-  assert.throws(() => validateVerificationConfig({ completion: { mode: 'unknown' } }), /Invalid task completion mode/);
 }
 
-function testSpecialServerVerifiedOnly() {
-  assert.doesNotThrow(() => validateVerificationConfig({ completion: { mode: 'server_verified' } }, 'special'));
-  assert.throws(
-    () => validateVerificationConfig({ completion: { mode: 'open_link', url: 'https://partner.example/task' } }, 'special'),
-    /Special\/Partner tasks support server_verified completion only/
-  );
-  assert.throws(
-    () => resolveVerificationConfig({ taskType: 'special', config: { completion: { mode: 'open_link', url: 'https://partner.example/task' } } }),
-    /Special\/Partner tasks support server_verified completion only/
-  );
-  assert.strictEqual(resolveVerificationConfig({ taskType: 'special', config: {} }).completion.mode, 'server_verified');
+function testLegacyCompletionRejected() {
+  assert.throws(() => validateVerificationConfig({ completion: { mode: 'open_link', url: 'https://example.test' } }, 'web'), /Legacy completion configuration is not supported/);
+  assert.throws(() => validateCreatorProviderConfiguration('game', {
+    completion: { mode: 'server_verified', url: 'https://example.test' },
+    campaignUrl: 'https://example.test',
+    verification: { method: 'click_proof' }
+  }), /Legacy Creator completion contract is not supported/);
+  const resolved = resolveVerificationConfig({ taskType: 'game', config: { campaignUrl: 'https://example.test', verification: { method: 'click_proof' } } });
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(resolved, 'completion'), false);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(resolved, 'serverVerified'), false);
 }
 
-function testServerVerifiedContracts() {
-  const expected = {
-    daily: { inputStatus: 'provider_contract_required' },
-    game: { inputStatus: 'provider_contract_required' },
-    social: { inputStatus: 'provider_contract_required' },
-    web: { inputStatus: 'provider_contract_required' },
-    special: { inputStatus: 'contract_required' }
-  };
-  for (const taskType of TASK_TYPES) {
-    const resolved = resolveVerificationConfig({ taskType, config: {} });
-    const contract = resolved.serverVerified;
-    assert.ok(contract, `${taskType} must expose a Server Verified contract`);
-    assert.strictEqual(contract.status, 'contract');
-    assert.ok(contract.source);
-    assert.ok(contract.evidence);
-    assert.ok(contract.method);
-    assert.ok(contract.identity);
-    assert.ok(contract.requiredUserInput);
-    assert.ok(contract.replay);
-    assert.strictEqual(contract.requiredUserInput.status, expected[taskType].inputStatus);
-    assert.deepStrictEqual(contract.requiredUserInput.fields, []);
-  }
-  assert.strictEqual(SERVER_VERIFIED_CONTRACTS.game.source, 'mini_app_backend');
-  assert.strictEqual(SERVER_VERIFIED_CONTRACTS.game.identity, 'telegram_init_data_user_correlation');
-  assert.strictEqual(SERVER_VERIFIED_CONTRACTS.social.identity, 'authenticated_user_correlation');
-  assert.strictEqual(SERVER_VERIFIED_CONTRACTS.web.evidence, 'signed_webhook_or_unique_token');
-  assert.strictEqual(SERVER_VERIFIED_CONTRACTS.special.evidence, 'signed_or_hmac_evidence');
+function testCreatorContracts() {
+  assert.doesNotThrow(() => validateCreatorProviderConfiguration('game', { campaignUrl: 'https://example.test', verification: { method: 'click_proof' } }));
+  assert.doesNotThrow(() => validateCreatorProviderConfiguration('game', { campaignUrl: 'https://example.test', verification: { method: 'url_format_match' } }));
+  assert.doesNotThrow(() => validateCreatorProviderConfiguration('social', { campaignUrl: 'https://example.test', verification: { method: 'bot_api', provider: 'telegram_channel', event: 'channel_membership', requirements: { channel: '@example_channel' } } }));
+  assert.doesNotThrow(() => validateCreatorProviderConfiguration('web', { campaignUrl: 'https://example.test', verification: { method: 'click_proof' } }));
+  assert.throws(() => validateCreatorProviderConfiguration('web', { campaignUrl: 'https://example.test', verification: { method: 'url_format_match' } }), /supported only for Game tasks/);
+}
+
+function testDailyClickProof() {
+  const resolved = resolveVerificationConfig({ taskType: 'daily', config: { verification: { method: 'click_proof' } } });
+  assert.strictEqual(resolved.verification.method, 'click_proof');
+  assert.strictEqual(resolved.campaignUrl, null);
+}
+
+function testProviderEvidence() {
+  const resolved = resolveVerificationConfig({ taskType: 'web', config: { verification: { provider: 'web-provider', method: 'signed_webhook', event: 'registration_completed' } } });
+  assert.strictEqual(resolved.verification.provider, 'web-provider');
+  assert.strictEqual(resolved.verification.method, 'signed_webhook');
+  assert.strictEqual(resolved.verification.event, 'registration_completed');
+  assert.throws(() => validateVerificationConfig({ verification: { provider: 'x', event: 'completed' } }, 'web'), /verification method is required/);
 }
 
 function testReferralModes() {
@@ -78,12 +56,6 @@ function testReferralModes() {
   assert.strictEqual(resolveVerificationConfig({ taskType: 'web', config: {} }).referral.mode, 'disabled');
   assert.strictEqual(resolveVerificationConfig({ taskType: 'social', config: { referral: { mode: 'link_only', referralUrlTemplate: 'https://example.test/register?ref={code}' } } }).referral.mode, 'link_only');
   assert.strictEqual(resolveVerificationConfig({ taskType: 'social', config: { referral: { mode: 'link_and_owner_verification', referralUrlTemplate: 'https://example.test/register?ref={code}', ownerVerification: { provider: 'partner' } } } }).referral.mode, 'link_and_owner_verification');
-}
-
-function testAutomaticDefaults() {
-  const ads = resolveVerificationConfig({ taskType: 'daily', config: { verification: { provider: 'ads' } } });
-  assert.strictEqual(ads.verification.mode, 'automatic');
-  assert.strictEqual(ads.verification.provider, 'ads');
 }
 
 function testReferralTemplateRules() {
@@ -103,12 +75,12 @@ function testTelegramChannelResolution() {
 }
 
 try {
-  testVerificationModes();
-  testCompletionModes();
-  testSpecialServerVerifiedOnly();
-  testServerVerifiedContracts();
+  testCanonicalCreatorMethods();
+  testLegacyCompletionRejected();
+  testCreatorContracts();
+  testDailyClickProof();
+  testProviderEvidence();
   testReferralModes();
-  testAutomaticDefaults();
   testReferralTemplateRules();
   testNoSecretsInTaskConfig();
   testTelegramChannelResolution();
