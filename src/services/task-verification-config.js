@@ -1,9 +1,11 @@
 const REFERRAL_MODES = ['disabled', 'link_only', 'link_and_owner_verification'];
-const VERIFICATION_MODES = ['automatic', 'custom'];
-const COMPLETION_MODES = ['open_link', 'server_verified'];
-const VERIFICATION_METHODS = ['api', 'webhook', 'callback', 'telegram_bot_api', 'token_callback', 'signed_webhook', 'hmac_callback', 'url_format_match'];
-const INTERNAL_VERIFICATION_METHODS = new Set(['url_format_match']);
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
+const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
+const CREATOR_VERIFICATION_METHODS = Object.freeze({
+  game: Object.freeze(['click_proof', 'url_format_match']),
+  social: Object.freeze(['click_proof', 'bot_api']),
+  web: Object.freeze(['click_proof'])
+});
 const SECRET_KEYS = new Set(['apiKey', 'apiSecret', 'secret', 'token', 'accessToken', 'clientSecret']);
 const TELEGRAM_CHANNEL_PATTERN = /^@[A-Za-z0-9_]{5,32}$/;
 
@@ -12,7 +14,7 @@ const CREATOR_PROVIDER_CONTRACTS = Object.freeze({
     Object.freeze({
       id: 'telegram_channel',
       label: 'Telegram Bot API',
-      method: 'telegram_bot_api',
+      method: 'bot_api',
       event: 'channel_membership',
       fields: Object.freeze([
         Object.freeze({ key: 'channel', label: 'Telegram channel', type: 'telegram_channel', required: true })
@@ -23,35 +25,11 @@ const CREATOR_PROVIDER_CONTRACTS = Object.freeze({
   web: Object.freeze([])
 });
 
-const SERVER_VERIFIED_CONTRACTS = Object.freeze({
-  daily: Object.freeze({ status: 'contract', source: 'ad_provider', evidence: 'activity_ad_events', method: 'provider_event_validation', identity: 'user_and_task_correlation', requiredUserInput: Object.freeze({ status: 'provider_contract_required', fields: Object.freeze([]) }), replay: 'provider_event_idempotency' }),
-  game: Object.freeze({ status: 'contract', source: 'mini_app_backend', evidence: 'trusted_completion_evidence', method: 'backend_evidence_validation', identity: 'telegram_init_data_user_correlation', requiredUserInput: Object.freeze({ status: 'provider_contract_required', fields: Object.freeze([]) }), replay: 'completion_event_idempotency' }),
-  social: Object.freeze({ status: 'contract', source: 'telegram_or_social_provider', evidence: 'action_specific_evidence', method: 'provider_specific_validation', identity: 'authenticated_user_correlation', requiredUserInput: Object.freeze({ status: 'provider_contract_required', fields: Object.freeze([]) }), replay: 'evidence_idempotency' }),
-  web: Object.freeze({ status: 'contract', source: 'external_site_or_provider', evidence: 'signed_webhook_or_unique_token', method: 'signed_evidence_validation', identity: 'user_and_task_correlation', requiredUserInput: Object.freeze({ status: 'provider_contract_required', fields: Object.freeze([]) }), replay: 'event_or_token_idempotency' }),
-  special: Object.freeze({ status: 'contract', source: 'partner_backend', evidence: 'signed_or_hmac_evidence', method: 'partner_signature_validation', identity: 'user_and_task_correlation', requiredUserInput: Object.freeze({ status: 'contract_required', fields: Object.freeze([]) }), replay: 'partner_event_idempotency' })
-});
-
 function validateReferral(referral = {}) {
   const mode = referral.mode || 'disabled';
   if (!REFERRAL_MODES.includes(mode)) throw new Error('Invalid external referral mode');
   if (mode !== 'disabled' && !referral.referralUrlTemplate) throw new Error('referralUrlTemplate is required');
   if (mode === 'link_and_owner_verification' && !referral.ownerVerification) throw new Error('owner verification configuration is required');
-}
-
-function validateCompletion(completion = {}, taskType = null) {
-  const mode = completion.mode || 'server_verified';
-  if (!COMPLETION_MODES.includes(mode)) throw new Error('Invalid task completion mode');
-  const usesDynamicReferralLink = completion.urlSource === 'user_referral_link';
-  if (mode === 'open_link' && !completion.url && !usesDynamicReferralLink) throw new Error('completion.url or a supported urlSource is required for open_link tasks');
-  if (usesDynamicReferralLink && taskType !== 'daily') throw new Error('user_referral_link urlSource is supported only for Daily tasks');
-  if (taskType === 'special' && mode !== 'server_verified') throw new Error('Special/Partner tasks support server_verified completion only');
-}
-
-function validateGameUrlFormatMatch(verification, completion, taskType) {
-  if (taskType !== 'game') throw new Error('url_format_match is supported only for Game tasks');
-  if (verification.provider || verification.event || verification.providerConfigRef) throw new Error('url_format_match does not use a provider contract');
-  if (completion.mode !== 'server_verified') throw new Error('url_format_match requires server_verified completion');
-  if (typeof completion.url !== 'string' || completion.url.trim() === '') throw new Error('completion.url is required for url_format_match');
 }
 
 function rejectSecrets(value) {
@@ -66,32 +44,36 @@ function validateProviderEvidence(verification = {}) {
   const hasProvider = Boolean(verification.provider);
   const hasMethod = Boolean(verification.method);
   const hasEvent = Boolean(verification.event);
-  if (!hasProvider && hasMethod && INTERNAL_VERIFICATION_METHODS.has(verification.method)) {
-    if (hasEvent) throw new Error('url_format_match does not use a verification event');
+  if (!hasProvider && !hasMethod && !hasEvent) return;
+  if (!hasProvider) {
+    if (!hasMethod || typeof verification.method !== 'string' || verification.method.trim() === '') throw new Error('verification method is required');
+    if (hasEvent) throw new Error('provider is required when a verification event is configured');
     return;
   }
-  if (!hasProvider && (hasMethod || hasEvent)) throw new Error('provider is required when provider evidence is configured');
-  if (!hasProvider) return;
-  if (!hasMethod) {
-    if (hasEvent) throw new Error('verification method is required when an evidence event is configured');
-    if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') throw new Error('providerConfigRef must be a string');
-    return;
-  }
-  if (!VERIFICATION_METHODS.includes(verification.method)) throw new Error('Invalid verification method');
-  if (INTERNAL_VERIFICATION_METHODS.has(verification.method)) throw new Error('url_format_match does not use a provider contract');
+  if (!hasMethod || typeof verification.method !== 'string' || verification.method.trim() === '') throw new Error('verification method is required');
   if (!hasEvent || typeof verification.event !== 'string') throw new Error('verification event is required');
   if (verification.providerConfigRef !== undefined && verification.providerConfigRef !== null && typeof verification.providerConfigRef !== 'string') throw new Error('providerConfigRef must be a string');
 }
 
-function getCreatorProviderContracts(taskType) {
-  if (!['game', 'social', 'web'].includes(taskType)) throw new Error('Invalid creator task type');
-  return (CREATOR_PROVIDER_CONTRACTS[taskType] || []).map(contract => ({
-    id: contract.id,
-    label: contract.label,
-    method: contract.method,
-    event: contract.event,
-    fields: contract.fields.map(field => ({ ...field }))
-  }));
+function validateCreatorVerificationContract(taskType, verification = {}, campaignUrl = null) {
+  if (!CREATOR_TASK_TYPES.includes(taskType)) throw new Error('Invalid creator task type');
+  const allowed = CREATOR_VERIFICATION_METHODS[taskType];
+  if (!allowed.includes(verification.method)) throw new Error(`Invalid verification method for ${taskType} creator task`);
+  if (typeof campaignUrl !== 'string' || campaignUrl.trim() === '') throw new Error('campaignUrl is required for creator tasks');
+  if (verification.method === 'click_proof') {
+    if (verification.provider || verification.event || verification.providerConfigRef || verification.requirements) throw new Error('click_proof does not use a provider contract');
+    return;
+  }
+  if (verification.method === 'url_format_match') {
+    if (taskType !== 'game') throw new Error('url_format_match is supported only for Game tasks');
+    if (verification.provider || verification.event || verification.providerConfigRef || verification.requirements) throw new Error('url_format_match does not use a provider contract');
+    return;
+  }
+  if (verification.method !== 'bot_api' || taskType !== 'social') throw new Error('Invalid creator verification contract');
+  const provider = CREATOR_PROVIDER_CONTRACTS.social[0];
+  if (verification.provider !== provider.id) throw new Error('Creator Bot API provider is not enabled');
+  if (verification.event !== provider.event) throw new Error('Creator Bot API event does not match the provider contract');
+  validateCreatorProviderRequirements(provider, verification.requirements);
 }
 
 function validateCreatorProviderRequirements(provider, requirements = {}) {
@@ -104,52 +86,39 @@ function validateCreatorProviderRequirements(provider, requirements = {}) {
 }
 
 function validateCreatorProviderConfiguration(taskType, config = {}) {
+  if (Object.prototype.hasOwnProperty.call(config, 'completion')) throw new Error('Legacy Creator completion contract is not supported');
   validateVerificationConfig(config, taskType);
-  const completion = config.completion || {};
   const verification = config.verification || {};
-  if (verification.method === 'url_format_match') return true;
-  if (completion.mode !== 'server_verified') return true;
-  const providers = getCreatorProviderContracts(taskType);
-  if (!providers.length) throw new Error(`No server-verified provider is enabled for creator task type: ${taskType}`);
-  const provider = providers.find(item => item.id === verification.provider);
-  if (!provider) throw new Error('Creator server-verified provider is not enabled for this task type');
-  if (verification.method !== provider.method) throw new Error('Creator provider verification method does not match the provider contract');
-  if (verification.event !== provider.event) throw new Error('Creator provider verification event does not match the provider contract');
-  validateCreatorProviderRequirements(provider, verification.requirements);
+  validateCreatorVerificationContract(taskType, verification, config.campaignUrl);
   return true;
 }
 
-/** Validate task verification configuration without accessing external providers. */
 function validateVerificationConfig(config = {}, taskType = null) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('verification config must be an object');
   if (taskType !== null && !TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
   rejectSecrets(config);
+  if (Object.prototype.hasOwnProperty.call(config, 'completion')) throw new Error('Legacy completion configuration is not supported');
   const verification = config.verification || {};
   if (typeof verification !== 'object' || Array.isArray(verification)) throw new Error('verification config must be an object');
-  const completion = config.completion || {};
-  if (typeof completion !== 'object' || Array.isArray(completion)) throw new Error('completion config must be an object');
-  const mode = verification.mode || 'automatic';
-  if (!VERIFICATION_MODES.includes(mode)) throw new Error('Invalid verification mode');
   validateProviderEvidence(verification);
-  validateCompletion(completion, taskType);
-  if (verification.method === 'url_format_match') validateGameUrlFormatMatch(verification, completion, taskType);
   validateReferral(config.referral);
+  if (taskType === 'game' && verification.method === 'url_format_match') {
+    if (typeof config.campaignUrl !== 'string' || config.campaignUrl.trim() === '') throw new Error('campaignUrl is required for url_format_match');
+    if (verification.provider || verification.event || verification.providerConfigRef) throw new Error('url_format_match does not use a provider contract');
+  }
+  if (taskType === 'game' && verification.method === 'click_proof' && (verification.provider || verification.event || verification.providerConfigRef)) throw new Error('click_proof does not use a provider contract');
   return true;
 }
 
-/** Resolve safe verification defaults and task-specific overrides. */
 function resolveVerificationConfig({ taskType, config = {} }) {
   const source = config && typeof config === 'object' ? config : {};
   validateVerificationConfig(source, taskType);
   const verification = source.verification || {};
-  const completion = source.completion || {};
   const referral = source.referral || {};
   return {
     taskType,
-    completion: { mode: completion.mode || 'server_verified', url: completion.url || null, urlSource: completion.urlSource || null },
-    serverVerified: SERVER_VERIFIED_CONTRACTS[taskType] || null,
+    campaignUrl: source.campaignUrl || null,
     verification: {
-      mode: verification.mode || 'automatic',
       provider: verification.provider || null,
       providerConfigRef: verification.providerConfigRef || null,
       method: verification.method || null,
@@ -161,15 +130,25 @@ function resolveVerificationConfig({ taskType, config = {} }) {
   };
 }
 
+function getCreatorProviderContracts(taskType) {
+  if (!CREATOR_TASK_TYPES.includes(taskType)) throw new Error('Invalid creator task type');
+  return (CREATOR_PROVIDER_CONTRACTS[taskType] || []).map(contract => ({
+    id: contract.id,
+    label: contract.label,
+    method: contract.method,
+    event: contract.event,
+    fields: contract.fields.map(field => ({ ...field }))
+  }));
+}
+
 module.exports = {
   REFERRAL_MODES,
-  VERIFICATION_MODES,
-  COMPLETION_MODES,
-  VERIFICATION_METHODS,
   TASK_TYPES,
-  SERVER_VERIFIED_CONTRACTS,
+  CREATOR_TASK_TYPES,
+  CREATOR_VERIFICATION_METHODS,
   CREATOR_PROVIDER_CONTRACTS,
   getCreatorProviderContracts,
+  validateCreatorVerificationContract,
   validateCreatorProviderConfiguration,
   validateVerificationConfig,
   resolveVerificationConfig
