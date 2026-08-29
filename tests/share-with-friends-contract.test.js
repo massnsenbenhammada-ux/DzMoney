@@ -22,15 +22,22 @@ test('Share with Friends is a UTC+1 calendar-day daily task', () => {
   );
 });
 
-test('Share with Friends uses server-recorded Open Link / Click Proof with a user referral link source', () => {
+test('Share with Friends uses the existing Click Proof verification method and no completion model', () => {
   const config = {
-    completion: { mode: 'open_link', urlSource: 'user_referral_link' },
-    verification: { mode: 'automatic' }
+    verification: { method: 'click_proof' },
+    systemKey: DAILY_SYSTEM_TASKS.SHARE_WITH_FRIENDS,
+    dailyPolicy: 'utc_plus_one_calendar_day'
   };
   assert.equal(validateVerificationConfig(config, 'daily'), true);
-  assert.deepEqual(resolveVerificationConfig({ taskType: 'daily', config }).completion, {
-    mode: 'open_link',
-    url: null,
-    urlSource: 'user_referral_link'
-  });
+  const resolved = resolveVerificationConfig({ taskType: 'daily', config });
+  assert.equal(resolved.verification.method, 'click_proof');
+  assert.equal(resolved.campaignUrl, null);
+  assert.equal(Object.prototype.hasOwnProperty.call(resolved, 'completion'), false);
+});
+
+test('Share with Friends does not use a Creator completion mode', () => {
+  assert.throws(() => validateVerificationConfig({
+    completion: { mode: 'open_link', urlSource: 'user_referral_link' },
+    verification: { method: 'click_proof' }
+  }, 'daily'), /Legacy completion configuration is not supported/);
 });
