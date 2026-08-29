@@ -1,7 +1,7 @@
 const { query } = require('../db/pool');
 const taskService = require('./task-service');
 const referralService = require('./referral-service');
-const { isUtcPlusOneCalendarDayAvailable, isReferralAchievementClaimable } = require('./daily-system-task-contract');
+const { isRolling24HourAvailable, isUtcPlusOneCalendarDayAvailable, isReferralAchievementClaimable } = require('./daily-system-task-contract');
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -20,21 +20,27 @@ async function getSystemTask(systemKey) {
   return result.rows[0];
 }
 
-/** Checks rolling/calendar-day availability for ordinary Daily tasks. */
-async function assertAvailable(task, userId, now = new Date()) {
+async function getLatestDailyCompletion(task, userId) {
   const result = await query(
-    `SELECT verified_at FROM task_attempts
-     WHERE task_id=$1 AND user_id=$2 AND status='verified'
-     ORDER BY verified_at DESC LIMIT 1`,
+    `SELECT GREATEST(
+       COALESCE((SELECT MAX(verified_at) FROM task_attempts WHERE task_id=$1 AND user_id=$2 AND status='verified'), '-infinity'::timestamptz),
+       COALESCE((SELECT last_claimed_at FROM daily_checkins WHERE user_id=$2), '-infinity'::timestamptz)
+     ) AS completed_at`,
     [task.id, requiredId(userId, 'userId')]
   );
-  if (!result.rowCount) return true;
-  const policy = task.config?.dailyPolicy;
-  if (policy !== 'utc_plus_one_calendar_day') throw new Error('Unsupported daily task policy');
-  return isUtcPlusOneCalendarDayAvailable(result.rows[0].verified_at, now);
+  const completedAt = result.rows[0]?.completed_at;
+  return completedAt && completedAt !== '-infinity' ? completedAt : null;
 }
 
-/** Checks whether a Tasks-page advertisement can start in the current UTC+1 day. */
+async function assertAvailable(task, userId, now = new Date()) {
+  const completedAt = await getLatestDailyCompletion(task, userId);
+  if (!completedAt) return true;
+  const policy = task.config?.dailyPolicy;
+  if (policy === 'rolling_24h') return isRolling24HourAvailable(completedAt, now);
+  if (policy === 'utc_plus_one_calendar_day') return isUtcPlusOneCalendarDayAvailable(completedAt, now);
+  throw new Error('Unsupported daily task policy');
+}
+
 async function assertAdvertisementAvailable(task, userId, now = new Date()) {
   const result = await query(
     `SELECT completed_at FROM activity_ad_events
@@ -47,7 +53,6 @@ async function assertAdvertisementAvailable(task, userId, now = new Date()) {
   return isUtcPlusOneCalendarDayAvailable(result.rows[0].completed_at, now);
 }
 
-/** Checks permanent referral achievement eligibility and one-time claim state. */
 async function assertReferralAchievementAvailable(task, userId) {
   const threshold = Number(task.config?.achievementThreshold);
   if (!Number.isInteger(threshold) || threshold <= 0) throw new Error('Invalid referral achievement threshold');
@@ -64,7 +69,7 @@ async function executeSystemTask({ systemKey, userId, idempotencyKey, metadata =
   if (task.config?.achievementThreshold !== undefined) {
     if (!await assertReferralAchievementAvailable(task, userId)) throw new Error('Referral achievement is not claimable');
   } else if (!await assertAvailable(task, userId)) {
-    throw new Error('Daily task is already completed for the current UTC+1 day');
+    throw new Error('Daily task is already completed for the current eligibility window');
   }
   requiredId(idempotencyKey, 'idempotencyKey');
   const dailyKey = `daily:${task.id}:${userId}:${idempotencyKey}`;

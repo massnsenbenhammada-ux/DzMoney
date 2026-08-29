@@ -1,38 +1,32 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, tasks: [], dailyBusy: false, dailyVerificationPending: false, dailyCooldownUntil: null };
+const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, tasks: [], dailyTaskBusy: false, dailyTaskPending: false, dailyTaskCooldownUntil: null };
 const $ = id => document.getElementById(id);
 let monetagHandler = null;
 const MONETAG_READY_TIMEOUT_MS = 15000;
 const MONETAG_PRELOAD_TIMEOUT_SECONDS = 12;
-const DAILY_VERIFICATION_POLL_MS = 1000;
-const DAILY_VERIFICATION_POLL_LIMIT = 30000;
 const TASK_VERIFICATION_POLL_MS = 1000;
 const TASK_VERIFICATION_POLL_LIMIT = 30000;
+const DAILY_SYSTEM_VERIFY_POLL_LIMIT = 30000;
 
 function getMonetagHandler() {
   const adapter = window.DzMoneyMonetag;
-  if (adapter?.handler && typeof adapter.handler === 'function') {
-    monetagHandler = adapter.handler;
-    return monetagHandler;
-  }
+  if (adapter?.handler && typeof adapter.handler === 'function') { monetagHandler = adapter.handler; return monetagHandler; }
   return null;
 }
 function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 async function ensureMonetagSdk(timeoutMs = MONETAG_READY_TIMEOUT_MS) {
   const adapter = window.DzMoneyMonetag;
-  if (!adapter?.ready) throw new Error('Monetag SDK adapter is unavailable');
-  await Promise.race([
-    adapter.ready,
-    wait(timeoutMs).then(() => { throw new Error('Monetag SDK readiness timed out'); })
-  ]);
+  if (!adapter?.ready) throw new Error('Advertisement SDK adapter is unavailable');
+  await Promise.race([adapter.ready, wait(timeoutMs).then(() => { throw new Error('Advertisement SDK readiness timed out'); })]);
   const handler = getMonetagHandler();
-  if (!handler) throw new Error('Monetag SDK handler is unavailable after readiness');
+  if (!handler) throw new Error('Advertisement SDK handler is unavailable after readiness');
   return handler;
 }
 function toast(message) {
   const el = $('toast');
+  if (!el) return;
   el.textContent = message;
   el.classList.add('show');
   clearTimeout(toast.timer);
@@ -84,19 +78,24 @@ async function loadMe() {
     else toast('Account data is temporarily unavailable.');
   }
 }
+function taskCard(task, special = false) {
+  const label = special ? 'Check in' : task.completion?.mode === 'open_link' ? 'Open' : 'Verify';
+  const action = special ? `data-system-key="${String(task.systemKey || '')}"` : `data-task-id="${String(task.id)}"`;
+  return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${special ? 'Advertisement verification' : String(task.completion?.mode || 'verified')}</small></div><button class="secondary-btn ${special ? 'daily-system-action' : 'task-action'}" ${action}>${label}</button></article>`;
+}
 function renderTasks() {
   const container = $('tasksList');
   if (!container) return;
-  if (!state.tasks.length) {
-    container.innerHTML = '<article class="info-card"><strong>No tasks available</strong><p>There are no active tasks available for your account right now.</p></article>';
-    return;
-  }
-  container.innerHTML = state.tasks.map(task => `
-    <article class="task-card" data-task-id="${String(task.id)}">
-      <div class="task-icon">▶</div>
-      <div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.type || 'Activity')}</span><small>${String(task.completion?.mode || 'verified')}</small></div>
-      <button class="secondary-btn task-action" data-task-id="${String(task.id)}">${task.completion?.mode === 'open_link' ? 'Open' : 'Verify'}</button>
-    </article>`).join('');
+  const daily = state.tasks.filter(task => task.taskType === 'daily');
+  const regular = state.tasks.filter(task => task.taskType !== 'daily');
+  const checkin = daily.find(task => task.systemKey === 'daily_check_in');
+  const dailyHtml = checkin ? `<section class="task-group"><div class="section-head"><h2>Daily Activity</h2></div>${taskCard(checkin, true)}</section>` : '';
+  const regularHtml = regular.length ? `<section class="task-group"><div class="section-head"><h2>Tasks</h2></div>${regular.map(task => taskCard(task)).join('')}</section>` : '';
+  const otherDaily = daily.filter(task => task.systemKey !== 'daily_check_in');
+  const otherDailyHtml = otherDaily.length ? `<section class="task-group"><div class="section-head"><h2>Daily Tasks</h2></div>${otherDaily.map(task => taskCard(task)).join('')}</section>` : '';
+  container.innerHTML = dailyHtml + otherDailyHtml + regularHtml;
+  if (!container.innerHTML) container.innerHTML = '<article class="info-card"><strong>No tasks available</strong><p>There are no active tasks available for your account right now.</p></article>';
+  loadDailyTaskStatus();
 }
 async function loadTasks() {
   const container = $('tasksList');
@@ -114,70 +113,85 @@ async function waitForTaskVerification(attemptId) {
   const deadline = Date.now() + TASK_VERIFICATION_POLL_LIMIT;
   while (Date.now() < deadline) {
     const status = await api(`/api/tasks/attempt/${encodeURIComponent(attemptId)}`);
-    if (status.status === 'verified') {
-      await loadMe();
-      return status;
-    }
+    if (status.status === 'verified') { await loadMe(); return status; }
     if (status.status === 'rejected') return status;
     await wait(TASK_VERIFICATION_POLL_MS);
   }
   return api(`/api/tasks/attempt/${encodeURIComponent(attemptId)}`);
 }
 async function showTaskVerificationAd(ymid) {
-  if (!ymid) throw new Error('Task verification advertisement id is missing');
+  if (!ymid) throw new Error('Verification advertisement id is missing');
   const handler = await ensureMonetagSdk();
   await handler({ type: 'preload', ymid, requestVar: 'verification', timeout: MONETAG_PRELOAD_TIMEOUT_SECONDS });
   await handler({ ymid, requestVar: 'verification' });
 }
-async function startTaskExecutionFlow(taskId) {
-  const task = state.tasks.find(item => String(item.id) === String(taskId));
-  if (!task) throw new Error('Task is no longer available');
-  const numericTaskId = Number(task.id);
-  if (!Number.isSafeInteger(numericTaskId) || numericTaskId <= 0) throw new Error('Task id is invalid');
-
-  const completionWindow = task.completion?.mode === 'open_link' && task.completion?.url
-    ? window.open('about:blank', '_blank', 'noopener,noreferrer')
-    : null;
-  const idempotencyKey = `task:${task.id}:${crypto.randomUUID()}`;
-  const result = await api('/api/tasks/execute', {
-    method: 'POST',
-    body: JSON.stringify({ taskId: numericTaskId, idempotencyKey, metadata: { source: 'tasks_ui' } })
-  });
-
-  toast('Preparing the verification advertisement…');
-  await showTaskVerificationAd(result.verificationAdId);
-
-  if (task.completion?.mode === 'open_link' && task.completion?.url) {
-    if (completionWindow) {
-      completionWindow.location.href = task.completion.url;
-    } else {
-      window.location.href = task.completion.url;
+async function finalizeDailySystemTask(attemptId) {
+  const deadline = Date.now() + DAILY_SYSTEM_VERIFY_POLL_LIMIT;
+  while (Date.now() < deadline) {
+    try {
+      const result = await api('/api/daily-tasks/verify', { method: 'POST', body: JSON.stringify({ attemptId, idempotencyKey: `daily-system:${attemptId}` }) });
       return result;
+    } catch (error) {
+      if (!String(error.message || '').includes('must be verified first')) throw error;
     }
-    const click = await api('/api/tasks/click', {
-      method: 'POST',
-      body: JSON.stringify({ attemptId: result.attemptId })
-    });
-    if (click.status === 'verified') {
-      await loadMe();
-      toast('Task verified and reward credited.');
-      return { ...result, ...click };
-    }
-    toast('Task opened. Waiting for server verification…');
-    const status = await waitForTaskVerification(result.attemptId);
-    if (status.status === 'verified') toast('Task verified and reward credited.');
-    else if (status.status === 'rejected') toast('Task verification was rejected.');
-    else toast('Server verification is still pending.');
-    return { ...result, ...click, verification: status };
+    await wait(TASK_VERIFICATION_POLL_MS);
   }
-
-  const status = await waitForTaskVerification(result.attemptId);
-  if (status.status === 'verified') toast('Task verified and reward credited.');
-  else if (status.status === 'rejected') toast('Task verification was rejected.');
-  else toast('Task verification is still pending.');
-  return { ...result, verification: status };
+  throw new Error('Server verification is still pending');
 }
-function setDailyButton(button, text, disabled) { button.disabled = disabled; button.textContent = text; }
+async function startDailySystemTaskFlow(systemKey, button) {
+  if (state.dailyTaskBusy || state.dailyTaskPending || state.dailyTaskCooldownUntil) return;
+  state.dailyTaskBusy = true;
+  button.disabled = true;
+  button.textContent = 'Loading…';
+  try {
+    const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey, idempotencyKey: `daily:${systemKey}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
+    toast('Preparing the verification advertisement…');
+    await showTaskVerificationAd(result.verificationAdId);
+    state.dailyTaskPending = true;
+    button.textContent = 'Verifying…';
+    const finalized = await finalizeDailySystemTask(result.attemptId);
+    if (finalized.status === 'verified') {
+      await loadMe();
+      toast('Daily Check-in verified and reward credited.');
+      await loadDailyTaskStatus();
+    } else if (finalized.status === 'rejected') {
+      toast('Daily Check-in verification was rejected.');
+    }
+  } catch (error) {
+    toast(error.message || 'Unable to complete Daily Check-in.');
+  } finally {
+    state.dailyTaskBusy = false;
+    state.dailyTaskPending = false;
+    await loadDailyTaskStatus();
+  }
+}
+function setDailyTaskButton(text, disabled) {
+  const button = document.querySelector('.daily-system-action[data-system-key="daily_check_in"]');
+  if (!button) return;
+  button.disabled = disabled;
+  button.textContent = text;
+}
+async function loadDailyTaskStatus() {
+  try {
+    const status = await api('/api/daily-checkin/status');
+    if (status.status === 'cooldown' && status.nextEligibleAt) {
+      const until = new Date(status.nextEligibleAt).getTime();
+      state.dailyTaskCooldownUntil = Number.isFinite(until) ? until : null;
+      setDailyTaskButton(`Cooldown ${formatCooldown(until - Date.now())}`, true);
+      clearInterval(loadDailyTaskStatus.timer);
+      loadDailyTaskStatus.timer = setInterval(() => {
+        const remaining = state.dailyTaskCooldownUntil - Date.now();
+        if (remaining <= 0) { clearInterval(loadDailyTaskStatus.timer); state.dailyTaskCooldownUntil = null; setDailyTaskButton('Check in', false); return; }
+        setDailyTaskButton(`Cooldown ${formatCooldown(remaining)}`, true);
+      }, 1000);
+      return status;
+    }
+    state.dailyTaskCooldownUntil = null;
+    if (status.status === 'pending') { state.dailyTaskPending = true; setDailyTaskButton('Verifying…', true); return status; }
+    if (!state.dailyTaskBusy) setDailyTaskButton('Check in', false);
+    return status;
+  } catch { return null; }
+}
 function formatCooldown(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -185,104 +199,47 @@ function formatCooldown(ms) {
   const seconds = totalSeconds % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
-function startDailyCooldown(nextEligibleAt) {
-  const until = new Date(nextEligibleAt).getTime();
-  if (!Number.isFinite(until)) return;
-  state.dailyCooldownUntil = until;
-  state.dailyVerificationPending = false;
-  clearInterval(startDailyCooldown.timer);
-  const button = $('dailyBtn');
-  const tick = () => {
-    const remaining = state.dailyCooldownUntil - Date.now();
-    if (remaining <= 0) {
-      state.dailyCooldownUntil = null;
-      clearInterval(startDailyCooldown.timer);
-      setDailyButton(button, 'Check in', false);
-      $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
-      return;
-    }
-    setDailyButton(button, `Cooldown ${formatCooldown(remaining)}`, true);
-    $('dailyText').textContent = `Daily Check-in available again in ${formatCooldown(remaining)}.`;
-  };
-  tick();
-  startDailyCooldown.timer = setInterval(tick, 1000);
-}
-function setDailyVerificationPending(pending) {
-  state.dailyVerificationPending = pending;
-  if (!pending || state.dailyCooldownUntil) return;
-  const button = $('dailyBtn');
-  setDailyButton(button, 'Verifying…', true);
-  $('dailyText').textContent = 'Advertisement completed. Waiting for server verification.';
-}
-async function loadDailyStatus() {
-  try {
-    const status = await api('/api/daily-checkin/status');
-    if (status.status === 'cooldown' && status.nextEligibleAt) { startDailyCooldown(status.nextEligibleAt); return status; }
-    if (status.status === 'pending') { setDailyVerificationPending(true); return status; }
-    state.dailyVerificationPending = false;
-    if (!state.dailyBusy) setDailyButton($('dailyBtn'), 'Check in', false);
-    $('dailyText').textContent = 'Watch the required advertisement to claim today’s reward.';
-    return status;
-  } catch { return null; }
-}
-async function waitForDailyVerification() {
-  const deadline = Date.now() + DAILY_VERIFICATION_POLL_LIMIT;
-  while (Date.now() < deadline) {
-    const status = await loadDailyStatus();
-    if (status?.status === 'cooldown') { await loadMe(); return true; }
-    if (status?.status === 'available') return false;
-    await wait(DAILY_VERIFICATION_POLL_MS);
+async function startTaskExecutionFlow(taskId) {
+  const task = state.tasks.find(item => String(item.id) === String(taskId));
+  if (!task) throw new Error('Task is no longer available');
+  const numericTaskId = Number(task.id);
+  if (!Number.isSafeInteger(numericTaskId) || numericTaskId <= 0) throw new Error('Task id is invalid');
+  const completionWindow = task.completion?.mode === 'open_link' && task.completion?.url ? window.open('about:blank', '_blank', 'noopener,noreferrer') : null;
+  const idempotencyKey = `task:${task.id}:${crypto.randomUUID()}`;
+  const result = await api('/api/tasks/execute', { method: 'POST', body: JSON.stringify({ taskId: numericTaskId, idempotencyKey, metadata: { source: 'tasks_ui' } }) });
+  toast('Preparing the verification advertisement…');
+  await showTaskVerificationAd(result.verificationAdId);
+  if (task.completion?.mode === 'open_link' && task.completion?.url) {
+    if (completionWindow) completionWindow.location.href = task.completion.url;
+    else { window.location.href = task.completion.url; return result; }
+    const click = await api('/api/tasks/click', { method: 'POST', body: JSON.stringify({ attemptId: result.attemptId }) });
+    if (click.status === 'verified') { await loadMe(); toast('Task verified and reward credited.'); return { ...result, ...click }; }
+    const status = await waitForTaskVerification(result.attemptId);
+    if (status.status === 'verified') toast('Task verified and reward credited.');
+    else if (status.status === 'rejected') toast('Task verification was rejected.');
+    return { ...result, ...click, verification: status };
   }
-  setDailyVerificationPending(true);
-  return false;
-}
-async function startDailyCheckinAd(ymid) {
-  if (!ymid) throw new Error('Daily Check-in advertisement id is missing');
-  const handler = await ensureMonetagSdk();
-  $('dailyText').textContent = 'Preparing the advertisement…';
-  await handler({ type: 'preload', ymid, requestVar: 'daily_checkin', timeout: MONETAG_PRELOAD_TIMEOUT_SECONDS });
-  $('dailyText').textContent = 'Watch the advertisement to complete your check-in.';
-  await handler({ ymid, requestVar: 'daily_checkin' });
-}
-async function startDailyCheckinAdFlow() {
-  if (state.dailyBusy || state.dailyVerificationPending || state.dailyCooldownUntil) return;
-  const button = $('dailyBtn');
-  state.dailyBusy = true;
-  setDailyButton(button, 'Loading…', true);
-  try {
-    const handler = await ensureMonetagSdk();
-    if (typeof handler !== 'function') throw new Error('Monetag SDK is unavailable');
-    const claim = await api('/api/daily-checkin/claim', { method: 'POST', body: JSON.stringify({ idempotencyKey: `daily:${crypto.randomUUID()}` }) });
-    await startDailyCheckinAd(claim.adEvent?.external_ad_id);
-    setDailyVerificationPending(true);
-    toast('Advertisement completed. Your reward is being verified.');
-    await waitForDailyVerification();
-  } catch (error) {
-    if (error.status === 429 && error.data?.nextEligibleAt) { startDailyCooldown(error.data.nextEligibleAt); toast('Daily Check-in is on cooldown.'); }
-    else { toast(error.message || 'Unable to show the advertisement.'); $('dailyText').textContent = error.message || 'Unable to show the advertisement.'; }
-  } finally {
-    state.dailyBusy = false;
-    if (!state.dailyVerificationPending && !state.dailyCooldownUntil) setDailyButton(button, 'Check in', false);
-  }
+  const status = await waitForTaskVerification(result.attemptId);
+  if (status.status === 'verified') toast('Task verified and reward credited.');
+  else if (status.status === 'rejected') toast('Task verification was rejected.');
+  else toast('Task verification is still pending.');
+  return { ...result, verification: status };
 }
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]');
   if (nav) { showPage(nav.dataset.go); return; }
-  if (event.target.closest('#dailyBtn')) startDailyCheckinAdFlow();
+  const dailyButton = event.target.closest('.daily-system-action');
+  if (dailyButton) { startDailySystemTaskFlow(dailyButton.dataset.systemKey, dailyButton); return; }
   const taskButton = event.target.closest('.task-action');
   if (taskButton) {
     taskButton.disabled = true;
-    startTaskExecutionFlow(taskButton.dataset.taskId).catch(error => {
-      taskButton.disabled = false;
-      toast(error.message || 'Unable to start task.');
-    });
+    startTaskExecutionFlow(taskButton.dataset.taskId).catch(error => { taskButton.disabled = false; toast(error.message || 'Unable to start task.'); });
   }
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
   if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
 });
-window.addEventListener('focus', () => { loadDailyStatus(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) loadDailyStatus(); });
+window.addEventListener('focus', () => { if (state.page === 'tasks') loadDailyTaskStatus(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.page === 'tasks') loadDailyTaskStatus(); });
 renderBalances();
 loadHealth();
 loadMe();
-loadDailyStatus();

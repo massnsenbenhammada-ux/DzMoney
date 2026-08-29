@@ -20,25 +20,18 @@ const REFERRAL_ACHIEVEMENT_THRESHOLDS = Object.freeze({
   [DAILY_SYSTEM_TASKS.INVITE_100_FRIENDS]: 100,
 });
 
-/**
- * Returns whether a UTC+1 calendar day boundary has been crossed.
- * @param {Date|string|number} previousAt Previous successful completion time.
- * @param {Date|string|number} now Current time.
- * @returns {boolean} True when the UTC+1 calendar date differs.
- */
+function isRolling24HourAvailable(previousAt, now) {
+  const previousTimestamp = toTimestamp(previousAt);
+  const currentTimestamp = toTimestamp(now);
+  return currentTimestamp >= previousTimestamp + 24 * 60 * 60 * 1000;
+}
+
 function isUtcPlusOneCalendarDayAvailable(previousAt, now) {
   const previousDate = utcPlusOneDateKey(previousAt);
   const currentDate = utcPlusOneDateKey(now);
   return previousDate !== currentDate;
 }
 
-/**
- * Returns whether a permanent referral achievement can be claimed.
- * @param {number} qualifiedReferrals Number of qualified referrals.
- * @param {number} threshold Required referral threshold.
- * @param {boolean} completed Whether this threshold was already claimed.
- * @returns {boolean} True when the achievement is claimable.
- */
 function isReferralAchievementClaimable(qualifiedReferrals, threshold, completed) {
   return Number.isInteger(qualifiedReferrals)
     && Number.isInteger(threshold)
@@ -47,18 +40,20 @@ function isReferralAchievementClaimable(qualifiedReferrals, threshold, completed
     && completed === false;
 }
 
-function utcPlusOneDateKey(value) {
+function toTimestamp(value) {
   const timestamp = value instanceof Date ? value.getTime() : new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) {
-    throw new TypeError('Invalid date');
-  }
+  if (!Number.isFinite(timestamp)) throw new TypeError('Invalid date');
+  return timestamp;
+}
 
-  return new Date(timestamp + UTC_PLUS_ONE_OFFSET_MS).toISOString().slice(0, 10);
+function utcPlusOneDateKey(value) {
+  return new Date(toTimestamp(value) + UTC_PLUS_ONE_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 module.exports = {
   DAILY_SYSTEM_TASKS,
   REFERRAL_ACHIEVEMENT_THRESHOLDS,
+  isRolling24HourAvailable,
   isUtcPlusOneCalendarDayAvailable,
   isReferralAchievementClaimable,
 };

@@ -28,6 +28,7 @@ function resolveTelegramTaskChannel(verification) {
 
 function resolveTrustedTaskVerifier({ config, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
   const verification = config?.verification || {};
+  if (config?.dailyMode === 'advertisement') return async () => true;
   if (verification.method === 'click_proof') {
     return async ({ attemptId }) => {
       const result = await query('SELECT metadata FROM task_attempts WHERE id=$1', [requiredId(attemptId, 'attemptId')]);
