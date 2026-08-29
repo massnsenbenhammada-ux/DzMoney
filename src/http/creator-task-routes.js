@@ -4,9 +4,8 @@ const taskService = require('../services/task-service');
 const { telegramAuth } = require('./telegram-auth');
 const { createStrictObjectValidator, createValidationMiddleware } = require('./input-validation');
 const { createRateLimit } = require('./rate-limit');
-const { CREATOR_VERIFICATION_METHODS, getCreatorProviderContracts, validateCreatorProviderConfiguration } = require('../services/task-verification-config');
+const { CREATOR_TASK_TYPES, CREATOR_VERIFICATION_METHODS, getCreatorProviderContracts, validateCreatorProviderConfiguration } = require('../services/task-verification-config');
 
-const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
 const CREATOR_MIN_TARGET = 1000;
 const CREATOR_TARGET_STEP = 1;
 
