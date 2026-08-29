@@ -43,6 +43,9 @@ async function main() {
       /Legacy completion configuration is not supported/
     );
 
+    const legacyState = await pool.query("SELECT id FROM activity_tasks WHERE config ? 'completion'");
+    assert.strictEqual(legacyState.rowCount, 0, 'database must contain no legacy completion configuration');
+
     const daily = await createTask({
       taskType: 'daily',
       title: 'Daily catalog test',
@@ -63,7 +66,11 @@ async function main() {
       rewardCoin: 1000,
       rewardDzx: 1,
       rewardDzp: 1,
-      verificationAdSeconds: 10
+      verificationAdSeconds: 10,
+      config: {
+        campaignUrl: 'https://example.test',
+        verification: { method: 'click_proof' }
+      }
     });
     taskIds.push(daily.id, social.id);
     await activateTask(daily.id);
@@ -80,7 +87,12 @@ async function main() {
     assert.strictEqual(createdDaily.rewardDzx, 1);
     assert.strictEqual(createdDaily.rewardDzp, 1);
     assert.deepStrictEqual(createdDaily.verification, {
-      method: 'click_proof'
+      provider: null,
+      providerConfigRef: null,
+      method: 'click_proof',
+      event: null,
+      channel: null,
+      requirements: {}
     });
 
     console.log('Task catalog foundation invariants: PASS');
