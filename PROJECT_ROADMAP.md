@@ -181,9 +181,11 @@ Creator pays the task campaign cost.
 
 Reference pricing:
 
-**1,000 valid visits/executions = 0.90 TON = 9,000 DZX**
+**10 DZX per valid visit/execution. Equivalent CPM: 10,000 DZX per 1,000 valid visits/executions.**
 
-The pricing model scales from this reference and is Admin-configurable.
+The pricing model scales from this reference and remains Admin-configurable through the existing campaign configuration/management architecture.
+
+There is no separate Creator price for Click Proof versus Server Verified; the canonical unit price is 10 DZX per valid visit/execution.
 
 Task lifecycle:
 

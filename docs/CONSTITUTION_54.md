@@ -254,9 +254,11 @@ The client MUST NOT be the source of truth for the day boundary.
 
 The administrator controls the campaign price through the existing campaign configuration/management architecture.
 
-`9 DZ` is an initial/default price, not an immutable universal price, unless the repository explicitly proves otherwise.
+**Canonical Creator campaign price: 10 DZX per valid visit. Equivalent CPM: 10,000 DZX per 1,000 valid visits.**
 
-Never hardcode the default as an unchangeable business invariant when Admin configuration is the established source of truth.
+The 10 DZX-per-visit unit is the authoritative pricing unit. The 10,000 DZX CPM is only the equivalent presentation for 1,000 valid visits. There is no separate Creator price for Click Proof versus Server Verified.
+
+Never hardcode the price in the frontend or duplicate campaign-pricing authority outside the existing Admin campaign configuration/management architecture.
 
 ## 16. Daily systems
 
