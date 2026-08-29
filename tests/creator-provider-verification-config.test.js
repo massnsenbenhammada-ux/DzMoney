@@ -38,11 +38,11 @@ test('Game URL Format Match uses the single campaign URL as its reference', () =
   assert.equal(resolved.verification.provider, null);
 });
 
-test('Game URL Format Match cannot be configured for another task type', () => {
+test('Web rejects Game-only URL Format Match at the Creator contract boundary', () => {
   assert.throws(() => validateCreatorProviderConfiguration('web', {
     campaignUrl: 'https://example.com',
     verification: { method: 'url_format_match' }
-  }), /supported only for Game tasks/);
+  }), /Invalid verification method for web creator task/);
 });
 
 test('Game URL Format Match requires the campaign target URL', () => {
