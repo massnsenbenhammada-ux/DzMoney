@@ -34,13 +34,13 @@ async function main() {
     await assert.rejects(
       () => createTask({
         taskType: 'special',
-        title: 'Invalid Special click-proof task',
+        title: 'Invalid Special legacy task',
         rewardCoin: 1000,
         rewardDzx: 1,
         rewardDzp: 1,
-        config: { completion: { mode: 'open_link', url: 'https://partner.example/task' } }
+        config: { completion: { mode: 'server_verified' } }
       }),
-      /Special\/Partner tasks support server_verified completion only/
+      /Legacy completion configuration is not supported/
     );
 
     const daily = await createTask({
@@ -51,7 +51,9 @@ async function main() {
       rewardDzx: 1,
       rewardDzp: 1,
       verificationAdSeconds: 5,
-      config: { completion: { mode: 'open_link', url: 'https://example.test/daily' } }
+      config: {
+        verification: { method: 'click_proof' }
+      }
     });
     const social = await createTask({
       taskType: 'social',
@@ -77,10 +79,8 @@ async function main() {
     assert.strictEqual(createdDaily.rewardCoin, 1000);
     assert.strictEqual(createdDaily.rewardDzx, 1);
     assert.strictEqual(createdDaily.rewardDzp, 1);
-    assert.deepStrictEqual(createdDaily.completion, {
-      mode: 'open_link',
-      url: 'https://example.test/daily',
-      urlSource: null
+    assert.deepStrictEqual(createdDaily.verification, {
+      method: 'click_proof'
     });
 
     console.log('Task catalog foundation invariants: PASS');
