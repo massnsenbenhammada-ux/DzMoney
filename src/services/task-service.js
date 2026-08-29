@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
-const { validateVerificationConfig, resolveVerificationConfig } = require('./task-verification-config');
+const { validateVerificationConfig, validateCreatorProviderConfiguration, resolveVerificationConfig } = require('./task-verification-config');
 const { postEconomyTransactionOnClient } = require('./economy-service');
 
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
@@ -23,7 +23,7 @@ async function getCreatorCampaignContract(queryFn = query) {
   const price = Number(rawPrice);
   if (!Number.isFinite(price) || price <= 0) throw new Error('Creator campaign price setting must be a positive finite number');
   const verificationAdSeconds = settings.verification_ad_seconds ?? '30';
-  return { priceDZX: price, availableCompletionModes: ['open_link', 'server_verified'], verificationAdSeconds: Number(verificationAdSeconds) };
+  return { priceDZX: price, verificationAdSeconds: Number(verificationAdSeconds) };
 }
 
 async function getCreatorActivityRewards(queryFn = query) {
@@ -35,7 +35,7 @@ async function getCreatorActivityRewards(queryFn = query) {
 async function listActiveTasks({ taskType = null } = {}) {
   if (taskType !== null && !TASK_TYPES.includes(taskType)) throw new Error('Invalid task type'); const params = taskType ? [taskType] : []; const filter = taskType ? 'AND task_type=$1' : '';
   const result = await query(`SELECT id, task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds, config FROM activity_tasks WHERE status='active' ${filter} ORDER BY id`, params);
-  return result.rows.map(row => { const completion = resolveVerificationConfig({ taskType: row.task_type, config: row.config }).completion; return { id: row.id, taskType: row.task_type, title: row.title, description: row.description, rewardCoin: Number(row.reward_coin), rewardDzx: Number(row.reward_dzx), rewardDzp: Number(row.reward_dzp), verificationAdSeconds: row.verification_ad_seconds, completion }; });
+  return result.rows.map(row => { const resolved = resolveVerificationConfig({ taskType: row.task_type, config: row.config }); return { id: row.id, taskType: row.task_type, title: row.title, description: row.description, rewardCoin: Number(row.reward_coin), rewardDzx: Number(row.reward_dzx), rewardDzp: Number(row.reward_dzp), verificationAdSeconds: row.verification_ad_seconds, campaignUrl: resolved.campaignUrl, verification: resolved.verification }; });
 }
 
 async function createTask({ taskType, title, description = null, creatorId = null, target = null, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {} }) {
@@ -49,7 +49,7 @@ async function createTask({ taskType, title, description = null, creatorId = nul
 }
 
 async function createCreatorCampaign({ taskType, title, description = null, creatorId, target, rewardCoin, rewardDzx, rewardDzp, verificationAdSeconds = null, config = {}, idempotencyKey, priceDZX }) {
-  if (!CREATOR_CAMPAIGN_TYPES.includes(taskType)) throw new Error('Creator campaigns must use game, social, or web task types'); requiredId(idempotencyKey, 'idempotencyKey'); if (priceDZX !== undefined) throw new Error('Campaign price is server/admin controlled'); const campaign = normalizeCampaignFields(taskType, creatorId, target); validateVerificationConfig(config, taskType);
+  if (!CREATOR_CAMPAIGN_TYPES.includes(taskType)) throw new Error('Creator campaigns must use game, social, or web task types'); requiredId(idempotencyKey, 'idempotencyKey'); if (priceDZX !== undefined) throw new Error('Campaign price is server/admin controlled'); const campaign = normalizeCampaignFields(taskType, creatorId, target); validateCreatorProviderConfiguration(taskType, config);
   return withTransaction(async client => {
     const configuredSeconds = verificationAdSeconds ?? await getActivitySetting(client, 'activity.verification_ad_seconds', 5); if (!VERIFICATION_SECONDS.includes(Number(configuredSeconds))) throw new Error('verification ad duration must be 5 or 10 seconds');
     const rewards = { coin: normalizeReward(rewardCoin, 'rewardCoin'), dzx: normalizeReward(rewardDzx, 'rewardDzx'), dzp: normalizeReward(rewardDzp, 'rewardDzp') }; if (!rewards.coin && !rewards.dzx && !rewards.dzp) throw new Error('At least one campaign reward is required');
@@ -90,7 +90,7 @@ async function recordTaskClick({ attemptId, userId }) {
   requiredId(attemptId, 'attemptId'); requiredId(userId, 'userId');
   return withTransaction(async client => {
     const result = await client.query(`SELECT a.*,t.task_type,t.config FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id WHERE a.id=$1 AND a.user_id=$2 FOR UPDATE`, [attemptId, userId]); if (!result.rowCount) throw new Error('Task attempt not found');
-    const row = result.rows[0]; const completion = resolveVerificationConfig({ taskType: row.task_type, config: row.config }).completion; if (completion.mode !== 'open_link') throw new Error('Task attempt does not use open_link completion'); if (row.status !== 'verification_pending') throw new Error('Task attempt is not awaiting verification'); if (row.metadata?.link_clicked === true) return { clicked: true, duplicate: true, attempt: row };
+    const row = result.rows[0]; const resolved = resolveVerificationConfig({ taskType: row.task_type, config: row.config }); if (resolved.verification.method !== 'click_proof') throw new Error('Task attempt does not use click_proof verification'); if (row.status !== 'verification_pending') throw new Error('Task attempt is not awaiting verification'); if (row.metadata?.link_clicked === true) return { clicked: true, duplicate: true, attempt: row };
     const updated = await client.query(`UPDATE task_attempts SET metadata = metadata || jsonb_build_object('link_clicked', true, 'link_clicked_at', NOW()) WHERE id=$1 RETURNING *`, [attemptId]); return { clicked: true, duplicate: false, attempt: updated.rows[0] };
   });
 }
