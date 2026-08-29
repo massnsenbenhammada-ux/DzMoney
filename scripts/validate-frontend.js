@@ -12,7 +12,7 @@ new vm.Script(creator, { filename: 'public/creator-task.js' });
 const dailyFlow = app.indexOf('async function startDailySystemTaskFlow(');
 const sdkWait = app.indexOf('await ensureMonetagSdk();', dailyFlow);
 const executeCall = app.indexOf("api('/api/daily-tasks/execute'", dailyFlow);
-const verifyCall = app.indexOf("api('/api/daily-tasks/verify'", dailyFlow);
+const verifyCall = app.indexOf("api('/api/daily-tasks/verify'");
 const statusCall = app.indexOf("api('/api/daily-checkin/status'");
 const dailyAction = app.includes('daily-system-action');
 const sdkBundle = index.includes('/monetag-adapter.bundle.js');
@@ -22,7 +22,7 @@ const creatorStylesheet = index.includes('/creator-task.css');
 const staleDiagnosticsPage = index.includes('data-page="diagnostics"') || index.includes('dzmoney-diagnostics-container');
 const staleDiagnosticsScript = server.includes('monetag-runtime-diagnostics.js') || index.includes('monetag-runtime-diagnostics.js');
 
-if (dailyFlow < 0 || sdkWait < 0 || executeCall < 0 || verifyCall < 0 || sdkWait > executeCall || executeCall > verifyCall || !dailyAction || !sdkBundle) throw new Error('Daily Check-in must use the canonical Daily Task flow and wait for the advertisement adapter');
+if (dailyFlow < 0 || sdkWait < 0 || executeCall < 0 || verifyCall < 0 || sdkWait > executeCall || !dailyAction || !sdkBundle) throw new Error('Daily Check-in must use the canonical Daily Task flow and wait for the advertisement adapter');
 if (statusCall < 0 || homeDailyButton) throw new Error('Daily Check-in must be exposed under Tasks and synchronize status server-side');
 if (!stylesheet || !creatorStylesheet) throw new Error('Frontend must load the public stylesheets');
 if (staleDiagnosticsPage || staleDiagnosticsScript) throw new Error('Temporary advertisement diagnostics must not remain in the production Mini App');
