@@ -4,25 +4,17 @@ const taskService = require('../services/task-service');
 const { telegramAuth } = require('./telegram-auth');
 const { createStrictObjectValidator, createValidationMiddleware } = require('./input-validation');
 const { createRateLimit } = require('./rate-limit');
-const { getCreatorProviderContracts, validateCreatorProviderConfiguration } = require('../services/task-verification-config');
+const { CREATOR_VERIFICATION_METHODS, getCreatorProviderContracts, validateCreatorProviderConfiguration } = require('../services/task-verification-config');
 
 const CREATOR_TASK_TYPES = ['game', 'social', 'web'];
 const CREATOR_MIN_TARGET = 1000;
 const CREATOR_TARGET_STEP = 1;
-const CONTRACT_DESCRIPTIONS = Object.freeze({
-  open_link: 'Use this when opening the configured link is itself the outcome you want to reward. It does not prove a deeper external action.',
-  server_verified: 'Use this when the requested external outcome must be confirmed by trusted server-verifiable evidence.'
-});
 
 const isNonEmptyString = value => typeof value === 'string' && value.trim().length > 0;
 const isCreatorTaskType = value => CREATOR_TASK_TYPES.includes(value);
 const isValidTarget = value => Number.isInteger(value) && value >= CREATOR_MIN_TARGET;
 const isOptionalNonNegativeInteger = value => value === undefined || value === null || (Number.isInteger(value) && value >= 0);
-const isCreatorConfig = value => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const completion = value.completion;
-  return Boolean(completion && typeof completion === 'object' && !Array.isArray(completion) && isNonEmptyString(completion.url));
-};
+const isCreatorConfig = value => Boolean(value && typeof value === 'object' && !Array.isArray(value) && isNonEmptyString(value.campaignUrl) && value.verification && typeof value.verification === 'object' && isNonEmptyString(value.verification.method));
 
 const validateCreatorTaskBody = createStrictObjectValidator({
   taskType: isCreatorTaskType,
@@ -58,10 +50,9 @@ function validateCreatorProvider(taskType, config) {
 async function contractFor(tasks, taskType) {
   requireTaskType(taskType);
   const contract = await tasks.getCreatorCampaignContract();
-  const availableCompletionModes = contract.availableCompletionModes || [];
   return {
     ...contract,
-    completionServices: availableCompletionModes.map(mode => ({ mode, description: CONTRACT_DESCRIPTIONS[mode] })),
+    verificationMethods: [...CREATOR_VERIFICATION_METHODS[taskType]],
     providerContracts: getCreatorProviderContracts(taskType),
     campaignPricing: {
       minTarget: CREATOR_MIN_TARGET,
@@ -104,4 +95,4 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
   return router;
 }
 
-module.exports = { CREATOR_TASK_TYPES, CREATOR_MIN_TARGET, CREATOR_TARGET_STEP, CONTRACT_DESCRIPTIONS, createCreatorTaskRouter };
+module.exports = { CREATOR_TASK_TYPES, CREATOR_MIN_TARGET, CREATOR_TARGET_STEP, createCreatorTaskRouter };
