@@ -34,7 +34,7 @@ function testCreatorContracts() {
   assert.doesNotThrow(() => validateCreatorProviderConfiguration('game', { campaignUrl: 'https://example.test', verification: { method: 'url_format_match' } }));
   assert.doesNotThrow(() => validateCreatorProviderConfiguration('social', { campaignUrl: 'https://example.test', verification: { method: 'bot_api', provider: 'telegram_channel', event: 'channel_membership', requirements: { channel: '@example_channel' } } }));
   assert.doesNotThrow(() => validateCreatorProviderConfiguration('web', { campaignUrl: 'https://example.test', verification: { method: 'click_proof' } }));
-  assert.throws(() => validateCreatorProviderConfiguration('web', { campaignUrl: 'https://example.test', verification: { method: 'url_format_match' } }), /supported only for Game tasks/);
+  assert.throws(() => validateCreatorProviderConfiguration('web', { campaignUrl: 'https://example.test', verification: { method: 'url_format_match' } }), /Invalid verification method for web creator task/);
 }
 
 function testDailyClickProof() {
