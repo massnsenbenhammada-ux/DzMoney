@@ -3,7 +3,6 @@ const vm = require('vm');
 
 const app = fs.readFileSync('public/app.js', 'utf8');
 const index = fs.readFileSync('public/index.html', 'utf8');
-const style = fs.readFileSync('public/style.css', 'utf8');
 const creator = fs.readFileSync('public/creator-task.js', 'utf8');
 const creatorStyle = fs.readFileSync('public/creator-task.css', 'utf8');
 const server = fs.readFileSync('server.js', 'utf8');
@@ -26,29 +25,27 @@ if (statusCall < 0 || verificationPoll < 0) throw new Error('Daily Check-in must
 if (!stylesheet || !creatorStylesheet) throw new Error('Frontend must load the public stylesheets');
 if (staleDiagnosticsPage || staleDiagnosticsScript) throw new Error('Temporary advertisement diagnostics must not remain in the production Mini App');
 
-const creatorForm = index.includes('id="creatorTaskForm"');
-const creatorReviewButton = index.includes('id="creatorReviewSubmit"');
-const creatorTypes = index.includes('data-creator-category="game"') && index.includes('data-creator-category="social"') && index.includes('data-creator-category="web"') && index.includes('data-creator-category="special"');
-const creatorTargetMinimum = index.includes('id="creatorTarget" type="number" min="1000"');
-const creatorRewardsHidden = !index.includes('id="creatorRewardCoin"') && !index.includes('id="creatorRewardDzx"') && !index.includes('id="creatorRewardDzp"');
-const creatorAdSecondsHidden = !index.includes('id="creatorVerificationAdSeconds"');
-const creatorCompany = index.includes('id="creatorTargetCompany"');
-const creatorPricing = index.includes('id="creatorReferencePrice"') && index.includes('id="creatorReferenceCampaign"') && index.includes('id="creatorCampaignCost"');
-const canonicalGame = creator.includes("['url_format_match', 'URL Format Match'");
-const canonicalSocial = creator.includes("['telegram_bot_api', 'Telegram Bot API'");
-const canonicalWeb = creator.includes("if (taskType === 'web') return [['click_proof'");
-const specialAdmin = creator.includes('Contact admin: @DzMoneyCustomer');
-const gameConfig = creator.includes("method: 'url_format_match'");
-const socialConfig = creator.includes("method: 'telegram_bot_api'") && creator.includes("provider: 'telegram_channel'");
-const stableCreatorKey = creator.includes('function creatorIdempotencyKey()') && creator.includes('idempotencyKey: creatorIdempotencyKey()');
-const separateReviewBoundary = creator.includes('async function submitCreatorTaskForReview') && creator.includes('/submit');
-const noAutomaticReview = !creator.includes('const submit = await creatorApi(`/api/creator/tasks/${encodeURIComponent(taskId)}/submit`');
-const creatorSendsOnlyTarget = creator.includes('target: Number(creatorEl(\'creatorTarget\').value)') && !creator.includes('rewardCoin:') && !creator.includes('rewardDzx:') && !creator.includes('rewardDzp:');
-const serverVerifiedHasUrl = creator.includes('completion: { mode: creatorTaskState.verification ===');
+const creatorChecks = {
+  creatorForm: index.includes('id="creatorTaskForm"'),
+  creatorReviewBoundary: creator.includes('id="creatorReviewSubmit"') && creator.includes('async function submitCreatorTaskForReview') && creator.includes('/submit'),
+  creatorCategories: creator.includes('data-creator-category') && creator.includes("['game','Game']") && creator.includes("['social','Social']") && creator.includes("['web','Web']") && creator.includes("['special','Special']"),
+  creatorTarget: creator.includes('id="creatorTarget"') && creator.includes('pricing.minTarget'),
+  creatorRewardsHidden: !creator.includes('rewardCoin:') && !creator.includes('rewardDzx:') && !creator.includes('rewardDzp:'),
+  creatorAdSecondsHidden: !creator.includes('verificationAdSeconds'),
+  creatorCompany: creator.includes('creatorTargetCompany'),
+  creatorPricing: creator.includes('campaignPricing') && creator.includes('priceDZXPerExecution') && creator.includes('creator-pricing'),
+  contractDrivenMethods: creator.includes('creatorTaskState.contract?.verificationMethods') && creator.includes('function verificationOptions()'),
+  contractDrivenProvider: creator.includes('creatorTaskState.contract?.providerContracts'),
+  contractDrivenEndpoint: creator.includes('/api/creator/tasks/contracts/'),
+  idempotency: creator.includes('function creatorIdempotencyKey()') && creator.includes('idempotencyKey: creatorIdempotencyKey()'),
+  targetOnlyCreation: creator.includes('target: Number(creatorEl(\'creatorTarget\').value)') && creator.includes('config: creatorConfig()'),
+  noAutomaticReview: !creator.includes('const submit = await creatorApi'),
+  noLegacyCompletionContract: !index.includes('server_verified') && !index.includes('open_link') && !index.includes('Method: Server Verified') && !creator.includes('server_verified') && !creator.includes('open_link') && !creator.includes('completion: { mode:') && !creator.includes('verification: { mode:'),
+  creatorPricingStyle: creatorStyle.includes('.creator-pricing')
+};
 
-if (!creatorForm || !creatorReviewButton || !creatorTypes || !creatorTargetMinimum || !creatorRewardsHidden || !creatorAdSecondsHidden || !creatorCompany || !creatorPricing || !canonicalGame || !canonicalSocial || !canonicalWeb || !specialAdmin || !gameConfig || !socialConfig || !stableCreatorKey || !separateReviewBoundary || !noAutomaticReview || !creatorSendsOnlyTarget || !serverVerifiedHasUrl || !creatorStyle.includes('.creator-pricing')) {
-  throw new Error('Creator UI must match the canonical mobile campaign form and verification surface');
-}
+const failedCreatorChecks = Object.entries(creatorChecks).filter(([, passed]) => !passed).map(([name]) => name);
+if (failedCreatorChecks.length) throw new Error(`Creator UI contract failed: ${failedCreatorChecks.join(', ')}`);
 
 console.log('FRONTEND_SYNTAX: PASS');
 console.log('DAILY_ACTION_BINDING: PASS');
@@ -57,6 +54,6 @@ console.log('DAILY_VERIFICATION_STATUS_SYNC: PASS');
 console.log('STYLESHEET_LINKS: PASS');
 console.log('TEMPORARY_AD_DIAGNOSTICS_REMOVED: PASS');
 console.log('CREATOR_MOBILE_FORM_SURFACE: PASS');
-console.log('CREATOR_CANONICAL_VERIFICATION_METHODS: PASS');
+console.log('CREATOR_CONTRACT_BOUNDARY: PASS');
 console.log('CREATOR_PRICING_AND_COMPANY_FIELDS: PASS');
 console.log('CREATOR_IDEMPOTENCY_AND_REVIEW_BOUNDARY: PASS');
