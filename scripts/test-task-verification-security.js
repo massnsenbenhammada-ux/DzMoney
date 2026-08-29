@@ -1,10 +1,24 @@
 const assert = require('assert');
 
 let rewardReached = false;
+const attemptRow = {
+  id: 11,
+  status: 'verification_pending',
+  user_id: 42,
+  telegramUserId: 123,
+  telegram_user_id: 123,
+  task_type: 'web',
+  reward_coin: '1000',
+  reward_dzx: '1',
+  reward_dzp: '1',
+  config: { campaignUrl: 'https://example.test/task', verification: { method: 'click_proof' } },
+  gate_id: 12,
+  gate_status: 'ad_completed'
+};
+
 const fakeClient = { query: async sql => {
-  if (sql.includes('SELECT a.*,u.telegram_user_id')) {
-    return { rowCount: 1, rows: [{ id: 11, status: 'verification_pending', user_id: 42, telegram_user_id: 123, task_type: 'web', reward_coin: '1000', reward_dzx: '1', reward_dzp: '1', config: { campaignUrl: 'https://example.test/task', verification: { method: 'click_proof' } }, gate_id: 12, gate_status: 'ad_completed' }] };
-  }
+  if (sql.includes('SELECT a.*,u.telegram_user_id')) return { rowCount: 1, rows: [attemptRow] };
+  if (sql.includes('SELECT metadata FROM task_attempts')) return { rowCount: 1, rows: [{ metadata: {} }] };
   return { rowCount: 1, rows: [] };
 } };
 
