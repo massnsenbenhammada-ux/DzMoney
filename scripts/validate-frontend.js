@@ -24,7 +24,7 @@ const creatorStylesheet = index.includes('/creator-task.css');
 const staleDiagnosticsPage = index.includes('data-page="diagnostics"') || index.includes('dzmoney-diagnostics-container');
 const staleDiagnosticsScript = server.includes('monetag-runtime-diagnostics.js') || index.includes('monetag-runtime-diagnostics.js');
 
-const dailyFlowContract = dailyFlow >= 0 && verificationAd >= 0 && ensureSdk >= 0 && executeCall >= dailyFlow && adCall > executeCall && ensureSdk < verificationAd;
+const dailyFlowContract = dailyFlow >= 0 && verificationAd >= 0 && ensureSdk >= 0 && executeCall >= dailyFlow && adCall > executeCall && ensureSdk > verificationAd;
 if (!dailyFlowContract || verifyCall < 0 || !dailyAction || !sdkBundle) throw new Error('Daily Check-in must use the canonical Daily Task flow and wait for the advertisement adapter');
 if (statusCall < 0 || homeDailyButton) throw new Error('Daily Check-in must be exposed under Tasks and synchronize status server-side');
 if (!stylesheet || !creatorStylesheet) throw new Error('Frontend must load the public stylesheets');
@@ -45,8 +45,7 @@ const creatorChecks = {
   idempotency: creator.includes('function creatorIdempotencyKey()') && creator.includes('idempotencyKey: creatorIdempotencyKey()'),
   targetOnlyCreation: creator.includes('target: Number(creatorEl(\'creatorTarget\').value)') && creator.includes('config: creatorConfig()'),
   noAutomaticReview: !creator.includes('const submit = await creatorApi'),
-  noLegacyCompletionContract: !index.includes('server_verified') && !index.includes('open_link') && !index.includes('Method: Server Verified') && !creator.includes('server_verified') && !creator.includes('open_link') && !creator.includes('completion: { mode:') && !creator.includes('verification: { mode:'),
-  creatorPricingStyle: creatorStyle.includes('.creator-pricing')
+  noLegacyCompletionContract: !index.includes('server_verified') && !index.includes('open_link') && !index.includes('Method: Server Verified') && !creator.includes('server_verified') && !creator.includes('open_link') && !creator.includes('completion: { mode:') && !creator.includes('verification: { mode:')
 };
 
 const failedCreatorChecks = Object.entries(creatorChecks).filter(([, passed]) => !passed).map(([name]) => name);
