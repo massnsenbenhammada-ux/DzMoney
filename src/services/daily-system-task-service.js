@@ -1,7 +1,7 @@
 const { query } = require('../db/pool');
 const taskService = require('./task-service');
 const referralService = require('./referral-service');
-const { isRolling24HourAvailable, isUtcPlusOneCalendarDayAvailable, isReferralAchievementClaimable } = require('./daily-system-task-contract');
+const { isRolling24HourAvailable, isUtcPlusOneCalendarDayAvailable, isReferralAchievementClaimable, DAILY_SYSTEM_TASKS } = require('./daily-system-task-contract');
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -23,13 +23,12 @@ async function getSystemTask(systemKey) {
 async function getLatestDailyCompletion(task, userId) {
   const result = await query(
     `SELECT GREATEST(
-       COALESCE((SELECT MAX(verified_at) FROM task_attempts WHERE task_id=$1 AND user_id=$2 AND status='verified'), '-infinity'::timestamptz),
-       COALESCE((SELECT last_claimed_at FROM daily_checkins WHERE user_id=$2), '-infinity'::timestamptz)
+       (SELECT MAX(verified_at) FROM task_attempts WHERE task_id=$1 AND user_id=$2 AND status='verified'),
+       (SELECT last_claimed_at FROM daily_checkins WHERE user_id=$2)
      ) AS completed_at`,
     [task.id, requiredId(userId, 'userId')]
   );
-  const completedAt = result.rows[0]?.completed_at;
-  return completedAt && completedAt !== '-infinity' ? completedAt : null;
+  return result.rows[0]?.completed_at || null;
 }
 
 async function assertAvailable(task, userId, now = new Date()) {
@@ -73,7 +72,13 @@ async function executeSystemTask({ systemKey, userId, idempotencyKey, metadata =
   }
   requiredId(idempotencyKey, 'idempotencyKey');
   const dailyKey = `daily:${task.id}:${userId}:${idempotencyKey}`;
-  return taskService.executeTask({ taskId: task.id, userId, idempotencyKey: dailyKey, metadata: { ...metadata, system_key: systemKey } });
+  return taskService.executeTask({
+    taskId: task.id,
+    userId,
+    idempotencyKey: dailyKey,
+    metadata: { ...metadata, system_key: systemKey },
+    allowPendingRetry: systemKey === DAILY_SYSTEM_TASKS.CHECK_IN
+  });
 }
 
 module.exports = { getSystemTask, assertAvailable, assertAdvertisementAvailable, assertReferralAchievementAvailable, executeSystemTask };
