@@ -144,6 +144,10 @@ document.addEventListener('submit', event => { if (event.target.id === 'creatorT
 document.addEventListener('click', event => {
   const tab = event.target.closest('[data-task-mode]');
   if (tab) { setCreatorPanelVisible(tab.dataset.taskMode === 'creator'); return; }
+  const category = event.target.closest('[data-task-category]');
+  if (category) { setCreatorPanelVisible(false); return; }
+  const back = event.target.closest('[data-task-back]');
+  if (back) { setCreatorPanelVisible(false); return; }
   if (event.target.closest('#creatorReviewSubmit')) submitCreatorTaskForReview(event);
 });
 window.addEventListener('load', () => { if (creatorEl('creatorTaskForm')) loadCreatorContract(); });
