@@ -5,7 +5,7 @@
   "description": "DzMoney 2 — clean rebuild",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "npm run migrate && node server.js",
     "prestart": "npm run build:monetag",
     "build:monetag": "esbuild public/monetag-adapter-entry.js --bundle --format=iife --platform=browser --outfile=public/monetag-adapter.bundle.js",
     "migrate": "node ./scripts/migrate.js",
