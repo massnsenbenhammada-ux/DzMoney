@@ -117,6 +117,7 @@ function resolveVerificationConfig({ taskType, config = {} }) {
   const referral = source.referral || {};
   return {
     taskType,
+    dailyMode: source.dailyMode || null,
     campaignUrl: source.campaignUrl || null,
     verification: {
       provider: verification.provider || null,
@@ -131,7 +132,7 @@ function resolveVerificationConfig({ taskType, config = {} }) {
 }
 
 function getCreatorProviderContracts(taskType) {
-  if (!CREATOR_TASK_TYPES.includes(taskType)) throw new Error('Invalid creator task type');
+  if (!CREATOR_TASK_TYPES.includes(taskType)) throw new Error('Invalid task type');
   return (CREATOR_PROVIDER_CONTRACTS[taskType] || []).map(contract => ({
     id: contract.id,
     label: contract.label,
