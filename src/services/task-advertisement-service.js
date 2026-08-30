@@ -58,10 +58,10 @@ async function verifyTrustedTaskAdvertisement({ providerId, providerPayload, pro
   if (typeof provider.verifyServerCompletion !== 'function') throw new Error(`Advertisement provider ${providerId} has no trusted server verification contract`);
   const verification = await provider.verifyServerCompletion(providerPayload);
   validateServerVerification(verification, providerId);
-  const result = await query(`SELECT * FROM activity_ad_events WHERE context='task' AND external_ad_id=$1 AND metadata->>'provider_id'=$2 ORDER BY id DESC LIMIT 1`, [verification.reference, providerId]);
+  const result = await query(`SELECT a.*, u.telegram_user_id FROM activity_ad_events a JOIN users u ON u.id=a.user_id WHERE a.context='task' AND a.external_ad_id=$1 AND a.metadata->>'provider_id'=$2 ORDER BY a.id DESC LIMIT 1`, [verification.reference, providerId]);
   if (!result.rowCount) throw new Error('Trusted task provider reference cannot be verified');
   const event = result.rows[0];
-  if (String(event.user_id) !== String(verification.userId)) throw new Error('Trusted task provider user does not match advertisement owner');
+  if (String(event.telegram_user_id) !== String(verification.userId)) throw new Error('Trusted task provider user does not match advertisement owner');
   if (event.verified) return { adEvent: event, duplicate: true };
   return markAdvertisementVerified({ adEventId: event.id, providerReference: verification.reference, verificationMetadata: { provider_id: providerId, source: 'trusted_provider', context: 'task' } });
 }
