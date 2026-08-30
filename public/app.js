@@ -140,7 +140,7 @@ function renderTaskCategories() {
   const container = $('tasksList');
   if (!container) return;
   container.innerHTML = `<div class="task-category-list">${TASK_CATEGORY_ORDER.map(category => { const count = state.tasks.filter(task => task.taskType === category.key).length; return `<button class="task-category-card" data-task-category="${category.key}"><span class="task-category-icon">${category.icon}</span><span class="task-category-copy"><strong>${category.label}</strong><small>${category.description}</small><em>${count} active task${count === 1 ? '' : 's'}</em></span><span class="task-category-arrow">›</span></button>`; }).join('')}`;
-  window.setCreatorPanelVisible?.(false);
+  window.setCreatorPanelVisible?.(true);
 }
 function sortDailyTasks(tasks) {
   return [...tasks].sort((a, b) => {
@@ -222,7 +222,7 @@ async function startDailySystemTaskFlow(systemKey, button) {
 async function startShareTaskFlow(button) {
   state.dailyTaskBusy = true; button.disabled = true; button.textContent = 'Loading…';
   try {
-    const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey: 'share_with_friends', idempotencyKey: `daily:share_with_friends:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }));
+    const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey: 'share_with_friends', idempotencyKey: `daily:share_with_friends:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
     state.taskActions[result.attemptId] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
     const url = result.referralUrl;
     if (!url) throw new Error('Referral link is unavailable.');
@@ -278,6 +278,8 @@ async function startTaskAction(taskId) {
 }
 async function startDailyAdvertisementFlow(button) {
   if (state.dailyTaskBusy) return;
+  const task = state.tasks.find(item => item.systemKey === 'view_ads');
+  if (!task) return;
   state.dailyTaskBusy = true; button.disabled = true; button.textContent = 'Loading…';
   try {
     const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey: 'view_ads', idempotencyKey: `daily:view_ads:${crypto.randomUUID()}` }) });
