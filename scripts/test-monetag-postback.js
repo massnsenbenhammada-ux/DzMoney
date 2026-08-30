@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { validateMonetagPostback, MONETAG_VERIFICATION_CONTEXT } = require('../src/services/monetag-postback-service');
+const { createMonetagProvider } = require('../src/services/monetag-adapter');
 
 function validPayload(overrides = {}) {
   return {
@@ -37,6 +38,24 @@ function testAcceptsVerificationContext() {
   assert.throws(() => validateMonetagPostback(validPayload(), MONETAG_VERIFICATION_CONTEXT), /context/i);
 }
 
+function testAcceptsTaskContext() {
+  const result = validateMonetagPostback(validPayload({ request_var: 'task' }), 'task');
+  assert.strictEqual(result.eligible, true);
+  assert.strictEqual(result.requestVar, 'task');
+}
+
+async function testMonetagProviderSupportsTrustedTaskAds() {
+  const provider = createMonetagProvider();
+  assert.ok(provider.contexts.includes('task'));
+  assert.strictEqual(typeof provider.verifyServerCompletion, 'function');
+  const verification = await provider.verifyServerCompletion(validPayload({ request_var: 'task' }));
+  assert.strictEqual(verification.verified, true);
+  assert.strictEqual(verification.reference, 'attempt-123');
+  assert.strictEqual(verification.userId, '12345');
+  assert.strictEqual(verification.providerId, 'monetag');
+  assert.strictEqual(verification.context, 'task');
+}
+
 function testAcceptsLegacyPaidValueFromCurrentSspUi() {
   const result = validateMonetagPostback(validPayload({ reward_event_type: 'yes' }));
   assert.strictEqual(result.eligible, true);
@@ -63,7 +82,7 @@ function testRejectsUnknownEventType() {
 }
 
 function testRejectsWrongContext() {
-  assert.throws(() => validateMonetagPostback(validPayload({ request_var: 'task' })), /request/i);
+  assert.throws(() => validateMonetagPostback(validPayload({ request_var: 'unknown' })), /request/i);
 }
 
 function testRequiresYmid() {
@@ -74,21 +93,25 @@ function testRejectsInvalidPrice() {
   assert.throws(() => validateMonetagPostback(validPayload({ estimated_price: 'not-a-number' })), /price/i);
 }
 
-try {
-  testAcceptsPaidImpression();
-  testAcceptsPaidClick();
-  testAcceptsVerificationContext();
-  testAcceptsLegacyPaidValueFromCurrentSspUi();
-  testAcceptsMissingTelegramId();
-  testRejectsWrongZone();
-  testRejectsUnpaidImpression();
-  testRejectsUnknownEventType();
-  testRejectsWrongContext();
-  testRequiresYmid();
-  testRejectsInvalidPrice();
-  console.log('Monetag rewarded postback invariants: PASS');
-} catch (error) {
-  console.error('Monetag rewarded postback invariants: FAIL');
-  console.error(error);
-  process.exitCode = 1;
-}
+(async () => {
+  try {
+    testAcceptsPaidImpression();
+    testAcceptsPaidClick();
+    testAcceptsVerificationContext();
+    testAcceptsTaskContext();
+    await testMonetagProviderSupportsTrustedTaskAds();
+    testAcceptsLegacyPaidValueFromCurrentSspUi();
+    testAcceptsMissingTelegramId();
+    testRejectsWrongZone();
+    testRejectsUnpaidImpression();
+    testRejectsUnknownEventType();
+    testRejectsWrongContext();
+    testRequiresYmid();
+    testRejectsInvalidPrice();
+    console.log('Monetag rewarded postback invariants: PASS');
+  } catch (error) {
+    console.error('Monetag rewarded postback invariants: FAIL');
+    console.error(error);
+    process.exitCode = 1;
+  }
+})();

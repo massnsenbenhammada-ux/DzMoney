@@ -1,11 +1,10 @@
-const { MONETAG_ZONE_ID, MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT } = require('../config/monetag');
+const { MONETAG_ZONE_ID, MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT, MONETAG_TASK_CONTEXT } = require('../config/monetag');
 
 function required(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
   return String(value);
 }
 
-/** Validate trusted Monetag postback fields. An expected context can be supplied by the server-side event lookup. */
 function validateMonetagPostback(payload = {}, expectedContext = null) {
   const telegramId = payload.telegram_id ? String(payload.telegram_id) : null;
   const zoneId = required(payload.zone_id, 'zone id');
@@ -14,7 +13,7 @@ function validateMonetagPostback(payload = {}, expectedContext = null) {
   const ymid = required(payload.ymid, 'ymid');
   const requestVar = required(payload.request_var, 'request var');
   const price = Number(payload.estimated_price);
-  const allowedContexts = [MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT];
+  const allowedContexts = [MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT, MONETAG_TASK_CONTEXT];
 
   if (zoneId !== MONETAG_ZONE_ID) throw new Error('Monetag zone does not match');
   if (!['impression', 'click'].includes(eventType)) throw new Error('Monetag event type is unsupported');
@@ -26,4 +25,4 @@ function validateMonetagPostback(payload = {}, expectedContext = null) {
   return { eligible: true, telegramId, ymid, requestVar, zoneId, eventType, rewardEventType, estimatedPrice: price };
 }
 
-module.exports = { MONETAG_ZONE_ID, MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT, validateMonetagPostback };
+module.exports = { MONETAG_ZONE_ID, MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT, MONETAG_TASK_CONTEXT, validateMonetagPostback };

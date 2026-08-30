@@ -25,7 +25,6 @@ async function getActiveTask(taskId) {
   return result.rows[0];
 }
 
-/** Start a Tasks-page advertisement with provider and correlation data owned by the server. */
 async function startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry }) {
   requiredId(userId, 'userId');
   requiredId(idempotencyKey, 'idempotencyKey');
@@ -38,7 +37,6 @@ async function startTaskAdvertisement({ userId, taskId, idempotencyKey, provider
   return { ...result, providerId: provider.id };
 }
 
-/** Reject client-originated provider evidence; verification is server-to-server only. */
 async function verifyTaskAdvertisement() {
   throw new Error('Task advertisement verification must use trusted provider ingress');
 }
@@ -51,41 +49,35 @@ function validateServerVerification(verification, providerId) {
   if (verification.context !== 'task') throw new Error('Trusted task provider context must be task');
 }
 
-/** Verify a task advertisement from authenticated provider evidence and correlate it to the started event. */
 async function verifyTrustedTaskAdvertisement({ providerId, providerPayload, providerRegistry }) {
   requiredId(providerId, 'providerId');
   if (!providerPayload || typeof providerPayload !== 'object') throw new Error('Trusted provider payload is required');
   if (!providerRegistry || typeof providerRegistry.get !== 'function') throw new Error('Advertisement provider registry is required');
   const provider = providerRegistry.get(providerId);
-  if (!provider || !provider.enabled || !provider.contexts.includes('task')) {
-    throw new Error(`Advertisement provider ${providerId} is not available for task`);
-  }
-  if (typeof provider.verifyServerCompletion !== 'function') {
-    throw new Error(`Advertisement provider ${providerId} has no trusted server verification contract`);
-  }
+  if (!provider || !provider.enabled || !provider.contexts.includes('task')) throw new Error(`Advertisement provider ${providerId} is not available for task`);
+  if (typeof provider.verifyServerCompletion !== 'function') throw new Error(`Advertisement provider ${providerId} has no trusted server verification contract`);
   const verification = await provider.verifyServerCompletion(providerPayload);
   validateServerVerification(verification, providerId);
-  const result = await query(
-    `SELECT * FROM activity_ad_events
-     WHERE context='task'
-       AND external_ad_id=$1
-       AND metadata->>'provider_id'=$2
-     ORDER BY id DESC
-     LIMIT 1`,
-    [verification.reference, providerId]
-  );
+  const result = await query(`SELECT * FROM activity_ad_events WHERE context='task' AND external_ad_id=$1 AND metadata->>'provider_id'=$2 ORDER BY id DESC LIMIT 1`, [verification.reference, providerId]);
   if (!result.rowCount) throw new Error('Trusted task provider reference cannot be verified');
   const event = result.rows[0];
   if (String(event.user_id) !== String(verification.userId)) throw new Error('Trusted task provider user does not match advertisement owner');
   if (event.verified) return { adEvent: event, duplicate: true };
-  return markAdvertisementVerified({
-    adEventId: event.id,
-    providerReference: verification.reference,
-    verificationMetadata: { provider_id: providerId, source: 'trusted_provider', context: 'task' }
-  });
+  return markAdvertisementVerified({ adEventId: event.id, providerReference: verification.reference, verificationMetadata: { provider_id: providerId, source: 'trusted_provider', context: 'task' } });
 }
 
-/** Finalize one verified task advertisement through the existing economy/ledger. */
+async function getViewAdsProgress(client, event) {
+  const taskResult = await client.query("SELECT config FROM activity_tasks WHERE id=$1", [event.metadata?.task_id]);
+  const config = taskResult.rows[0]?.config || {};
+  if (config.systemKey !== 'view_ads') return null;
+  const target = Number(config.advertisementTarget);
+  if (!Number.isInteger(target) || target <= 0) throw new Error('Invalid daily advertisement target');
+  const rankResult = await client.query(`SELECT COUNT(*)::int AS rank FROM activity_ad_events WHERE user_id=$1 AND context='task' AND verified=TRUE AND metadata->>'task_id'=$2 AND (completed_at + INTERVAL '1 hour')::date=(NOW() + INTERVAL '1 hour')::date AND (completed_at < $3 OR (completed_at = $3 AND id <= $4))`, [event.user_id, String(event.metadata?.task_id), event.completed_at, event.id]);
+  const completedResult = await client.query(`SELECT COUNT(*)::int AS completed FROM activity_ad_events WHERE user_id=$1 AND context='task' AND verified=TRUE AND metadata->>'task_id'=$2 AND (completed_at + INTERVAL '1 hour')::date=(NOW() + INTERVAL '1 hour')::date`, [event.user_id, String(event.metadata?.task_id)]);
+  const completed = Math.min(completedResult.rows[0]?.completed || 0, target);
+  return { completed, target, rank: rankResult.rows[0]?.rank || 0 };
+}
+
 async function finalizeTaskAdvertisement({ userId, adEventId }) {
   requiredId(userId, 'userId');
   requiredId(adEventId, 'adEventId');
@@ -95,21 +87,15 @@ async function finalizeTaskAdvertisement({ userId, adEventId }) {
     const event = result.rows[0];
     if (!event.verified) throw new Error('Task advertisement must be verified first');
     if (event.metadata?.reward_transaction_id) return { duplicate: true, rewarded: true, rewardIdempotencyKey: event.metadata.reward_idempotency_key };
+    const progress = await getViewAdsProgress(client, event);
+    if (progress && progress.rank > progress.target) return { duplicate: false, rewarded: false, progress };
     const rewardIdempotencyKey = `task-advertisement:${event.id}`;
     const settings = await client.query("SELECT key,value FROM admin_settings WHERE key IN ('activity.default_reward_coin','activity.default_reward_dzx','activity.default_reward_dzp')");
     const values = Object.fromEntries(settings.rows.map(row => [row.key, Number(row.value)]));
-    const reward = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1, dzp: values['activity.default_reward_dzp'] ?? 1, modifiers: [] });
-    if (!reward.duplicate) {
-      await referralService.creditReferralLifetimeOnClient(client, {
-        referredUserId: userId,
-        source: 'advertisement',
-        sourceReferenceId: event.id,
-        idempotencyKey: `referral-lifetime:advertisement:${event.id}`,
-        baseReward: { coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1 }
-      });
-    }
+    const reward = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', coin: progress ? 1000 : (values['activity.default_reward_coin'] ?? 1000), dzx: progress ? 1 : (values['activity.default_reward_dzx'] ?? 1), dzp: progress ? 1 : (values['activity.default_reward_dzp'] ?? 1), modifiers: [] });
+    if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: userId, source: 'advertisement', sourceReferenceId: event.id, idempotencyKey: `referral-lifetime:advertisement:${event.id}`, baseReward: { coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1 } });
     await client.query("UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1", [event.id, JSON.stringify({ reward_transaction_id: reward.transaction.id, reward_idempotency_key: rewardIdempotencyKey })]);
-    return { duplicate: reward.duplicate, rewarded: true, rewardIdempotencyKey, reward };
+    return { duplicate: reward.duplicate, rewarded: true, rewardIdempotencyKey, reward, progress: progress ? { ...progress, rewarded: true } : undefined };
   });
 }
 
