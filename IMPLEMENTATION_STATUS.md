@@ -1,15 +1,16 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` at `2be17181a21481e2e0bd3119e594d28e32955c79` (post-PR #186 TaskCard/Creator scope fix).
+> **Authoritative baseline:** `main` at `d9c47ad3c58ff1dd2ae1a6b7330bfed9d1ae856a` (post-PR #187 documentation reconciliation).
 >
 > This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
 ## Current state
 
 - **Current phase:** Phase 2 — Activity / Ads / Tasks remains open.
-- **Phase 3:** Referral core is partially implemented; Share with Friends production reward remains pending trusted completion evidence.
+- **Phase 3:** Referral core is partially implemented; Share with Friends uses the canonical referral link and existing Click Proof verification boundary. Production completion of an actual Telegram share is not claimed as provider-attested evidence.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #186.
+- **Latest status reconciliation:** PR #187.
 
 ## Phase 0 — Specification Lock
 
@@ -62,6 +63,8 @@ No Phase 1 refactor is authorized unless a new invariant or security defect is p
 
 🟢 **Proven as advertisement-provider evidence:** Monetag and OnClickA postback contracts. These are not generic proof of arbitrary task completion.
 
+🟢 **Share with Friends:** the canonical referral-link/bootstrap and existing Click Proof verification contract are implemented. The system does **not** claim Telegram attestation that a share actually occurred; Click Proof remains the explicitly defined evidence model.
+
 🟡 **Requires concrete evidence contracts before new verifier implementation:**
 
 - Daily provider-specific completion beyond the existing advertisement-event boundary.
@@ -94,14 +97,17 @@ Implemented:
 - canonical immutable referral codes on `users.referral_code`;
 - Telegram Mini App start-parameter bootstrap;
 - canonical Telegram referral link exposed by `/api/me`;
-- lifetime 20% reward from qualifying base COIN/DZX activity through the existing Economy/Ledger boundary.
+- lifetime 20% reward from qualifying base COIN/DZX activity through the existing Economy/Ledger boundary;
+- Share with Friends flow using the canonical referral link and existing Click Proof verification boundary.
 
 **Issue #106 — canonical referral-link/bootstrap contract: RESOLVED.** Existing merged PRs #108 and #109 provide the required contract; no new referral service/table/migration is required.
 
+**Issue #99 — Daily system tasks and referral achievements: RESOLVED against merged implementation.** Share with Friends is implemented under the locked Click Proof contract; no Telegram-native share attestation is claimed.
+
 Pending:
 
-- user-facing Share with Friends production reward flow requiring a trusted completion signal;
-- remaining referral UI/acceptance coverage.
+- further referral UI/acceptance coverage only where a concrete gap is demonstrated;
+- no new trusted verifier for Telegram share itself unless a real provider-attested evidence contract becomes available.
 
 ## TON Deposit
 
@@ -118,6 +124,7 @@ The audited milestone includes server-side blockchain evidence validation, trans
 - PRs #146/#147 are not separate implementation milestones where superseded by PR #148.
 - Issue #100's 20% lifetime reward is already implemented; it must not be reimplemented.
 - Issue #106 is closed as completed because its required canonical referral-link/bootstrap contract is already present in merged main through PRs #108 and #109.
+- Issue #99 is closed against the merged Daily/Referral implementation; its Share contract is Click Proof, not Telegram-native share attestation.
 - Issue #134 remains the Phase 2 evidence-contract gate for new provider-specific verifiers.
 
 ## Later phases
