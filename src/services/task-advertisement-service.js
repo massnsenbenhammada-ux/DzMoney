@@ -88,12 +88,12 @@ async function finalizeTaskAdvertisement({ userId, adEventId }) {
     if (!event.verified) throw new Error('Task advertisement must be verified first');
     if (event.metadata?.reward_transaction_id) return { duplicate: true, rewarded: true, rewardIdempotencyKey: event.metadata.reward_idempotency_key };
     const progress = await getViewAdsProgress(client, event);
-    if (progress && progress.rank !== progress.target) return { duplicate: false, rewarded: false, progress };
+    if (progress && progress.rank > progress.target) return { duplicate: false, rewarded: false, progress };
     const rewardIdempotencyKey = `task-advertisement:${event.id}`;
     const settings = await client.query("SELECT key,value FROM admin_settings WHERE key IN ('activity.default_reward_coin','activity.default_reward_dzx','activity.default_reward_dzp')");
     const values = Object.fromEntries(settings.rows.map(row => [row.key, Number(row.value)]));
-    const reward = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', coin: progress ? 1000 : (values['activity.default_reward_coin'] ?? 1000), dzx: progress ? 1 : (values['activity.default_reward_dzx'] ?? 1), dzp: progress ? 0 : (values['activity.default_reward_dzp'] ?? 1), modifiers: [] });
-    if (!reward.duplicate && !progress) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: userId, source: 'advertisement', sourceReferenceId: event.id, idempotencyKey: `referral-lifetime:advertisement:${event.id}`, baseReward: { coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1 } });
+    const reward = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', coin: progress ? 1000 : (values['activity.default_reward_coin'] ?? 1000), dzx: progress ? 1 : (values['activity.default_reward_dzx'] ?? 1), dzp: progress ? 1 : (values['activity.default_reward_dzp'] ?? 1), modifiers: [] });
+    if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: userId, source: 'advertisement', sourceReferenceId: event.id, idempotencyKey: `referral-lifetime:advertisement:${event.id}`, baseReward: { coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1 } });
     await client.query("UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1", [event.id, JSON.stringify({ reward_transaction_id: reward.transaction.id, reward_idempotency_key: rewardIdempotencyKey })]);
     return { duplicate: reward.duplicate, rewarded: true, rewardIdempotencyKey, reward, progress: progress ? { ...progress, rewarded: true } : undefined };
   });
