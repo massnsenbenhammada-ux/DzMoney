@@ -34,7 +34,7 @@ function testViewAdsRewardsEachVerifiedAdAndStopsAfterTarget() {
   assert.match(advertisementSource, /coin: progress \? 1000/);
   assert.match(advertisementSource, /dzx: progress \? 1/);
   assert.match(advertisementSource, /dzp: progress \? 1/);
-  assert.match(advertisementSource, /if \(!reward\.duplicate\) await referralService/);
+  assert.match(advertisementSource, /if \(!transaction\.duplicate\) await referralService/);
 }
 
 try {
