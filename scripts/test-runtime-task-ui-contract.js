@@ -19,7 +19,7 @@ assert.match(creator, /data-task-mode/);
 assert.match(creator, /data-task-category/);
 assert.match(creator, /data-task-back/);
 
-assert.match(server, /const clientContexts = \['task', 'daily_checkin', 'verification'\]/);
+assert.match(server, /CLIENT_AD_CONTEXTS = \['task', 'daily_checkin', 'verification'\]/);
 assert.match(server, /clientAdConfig\(\)/);
 
 console.log('RUNTIME_TASK_UI_CONTRACT: PASS');
