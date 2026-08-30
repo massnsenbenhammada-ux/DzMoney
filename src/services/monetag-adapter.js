@@ -1,22 +1,22 @@
-const { MONETAG_ZONE_ID, MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT } = require('../config/monetag');
+const { MONETAG_ZONE_ID, MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT, MONETAG_TASK_CONTEXT } = require('../config/monetag');
 const { validateMonetagPostback } = require('./monetag-postback-service');
 
 const MONETAG_PROVIDER_ID = 'monetag';
 
-/** Adapt a validated Monetag postback to the shared advertisement verification contract. */
 function createMonetagProvider() {
   return {
     id: MONETAG_PROVIDER_ID,
-    contexts: [MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT],
+    contexts: [MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT, MONETAG_TASK_CONTEXT],
     enabled: process.env.MONETAG_ENABLED === 'true',
     priority: 100,
     async verifyCompletion(payload = {}) {
       const normalized = validateMonetagPostback({ ...payload, zone_id: payload.zone_id || MONETAG_ZONE_ID });
-      return {
-        verified: normalized.eligible,
-        reference: normalized.ymid,
-        metadata: normalized
-      };
+      return { verified: normalized.eligible, reference: normalized.ymid, metadata: normalized };
+    },
+    async verifyServerCompletion(payload = {}) {
+      const normalized = validateMonetagPostback({ ...payload, zone_id: payload.zone_id || MONETAG_ZONE_ID }, MONETAG_TASK_CONTEXT);
+      if (!normalized.telegramId) return { verified: false, reference: normalized.ymid };
+      return { verified: normalized.eligible, reference: normalized.ymid, userId: normalized.telegramId, providerId: MONETAG_PROVIDER_ID, context: MONETAG_TASK_CONTEXT, metadata: normalized };
     }
   };
 }
