@@ -50,6 +50,12 @@ const creatorChecks = {
 const failedCreatorChecks = Object.entries(creatorChecks).filter(([, passed]) => !passed).map(([name]) => name);
 if (failedCreatorChecks.length) throw new Error(`Creator UI contract failed: ${failedCreatorChecks.join(', ')}`);
 
+const renderTaskCategoryStart = app.indexOf('function renderTaskCategory(categoryKey)');
+const renderTaskCategoryEnd = app.indexOf('\nfunction renderTasks()', renderTaskCategoryStart);
+const renderTaskCategoryBody = renderTaskCategoryStart >= 0 && renderTaskCategoryEnd > renderTaskCategoryStart ? app.slice(renderTaskCategoryStart, renderTaskCategoryEnd) : '';
+const categoryClick = app.indexOf("const category = event.target.closest('[data-task-category]')");
+const categoryDailyRefresh = categoryClick >= 0 ? app.slice(categoryClick, categoryClick + 320) : '';
+
 const taskUxChecks = {
   cooldownIsolated: /systemKey\s*===\s*['"]daily_check_in['"]\s*&&\s*state\.dailyTaskCooldownUntil/.test(app),
   viewAdsRewardIncludesDzp: /\+1,000 COIN[^\n<]*\+1 DZX[^\n<]*\+1 DZP/.test(app),
@@ -65,6 +71,11 @@ const taskUxChecks = {
   watchUsesPollingInterval: /await wait\(DAILY_AD_FINALIZE_POLL_MS\)/.test(app),
   creatorHiddenInCategory: /function renderTaskCategory\([\s\S]*?creatorPanel\.hidden = true/.test(app),
   creatorVisibleOnCategoryList: /function renderTaskCategories\([\s\S]*?creatorPanel\.hidden = false/.test(app),
+  creatorTabsHiddenInCategory: /function renderTaskCategory\([\s\S]*?setTaskModeTabsVisible\(false\)/.test(app),
+  creatorTabsVisibleOnCategoryList: /function renderTaskCategories\([\s\S]*?setTaskModeTabsVisible\(true\)/.test(app),
+  dailyRefreshOutsideRenderer: renderTaskCategoryBody.length > 0 && !renderTaskCategoryBody.includes('loadDailyTaskStatus()') && !renderTaskCategoryBody.includes('loadDailyAdProgress()'),
+  dailyRefreshOnCategoryEntry: categoryDailyRefresh.includes('renderTaskCategory(category.dataset.taskCategory)') && categoryDailyRefresh.includes("category.dataset.taskCategory === 'daily'") && categoryDailyRefresh.includes('loadDailyTaskStatus()') && categoryDailyRefresh.includes('loadDailyAdProgress()'),
+  dailyRefreshScopedToDailyPage: /state\.page === 'tasks' && state\.taskCategory === 'daily'/.test(app),
   taskProviderContextServer: /\['task', 'daily_checkin', 'verification'\]/.test(server),
   taskProviderConfigServer: /clientAdConfig\(\)[\s\S]*?listAvailable\(context\)/.test(server),
   taskAdProviderSelection: /selectProvider\(providerRegistry, \{ context: 'task' \}\)/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8'))
@@ -88,4 +99,6 @@ console.log('TASK_REWARD_POPUP_CONTRACT: PASS');
 console.log('TASK_CREATOR_TABS: PASS');
 console.log('WATCH_POLLING_RATE_LIMIT_GUARD: PASS');
 console.log('CREATOR_CATEGORY_SCOPE: PASS');
+console.log('DAILY_REFRESH_RECURSION_GUARD: PASS');
+console.log('CREATOR_TABS_CATEGORY_SCOPE: PASS');
 console.log('TASK_AD_PROVIDER_CONTEXT: PASS');
