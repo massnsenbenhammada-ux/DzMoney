@@ -19,4 +19,20 @@ assert.match(appJs, /crypto\.randomUUID\(\)/, 'Task execution must use an idempo
 assert.match(appJs, /api\('\/api\/tasks\/click'/, 'Frontend must report open_link click evidence to the server');
 assert.match(appJs, /attemptId: result\.attemptId/, 'Frontend must associate click evidence with the started attempt');
 
+assert.match(appJs, /TASK_CATEGORY_ORDER\s*=\s*\[/, 'Tasks UI must define one canonical category order');
+for (const label of ['Daily Activity', 'Game Task', 'Social Task', 'Web Task', 'Special \/ Partner Task']) {
+  assert.match(appJs, new RegExp(label), `Tasks UI must expose ${label}`);
+}
+assert.match(appJs, /DAILY_SUBTYPE_ORDER\s*=\s*\[/, 'Daily Activity must define one canonical subtype order');
+for (const key of ['daily_check_in', 'check_for_update', 'share_with_friends', 'ad_view', 'invite_1_friend', 'invite_10_friends', 'invite_20_friends', 'invite_50_friends', 'invite_100_friends']) {
+  assert.match(appJs, new RegExp(`['\"]${key}['\"]`), `Daily subtype ${key} must be represented`);
+}
+assert.match(appJs, /function renderTaskCategories\s*\(/, 'Tasks UI must render the category view separately');
+assert.match(appJs, /function renderTaskCategory\s*\(/, 'Tasks UI must render a selected category separately');
+assert.match(appJs, /rewardCoin/, 'Task rendering must expose COIN reward value');
+assert.match(appJs, /rewardDzx/, 'Task rendering must expose DZX reward value');
+assert.match(appJs, /rewardDzp/, 'Task rendering must expose DZP reward value');
+assert.match(appJs, /data-task-category/, 'Task categories must be selectable without changing backend authority');
+assert.match(appJs, /data-task-back/, 'Selected task category must provide a back path to categories');
+
 console.log('test-task-list-frontend: PASS');

@@ -1,8 +1,16 @@
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
-const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, tasks: [], dailyTaskBusy: false, dailyTaskPending: false, dailyTaskCooldownUntil: null };
+const state = { page: 'home', balance: { coin: 0, dzx: 0, dzp: 0 }, user: null, tasks: [], taskCategory: null, dailyTaskBusy: false, dailyTaskPending: false, dailyTaskCooldownUntil: null };
 const $ = id => document.getElementById(id);
+const TASK_CATEGORY_ORDER = [
+  { key: 'daily', label: 'Daily Activity', description: 'Daily system and activity tasks', icon: '◷' },
+  { key: 'game', label: 'Game Task', description: 'Game and Mini App activities', icon: '◆' },
+  { key: 'social', label: 'Social Task', description: 'Social and community activities', icon: '↗' },
+  { key: 'web', label: 'Web Task', description: 'Web campaigns and visits', icon: '◎' },
+  { key: 'special', label: 'Special / Partner Task', description: 'Partner campaigns and integrations', icon: '★' }
+];
+const DAILY_SUBTYPE_ORDER = ['daily_check_in', 'check_for_update', 'share_with_friends', 'ad_view', 'invite_1_friend', 'invite_10_friends', 'invite_20_friends', 'invite_50_friends', 'invite_100_friends'];
 let monetagHandler = null;
 const MONETAG_READY_TIMEOUT_MS = 15000;
 const MONETAG_PRELOAD_TIMEOUT_SECONDS = 12;
@@ -37,7 +45,7 @@ function showPage(page) {
   state.page = page;
   document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.dataset.page === page));
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.go === page));
-  if (page === 'tasks') loadTasks();
+  if (page === 'tasks') { state.taskCategory = null; loadTasks(); }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 function format(value) { return new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 }).format(Number(value || 0)); }
@@ -79,24 +87,44 @@ async function loadMe() {
     else toast('Account data is temporarily unavailable.');
   }
 }
-function taskCard(task, special = false) {
-  const label = special ? 'Check in' : task.completion?.mode === 'open_link' ? 'Open' : 'Verify';
-  const action = special ? `data-system-key="${String(task.systemKey || '')}"` : `data-task-id="${String(task.id)}"`;
-  return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${special ? 'Advertisement verification' : String(task.completion?.mode || 'verified')}</small></div><button class="secondary-btn ${special ? 'daily-system-action' : 'task-action'}" ${action}>${label}</button></article>`;
+function taskReward(task) {
+  return `${format(task.rewardCoin)} COIN • ${format(task.rewardDzx)} DZX • ${format(task.rewardDzp)} DZP`;
 }
-function renderTasks() {
+function taskCard(task) {
+  const special = task.systemKey === 'daily_check_in';
+  const label = special ? 'Check in' : 'Verify';
+  const action = special ? `data-system-key="${String(task.systemKey)}"` : `data-task-id="${String(task.id)}"`;
+  const method = task.verification?.method ? String(task.verification.method).replace(/_/g, ' ') : 'verified';
+  return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small><b class="task-reward">${taskReward(task)}</b></div><button class="secondary-btn ${special ? 'daily-system-action' : 'task-action'}" ${action}>${label}</button></article>`;
+}
+function renderTaskCategories() {
   const container = $('tasksList');
   if (!container) return;
-  const daily = state.tasks.filter(task => task.taskType === 'daily');
-  const regular = state.tasks.filter(task => task.taskType !== 'daily');
-  const checkin = daily.find(task => task.systemKey === 'daily_check_in');
-  const dailyHtml = checkin ? `<section class="task-group"><div class="section-head"><h2>Daily Activity</h2></div>${taskCard(checkin, true)}</section>` : '';
-  const regularHtml = regular.length ? `<section class="task-group"><div class="section-head"><h2>Tasks</h2></div>${regular.map(task => taskCard(task)).join('')}</section>` : '';
-  const otherDaily = daily.filter(task => task.systemKey !== 'daily_check_in');
-  const otherDailyHtml = otherDaily.length ? `<section class="task-group"><div class="section-head"><h2>Daily Tasks</h2></div>${otherDaily.map(task => taskCard(task)).join('')}</section>` : '';
-  container.innerHTML = dailyHtml + otherDailyHtml + regularHtml;
-  if (!container.innerHTML) container.innerHTML = '<article class="info-card"><strong>No tasks available</strong><p>There are no active tasks available for your account right now.</p></article>';
-  loadDailyTaskStatus();
+  container.innerHTML = `<div class="task-category-list">${TASK_CATEGORY_ORDER.map(category => {
+    const count = state.tasks.filter(task => task.taskType === category.key).length;
+    return `<button class="task-category-card" data-task-category="${category.key}"><span class="task-category-icon">${category.icon}</span><span class="task-category-copy"><strong>${category.label}</strong><small>${category.description}</small><em>${count} active task${count === 1 ? '' : 's'}</em></span><span class="task-category-arrow">›</span></button>`;
+  }).join('')}</div>`;
+}
+function sortDailyTasks(tasks) {
+  return [...tasks].sort((a, b) => {
+    const aIndex = DAILY_SUBTYPE_ORDER.indexOf(a.systemKey);
+    const bIndex = DAILY_SUBTYPE_ORDER.indexOf(b.systemKey);
+    return (aIndex < 0 ? DAILY_SUBTYPE_ORDER.length : aIndex) - (bIndex < 0 ? DAILY_SUBTYPE_ORDER.length : bIndex) || Number(a.id) - Number(b.id);
+  });
+}
+function renderTaskCategory(categoryKey) {
+  const container = $('tasksList');
+  const category = TASK_CATEGORY_ORDER.find(item => item.key === categoryKey);
+  if (!container || !category) return renderTaskCategories();
+  state.taskCategory = categoryKey;
+  const tasks = state.tasks.filter(task => task.taskType === categoryKey);
+  const ordered = categoryKey === 'daily' ? sortDailyTasks(tasks) : tasks;
+  container.innerHTML = `<button class="task-back" data-task-back="true">‹ <span>All task types</span></button><div class="task-category-heading"><span class="task-category-icon">${category.icon}</span><div><span>Tasks</span><h2>${category.label}</h2></div></div><div class="task-list">${ordered.length ? ordered.map(taskCard).join('') : '<article class="info-card"><strong>No active tasks</strong><p>There are no active tasks available in this category right now.</p></article>'}</div>`;
+  if (categoryKey === 'daily') loadDailyTaskStatus();
+}
+function renderTasks() {
+  if (state.taskCategory) renderTaskCategory(state.taskCategory);
+  else renderTaskCategories();
 }
 async function loadTasks() {
   const container = $('tasksList');
@@ -155,9 +183,7 @@ async function startDailySystemTaskFlow(systemKey, button) {
       await loadMe();
       toast('Daily Check-in verified and reward credited.');
       await loadDailyTaskStatus();
-    } else if (finalized.status === 'rejected') {
-      toast('Daily Check-in verification was rejected.');
-    }
+    } else if (finalized.status === 'rejected') toast('Daily Check-in verification was rejected.');
   } catch (error) {
     toast(error.message || 'Unable to complete Daily Check-in.');
   } finally {
@@ -244,6 +270,10 @@ async function startTaskExecutionFlow(taskId) {
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]');
   if (nav) { showPage(nav.dataset.go); return; }
+  const category = event.target.closest('[data-task-category]');
+  if (category) { renderTaskCategory(category.dataset.taskCategory); return; }
+  const back = event.target.closest('[data-task-back]');
+  if (back) { state.taskCategory = null; renderTaskCategories(); return; }
   const dailyButton = event.target.closest('.daily-system-action');
   if (dailyButton) { startDailySystemTaskFlow(dailyButton.dataset.systemKey, dailyButton); return; }
   const taskButton = event.target.closest('.task-action');
