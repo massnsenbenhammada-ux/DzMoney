@@ -9,7 +9,7 @@ const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-rou
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
-const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-router');
+const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings');
 const { createRateLimit } = require('./src/http/rate-limit');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
