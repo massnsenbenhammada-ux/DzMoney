@@ -145,7 +145,7 @@ function renderTaskCategories() {
   if (!container) return;
   setTaskModeTabsVisible(true);
   const creatorPanel = $('creatorTaskPanel');
-  if (creatorPanel && state.page === 'tasks') creatorPanel.hidden = false;
+  if (creatorPanel && state.page === 'tasks') creatorPanel.hidden = true;
   container.innerHTML = `<div class="task-category-list">${TASK_CATEGORY_ORDER.map(category => { const count = state.tasks.filter(task => task.taskType === category.key).length; return `<button class="task-category-card" data-task-category="${category.key}"><span class="task-category-icon">${category.icon}</span><span class="task-category-copy"><strong>${category.label}</strong><small>${category.description}</small><em>${count} active task${count === 1 ? '' : 's'}</em></span><span class="task-category-arrow">›</span></button>`; }).join('')}</div>`;
 }
 function sortDailyTasks(tasks) {
