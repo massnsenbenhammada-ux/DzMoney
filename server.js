@@ -23,7 +23,7 @@ const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMI
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 function clientAdConfig() {
-  return Object.fromEntries(['daily_checkin', 'verification'].map(context => {
+  return Object.fromEntries(['task', 'daily_checkin', 'verification'].map(context => {
     const provider = providerRegistry.listAvailable(context)[0] || null;
     return [context, provider ? { id: provider.id, ...(provider.clientConfig || {}) } : null];
   }));
