@@ -136,9 +136,14 @@ function taskCard(task) {
   const actionClass = 'daily-system-action';
   return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small>${progress}${reward}</div><button class="secondary-btn ${actionClass}" data-task-action="${key}" ${action}>${label}</button></article>`;
 }
+function setTaskModeTabsVisible(visible) {
+  const tabs = document.querySelector('.task-mode-tabs');
+  if (tabs) tabs.hidden = !visible;
+}
 function renderTaskCategories() {
   const container = $('tasksList');
   if (!container) return;
+  setTaskModeTabsVisible(true);
   const creatorPanel = $('creatorTaskPanel');
   if (creatorPanel && state.page === 'tasks') creatorPanel.hidden = false;
   container.innerHTML = `<div class="task-category-list">${TASK_CATEGORY_ORDER.map(category => { const count = state.tasks.filter(task => task.taskType === category.key).length; return `<button class="task-category-card" data-task-category="${category.key}"><span class="task-category-icon">${category.icon}</span><span class="task-category-copy"><strong>${category.label}</strong><small>${category.description}</small><em>${count} active task${count === 1 ? '' : 's'}</em></span><span class="task-category-arrow">›</span></button>`; }).join('')}</div>`;
@@ -154,13 +159,13 @@ function renderTaskCategory(categoryKey) {
   const container = $('tasksList');
   const category = TASK_CATEGORY_ORDER.find(item => item.key === categoryKey);
   if (!container || !category) return renderTaskCategories();
+  setTaskModeTabsVisible(false);
   const creatorPanel = $('creatorTaskPanel');
   if (creatorPanel) creatorPanel.hidden = true;
   state.taskCategory = categoryKey;
   const tasks = state.tasks.filter(task => task.taskType === categoryKey);
   const ordered = categoryKey === 'daily' ? sortDailyTasks(tasks) : tasks;
   container.innerHTML = `<button class="task-back" data-task-back="true">‹ <span>All task types</span></button><div class="task-category-heading"><span class="task-category-icon">${category.icon}</span><div><span>Tasks</span><h2>${category.label}</h2></div></div><div class="task-list">${ordered.length ? ordered.map(taskCard).join('') : '<article class="info-card"><strong>No active tasks</strong><p>There are no active tasks available in this category right now.</p></article>'}</div>`;
-  if (categoryKey === 'daily') { loadDailyTaskStatus(); loadDailyAdProgress(); }
 }
 function renderTasks() { if (state.taskCategory) renderTaskCategory(state.taskCategory); else renderTaskCategories(); }
 async function loadTasks() {
@@ -336,7 +341,7 @@ async function loadDailyTaskStatus() {
 function formatCooldown(ms) { const totalSeconds = Math.max(0, Math.ceil(ms / 1000)); const hours = Math.floor(totalSeconds / 3600); const minutes = Math.floor((totalSeconds % 3600) / 60); const seconds = totalSeconds % 60; return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`; }
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go]'); if (nav) { showPage(nav.dataset.go); if (nav.dataset.openTaskMode === 'creator') setTimeout(() => window.setCreatorPanelVisible?.(true), 0); return; }
-  const category = event.target.closest('[data-task-category]'); if (category) { renderTaskCategory(category.dataset.taskCategory); return; }
+  const category = event.target.closest('[data-task-category]'); if (category) { renderTaskCategory(category.dataset.taskCategory); if (category.dataset.taskCategory === 'daily') { loadDailyTaskStatus(); loadDailyAdProgress(); } return; }
   const back = event.target.closest('[data-task-back]'); if (back) { state.taskCategory = null; renderTaskCategories(); return; }
   const dailyButton = event.target.closest('.daily-system-action');
   if (dailyButton) { startDailySystemTaskFlow(dailyButton.dataset.systemKey, dailyButton); return; }
@@ -359,8 +364,8 @@ document.addEventListener('click', event => {
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
   if (event.target.closest('#copyReferral')) toast('Referral link generation will be enabled when the Referral phase is implemented.');
 });
-window.addEventListener('focus', () => { if (state.page === 'tasks') { loadDailyTaskStatus(); loadDailyAdProgress(); } });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && state.page === 'tasks') { loadDailyTaskStatus(); loadDailyAdProgress(); } });
+window.addEventListener('focus', () => { if (state.page === 'tasks' && state.taskCategory === 'daily') { loadDailyTaskStatus(); loadDailyAdProgress(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.page === 'tasks' && state.taskCategory === 'daily') { loadDailyTaskStatus(); loadDailyAdProgress(); } });
 renderBalances();
 loadHealth();
 loadMe();
