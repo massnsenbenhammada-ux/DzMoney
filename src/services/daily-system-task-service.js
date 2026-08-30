@@ -23,13 +23,12 @@ async function getSystemTask(systemKey) {
 async function getLatestDailyCompletion(task, userId) {
   const result = await query(
     `SELECT GREATEST(
-       COALESCE((SELECT MAX(verified_at) FROM task_attempts WHERE task_id=$1 AND user_id=$2 AND status='verified'), '-infinity'::timestamptz),
-       COALESCE((SELECT last_claimed_at FROM daily_checkins WHERE user_id=$2), '-infinity'::timestamptz)
+       (SELECT MAX(verified_at) FROM task_attempts WHERE task_id=$1 AND user_id=$2 AND status='verified'),
+       (SELECT last_claimed_at FROM daily_checkins WHERE user_id=$2)
      ) AS completed_at`,
     [task.id, requiredId(userId, 'userId')]
   );
-  const completedAt = result.rows[0]?.completed_at;
-  return completedAt && completedAt !== '-infinity' ? completedAt : null;
+  return result.rows[0]?.completed_at || null;
 }
 
 async function assertAvailable(task, userId, now = new Date()) {
