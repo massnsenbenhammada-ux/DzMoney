@@ -1,6 +1,6 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` at `a0cd4c9b6b3cf829428b2475089f41d78ff0aeac` (post-PR #154 monetary precision milestone), subject to the current post-merge repository state.
+> **Authoritative baseline:** `main` at `2be17181a21481e2e0bd3119e594d28e32955c79` (post-PR #186 TaskCard/Creator scope fix).
 >
 > This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
@@ -9,7 +9,7 @@
 - **Current phase:** Phase 2 — Activity / Ads / Tasks remains open.
 - **Phase 3:** Referral core is partially implemented; Share with Friends production reward remains pending trusted completion evidence.
 - **Latest audited TON/Deposit milestone:** PR #148.
-- **Post-#150 documentation state:** PR #150 restored the repository to the prior documented state because the earlier reconciliation had been written directly to `main`. No direct-to-main documentation change is authorized going forward.
+- **Latest Tasks UI/scope milestone:** PR #186.
 
 ## Phase 0 — Specification Lock
 
@@ -25,7 +25,7 @@ Economic and architectural rules remain those defined by the roadmap, architectu
 - TON is external settlement/reference, not an internal wallet currency.
 - Economy/Ledger remains the single economic source of truth.
 - Economy reconciliation exists.
-- Activity reward decimal arithmetic now preserves exact fixed-point values through the existing Economy/Ledger boundary (PR #154).
+- Activity reward decimal arithmetic preserves exact fixed-point values through the existing Economy/Ledger boundary (PR #154).
 
 No Phase 1 refactor is authorized unless a new invariant or security defect is proven.
 
@@ -51,7 +51,10 @@ No Phase 1 refactor is authorized unless a new invariant or security defect is p
 - Provider-neutral trusted-evidence configuration seam; configuration is not provider proof.
 - Server-side rejection of provider credentials/secrets in task configuration.
 - Existing Monetag and OnClickA advertisement-provider evidence boundaries.
-- Exact fixed-point decimal activity reward calculation through the existing Economy/Ledger path, covered by the monetary precision invariant in PR #154.
+- Exact fixed-point decimal activity reward calculation through the existing Economy/Ledger path.
+- TaskCard full-width/centered presentation and regression coverage (PR #186).
+- Normal task catalog excludes Creator campaign rows; Creator campaigns remain on their dedicated boundary (PR #186).
+- Creator UI scope is restricted to Creator/Tasks mode without changing Daily/Watch/Verification flows (PR #185 predecessor milestone).
 
 ### Trusted evidence status
 
@@ -88,8 +91,12 @@ Implemented:
 - activation reward;
 - qualified referral count;
 - permanent referral achievement tasks;
-- Telegram bootstrap/referral-link foundation;
+- canonical immutable referral codes on `users.referral_code`;
+- Telegram Mini App start-parameter bootstrap;
+- canonical Telegram referral link exposed by `/api/me`;
 - lifetime 20% reward from qualifying base COIN/DZX activity through the existing Economy/Ledger boundary.
+
+**Issue #106 — canonical referral-link/bootstrap contract: RESOLVED.** Existing merged PRs #108 and #109 provide the required contract; no new referral service/table/migration is required.
 
 Pending:
 
@@ -110,7 +117,7 @@ The audited milestone includes server-side blockchain evidence validation, trans
 - Work already present in merged `main` must be reconciled rather than reimplemented.
 - PRs #146/#147 are not separate implementation milestones where superseded by PR #148.
 - Issue #100's 20% lifetime reward is already implemented; it must not be reimplemented.
-- Issue #106's old description must be reconciled against the current referral bootstrap/link implementation before any new work is authorized.
+- Issue #106 is closed as completed because its required canonical referral-link/bootstrap contract is already present in merged main through PRs #108 and #109.
 - Issue #134 remains the Phase 2 evidence-contract gate for new provider-specific verifiers.
 
 ## Later phases
