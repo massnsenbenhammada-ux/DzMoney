@@ -19,7 +19,7 @@ const publicDir = path.join(__dirname, 'public');
 const indexPath = path.join(publicDir, 'index.html');
 const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
 const onclickaConfirmationSecret = process.env.ONCLICKA_CONFIRMATION_SECRET;
-const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'dev';
+const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || process.env.RAILWAY_DEPLOYMENT_ID || `runtime-${Date.now()}`;
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 function clientAdConfig() {
