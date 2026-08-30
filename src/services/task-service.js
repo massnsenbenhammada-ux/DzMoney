@@ -34,7 +34,7 @@ async function getCreatorActivityRewards(queryFn = query) {
 
 async function listActiveTasks({ taskType = null } = {}) {
   if (taskType !== null && !TASK_TYPES.includes(taskType)) throw new Error('Invalid task type'); const params = taskType ? [taskType] : []; const filter = taskType ? 'AND task_type=$1' : '';
-  const result = await query(`SELECT id, task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds, config FROM activity_tasks WHERE status='active' ${filter} ORDER BY id`, params);
+  const result = await query(`SELECT id, task_type, title, description, reward_coin, reward_dzx, reward_dzp, verification_ad_seconds, config FROM activity_tasks WHERE status='active' AND creator_id IS NULL ${filter} ORDER BY id`, params);
   return result.rows.map(row => { const resolved = resolveVerificationConfig({ taskType: row.task_type, config: row.config }); return { id: row.id, taskType: row.task_type, systemKey: row.config?.systemKey || null, title: row.title, description: row.description, rewardCoin: Number(row.reward_coin), rewardDzx: Number(row.reward_dzx), rewardDzp: Number(row.reward_dzp), verificationAdSeconds: row.verification_ad_seconds, campaignUrl: resolved.campaignUrl, verification: resolved.verification }; });
 }
 
