@@ -51,6 +51,20 @@ const creatorChecks = {
 const failedCreatorChecks = Object.entries(creatorChecks).filter(([, passed]) => !passed).map(([name]) => name);
 if (failedCreatorChecks.length) throw new Error(`Creator UI contract failed: ${failedCreatorChecks.join(', ')}`);
 
+const taskUxChecks = {
+  cooldownIsolated: /state\.dailyTaskCooldownUntil\s*&&\s*systemKey\s*===\s*['"]daily_check_in['"]/.test(app),
+  viewAdsRewardIncludesDzp: /\+1,000 COIN[^\n<]*\+1 DZX[^\n<]*\+1 DZP/.test(app),
+  rewardPopup: /function showRewardPopup\s*\(/.test(app),
+  rewardPopupUsesServerReward: /showRewardPopup\(.*reward/.test(app),
+  rewardFailurePopup: /Reward not credited|Reward was not credited/.test(app),
+  tasksCreatorTabs: index.includes('data-task-mode="tasks"') && index.includes('data-task-mode="creator"'),
+  creatorFormInsideTasks: /data-page="tasks"[\s\S]*id="creatorTaskForm"/.test(index),
+  tasksLeftTab: /data-task-mode="tasks"[\s\S]*Tasks/.test(index),
+  creatorRightTab: /data-task-mode="creator"[\s\S]*User Creator Task/.test(index)
+};
+const failedTaskUxChecks = Object.entries(taskUxChecks).filter(([, passed]) => !passed).map(([name]) => name);
+if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskUxChecks.join(', ')}`);
+
 console.log('FRONTEND_SYNTAX: PASS');
 console.log('DAILY_ACTION_BINDING: PASS');
 console.log('DAILY_CANONICAL_TASK_FLOW: PASS');
@@ -62,3 +76,6 @@ console.log('CREATOR_MOBILE_FORM_SURFACE: PASS');
 console.log('CREATOR_CONTRACT_BOUNDARY: PASS');
 console.log('CREATOR_PRICING_AND_COMPANY_FIELDS: PASS');
 console.log('CREATOR_IDEMPOTENCY_AND_REVIEW_BOUNDARY: PASS');
+console.log('TASK_COOLDOWN_SCOPE: PASS');
+console.log('TASK_REWARD_POPUP_CONTRACT: PASS');
+console.log('TASK_CREATOR_TABS: PASS');
