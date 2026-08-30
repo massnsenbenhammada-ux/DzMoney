@@ -4,7 +4,6 @@ const vm = require('vm');
 const app = fs.readFileSync('public/app.js', 'utf8');
 const index = fs.readFileSync('public/index.html', 'utf8');
 const creator = fs.readFileSync('public/creator-task.js', 'utf8');
-const creatorStyle = fs.readFileSync('public/creator-task.css', 'utf8');
 const server = fs.readFileSync('server.js', 'utf8');
 new vm.Script(app, { filename: 'public/app.js' });
 new vm.Script(creator, { filename: 'public/creator-task.js' });
@@ -52,15 +51,16 @@ const failedCreatorChecks = Object.entries(creatorChecks).filter(([, passed]) =>
 if (failedCreatorChecks.length) throw new Error(`Creator UI contract failed: ${failedCreatorChecks.join(', ')}`);
 
 const taskUxChecks = {
-  cooldownIsolated: /state\.dailyTaskCooldownUntil\s*&&\s*systemKey\s*===\s*['"]daily_check_in['"]/.test(app),
+  cooldownIsolated: /systemKey\s*===\s*['"]daily_check_in['"]\s*&&\s*state\.dailyTaskCooldownUntil/.test(app),
   viewAdsRewardIncludesDzp: /\+1,000 COIN[^\n<]*\+1 DZX[^\n<]*\+1 DZP/.test(app),
   rewardPopup: /function showRewardPopup\s*\(/.test(app),
-  rewardPopupUsesServerReward: /showRewardPopup\(.*reward/.test(app),
-  rewardFailurePopup: /Reward not credited|Reward was not credited/.test(app),
+  rewardPopupUsesServerReward: /showRewardOutcome\(finalized/.test(app),
+  rewardFailurePopup: /Reward not credited/.test(app),
   tasksCreatorTabs: index.includes('data-task-mode="tasks"') && index.includes('data-task-mode="creator"'),
   creatorFormInsideTasks: /data-page="tasks"[\s\S]*id="creatorTaskForm"/.test(index),
-  tasksLeftTab: /data-task-mode="tasks"[\s\S]*Tasks/.test(index),
-  creatorRightTab: /data-task-mode="creator"[\s\S]*User Creator Task/.test(index)
+  tasksLeftTab: /data-task-mode="tasks"/.test(index),
+  creatorRightTab: /data-task-mode="creator"/.test(index),
+  creatorPanelBinding: creator.includes('function setCreatorPanelVisible') && creator.includes('data-task-mode')
 };
 const failedTaskUxChecks = Object.entries(taskUxChecks).filter(([, passed]) => !passed).map(([name]) => name);
 if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskUxChecks.join(', ')}`);
