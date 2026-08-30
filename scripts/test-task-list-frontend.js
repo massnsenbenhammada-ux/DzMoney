@@ -26,7 +26,7 @@ for (const label of ['Daily Activity', 'Game Task', 'Social Task', 'Web Task', '
 }
 assert.match(appJs, /DAILY_SUBTYPE_ORDER\s*=\s*\[/, 'Daily Activity must define one canonical subtype order');
 for (const key of ['daily_check_in', 'check_for_update', 'share_with_friends', 'view_ads', 'invite_1_friend', 'invite_10_friends', 'invite_20_friends', 'invite_50_friends', 'invite_100_friends']) {
-  assert.match(appJs, new RegExp(`['\"]${key}['\"]`), `Daily subtype ${key} must be represented`);
+  assert.match(appJs, new RegExp(`[\'\"]${key}[\'\"]`), `Daily subtype ${key} must be represented`);
 }
 assert.doesNotMatch(appJs, /\['\"]ad_view['\"]/, 'Frontend must use canonical view_ads system key');
 assert.match(appJs, /function renderTaskCategories\s*\(/, 'Tasks UI must render the category view separately');
@@ -43,7 +43,8 @@ for (const label of ['Check in', 'Check for Update', 'Share with Friends', 'Watc
 assert.match(appJs, /startDailyAdvertisementFlow\s*\(/, 'Ad View must use its advertisement-specific flow');
 assert.match(appJs, /\/api\/daily-tasks\/execute/, 'Ad View must start through the existing daily task advertisement boundary');
 assert.match(appJs, /\/api\/daily-tasks\/advertisement\/finalize/, 'Ad View must finalize through the existing task advertisement boundary');
-assert.match(appJs, /0\/\$\{state\.dailyAdProgress\?\.target \|\| 20\}/, 'Ad View must expose the canonical initial 0/20 progress format');
+assert.match(appJs, /state\.dailyAdProgress\?\.completed \|\| 0/, 'Ad View must expose the canonical initial 0/20 progress fallback');
+assert.match(appJs, /state\.dailyAdProgress\?\.target \|\| 20/, 'Ad View must expose the canonical 20-ad target fallback');
 assert.match(appJs, /requestVar:\s*['\"]task['\"]/, 'Tasks-page ads must use task advertisement context, not verification context');
 assert.match(appJs, /achievementThreshold/, 'Invite achievement actions must use the server-provided threshold');
 assert.match(appJs, /data-task-action/, 'Task cards must carry task-specific action metadata');
