@@ -15,21 +15,45 @@ function buildInitData(userId) {
 }
 
 async function run() {
-  const servicePath = require.resolve('../src/services/daily-checkin-service');
+  const dailyTasksPath = require.resolve('../src/services/daily-system-task-service');
+  const verificationPath = require.resolve('../src/services/task-verification-service');
   const walletPath = require.resolve('../src/services/wallet-service');
-  const originalService = require(servicePath);
+  const poolPath = require.resolve('../src/db/pool');
+  const originalDailyTasks = require(dailyTasksPath);
+  const originalVerification = require(verificationPath);
   const originalWallet = require(walletPath);
+  const originalPool = require(poolPath);
   const calls = [];
 
-  require.cache[servicePath].exports = {
-    ...originalService,
-    startDailyCheckinClaim: async args => {
+  require.cache[dailyTasksPath].exports = {
+    ...originalDailyTasks,
+    getSystemTask: async () => ({ id: 11, config: { dailyPolicy: 'rolling_24h' } }),
+    assertAvailable: async () => true,
+    executeSystemTask: async args => {
       calls.push(args);
-      return { claimIdempotencyKey: args.idempotencyKey, adEvent: { id: 7 }, providerId: 'test-provider' };
-    },
-    getDailyCheckinStatus: async ({ userId }) => ({ status: 'pending', userId })
+      return {
+        attempt: { id: 42 },
+        gate: { idempotency_key: 'gate-1' },
+        duplicate: false
+      };
+    }
+  };
+  require.cache[verificationPath].exports = {
+    ...originalVerification,
+    startTaskVerificationAd: async args => ({
+      gate: { idempotency_key: args.idempotencyKey },
+      adEvent: { id: 7, external_ad_id: 'ad-7' },
+      providerId: 'test-provider',
+      duplicate: false
+    })
   };
   require.cache[walletPath].exports = { ...originalWallet, createUser: async () => ({ id: 42 }) };
+  require.cache[poolPath].exports = {
+    ...originalPool,
+    query: async text => text.includes('SELECT id FROM task_attempts')
+      ? { rows: [{ id: 42 }], rowCount: 1 }
+      : { rows: [], rowCount: 0 }
+  };
 
   const { createDailyCheckinRouter } = require('../src/http/daily-checkin-routes');
   const app = express();
@@ -61,20 +85,25 @@ async function run() {
   const status = await request('GET', '/api/daily-checkin/status', null, auth);
   assert.strictEqual(status.status, 200);
   assert.strictEqual(status.body.status, 'pending');
-  assert.strictEqual(status.body.userId, 42);
+  assert.strictEqual(status.body.attemptId, 42);
 
   assert.strictEqual((await request('POST', '/api/daily-checkin/claim', { idempotencyKey: 'claim-1' })).status, 401);
   const claim = await request('POST', '/api/daily-checkin/claim', { idempotencyKey: 'claim-1' }, auth);
   assert.strictEqual(claim.status, 200);
-  assert.strictEqual(claim.body.adEvent.id, 7);
+  assert.strictEqual(claim.body.adEvent.external_ad_id, 'ad-7');
+  assert.strictEqual(claim.body.attemptId, 42);
   assert.strictEqual(calls.length, 1);
   assert.strictEqual(calls[0].userId, 42);
+  assert.strictEqual(calls[0].systemKey, 'daily_check_in');
+  assert.strictEqual(calls[0].idempotencyKey, 'claim-1');
   assert.strictEqual((await request('POST', '/api/daily-checkin/verify', { adEventId: 7 }, auth)).status, 404);
   assert.strictEqual((await request('POST', '/api/daily-checkin/finalize', { claimIdempotencyKey: 'claim-1' }, auth)).status, 404);
 
   await new Promise(resolve => server.close(resolve));
-  require.cache[servicePath].exports = originalService;
+  require.cache[dailyTasksPath].exports = originalDailyTasks;
+  require.cache[verificationPath].exports = originalVerification;
   require.cache[walletPath].exports = originalWallet;
+  require.cache[poolPath].exports = originalPool;
   console.log('daily-checkin HTTP boundary tests passed');
 }
 

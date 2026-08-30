@@ -28,6 +28,14 @@ function resolveTelegramTaskChannel(verification) {
 
 function resolveTrustedTaskVerifier({ config, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
   const verification = config?.verification || {};
+  if (config?.dailyMode === 'advertisement') {
+    return async ({ attemptId }) => {
+      const result = await query(`SELECT g.status AS gate_status, e.verified AS ad_verified, e.context AS ad_context, e.metadata->>'provider_id' AS provider_id FROM task_verification_gates g JOIN activity_ad_events e ON e.id=g.ad_event_id WHERE g.attempt_id=$1`, [requiredId(attemptId, 'attemptId')]);
+      if (!result.rowCount) throw new Error('Verification gate not found');
+      const row = result.rows[0];
+      return row.gate_status === 'ad_completed' && row.ad_verified === true && row.ad_context === 'verification' && typeof row.provider_id === 'string' && row.provider_id !== '';
+    };
+  }
   if (verification.method === 'click_proof') {
     return async ({ attemptId }) => {
       const result = await query('SELECT metadata FROM task_attempts WHERE id=$1', [requiredId(attemptId, 'attemptId')]);
