@@ -18,6 +18,7 @@ const TASK_VERIFICATION_POLL_MS = 1000;
 const TASK_VERIFICATION_POLL_LIMIT = 30000;
 const DAILY_SYSTEM_VERIFY_POLL_LIMIT = 30000;
 const DAILY_TASK_RETRY_AFTER_MS = DAILY_SYSTEM_VERIFY_POLL_LIMIT;
+const DAILY_AD_FINALIZE_POLL_MS = 3000;
 
 function getMonetagHandler() {
   const adapter = window.DzMoneyMonetag;
@@ -138,7 +139,8 @@ function taskCard(task) {
 function renderTaskCategories() {
   const container = $('tasksList');
   if (!container) return;
-  container.innerHTML = `<div class="task-category-list">${TASK_CATEGORY_ORDER.map(category => { const count = state.tasks.filter(task => task.taskType === category.key).length; return `<button class="task-category-card" data-task-category="${category.key}"><span class="task-category-icon">${category.icon}</span><span class="task-category-copy"><strong>${category.label}</strong><small>${category.description}</small><em>${count} active task${count === 1 ? '' : 's'}</em></span><span class="task-category-arrow">›</span></button>`; }).join('')}</div>`;
+  container.innerHTML = `<div class="task-category-list">${TASK_CATEGORY_ORDER.map(category => { const count = state.tasks.filter(task => task.taskType === category.key).length; return `<button class="task-category-card" data-task-category="${category.key}"><span class="task-category-icon">${category.icon}</span><span class="task-category-copy"><strong>${category.label}</strong><small>${category.description}</small><em>${count} active task${count === 1 ? '' : 's'}</em></span><span class="task-category-arrow">›</span></button>`; }).join('')}`;
+  window.setCreatorPanelVisible?.(false);
 }
 function sortDailyTasks(tasks) {
   return [...tasks].sort((a, b) => {
@@ -151,6 +153,7 @@ function renderTaskCategory(categoryKey) {
   const container = $('tasksList');
   const category = TASK_CATEGORY_ORDER.find(item => item.key === categoryKey);
   if (!container || !category) return renderTaskCategories();
+  window.setCreatorPanelVisible?.(false);
   state.taskCategory = categoryKey;
   const tasks = state.tasks.filter(task => task.taskType === categoryKey);
   const ordered = categoryKey === 'daily' ? sortDailyTasks(tasks) : tasks;
@@ -217,33 +220,24 @@ async function startDailySystemTaskFlow(systemKey, button) {
   finally { state.dailyTaskBusy = false; state.dailyTaskPending = false; await loadDailyTaskStatus(); renderTaskCategory('daily'); }
 }
 async function startShareTaskFlow(button) {
-  if (button.disabled) return;
-  const task = state.tasks.find(item => item.systemKey === 'share_with_friends');
-  const saved = task && state.taskActions[task.id];
-  if (saved?.attemptId) return verifyTaskAttempt(task, button, saved);
-  button.disabled = true; button.textContent = 'Preparing…';
+  state.dailyTaskBusy = true; button.disabled = true; button.textContent = 'Loading…';
   try {
-    const referral = await api('/api/me');
-    const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey: 'share_with_friends', idempotencyKey: `share-with-friends:${crypto.randomUUID()}` }) });
-    state.taskActions[task.id] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
-    const url = referral.user?.referralLink;
+    const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey: 'share_with_friends', idempotencyKey: `daily:share_with_friends:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }));
+    state.taskActions[result.attemptId] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
+    const url = result.referralUrl;
     if (!url) throw new Error('Referral link is unavailable.');
-    if (typeof tg?.openTelegramLink === 'function') tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}`); else window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer');
-    button.textContent = 'Verify';
-    toast('Share action opened. Tap Verify to complete the verification gate.');
-  } catch (error) { toast(error.message || 'Unable to start Share with Friends.'); button.textContent = 'Share'; }
-  finally { button.disabled = false; }
+    if (typeof tg?.openTelegramLink === 'function') tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank'); else window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer');
+    toast('Share action opened. Return here to verify.');
+  } catch (error) { showRewardPopup(null, false); toast(error.message || 'Unable to open share action.'); }
+  finally { state.dailyTaskBusy = false; button.disabled = false; button.textContent = 'Share'; }
 }
 async function startInviteTaskFlow(systemKey, button) {
   const task = state.tasks.find(item => item.systemKey === systemKey);
   if (!task) return;
-  button.disabled = true; button.textContent = 'Checking…';
+  button.disabled = true; button.textContent = 'Loading…';
   try {
-    const current = await api(`/api/daily-tasks?systemKey=${encodeURIComponent(systemKey)}`);
-    const serverTask = current.task || {};
-    task.claimable = serverTask.progress?.claimable === true;
-    task.progress = serverTask.progress || null;
-    if (task.claimable) {
+    const serverTask = await api(`/api/daily-tasks?systemKey=${encodeURIComponent(systemKey)}`);
+    if (serverTask.task?.progress?.claimable) {
       const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey, idempotencyKey: `daily:${systemKey}:${crypto.randomUUID()}` }) });
       await showTaskVerificationAd(result.verificationAdId);
       const finalized = await finalizeDailySystemTask(result.attemptId);
@@ -252,7 +246,7 @@ async function startInviteTaskFlow(systemKey, button) {
       return;
     }
     const referral = await api('/api/me');
-    const url = referral.user?.referralLink;
+    const url = referral.referral?.referralUrl;
     if (!url) throw new Error('Referral link is unavailable.');
     if (typeof tg?.openTelegramLink === 'function') tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank'); else window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer');
     toast(`Invite progress: ${serverTask.progress?.completed || 0}/${serverTask.progress?.target || 'target'}.`);
@@ -271,16 +265,10 @@ async function verifyTaskAttempt(task, button, saved) {
   finally { button.disabled = false; if (button.isConnected) button.textContent = 'Verify'; }
 }
 async function startTaskAction(taskId) {
-  const task = state.tasks.find(item => String(item.id) === String(taskId));
-  if (!task) throw new Error('Task is no longer available');
-  const numericTaskId = Number(task.id);
-  if (!Number.isSafeInteger(numericTaskId) || numericTaskId <= 0) throw new Error('Task id is invalid');
-  const saved = state.taskActions[task.id];
-  if (saved?.attemptId) {
-    if (task.campaignUrl) window.open(task.campaignUrl, '_blank', 'noopener,noreferrer');
-    toast('Task opened. Tap Verify after completing the task.');
-    return saved;
-  }
+  const numericTaskId = Number(taskId);
+  if (!Number.isInteger(numericTaskId) || numericTaskId <= 0) throw new Error('Invalid task id');
+  const task = state.tasks.find(item => Number(item.id) === numericTaskId);
+  if (!task) throw new Error('Task not found');
   const result = await api('/api/tasks/execute', { method: 'POST', body: JSON.stringify({ taskId: numericTaskId, idempotencyKey: `task:${task.id}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
   state.taskActions[task.id] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
   if (task.campaignUrl) window.open(task.campaignUrl, '_blank', 'noopener,noreferrer');
@@ -289,19 +277,18 @@ async function startTaskAction(taskId) {
   return result;
 }
 async function startDailyAdvertisementFlow(button) {
-  const task = state.tasks.find(item => item.systemKey === 'view_ads');
-  if (!task || state.dailyTaskBusy) return;
+  if (state.dailyTaskBusy) return;
   state.dailyTaskBusy = true; button.disabled = true; button.textContent = 'Loading…';
   try {
     const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey: 'view_ads', idempotencyKey: `daily:view_ads:${crypto.randomUUID()}` }) });
-    toast('Preparing the advertisement…');
     const handler = await ensureMonetagSdk();
+    toast('Preparing advertisement…');
     await handler({ type: 'preload', ymid: result.externalAdId, requestVar: 'task', timeout: MONETAG_PRELOAD_TIMEOUT_SECONDS });
     await handler({ ymid: result.externalAdId, requestVar: 'task' });
     const deadline = Date.now() + 30000;
     while (Date.now() < deadline) {
       try { const finalized = await api('/api/daily-tasks/advertisement/finalize', { method: 'POST', body: JSON.stringify({ adEventId: result.adEventId }) }); if (finalized.progress) state.dailyAdProgress = finalized.progress; if (finalized.rewarded) { await loadMe(); showRewardOutcome(finalized, task); break; } } catch (error) { if (!String(error.message || '').includes('must be verified first')) throw error; }
-      await wait(1000);
+      await wait(DAILY_AD_FINALIZE_POLL_MS);
     }
     await loadDailyAdProgress();
   } catch (error) { showRewardPopup(null, false); toast(error.message || 'Unable to show advertisement.'); }
