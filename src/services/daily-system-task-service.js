@@ -1,7 +1,7 @@
 const { query } = require('../db/pool');
 const taskService = require('./task-service');
 const referralService = require('./referral-service');
-const { isRolling24HourAvailable, isUtcPlusOneCalendarDayAvailable, isReferralAchievementClaimable } = require('./daily-system-task-contract');
+const { isRolling24HourAvailable, isUtcPlusOneCalendarDayAvailable, isReferralAchievementClaimable, DAILY_SYSTEM_TASKS } = require('./daily-system-task-contract');
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -73,7 +73,13 @@ async function executeSystemTask({ systemKey, userId, idempotencyKey, metadata =
   }
   requiredId(idempotencyKey, 'idempotencyKey');
   const dailyKey = `daily:${task.id}:${userId}:${idempotencyKey}`;
-  return taskService.executeTask({ taskId: task.id, userId, idempotencyKey: dailyKey, metadata: { ...metadata, system_key: systemKey } });
+  return taskService.executeTask({
+    taskId: task.id,
+    userId,
+    idempotencyKey: dailyKey,
+    metadata: { ...metadata, system_key: systemKey },
+    allowPendingRetry: systemKey === DAILY_SYSTEM_TASKS.CHECK_IN
+  });
 }
 
 module.exports = { getSystemTask, assertAvailable, assertAdvertisementAvailable, assertReferralAchievementAvailable, executeSystemTask };
