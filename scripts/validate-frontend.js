@@ -64,7 +64,7 @@ const taskUxChecks = {
   watchPollingAvoidsRateLimit: /const DAILY_AD_FINALIZE_POLL_MS\s*=\s*3000/.test(app),
   watchUsesPollingInterval: /await wait\(DAILY_AD_FINALIZE_POLL_MS\)/.test(app),
   creatorHiddenInCategory: /function renderTaskCategory\([\s\S]*?window\.setCreatorPanelVisible\?\.\(false\)/.test(app),
-  creatorVisibleOnCategoryList: /function renderTaskCategories\([\s\S]*?window\.setCreatorPanelVisible\?\.\(false\)/.test(app)
+  creatorVisibleOnCategoryList: /function renderTaskCategories\([\s\S]*?window\.setCreatorPanelVisible\?\.\(true\)/.test(app)
 };
 const failedTaskUxChecks = Object.entries(taskUxChecks).filter(([, passed]) => !passed).map(([name]) => name);
 if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskUxChecks.join(', ')}`);
