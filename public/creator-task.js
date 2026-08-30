@@ -131,6 +131,20 @@ async function submitCreatorTaskForReview(event) {
   try { const result = await creatorApi(`/api/creator/tasks/${encodeURIComponent(creatorTaskState.createdTaskId)}/submit`, { method: 'POST', body: '{}' }); creatorToast(result.task?.status === 'pending_review' ? 'Task submitted for review.' : 'Task submitted.'); }
   catch (error) { creatorToast(error.message || 'Unable to submit task for review.'); button.disabled = false; }
 }
+function setCreatorPanelVisible(visible) {
+  const list = creatorEl('tasksList');
+  const panel = creatorEl('creatorTaskPanel');
+  if (!list || !panel) return;
+  list.hidden = visible;
+  panel.hidden = !visible;
+  document.querySelectorAll('[data-task-mode]').forEach(tab => tab.classList.toggle('active', tab.dataset.taskMode === (visible ? 'creator' : 'tasks')));
+  if (visible && !creatorTaskState.contract) loadCreatorContract();
+}
 document.addEventListener('submit', event => { if (event.target.id === 'creatorTaskForm') createCreatorTask(event); });
-document.addEventListener('click', event => { if (event.target.closest('#creatorReviewSubmit')) submitCreatorTaskForReview(event); });
+document.addEventListener('click', event => {
+  const tab = event.target.closest('[data-task-mode]');
+  if (tab) { setCreatorPanelVisible(tab.dataset.taskMode === 'creator'); return; }
+  if (event.target.closest('#creatorReviewSubmit')) submitCreatorTaskForReview(event);
+});
 window.addEventListener('load', () => { if (creatorEl('creatorTaskForm')) loadCreatorContract(); });
+window.setCreatorPanelVisible = setCreatorPanelVisible;
