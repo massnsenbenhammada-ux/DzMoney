@@ -102,8 +102,12 @@ async function loadTaskVerificationAttempt(attemptId, lock = false, client = nul
   return result.rows[0];
 }
 
+function rewardAmounts(row) {
+  return { coin: Number(row.reward_coin), dzx: Number(row.reward_dzx), dzp: Number(row.reward_dzp) };
+}
+
 function validateTaskVerificationState(row) {
-  if (row.status === 'verified') return { duplicate: true, status: 'verified' };
+  if (row.status === 'verified') return { duplicate: true, status: 'verified', rewarded: true, reward: rewardAmounts(row) };
   if (row.status === 'rejected' || row.status === 'expired') return { duplicate: false, status: row.status, rewarded: false };
   if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
   if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
@@ -129,21 +133,22 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
       await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
       return { duplicate: false, status: 'rejected', rewarded: false };
     }
-    const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', coin: Number(row.reward_coin), dzx: Number(row.reward_dzx), dzp: Number(row.reward_dzp), modifiers: [] });
-    if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: Number(row.reward_coin), dzx: Number(row.reward_dzx) } });
+    const amounts = rewardAmounts(row);
+    const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, modifiers: [] });
+    if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
-    return { duplicate: false, status: 'verified', rewarded: true, reward };
+    return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, transaction: reward.transaction };
   });
 }
 
 async function getTaskVerificationStatus({ attemptId, userId }) {
   requiredId(attemptId, 'attemptId');
   requiredId(userId, 'userId');
-  const result = await query(`SELECT a.id,a.status,a.metadata,g.status AS gate_status,g.ad_event_id,g.ad_completed_at,g.verified_at FROM task_attempts a JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 AND a.user_id=$2`, [attemptId, userId]);
+  const result = await query(`SELECT a.id,a.status,a.metadata,t.reward_coin,t.reward_dzx,t.reward_dzp,g.status AS gate_status,g.ad_event_id,g.ad_completed_at,g.verified_at FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 AND a.user_id=$2`, [attemptId, userId]);
   if (!result.rowCount) throw new Error('Task attempt not found');
   const row = result.rows[0];
-  return { attemptId: row.id, status: row.status, gateStatus: row.gate_status, adEventId: row.ad_event_id, adCompletedAt: row.ad_completed_at, verifiedAt: row.verified_at, linkClicked: row.metadata?.link_clicked === true };
+  return { attemptId: row.id, status: row.status, gateStatus: row.gate_status, adEventId: row.ad_event_id, adCompletedAt: row.ad_completed_at, verifiedAt: row.verified_at, linkClicked: row.metadata?.link_clicked === true, reward: row.status === 'verified' ? rewardAmounts(row) : null };
 }
 
 module.exports = { startTaskVerificationAd, verifyTaskAdvertisement, finalizeTaskVerification, getTaskVerificationStatus, resolveTrustedTaskVerifier };
