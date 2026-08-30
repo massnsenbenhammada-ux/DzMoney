@@ -17,7 +17,11 @@ function createDailyCheckinRouter({ providerRegistry, tasks = dailyTasks, verifi
     const task = await tasks.getSystemTask(DAILY_SYSTEM_TASKS.CHECK_IN);
     const available = await tasks.assertAvailable(task, user.id);
     const pending = await getPendingAttempt(task.id, user.id);
-    if (pending) return res.json({ ok: true, status: 'pending', attemptId: pending.id });
+    if (pending) {
+      const pendingSince = new Date(pending.executed_at).getTime();
+      const retryable = Number.isFinite(pendingSince) && Date.now() - pendingSince >= 30_000;
+      return res.json({ ok: true, status: 'pending', attemptId: pending.id, pendingSince: new Date(pending.executed_at).toISOString(), retryable });
+    }
     if (available) return res.json({ ok: true, status: 'available' });
     const completedAt = await getLatestCompletion(task.id, user.id);
     const nextEligibleAt = completedAt ? new Date(new Date(completedAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
@@ -46,7 +50,7 @@ async function getAuthenticatedUser(req) {
 }
 
 async function getPendingAttempt(taskId, userId) {
-  const result = await require('../db/pool').query("SELECT id FROM task_attempts WHERE task_id=$1 AND user_id=$2 AND status='verification_pending' ORDER BY id DESC LIMIT 1", [taskId, userId]);
+  const result = await require('../db/pool').query("SELECT id, executed_at FROM task_attempts WHERE task_id=$1 AND user_id=$2 AND status='verification_pending' ORDER BY id DESC LIMIT 1", [taskId, userId]);
   return result.rows[0] || null;
 }
 
