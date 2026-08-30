@@ -30,9 +30,10 @@ function resolveTrustedTaskVerifier({ config, telegramUserId, userSubmittedUrl, 
   const verification = config?.verification || {};
   if (config?.dailyMode === 'advertisement') {
     return async ({ attemptId }) => {
-      const result = await query(`SELECT g.status AS gate_status FROM task_verification_gates g WHERE g.attempt_id=$1`, [requiredId(attemptId, 'attemptId')]);
+      const result = await query(`SELECT g.status AS gate_status, e.verified AS ad_verified, e.context AS ad_context, e.metadata->>'provider_id' AS provider_id FROM task_verification_gates g JOIN activity_ad_events e ON e.id=g.ad_event_id WHERE g.attempt_id=$1`, [requiredId(attemptId, 'attemptId')]);
       if (!result.rowCount) throw new Error('Verification gate not found');
-      return result.rows[0].gate_status === 'ad_completed';
+      const row = result.rows[0];
+      return row.gate_status === 'ad_completed' && row.ad_verified === true && row.ad_context === 'verification' && typeof row.provider_id === 'string' && row.provider_id !== '';
     };
   }
   if (verification.method === 'click_proof') {
