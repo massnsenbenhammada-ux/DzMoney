@@ -45,6 +45,13 @@ async function run() {
   assert.strictEqual(result.status, 'rejected');
   assert.strictEqual(result.rewarded, false);
   assert.strictEqual(rewardReached, false, 'missing click proof must never reach the Economy reward path');
+
+  attemptRow.status = 'expired';
+  const expired = await finalizeTaskVerification({ attemptId: 11, idempotencyKey: 'task:11' });
+  assert.strictEqual(expired.status, 'expired');
+  assert.strictEqual(expired.rewarded, false);
+  assert.strictEqual(rewardReached, false, 'expired attempts must never reach the Economy reward path');
+
   console.log('Task verification security boundary: PASS');
 }
 
