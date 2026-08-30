@@ -97,19 +97,23 @@ function taskActionLabel(task) {
   if (key === 'share_with_friends') return saved?.attemptId ? 'Verify' : 'Share';
   if (key === 'view_ads') return 'Watch';
   if (isInviteTask(task)) return task.claimable === true ? 'Claim' : 'Invite';
-  return saved?.attemptId ? 'Verify' : (task.verification?.method === 'click_proof' || task.verification?.method === 'url_format_match' ? 'Open' : 'Start');
+  return saved?.attemptId ? 'Verify' : 'Open Task';
 }
 function taskCard(task) {
   const key = String(task.systemKey || '');
-  const label = taskActionLabel(task);
-  const action = key === 'daily_check_in' || key === 'check_for_update' || key === 'share_with_friends' || key === 'view_ads' || isInviteTask(task)
-    ? `data-system-key="${key}"`
-    : `data-task-id="${String(task.id)}"`;
   const method = task.verification?.method ? String(task.verification.method).replace(/_/g, ' ') : 'verified';
   const progress = key === 'view_ads' ? `<small class="task-progress">${state.dailyAdProgress?.completed || 0}/${state.dailyAdProgress?.target || 20}</small>` : '';
   const reward = key === 'view_ads' ? '<b class="task-reward">+1,000 COIN • +1 DZX at 20/20</b>' : `<b class="task-reward">${taskReward(task)}</b>`;
-  const actionClass = key === 'view_ads' || key === 'daily_check_in' || key === 'check_for_update' || key === 'share_with_friends' || isInviteTask(task) ? 'daily-system-action' : 'task-action';
-  return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small>${progress}${reward}</div><button class="secondary-btn ${actionClass}" data-task-action="${key || String(task.id)}" ${action}>${label}</button></article>`;
+  const isDaily = key === 'daily_check_in' || key === 'check_for_update' || key === 'share_with_friends' || key === 'view_ads' || isInviteTask(task);
+  if (!isDaily) {
+    const saved = state.taskActions[task.id];
+    const verifyDisabled = saved?.attemptId ? '' : 'disabled';
+    return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small>${reward}</div><div class="task-actions"><button class="secondary-btn task-open-action" data-task-open="${String(task.id)}">Open Task</button><button class="secondary-btn task-verify-action" data-task-verify="${String(task.id)}" ${verifyDisabled}>Verify</button></div></article>`;
+  }
+  const label = taskActionLabel(task);
+  const action = `data-system-key="${key}"`;
+  const actionClass = 'daily-system-action';
+  return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small>${progress}${reward}</div><button class="secondary-btn ${actionClass}" data-task-action="${key}" ${action}>${label}</button></article>`;
 }
 function renderTaskCategories() {
   const container = $('tasksList');
@@ -170,18 +174,27 @@ async function startDailySystemTaskFlow(systemKey, button) {
   if (systemKey === 'view_ads') return startDailyAdvertisementFlow(button);
   if (isInviteTask(state.tasks.find(task => task.systemKey === systemKey) || {})) return startInviteTaskFlow(systemKey, button);
   if (systemKey === 'share_with_friends') return startShareTaskFlow(button);
+  const task = state.tasks.find(item => item.systemKey === systemKey);
+  const saved = task && state.taskActions[task.id];
+  if (saved?.attemptId) {
+    button.disabled = true; button.textContent = 'Verifying…'; state.dailyTaskBusy = true;
+    try { await showTaskVerificationAd(saved.verificationAdId); const finalized = await finalizeDailySystemTask(saved.attemptId); if (finalized.status === 'verified') { delete state.taskActions[task.id]; await loadMe(); toast('Daily task verified and reward credited.'); } else if (finalized.status === 'rejected') toast('Task verification was rejected.'); }
+    catch (error) { toast(error.message || 'Unable to verify task.'); }
+    finally { state.dailyTaskBusy = false; button.disabled = false; await loadDailyTaskStatus(); renderTaskCategory('daily'); }
+    return;
+  }
   state.dailyTaskBusy = true; button.disabled = true; button.textContent = 'Loading…';
   try {
     const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey, idempotencyKey: `daily:${systemKey}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
-    state.taskActions[result.taskId || result.attemptId || systemKey] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
+    if (task) state.taskActions[task.id] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
     toast('Preparing the verification advertisement…');
     await showTaskVerificationAd(result.verificationAdId);
     state.dailyTaskPending = true; button.textContent = 'Verifying…';
     const finalized = await finalizeDailySystemTask(result.attemptId);
-    if (finalized.status === 'verified') { await loadMe(); toast(`${systemKey === 'check_for_update' ? 'Check for Update' : 'Daily task'} verified and reward credited.`); }
+    if (finalized.status === 'verified') { if (task) delete state.taskActions[task.id]; await loadMe(); toast(`${systemKey === 'check_for_update' ? 'Check for Update' : 'Daily task'} verified and reward credited.`); }
     else if (finalized.status === 'rejected') toast('Task verification was rejected.');
   } catch (error) { toast(error.message || 'Unable to complete task.'); }
-  finally { state.dailyTaskBusy = false; state.dailyTaskPending = false; await loadDailyTaskStatus(); }
+  finally { state.dailyTaskBusy = false; state.dailyTaskPending = false; await loadDailyTaskStatus(); renderTaskCategory('daily'); }
 }
 async function startShareTaskFlow(button) {
   if (button.disabled) return;
@@ -204,18 +217,26 @@ async function startShareTaskFlow(button) {
 async function startInviteTaskFlow(systemKey, button) {
   const task = state.tasks.find(item => item.systemKey === systemKey);
   if (!task) return;
-  if (task.claimable === true) {
-    button.disabled = true; button.textContent = 'Loading…';
-    try { const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey, idempotencyKey: `daily:${systemKey}:${crypto.randomUUID()}` }) }); await showTaskVerificationAd(result.verificationAdId); const finalized = await finalizeDailySystemTask(result.attemptId); if (finalized.status === 'verified') { await loadMe(); toast('Achievement claimed and reward credited.'); await loadTasks(); } } catch (error) { toast(error.message || 'Unable to claim achievement.'); } finally { button.disabled = false; }
-    return;
-  }
+  button.disabled = true; button.textContent = 'Checking…';
   try {
+    const current = await api(`/api/daily-tasks?systemKey=${encodeURIComponent(systemKey)}`);
+    const serverTask = current.task || {};
+    task.claimable = serverTask.progress?.claimable === true;
+    task.progress = serverTask.progress || null;
+    if (task.claimable) {
+      const result = await api('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey, idempotencyKey: `daily:${systemKey}:${crypto.randomUUID()}` }) });
+      await showTaskVerificationAd(result.verificationAdId);
+      const finalized = await finalizeDailySystemTask(result.attemptId);
+      if (finalized.status === 'verified') { await loadMe(); toast('Achievement claimed and reward credited.'); await loadTasks(); }
+      return;
+    }
     const referral = await api('/api/me');
     const url = referral.user?.referralLink;
     if (!url) throw new Error('Referral link is unavailable.');
-    if (typeof tg?.openTelegramLink === 'function') tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}`); else window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer');
-    toast('Invite link opened. The Claim button appears when the server records enough qualified referrals.');
-  } catch (error) { toast(error.message || 'Referral link is unavailable.'); }
+    if (typeof tg?.openTelegramLink === 'function') tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank'); else window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank', 'noopener,noreferrer');
+    toast(`Invite progress: ${serverTask.progress?.completed || 0}/${serverTask.progress?.target || 'target'}.`);
+  } catch (error) { toast(error.message || 'Unable to process invitation task.'); }
+  finally { button.disabled = false; button.textContent = task.claimable ? 'Claim' : 'Invite'; }
 }
 async function verifyTaskAttempt(task, button, saved) {
   button.disabled = true; button.textContent = 'Verifying…';
@@ -226,7 +247,7 @@ async function verifyTaskAttempt(task, button, saved) {
     if (status.status === 'verified') { await loadMe(); toast('Task verified and reward credited.'); delete state.taskActions[task.id]; renderTaskCategory(state.taskCategory); }
     else if (status.status === 'rejected') toast('Task verification was rejected.');
   } catch (error) { toast(error.message || 'Unable to verify task.'); }
-  finally { button.disabled = false; if (button.isConnected) button.textContent = taskActionLabel(task); }
+  finally { button.disabled = false; if (button.isConnected) button.textContent = 'Verify'; }
 }
 async function startTaskAction(taskId) {
   const task = state.tasks.find(item => String(item.id) === String(taskId));
@@ -234,17 +255,15 @@ async function startTaskAction(taskId) {
   const numericTaskId = Number(task.id);
   if (!Number.isSafeInteger(numericTaskId) || numericTaskId <= 0) throw new Error('Task id is invalid');
   const saved = state.taskActions[task.id];
-  if (saved?.attemptId) return verifyTaskAttempt(task, document.querySelector(`[data-task-id="${task.id}"] .task-action`), saved);
-  if (task.campaignUrl && (task.verification?.method === 'click_proof' || task.verification?.method === 'url_format_match' || task.verification?.method === 'bot_api')) {
-    const result = await api('/api/tasks/execute', { method: 'POST', body: JSON.stringify({ taskId: numericTaskId, idempotencyKey: `task:${task.id}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
-    state.taskActions[task.id] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
-    window.open(task.campaignUrl, '_blank', 'noopener,noreferrer');
-    toast('Task action opened. Tap Verify to complete the verification gate.');
-    renderTaskCategory(state.taskCategory);
-    return result;
+  if (saved?.attemptId) {
+    if (task.campaignUrl) window.open(task.campaignUrl, '_blank', 'noopener,noreferrer');
+    toast('Task opened. Tap Verify after completing the task.');
+    return saved;
   }
   const result = await api('/api/tasks/execute', { method: 'POST', body: JSON.stringify({ taskId: numericTaskId, idempotencyKey: `task:${task.id}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
   state.taskActions[task.id] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
+  if (task.campaignUrl) window.open(task.campaignUrl, '_blank', 'noopener,noreferrer');
+  toast('Task opened. Tap Verify to complete the verification gate.');
   renderTaskCategory(state.taskCategory);
   return result;
 }
@@ -295,6 +314,20 @@ document.addEventListener('click', event => {
   const back = event.target.closest('[data-task-back]'); if (back) { state.taskCategory = null; renderTaskCategories(); return; }
   const dailyButton = event.target.closest('.daily-system-action');
   if (dailyButton) { startDailySystemTaskFlow(dailyButton.dataset.systemKey, dailyButton); return; }
+  const verifyButton = event.target.closest('.task-verify-action');
+  if (verifyButton) {
+    const task = state.tasks.find(item => String(item.id) === String(verifyButton.dataset.taskVerify));
+    const saved = task && state.taskActions[task.id];
+    if (!task || !saved?.attemptId) return;
+    verifyTaskAttempt(task, verifyButton, saved).catch(error => { verifyButton.disabled = false; toast(error.message || 'Unable to verify task.'); });
+    return;
+  }
+  const openButton = event.target.closest('.task-open-action');
+  if (openButton) {
+    openButton.disabled = true;
+    startTaskAction(openButton.dataset.taskOpen).catch(error => { openButton.disabled = false; toast(error.message || 'Unable to open task.'); });
+    return;
+  }
   const taskButton = event.target.closest('.task-action');
   if (taskButton) { taskButton.disabled = true; startTaskAction(taskButton.dataset.taskId).catch(error => { taskButton.disabled = false; toast(error.message || 'Unable to start task.'); }); }
   if (event.target.closest('#withdrawBtn')) toast('Withdrawal flow will open after the wallet backend is implemented and verified.');
