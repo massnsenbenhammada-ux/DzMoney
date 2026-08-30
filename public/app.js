@@ -9,6 +9,7 @@ const MONETAG_PRELOAD_TIMEOUT_SECONDS = 12;
 const TASK_VERIFICATION_POLL_MS = 1000;
 const TASK_VERIFICATION_POLL_LIMIT = 30000;
 const DAILY_SYSTEM_VERIFY_POLL_LIMIT = 30000;
+const DAILY_TASK_RETRY_AFTER_MS = DAILY_SYSTEM_VERIFY_POLL_LIMIT;
 
 function getMonetagHandler() {
   const adapter = window.DzMoneyMonetag;
@@ -172,6 +173,7 @@ function setDailyTaskButton(text, disabled) {
   button.textContent = text;
 }
 async function loadDailyTaskStatus() {
+  clearTimeout(loadDailyTaskStatus.retryTimer);
   try {
     const status = await api('/api/daily-checkin/status');
     if (status.status === 'cooldown' && status.nextEligibleAt) {
@@ -186,8 +188,22 @@ async function loadDailyTaskStatus() {
       }, 1000);
       return status;
     }
+    clearInterval(loadDailyTaskStatus.timer);
     state.dailyTaskCooldownUntil = null;
-    if (status.status === 'pending') { state.dailyTaskPending = true; setDailyTaskButton('Verifying…', true); return status; }
+    if (status.status === 'pending') {
+      if (status.retryable) {
+        state.dailyTaskPending = false;
+        setDailyTaskButton('Retry', false);
+        return status;
+      }
+      state.dailyTaskPending = true;
+      setDailyTaskButton('Verifying…', true);
+      const pendingSince = new Date(status.pendingSince || 0).getTime();
+      const remaining = Number.isFinite(pendingSince) ? Math.max(0, DAILY_TASK_RETRY_AFTER_MS - (Date.now() - pendingSince)) : DAILY_TASK_RETRY_AFTER_MS;
+      loadDailyTaskStatus.retryTimer = setTimeout(loadDailyTaskStatus, remaining + 50);
+      return status;
+    }
+    state.dailyTaskPending = false;
     if (!state.dailyTaskBusy) setDailyTaskButton('Check in', false);
     return status;
   } catch { return null; }
