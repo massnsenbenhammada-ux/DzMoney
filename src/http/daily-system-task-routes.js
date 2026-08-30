@@ -3,8 +3,9 @@ const walletService = require('../services/wallet-service');
 const dailyTasks = require('../services/daily-system-task-service');
 const taskVerificationService = require('../services/task-verification-service');
 const taskAdvertisementService = require('../services/task-advertisement-service');
+const referralService = require('../services/referral-service');
 const providerRegistryRuntime = require('../services/ad-provider-registry-runtime');
-const { DAILY_SYSTEM_TASKS } = require('../services/daily-system-task-contract');
+const { DAILY_SYSTEM_TASKS, isReferralAchievementClaimable } = require('../services/daily-system-task-contract');
 const { telegramAuth } = require('./telegram-auth');
 const { createRateLimit } = require('./rate-limit');
 
@@ -15,7 +16,6 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
   const userRateLimit = createRateLimit({ windowMs: 60_000, max: 60 });
   const sensitiveRateLimit = createRateLimit({ windowMs: 60_000, max: 15 });
-
   router.use(auth);
   router.use(userRateLimit);
 
@@ -28,11 +28,14 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
       const progress = await tasks.getAdvertisementProgress(task, user.id);
       return res.json({ ok: true, task: { id: task.id, systemKey: task.config?.systemKey, title: task.title, description: task.description, rewardCoin: Number(task.reward_coin), rewardDzx: Number(task.reward_dzx), rewardDzp: Number(task.reward_dzp), available: progress.available, progress } });
     }
-    const available = systemKey === DAILY_SYSTEM_TASKS.VIEW_ADS
-      ? await tasks.assertAdvertisementAvailable(task, user.id)
-      : task.config?.achievementThreshold !== undefined
-        ? await tasks.assertReferralAchievementAvailable(task, user.id)
-        : await tasks.assertAvailable(task, user.id);
+    if (task.config?.achievementThreshold !== undefined) {
+      const target = Number(task.config.achievementThreshold);
+      const qualified = await referralService.getQualifiedReferralCount(user.id);
+      const claimedResult = await dailyTasks.assertReferralAchievementAvailable(task, user.id);
+      const completed = Math.min(qualified, target);
+      return res.json({ ok: true, task: { id: task.id, systemKey: task.config?.systemKey, title: task.title, description: task.description, rewardCoin: Number(task.reward_coin), rewardDzx: Number(task.reward_dzx), rewardDzp: Number(task.reward_dzp), available: claimedResult, progress: { completed, target, claimable: isReferralAchievementClaimable(qualified, target, !claimedResult) } } });
+    }
+    const available = await tasks.assertAvailable(task, user.id);
     res.json({ ok: true, task: { id: task.id, systemKey: task.config?.systemKey, title: task.title, description: task.description, rewardCoin: Number(task.reward_coin), rewardDzx: Number(task.reward_dzx), rewardDzp: Number(task.reward_dzp), available } });
   }));
 
