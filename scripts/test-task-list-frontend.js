@@ -19,7 +19,7 @@ assert.match(appJs, /data-task-open=/, 'Open action must carry the task id');
 assert.match(appJs, /data-task-verify=/, 'Verify action must carry the task id');
 assert.match(appJs, /waitForTaskVerification\(saved\.attemptId\)/, 'Verify must poll the existing task attempt');
 assert.match(appJs, /showTaskVerificationAd\(saved\.verificationAdId\)/, 'Verify must display the verification advertisement');
-assert.match(appJs, /api\('\/api\/tasks\/attempt\//, 'Frontend must read task attempt verification status');
+assert.match(appJs, /api\((?:'\/api\/tasks\/attempt\/|`\/api\/tasks\/attempt\/)/, 'Frontend must read task attempt verification status');
 assert.match(appJs, /crypto\.randomUUID\(\)/, 'Task flows must use an idempotency key');
 
 assert.match(appJs, /TASK_CATEGORY_ORDER\s*=\s*\[/, 'Tasks UI must define one canonical category order');
