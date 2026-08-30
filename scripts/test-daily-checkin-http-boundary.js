@@ -50,8 +50,8 @@ async function run() {
   require.cache[walletPath].exports = { ...originalWallet, createUser: async () => ({ id: 42 }) };
   require.cache[poolPath].exports = {
     ...originalPool,
-    query: async text => text.includes('SELECT id FROM task_attempts')
-      ? { rows: [{ id: 42 }], rowCount: 1 }
+    query: async text => text.includes('FROM task_attempts') && text.includes("status='verification_pending'")
+      ? { rows: [{ id: 42, executed_at: new Date().toISOString() }], rowCount: 1 }
       : { rows: [], rowCount: 0 }
   };
 
