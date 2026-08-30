@@ -87,10 +87,7 @@ async function loadMe() {
     else toast('Account data is temporarily unavailable.');
   }
 }
-function taskReward(task) {
-  return `${format(task.rewardCoin)} COIN • ${format(task.rewardDzx)} DZX • ${format(task.rewardDzp)} DZP`;
-}
-function isDailyTask(task) { return task.taskType === 'daily' && task.systemKey; }
+function taskReward(task) { return `${format(task.rewardCoin)} COIN • ${format(task.rewardDzx)} DZX • ${format(task.rewardDzp)} DZP`; }
 function isInviteTask(task) { return /^invite_(1|10|20|50|100)_friend/.test(String(task.systemKey || '')) || /^invite_(10|20|50|100)_friends$/.test(String(task.systemKey || '')); }
 function taskActionLabel(task) {
   const key = String(task.systemKey || '');
@@ -109,10 +106,10 @@ function taskCard(task) {
     ? `data-system-key="${key}"`
     : `data-task-id="${String(task.id)}"`;
   const method = task.verification?.method ? String(task.verification.method).replace(/_/g, ' ') : 'verified';
-  const progress = key === 'view_ads' && state.dailyAdProgress ? `<small class="task-progress">${state.dailyAdProgress.completed}/${state.dailyAdProgress.target}</small>` : '';
+  const progress = key === 'view_ads' ? `<small class="task-progress">${state.dailyAdProgress?.completed || 0}/${state.dailyAdProgress?.target || 20}</small>` : '';
   const reward = key === 'view_ads' ? '<b class="task-reward">+1,000 COIN • +1 DZX at 20/20</b>' : `<b class="task-reward">${taskReward(task)}</b>`;
   const actionClass = key === 'view_ads' || key === 'daily_check_in' || key === 'check_for_update' || key === 'share_with_friends' || isInviteTask(task) ? 'daily-system-action' : 'task-action';
-  return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small>${progress}${reward}</div><button class="secondary-btn ${actionClass}" ${action}>${label}</button></article>`;
+  return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small>${progress}${reward}</div><button class="secondary-btn ${actionClass}" data-task-action="${key || String(task.id)}" ${action}>${label}</button></article>`;
 }
 function renderTaskCategories() {
   const container = $('tasksList');
@@ -234,17 +231,19 @@ async function verifyTaskAttempt(task, button, saved) {
 async function startTaskAction(taskId) {
   const task = state.tasks.find(item => String(item.id) === String(taskId));
   if (!task) throw new Error('Task is no longer available');
+  const numericTaskId = Number(task.id);
+  if (!Number.isSafeInteger(numericTaskId) || numericTaskId <= 0) throw new Error('Task id is invalid');
   const saved = state.taskActions[task.id];
   if (saved?.attemptId) return verifyTaskAttempt(task, document.querySelector(`[data-task-id="${task.id}"] .task-action`), saved);
   if (task.campaignUrl && (task.verification?.method === 'click_proof' || task.verification?.method === 'url_format_match' || task.verification?.method === 'bot_api')) {
-    const result = await api('/api/tasks/execute', { method: 'POST', body: JSON.stringify({ taskId: Number(task.id), idempotencyKey: `task:${task.id}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
+    const result = await api('/api/tasks/execute', { method: 'POST', body: JSON.stringify({ taskId: numericTaskId, idempotencyKey: `task:${task.id}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
     state.taskActions[task.id] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
     window.open(task.campaignUrl, '_blank', 'noopener,noreferrer');
     toast('Task action opened. Tap Verify to complete the verification gate.');
     renderTaskCategory(state.taskCategory);
     return result;
   }
-  const result = await api('/api/tasks/execute', { method: 'POST', body: JSON.stringify({ taskId: Number(task.id), idempotencyKey: `task:${task.id}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }));
+  const result = await api('/api/tasks/execute', { method: 'POST', body: JSON.stringify({ taskId: numericTaskId, idempotencyKey: `task:${task.id}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
   state.taskActions[task.id] = { attemptId: result.attemptId, verificationAdId: result.verificationAdId };
   renderTaskCategory(state.taskCategory);
   return result;
