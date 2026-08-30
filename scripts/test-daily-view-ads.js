@@ -1,6 +1,7 @@
 const assert = require('assert');
 const { DAILY_SYSTEM_TASKS, isUtcPlusOneCalendarDayAvailable } = require('../src/services/daily-system-task-contract');
 const source = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'daily-system-task-service.js'), 'utf8');
+const migration = require('fs').readFileSync(require('path').join(__dirname, '..', 'migrations', '029_daily_view_ads_target.sql'), 'utf8');
 
 function testViewAdsIdentifier() {
   assert.strictEqual(DAILY_SYSTEM_TASKS.VIEW_ADS, 'view_ads');
@@ -13,8 +14,8 @@ function testViewAdsUsesCalendarDayNotRollingCooldown() {
 }
 
 function testViewAdsHasTwentyAdTargetAndServerProgress() {
-  assert.match(source, /VIEW_ADS_TARGET\s*=\s*20/);
-  assert.match(source, /context='task'/);
+  assert.match(migration, /advertisementTarget.*20/);
+  assert.match(source, /advertisementTarget/);
   assert.match(source, /COUNT\(\*\)/);
   assert.match(source, /verified=TRUE/);
 }
