@@ -55,9 +55,6 @@ const renderTaskCategoryEnd = app.indexOf('\nfunction renderTasks()', renderTask
 const renderTaskCategoryBody = renderTaskCategoryStart >= 0 && renderTaskCategoryEnd > renderTaskCategoryStart ? app.slice(renderTaskCategoryStart, renderTaskCategoryEnd) : '';
 const categoryClick = app.indexOf("const category = event.target.closest('[data-task-category]')");
 const categoryDailyRefresh = categoryClick >= 0 ? app.slice(categoryClick, categoryClick + 320) : '';
-const renderTaskCategoriesStart = app.indexOf('function renderTaskCategories()');
-const renderTaskCategoriesEnd = app.indexOf('\nfunction sortDailyTasks', renderTaskCategoriesStart);
-const renderTaskCategoriesBody = renderTaskCategoriesStart >= 0 && renderTaskCategoriesEnd > renderTaskCategoriesStart ? app.slice(renderTaskCategoriesStart, renderTaskCategoriesEnd) : '';
 
 const taskUxChecks = {
   cooldownIsolated: /systemKey\s*===\s*['"]daily_check_in['"]\s*&&\s*state\.dailyTaskCooldownUntil/.test(app),
@@ -105,8 +102,8 @@ console.log('TASK_REWARD_POPUP_CONTRACT: PASS');
 console.log('TASK_CREATOR_TABS: PASS');
 console.log('WATCH_POLLING_RATE_LIMIT_GUARD: PASS');
 console.log('CREATOR_CATEGORY_SCOPE: PASS');
+console.log('DAILY_REFRESH_RECURSION_GUARD: PASS');
 console.log('CREATOR_TABS_CATEGORY_SCOPE: PASS');
 console.log('CREATOR_TASKS_ONLY_ENTRY: PASS');
 console.log('TASKS_LANDING_DEFAULT: PASS');
-console.log('DAILY_REFRESH_RECURSION_GUARD: PASS');
 console.log('TASK_AD_PROVIDER_CONTEXT: PASS');
