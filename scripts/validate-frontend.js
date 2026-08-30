@@ -55,6 +55,9 @@ const renderTaskCategoryEnd = app.indexOf('\nfunction renderTasks()', renderTask
 const renderTaskCategoryBody = renderTaskCategoryStart >= 0 && renderTaskCategoryEnd > renderTaskCategoryStart ? app.slice(renderTaskCategoryStart, renderTaskCategoryEnd) : '';
 const categoryClick = app.indexOf("const category = event.target.closest('[data-task-category]')");
 const categoryDailyRefresh = categoryClick >= 0 ? app.slice(categoryClick, categoryClick + 320) : '';
+const renderTaskCategoriesStart = app.indexOf('function renderTaskCategories()');
+const renderTaskCategoriesEnd = app.indexOf('\nfunction sortDailyTasks', renderTaskCategoriesStart);
+const renderTaskCategoriesBody = renderTaskCategoriesStart >= 0 && renderTaskCategoriesEnd > renderTaskCategoriesStart ? app.slice(renderTaskCategoriesStart, renderTaskCategoriesEnd) : '';
 
 const taskUxChecks = {
   cooldownIsolated: /systemKey\s*===\s*['"]daily_check_in['"]\s*&&\s*state\.dailyTaskCooldownUntil/.test(app),
@@ -70,9 +73,12 @@ const taskUxChecks = {
   watchPollingRateLimitGuard: /const DAILY_AD_FINALIZE_POLL_MS\s*=\s*3000/.test(app),
   watchUsesPollingInterval: /await wait\(DAILY_AD_FINALIZE_POLL_MS\)/.test(app),
   creatorHiddenInCategory: /function renderTaskCategory\([\s\S]*?creatorPanel\.hidden = true/.test(app),
-  creatorVisibleOnCategoryList: /function renderTaskCategories\([\s\S]*?creatorPanel\.hidden = false/.test(app),
+  creatorHiddenOnCategoryList: /function renderTaskCategories\([\s\S]*?creatorPanel\.hidden = true/.test(app),
   creatorTabsHiddenInCategory: /function renderTaskCategory\([\s\S]*?setTaskModeTabsVisible\(false\)/.test(app),
   creatorTabsVisibleOnCategoryList: /function renderTaskCategories\([\s\S]*?setTaskModeTabsVisible\(true\)/.test(app),
+  creatorNotInHome: !/<button[^>]+data-go="tasks"[^>]+data-open-task-mode="creator"/.test(index),
+  creatorNotInBottomNav: !/<nav class="bottom-nav"[\s\S]*data-open-task-mode="creator"/.test(index),
+  tasksLandingDefault: /function showPage\(page\)[\s\S]*?if \(page === 'tasks'\) \{ state\.taskCategory = null; loadTasks\(\); \}/.test(app),
   dailyRefreshOutsideRenderer: renderTaskCategoryBody.length > 0 && !renderTaskCategoryBody.includes('loadDailyTaskStatus()') && !renderTaskCategoryBody.includes('loadDailyAdProgress()'),
   dailyRefreshOnCategoryEntry: categoryDailyRefresh.includes('renderTaskCategory(category.dataset.taskCategory)') && categoryDailyRefresh.includes("category.dataset.taskCategory === 'daily'") && categoryDailyRefresh.includes('loadDailyTaskStatus()') && categoryDailyRefresh.includes('loadDailyAdProgress()'),
   dailyRefreshScopedToDailyPage: /state\.page === 'tasks' && state\.taskCategory === 'daily'/.test(app),
@@ -99,6 +105,8 @@ console.log('TASK_REWARD_POPUP_CONTRACT: PASS');
 console.log('TASK_CREATOR_TABS: PASS');
 console.log('WATCH_POLLING_RATE_LIMIT_GUARD: PASS');
 console.log('CREATOR_CATEGORY_SCOPE: PASS');
-console.log('DAILY_REFRESH_RECURSION_GUARD: PASS');
 console.log('CREATOR_TABS_CATEGORY_SCOPE: PASS');
+console.log('CREATOR_TASKS_ONLY_ENTRY: PASS');
+console.log('TASKS_LANDING_DEFAULT: PASS');
+console.log('DAILY_REFRESH_RECURSION_GUARD: PASS');
 console.log('TASK_AD_PROVIDER_CONTEXT: PASS');
