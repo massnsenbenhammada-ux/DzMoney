@@ -18,7 +18,7 @@ async function main() {
   assert.match(body, /await\s+handler\(\{\s*ymid\s*,\s*requestVar:\s*['"]verification['"]\s*\}\)/, 'Canonical verification ad must show the same ymid with the verification requestVar');
 
   const dailyFlowStart = app.indexOf('async function startDailySystemTaskFlow');
-  const dailyFlowEnd = app.indexOf('\n}\nasync function startDailyAdvertisementFlow', dailyFlowStart);
+  const dailyFlowEnd = app.indexOf('\n}\nfunction setDailyTaskButton', dailyFlowStart);
   assert.ok(dailyFlowStart >= 0 && dailyFlowEnd > dailyFlowStart, 'Canonical Daily System Task flow must exist');
   const dailyFlow = app.slice(dailyFlowStart, dailyFlowEnd);
   assert.match(dailyFlow, /await\s+showTaskVerificationAd\(result\.verificationAdId\)/, 'Daily Check-in must pass the server-issued verification advertisement id to the canonical verification ad flow');
