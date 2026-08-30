@@ -31,7 +31,7 @@ const registry = new AdProviderRegistry([provider]);
 async function createUser() {
   const marker = String(Date.now());
   const result = await pool.query(
-    'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id',
+    'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id, telegram_user_id',
     [marker, `task_ad_${Date.now()}`, 'Task Ad Test']
   );
   const userId = result.rows[0].id;
@@ -43,7 +43,7 @@ async function createUser() {
       );
     }
   });
-  return userId;
+  return { userId, telegramUserId: result.rows[0].telegram_user_id };
 }
 
 async function createTask() {
@@ -79,7 +79,7 @@ async function cleanup(userId, taskId) {
 }
 
 async function main() {
-  const userId = await createUser();
+  const { userId, telegramUserId } = await createUser();
   const taskId = await createTask();
   const idempotencyKey = `task-ad-${Date.now()}`;
   const clientProviderId = 'attacker-provider';
@@ -118,24 +118,24 @@ async function main() {
     );
 
     await assert.rejects(
-      () => verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: providerReference, userId } }),
+      () => verifyTaskAdvertisement({ userId, adEventId: started.adEvent.id, providerRegistry: registry, providerPayload: { accepted: true, reference: providerReference, userId: telegramUserId } }),
       /Task advertisement verification must use trusted provider ingress/
     );
 
     await assert.rejects(
-      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: false, reference: providerReference, userId }, providerRegistry: registry }),
+      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: false, reference: providerReference, userId: telegramUserId }, providerRegistry: registry }),
       /Advertisement provider verification failed/
     );
 
     await assert.rejects(
-      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId: userId + 1 }, providerRegistry: registry }),
+      () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId: `${telegramUserId}-other` }, providerRegistry: registry }),
       /Trusted task provider user does not match advertisement owner/
     );
 
-    const verified = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId }, providerRegistry: registry });
+    const verified = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId: telegramUserId }, providerRegistry: registry });
     assert.strictEqual(verified.adEvent.verified, true);
 
-    const duplicateVerification = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId }, providerRegistry: registry });
+    const duplicateVerification = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: providerReference, userId: telegramUserId }, providerRegistry: registry });
     assert.strictEqual(duplicateVerification.duplicate, true);
 
     const rewarded = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
