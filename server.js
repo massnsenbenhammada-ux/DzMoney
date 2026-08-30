@@ -9,7 +9,7 @@ const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-rou
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
-const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-routes');
+const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-router');
 const { createRateLimit } = require('./src/http/rate-limit');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
@@ -21,9 +21,10 @@ const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
 const onclickaConfirmationSecret = process.env.ONCLICKA_CONFIRMATION_SECRET;
 const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || 'dev';
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
+const CLIENT_AD_CONTEXTS = ['task', 'daily_checkin', 'verification'];
 
 function clientAdConfig() {
-  return Object.fromEntries(['daily_checkin', 'verification'].map(context => {
+  return Object.fromEntries(CLIENT_AD_CONTEXTS.map(context => {
     const provider = providerRegistry.listAvailable(context)[0] || null;
     return [context, provider ? { id: provider.id, ...(provider.clientConfig || {}) } : null];
   }));
