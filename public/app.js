@@ -17,6 +17,7 @@ const MONETAG_PRELOAD_TIMEOUT_SECONDS = 12;
 const TASK_VERIFICATION_POLL_MS = 1000;
 const TASK_VERIFICATION_POLL_LIMIT = 30000;
 const DAILY_SYSTEM_VERIFY_POLL_LIMIT = 30000;
+const DAILY_AD_FINALIZE_POLL_MS = 3000;
 const DAILY_TASK_RETRY_AFTER_MS = DAILY_SYSTEM_VERIFY_POLL_LIMIT;
 
 function getMonetagHandler() {
@@ -138,6 +139,8 @@ function taskCard(task) {
 function renderTaskCategories() {
   const container = $('tasksList');
   if (!container) return;
+  const creatorPanel = $('creatorTaskPanel');
+  if (creatorPanel && state.page === 'tasks') creatorPanel.hidden = false;
   container.innerHTML = `<div class="task-category-list">${TASK_CATEGORY_ORDER.map(category => { const count = state.tasks.filter(task => task.taskType === category.key).length; return `<button class="task-category-card" data-task-category="${category.key}"><span class="task-category-icon">${category.icon}</span><span class="task-category-copy"><strong>${category.label}</strong><small>${category.description}</small><em>${count} active task${count === 1 ? '' : 's'}</em></span><span class="task-category-arrow">›</span></button>`; }).join('')}</div>`;
 }
 function sortDailyTasks(tasks) {
@@ -151,6 +154,8 @@ function renderTaskCategory(categoryKey) {
   const container = $('tasksList');
   const category = TASK_CATEGORY_ORDER.find(item => item.key === categoryKey);
   if (!container || !category) return renderTaskCategories();
+  const creatorPanel = $('creatorTaskPanel');
+  if (creatorPanel) creatorPanel.hidden = true;
   state.taskCategory = categoryKey;
   const tasks = state.tasks.filter(task => task.taskType === categoryKey);
   const ordered = categoryKey === 'daily' ? sortDailyTasks(tasks) : tasks;
@@ -301,7 +306,7 @@ async function startDailyAdvertisementFlow(button) {
     const deadline = Date.now() + 30000;
     while (Date.now() < deadline) {
       try { const finalized = await api('/api/daily-tasks/advertisement/finalize', { method: 'POST', body: JSON.stringify({ adEventId: result.adEventId }) }); if (finalized.progress) state.dailyAdProgress = finalized.progress; if (finalized.rewarded) { await loadMe(); showRewardOutcome(finalized, task); break; } } catch (error) { if (!String(error.message || '').includes('must be verified first')) throw error; }
-      await wait(1000);
+      await wait(DAILY_AD_FINALIZE_POLL_MS);
     }
     await loadDailyAdProgress();
   } catch (error) { showRewardPopup(null, false); toast(error.message || 'Unable to show advertisement.'); }

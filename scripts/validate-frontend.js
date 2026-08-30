@@ -60,7 +60,14 @@ const taskUxChecks = {
   creatorFormInsideTasks: /data-page="tasks"[\s\S]*id="creatorTaskForm"/.test(index),
   tasksLeftTab: /data-task-mode="tasks"/.test(index),
   creatorRightTab: /data-task-mode="creator"/.test(index),
-  creatorPanelBinding: creator.includes('function setCreatorPanelVisible') && creator.includes('data-task-mode')
+  creatorPanelBinding: creator.includes('function setCreatorPanelVisible') && creator.includes('data-task-mode'),
+  watchPollingRateLimitGuard: /const DAILY_AD_FINALIZE_POLL_MS\s*=\s*3000/.test(app),
+  watchUsesPollingInterval: /await wait\(DAILY_AD_FINALIZE_POLL_MS\)/.test(app),
+  creatorHiddenInCategory: /function renderTaskCategory\([\s\S]*?creatorPanel\.hidden = true/.test(app),
+  creatorVisibleOnCategoryList: /function renderTaskCategories\([\s\S]*?creatorPanel\.hidden = false/.test(app),
+  taskProviderContextServer: /\['task', 'daily_checkin', 'verification'\]/.test(server),
+  taskProviderConfigServer: /clientAdConfig\(\)[\s\S]*?listAvailable\(context\)/.test(server),
+  taskAdProviderSelection: /selectProvider\(providerRegistry, \{ context: 'task' \}\)/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8'))
 };
 const failedTaskUxChecks = Object.entries(taskUxChecks).filter(([, passed]) => !passed).map(([name]) => name);
 if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskUxChecks.join(', ')}`);
@@ -79,3 +86,6 @@ console.log('CREATOR_IDEMPOTENCY_AND_REVIEW_BOUNDARY: PASS');
 console.log('TASK_COOLDOWN_SCOPE: PASS');
 console.log('TASK_REWARD_POPUP_CONTRACT: PASS');
 console.log('TASK_CREATOR_TABS: PASS');
+console.log('WATCH_POLLING_RATE_LIMIT_GUARD: PASS');
+console.log('CREATOR_CATEGORY_SCOPE: PASS');
+console.log('TASK_AD_PROVIDER_CONTEXT: PASS');
