@@ -43,6 +43,19 @@ function testDailyClickProof() {
   assert.strictEqual(resolved.campaignUrl, null);
 }
 
+function testDailyAdvertisementModePreserved() {
+  const resolved = resolveVerificationConfig({
+    taskType: 'daily',
+    config: {
+      systemKey: 'daily_check_in',
+      dailyPolicy: 'rolling_24h',
+      dailyMode: 'advertisement',
+      verification: {}
+    }
+  });
+  assert.strictEqual(resolved.dailyMode, 'advertisement');
+}
+
 function testUnsupportedCreatorMethodsRejected() {
   assert.throws(
     () => validateCreatorProviderConfiguration('web', {
@@ -109,6 +122,7 @@ try {
   testLegacyCompletionRejected();
   testCreatorContracts();
   testDailyClickProof();
+  testDailyAdvertisementModePreserved();
   testUnsupportedCreatorMethodsRejected();
   testGenericProviderValidation();
   testReferralModes();
