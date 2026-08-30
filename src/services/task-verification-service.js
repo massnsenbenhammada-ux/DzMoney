@@ -28,7 +28,13 @@ function resolveTelegramTaskChannel(verification) {
 
 function resolveTrustedTaskVerifier({ config, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
   const verification = config?.verification || {};
-  if (config?.dailyMode === 'advertisement') return async () => true;
+  if (config?.dailyMode === 'advertisement') {
+    return async ({ attemptId }) => {
+      const result = await query(`SELECT g.status AS gate_status FROM task_verification_gates g WHERE g.attempt_id=$1`, [requiredId(attemptId, 'attemptId')]);
+      if (!result.rowCount) throw new Error('Verification gate not found');
+      return result.rows[0].gate_status === 'ad_completed';
+    };
+  }
   if (verification.method === 'click_proof') {
     return async ({ attemptId }) => {
       const result = await query('SELECT metadata FROM task_attempts WHERE id=$1', [requiredId(attemptId, 'attemptId')]);
