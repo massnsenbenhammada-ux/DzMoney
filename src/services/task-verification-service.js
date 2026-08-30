@@ -104,6 +104,7 @@ async function loadTaskVerificationAttempt(attemptId, lock = false, client = nul
 
 function validateTaskVerificationState(row) {
   if (row.status === 'verified') return { duplicate: true, status: 'verified' };
+  if (row.status === 'rejected' || row.status === 'expired') return { duplicate: false, status: row.status, rewarded: false };
   if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
   if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
   return null;
