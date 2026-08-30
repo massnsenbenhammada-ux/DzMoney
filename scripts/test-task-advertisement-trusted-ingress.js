@@ -44,6 +44,11 @@ async function createUser(prefix) {
   return userId;
 }
 
+async function getTelegramUserId(userId) {
+  const result = await pool.query('SELECT telegram_user_id FROM users WHERE id=$1', [userId]);
+  return result.rows[0]?.telegram_user_id;
+}
+
 async function createTask() {
   const result = await pool.query(
     `INSERT INTO activity_tasks
@@ -79,6 +84,9 @@ async function main() {
 
   const userId = await createUser('trusted_task');
   const otherUserId = await createUser('other_trusted_task');
+  const telegramUserId = await getTelegramUserId(userId);
+  const otherTelegramUserId = await getTelegramUserId(otherUserId);
+  assert.notStrictEqual(String(userId), String(telegramUserId));
   const taskId = await createTask();
   try {
     const started = await startTaskAdvertisement({
@@ -94,7 +102,7 @@ async function main() {
     await assert.rejects(
       () => verifyTrustedTaskAdvertisement({
         providerId: provider.id,
-        providerPayload: { accepted: false, reference: providerReference, userId, providerId: provider.id, context: 'task' },
+        providerPayload: { accepted: false, reference: providerReference, userId: telegramUserId, providerId: provider.id, context: 'task' },
         providerRegistry: registry
       }),
       /Advertisement provider verification failed/
@@ -103,7 +111,7 @@ async function main() {
     await assert.rejects(
       () => verifyTrustedTaskAdvertisement({
         providerId: provider.id,
-        providerPayload: { accepted: true, missingReference: true, userId, providerId: provider.id, context: 'task' },
+        providerPayload: { accepted: true, missingReference: true, userId: telegramUserId, providerId: provider.id, context: 'task' },
         providerRegistry: registry
       }),
       /Trusted task provider reference is required/
@@ -111,7 +119,7 @@ async function main() {
 
     const verified = await verifyTrustedTaskAdvertisement({
       providerId: provider.id,
-      providerPayload: { accepted: true, reference: providerReference, userId, providerId: provider.id, context: 'task' },
+      providerPayload: { accepted: true, reference: providerReference, userId: telegramUserId, providerId: provider.id, context: 'task' },
       providerRegistry: registry
     });
     assert.strictEqual(verified.adEvent.id, started.adEvent.id);
@@ -120,7 +128,7 @@ async function main() {
     await assert.rejects(
       () => verifyTrustedTaskAdvertisement({
         providerId: provider.id,
-        providerPayload: { accepted: true, reference: providerReference, userId: otherUserId, providerId: provider.id, context: 'task' },
+        providerPayload: { accepted: true, reference: providerReference, userId: otherTelegramUserId, providerId: provider.id, context: 'task' },
         providerRegistry: registry
       }),
       /Trusted task provider user does not match advertisement owner/
@@ -128,7 +136,7 @@ async function main() {
 
     const duplicate = await verifyTrustedTaskAdvertisement({
       providerId: provider.id,
-      providerPayload: { accepted: true, reference: providerReference, userId, providerId: provider.id, context: 'task' },
+      providerPayload: { accepted: true, reference: providerReference, userId: telegramUserId, providerId: provider.id, context: 'task' },
       providerRegistry: registry
     });
     assert.strictEqual(duplicate.duplicate, true);
@@ -136,7 +144,7 @@ async function main() {
     await assert.rejects(
       () => verifyTrustedTaskAdvertisement({
         providerId: provider.id,
-        providerPayload: { accepted: true, reference: providerReference, userId, providerId: 'another-provider', context: 'task' },
+        providerPayload: { accepted: true, reference: providerReference, userId: telegramUserId, providerId: 'another-provider', context: 'task' },
         providerRegistry: registry
       }),
       /Trusted task provider identity does not match/
@@ -145,7 +153,7 @@ async function main() {
     await assert.rejects(
       () => verifyTrustedTaskAdvertisement({
         providerId: provider.id,
-        providerPayload: { accepted: true, reference: providerReference, userId, providerId: provider.id, context: 'daily_checkin' },
+        providerPayload: { accepted: true, reference: providerReference, userId: telegramUserId, providerId: provider.id, context: 'daily_checkin' },
         providerRegistry: registry
       }),
       /Trusted task provider context must be task/
@@ -154,7 +162,7 @@ async function main() {
     await assert.rejects(
       () => verifyTrustedTaskAdvertisement({
         providerId: 'unknown-provider',
-        providerPayload: { accepted: true, reference: providerReference, userId, providerId: 'unknown-provider', context: 'task' },
+        providerPayload: { accepted: true, reference: providerReference, userId: telegramUserId, providerId: 'unknown-provider', context: 'task' },
         providerRegistry: registry
       }),
       /Advertisement provider unknown-provider is not available for task/
