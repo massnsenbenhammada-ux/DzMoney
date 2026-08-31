@@ -21,7 +21,7 @@ function fakeDb(rows) {
 test('provisions a Squad from the oldest ten unassigned users and assigns the oldest as owner', async () => {
   const users = Array.from({ length: 10 }, (_, index) => ({ id: index + 10 }));
   const db = fakeDb(users);
-  const result = await provisionSquadForUsers(db);
+  const result = await provisionSquadForUsers(db.transaction.bind(db));
   assert.deepEqual(result, { squadId: 1, ownerUserId: 10 });
   const selection = db.calls.find(call => /FROM users/.test(call.sql));
   assert.match(selection.sql, /ORDER BY u\.created_at ASC, u\.id ASC/);
@@ -29,5 +29,6 @@ test('provisions a Squad from the oldest ten unassigned users and assigns the ol
 });
 
 test('returns null when fewer than ten unassigned users exist', async () => {
-  assert.equal(await provisionSquadForUsers(fakeDb([{ id: 1 }])), null);
+  const db = fakeDb([{ id: 1 }]);
+  assert.equal(await provisionSquadForUsers(db.transaction.bind(db)), null);
 });
