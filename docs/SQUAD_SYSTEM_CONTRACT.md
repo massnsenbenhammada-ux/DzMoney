@@ -1,7 +1,7 @@
 # DzMoney — Squad System Contract
 
 > **Status: LOCKED BUSINESS CONTRACT**
-> 
+>
 > This document supersedes all earlier Squad rules. The old hierarchical/10-level Squad specification is obsolete and must not be reintroduced.
 
 ## 1. Independence and sources of truth
@@ -10,9 +10,17 @@
 - Verified Activity remains the source of activity evidence.
 - Existing Economy/Ledger remains the single economic source of truth.
 - Squad is a modifier/accounting layer, not a new Economy, Ledger, Verification, Reward, or Activity system.
-- DZP is the Squad measurement unit and contribution unit, represented as **DZP**. It is not a new currency.
+- DZP is the Squad measurement unit and contribution unit. It is not a new currency.
 
-## 2. Squad membership
+## 2. Squad creation and ownership
+
+- Squads are created by the system. Users do not create Squads.
+- The system assigns the Squad Owner. Users do not self-assign as Owner.
+- Owner is an application role used for the invitation flow; Squad creation and Owner assignment are server-controlled.
+- Owner assignment must be server-authoritative and idempotent.
+- The concrete Owner-selection algorithm is an implementation detail and must not introduce a second source of truth or economic system.
+
+## 3. Squad membership
 
 A user can belong to only one Squad.
 
@@ -65,7 +73,7 @@ Example: a 100-member Squad may accept another selected member and become a 101-
 - Suspension/activation is distinct from the Squad's daily `ACTIVE`/`RISK` state.
 - A suspended member is not made active merely by hypothetical activity while suspended; the membership must first be valid for activity to count.
 
-## 3. Daily Squad state
+## 4. Daily Squad state
 
 Each UTC+1 calendar day is evaluated independently.
 
@@ -96,7 +104,7 @@ If neither condition is satisfied, the Squad state is **RISK**.
 
 - `inactive` means the member has not yet satisfied the day's activity requirement.
 - `active` means the member has performed at least one qualifying Verified Activity during that day.
-- Daily activity is counted from the **latest activity boundary** defined by the existing verified-activity records.
+- Daily activity is counted from the latest activity boundary defined by the existing verified-activity records.
 - Active-member accounting includes all members who were active on that day, not only the members who contributed to activating the Squad.
 
 ### Daily verified Squad ad target
@@ -105,7 +113,7 @@ The default is **10 verified advertisements per new UTC+1 day**.
 
 The value is Admin-configurable.
 
-## 4. Daily DZP Contribution
+## 5. Daily DZP Contribution
 
 Verified Activity produces the normal activity reward through the existing Economy/Ledger path.
 
@@ -119,7 +127,7 @@ The system must distinguish activity types when a Challenge scope requires it. F
 
 A verified activity can contribute to more than one matching Challenge when its type matches each Challenge's scope, but the underlying activity reward is never paid twice merely because multiple Challenges match it.
 
-## 5. Contributors and daily Modifier
+## 6. Contributors and daily Modifier
 
 The Squad Modifier is produced independently for each day.
 
@@ -158,7 +166,7 @@ DZP is never increased by the Squad Modifier.
 
 The original reward source remains immutable. Squad is metadata/modifier information and is not a new economic source.
 
-## 6. Weekly Challenges
+## 7. Weekly Challenges
 
 Weekly Challenge is an achievement system, not Reward Pool.
 
@@ -197,11 +205,11 @@ Distribution is based only on the **DZP Contribution earned during the current C
 
 A member must remain eligible at settlement to receive the Challenge reward. A cancelled/revoked membership does not receive it.
 
-## 7. Rounding
+## 8. Rounding
 
 Squad calculations must use the existing project's canonical Economy/decimal rounding rules. No Squad-specific rounding algorithm is introduced.
 
-## 8. Security and idempotency
+## 9. Security and idempotency
 
 - Membership activation is server-authoritative.
 - Purchase/burn is atomic and idempotent through the existing Economy/Ledger boundary.
@@ -210,7 +218,7 @@ Squad calculations must use the existing project's canonical Economy/decimal rou
 - Daily state and Modifier calculations are server-authoritative.
 - Frontend state never determines eligibility, contribution, Modifier, or reward amounts.
 
-## 9. Explicitly obsolete designs
+## 10. Explicitly obsolete designs
 
 The following earlier Squad assumptions are obsolete and must not be implemented:
 
@@ -221,4 +229,5 @@ The following earlier Squad assumptions are obsolete and must not be implemented
 - carrying Challenge points into a later cycle;
 - modifying DZP with the Squad percentage;
 - paying membership purchase DZP to the Squad Owner;
-- allowing users to select a specific Squad directly.
+- allowing users to select a specific Squad directly;
+- allowing users to create Squads or self-assign as Owners.
