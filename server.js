@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { query } = require('./src/db/pool');
 const meRoutes = require('./src/http/me-routes');
+const squadRoutes = require('./src/http/squad-routes');
 const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
 const { createDailySystemTaskRouter } = require('./src/http/daily-system-task-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
@@ -75,6 +76,7 @@ app.get('/health/db', async (_req, res) => {
 const publicApiRateLimit = createRateLimit({ windowMs: 60_000, max: 300, key: req => `ip:${req.ip || 'unknown'}` });
 app.use('/api', publicApiRateLimit);
 app.use('/api/me', meRoutes);
+app.use('/api/squad', squadRoutes);
 app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
 app.use('/api/creator/tasks', createCreatorTaskRouter());
