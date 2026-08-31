@@ -1,5 +1,5 @@
-async function provisionSquadForUsers(db) {
-  return db.transaction(async client => {
+async function provisionSquadForUsers(withTransaction) {
+  return withTransaction(async client => {
     await client.query("SELECT pg_advisory_xact_lock(hashtext('dzmoney:squad-provisioning'))");
     const users = await client.query(`
       SELECT u.id
