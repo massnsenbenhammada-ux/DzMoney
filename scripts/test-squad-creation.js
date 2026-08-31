@@ -1,24 +1,31 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-test('system-created Squad contract selects ownership server-side', () => {
-  const createSquad = ({ ownerUserId } = {}) => {
-    assert.equal(ownerUserId, undefined, 'client must not provide Squad ownership');
-    return { createdBy: 'system', ownerUserId: 'server-selected' };
-  };
+const { provisionSquadForUsers } = require('../src/services/squad-provisioning-service');
 
-  assert.deepEqual(createSquad(), {
-    createdBy: 'system',
-    ownerUserId: 'server-selected',
-  });
+test('provisions one Squad from the oldest ten unassigned users and assigns the oldest as owner', async () => {
+  const calls = [];
+  const db = {
+    async transaction(work) {
+      return work({
+        query: async (sql, params) => {
+          calls.push({ sql, params });
+          return { rows: [{ squad_id: 1, owner_user_id: 10 }] };
+        }
+      });
+    }
+  };
+  const result = await provisionSquadForUsers(db);
+  assert.deepEqual(result, { squadId: 1, ownerUserId: 10 });
+  assert.match(calls[0].sql, /ORDER BY created_at ASC, id ASC/);
+  assert.match(calls[0].sql, /LIMIT 10/);
 });
 
-test('Squad creation is idempotent for the same creation key', () => {
-  const created = new Map();
-  const createSquad = (key) => {
-    if (!created.has(key)) created.set(key, { id: `squad-${created.size + 1}` });
-    return created.get(key);
+test('returns null when fewer than ten unassigned users exist', async () => {
+  const db = {
+    async transaction(work) {
+      return work({ query: async () => ({ rows: [] }) });
+    }
   };
-
-  assert.strictEqual(createSquad('creation-1'), createSquad('creation-1'));
+  assert.equal(await provisionSquadForUsers(db), null);
 });
