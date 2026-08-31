@@ -1,7 +1,7 @@
 const express = require('express');
 const { query } = require('../db/pool');
 const { telegramAuth } = require('./telegram-auth');
-const { createInvitation, acceptInvitation } = require('../services/squad-membership-service');
+const { createInvitation, acceptInvitation, getPaidMembershipTiers, purchasePaidMembership } = require('../services/squad-membership-service');
 
 const router = express.Router();
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -40,6 +40,23 @@ router.get('/', asyncRoute(async (req, res) => {
       isOwner: Number(row.owner_user_id) === Number(userId)
     }
   });
+}));
+
+router.get('/membership-tiers', asyncRoute(async (req, res) => {
+  const tiers = await getPaidMembershipTiers({ query: (...args) => query(...args) });
+  res.json({ ok: true, tiers });
+}));
+
+router.post('/membership/purchase', asyncRoute(async (req, res) => {
+  const userId = await currentUserId(req);
+  if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
+  const keys = Object.keys(req.body || {});
+  if (keys.some(key => !['maxMembers', 'idempotencyKey'].includes(key))) return res.status(400).json({ ok: false, error: 'Unknown purchase fields' });
+  const maxMembers = Number(req.body?.maxMembers);
+  const idempotencyKey = String(req.body?.idempotencyKey || '');
+  if (!Number.isInteger(maxMembers) || maxMembers <= 0 || !idempotencyKey) return res.status(400).json({ ok: false, error: 'maxMembers and idempotencyKey are required' });
+  const result = await purchasePaidMembership({ userId, maxMembers, idempotencyKey });
+  res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, membership: { ...result.membership, id: String(result.membership.id), squad_id: String(result.membership.squad_id), user_id: String(result.membership.user_id) }, price: result.price, tier: result.tier, transactionId: result.transaction ? String(result.transaction.id) : undefined });
 }));
 
 router.get('/invitations', asyncRoute(async (req, res) => {
