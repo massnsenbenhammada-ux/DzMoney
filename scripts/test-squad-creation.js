@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { provisionSquadForUsers } = require('../src/services/squad-provisioning-service');
 
 function fakeDb(rows) {
@@ -31,4 +33,11 @@ test('provisions a Squad from the oldest ten unassigned users and assigns the ol
 test('returns null when fewer than ten unassigned users exist', async () => {
   const db = fakeDb([{ id: 1 }]);
   assert.equal(await provisionSquadForUsers(db.transaction.bind(db)), null);
+});
+
+test('Squad read route does not provision and user bootstrap does', () => {
+  const squadRoute = fs.readFileSync(path.join(__dirname, '../src/http/squad-routes.js'), 'utf8');
+  const meRoute = fs.readFileSync(path.join(__dirname, '../src/http/me-routes.js'), 'utf8');
+  assert.doesNotMatch(squadRoute, /provisionSquadForUsers/);
+  assert.match(meRoute, /provisionSquadForUsers\(withTransaction\)/);
 });

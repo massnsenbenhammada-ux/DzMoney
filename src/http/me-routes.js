@@ -1,9 +1,10 @@
 const express = require('express');
-const { query } = require('../db/pool');
+const { query, withTransaction } = require('../db/pool');
 const walletService = require('../services/wallet-service');
 const referralService = require('../services/referral-service');
 const { buildReferralLink } = require('../config/telegram');
 const { telegramAuth } = require('./telegram-auth');
+const { provisionSquadForUsers } = require('../services/squad-provisioning-service');
 
 const router = express.Router();
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -35,6 +36,7 @@ router.get('/', asyncRoute(async (req, res) => {
   });
 
   if (!existingUser) await attributeFirstEntry(user.id, req.telegramStartParam);
+  await provisionSquadForUsers(withTransaction);
 
   const wallets = await walletService.getUserWallets(user.id);
   const balances = Object.fromEntries(wallets.map(wallet => [wallet.currency, wallet.balance]));

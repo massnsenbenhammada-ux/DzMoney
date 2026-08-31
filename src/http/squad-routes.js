@@ -1,7 +1,6 @@
 const express = require('express');
-const { query, withTransaction } = require('../db/pool');
+const { query } = require('../db/pool');
 const { telegramAuth } = require('./telegram-auth');
-const { provisionSquadForUsers } = require('../services/squad-provisioning-service');
 
 const router = express.Router();
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -14,7 +13,6 @@ router.get('/', asyncRoute(async (req, res) => {
   const userId = user.rows[0]?.id;
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
 
-  await provisionSquadForUsers(withTransaction);
   const membership = await query(`
     SELECT s.id AS squad_id, s.owner_user_id,
            COUNT(sm2.id) FILTER (WHERE sm2.status <> 'cancelled') AS member_count
