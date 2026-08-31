@@ -1,15 +1,25 @@
 const squadCard = () => document.getElementById('squadCard');
 
-function renderSquad(squad) {
+function renderPaidMembership(tiers) {
+  return `<section><h3>Join a Squad</h3><p>Select a membership tier. DzMoney chooses the smallest eligible Squad in that tier.</p><div>${tiers.map(tier => `<button type="button" data-squad-tier="${Number(tier.maxMembers)}">${Number(tier.minMembers)}–${Number(tier.maxMembers)} members · ${Number(tier.price)} DZP</button>`).join('')}</div></section>`;
+}
+
+function renderSquad(squad, tiers = []) {
   const card = squadCard();
   if (!card) return;
   if (!squad) {
-    card.innerHTML = '<strong>Squad is being formed</strong><p>DzMoney creates Squads automatically when the required member pool is available.</p><div id="squadInvitations"></div>';
+    card.innerHTML = `<strong>Squad is being formed</strong><p>DzMoney creates Squads automatically when the required member pool is available.</p>${renderPaidMembership(tiers)}<div id="squadInvitations"></div>`;
     return;
   }
   const ownerText = squad.isOwner ? 'You are the Squad Owner' : 'Server-assigned Squad Owner';
-  card.innerHTML = `<strong>Squad #${String(squad.id)}</strong><p>${ownerText}</p><p><b>${Number(squad.memberCount)}</b> members</p><p>Membership: <b>${String(squad.membershipStatus || 'active')}</b></p><div id="squadInvitations"></div>${squad.isOwner ? '<form id="squadInviteForm"><input id="squadInviteTelegramId" inputmode="numeric" placeholder="Invitee Telegram ID" required><button type="submit">Invite</button></form>' : ''}`;
+  const purchase = squad.membershipStatus === 'cancelled' ? renderPaidMembership(tiers) : '';
+  card.innerHTML = `<strong>Squad #${String(squad.id)}</strong><p>${ownerText}</p><p><b>${Number(squad.memberCount)}</b> members</p><p>Membership: <b>${String(squad.membershipStatus || 'active')}</b></p>${purchase}<div id="squadInvitations"></div>${squad.isOwner ? '<form id="squadInviteForm"><input id="squadInviteTelegramId" inputmode="numeric" placeholder="Invitee Telegram ID" required><button type="submit">Invite</button></form>' : ''}`;
   loadInvitations();
+}
+
+async function loadPaidTiers() {
+  const data = await api('/api/squad/membership-tiers');
+  return Array.isArray(data.tiers) ? data.tiers : [];
 }
 
 async function loadInvitations() {
@@ -36,6 +46,21 @@ async function inviteUser(event) {
   await loadInvitations();
 }
 
+async function purchaseMembership(maxMembers) {
+  const button = document.querySelector(`[data-squad-tier="${String(maxMembers)}"]`);
+  if (button) button.disabled = true;
+  try {
+    await api('/api/squad/membership/purchase', {
+      method: 'POST',
+      body: JSON.stringify({ maxMembers, idempotencyKey: crypto.randomUUID() })
+    });
+    await loadSquad();
+  } catch (error) {
+    if (button) button.disabled = false;
+    alert(String(error.message || 'Squad membership purchase failed'));
+  }
+}
+
 async function acceptInvitation(event) {
   const button = event.target.closest('[data-accept-invitation]');
   if (!button) return;
@@ -54,8 +79,8 @@ async function loadSquad() {
   if (!card) return;
   card.innerHTML = '<strong>Loading Squad…</strong><p>Checking your server-side membership.</p>';
   try {
-    const data = await api('/api/squad');
-    renderSquad(data.squad || null);
+    const [data, tiers] = await Promise.all([api('/api/squad'), loadPaidTiers()]);
+    renderSquad(data.squad || null, tiers);
   } catch (error) {
     card.innerHTML = `<strong>Squad unavailable</strong><p>${String(error.message || 'Please try again later.')}</p>`;
   }
@@ -64,6 +89,8 @@ async function loadSquad() {
 document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go="squad"]');
   if (nav) setTimeout(loadSquad, 0);
+  const tier = event.target.closest('[data-squad-tier]');
+  if (tier) purchaseMembership(Number(tier.dataset.squadTier));
   acceptInvitation(event);
 });
 
