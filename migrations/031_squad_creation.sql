@@ -1,5 +1,4 @@
--- Phase 4 Squad creation foundation.
--- A Squad is system-created from users who do not have a Squad membership.
+-- Phase 4: minimal system-created Squad persistence.
 CREATE TABLE IF NOT EXISTS squads (
   id BIGSERIAL PRIMARY KEY,
   owner_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
@@ -18,6 +17,3 @@ CREATE TABLE IF NOT EXISTS squad_memberships (
 
 CREATE INDEX IF NOT EXISTS idx_squad_memberships_squad_status
   ON squad_memberships (squad_id, status);
-
-CREATE INDEX IF NOT EXISTS idx_squad_memberships_unassigned
-  ON squad_memberships (user_id);
