@@ -6,11 +6,13 @@
 
 ## Current state
 
-- **Current phase:** Phase 2 — Activity / Ads / Tasks remains open.
-- **Phase 3:** Referral core is partially implemented; Share with Friends uses the canonical referral link and existing Click Proof verification boundary. Production completion of an actual Telegram share is not claimed as provider-attested evidence.
+- **Current phase:** Phase 2 — Activity / Ads / Tasks.
+- **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
+- **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
+- **Phase 3:** Referral core is implemented but Phase 3 is not closed; Share with Friends uses the canonical referral link and existing Click Proof verification boundary. Telegram-native attestation that a share actually occurred is not claimed.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #186.
-- **Latest status reconciliation:** PR #187.
+- **Latest status reconciliation:** PR #188.
 
 ## Phase 0 — Specification Lock
 
@@ -32,7 +34,7 @@ No Phase 1 refactor is authorized unless a new invariant or security defect is p
 
 ## Phase 2 — Activity / Ads / Tasks
 
-🟡 Partially implemented; not closed.
+🟢 **Code scope closed.** All currently defined Phase 2 contracts that have an implemented evidence source are implemented and validated. External-provider-dependent integrations remain explicitly `PENDING_PROVIDER`; this is an external dependency, not an outstanding DzMoney code defect.
 
 ### Implemented and merged
 
@@ -65,23 +67,22 @@ No Phase 1 refactor is authorized unless a new invariant or security defect is p
 
 🟢 **Share with Friends:** the canonical referral-link/bootstrap and existing Click Proof verification contract are implemented. The system does **not** claim Telegram attestation that a share actually occurred; Click Proof remains the explicitly defined evidence model.
 
-🟡 **Requires concrete evidence contracts before new verifier implementation:**
+🟢 **Creator contracts currently implemented:** Game (`click_proof` / `url_format_match`), Social (`click_proof` / `bot_api`), and Web (`click_proof`) within the existing verification boundary.
 
-- Daily provider-specific completion beyond the existing advertisement-event boundary.
-- Game / Mini App completion from an actual trusted backend contract.
-- Non-Telegram social actions without an authoritative provider event/API.
-- Web completion without a signed S2S webhook or authenticated server-bound single-use token.
-- Special/Partner completion without a concrete authenticity/signature/HMAC contract and identity binding.
+🟡 **PENDING_PROVIDER — no DzMoney code defect:**
+
+- Special/Partner completion requiring a real partner backend/API/HMAC/Webhook evidence source.
+- Future Game/Mini App completion requiring a provider-owned trusted backend contract beyond the currently implemented Creator methods.
+- Future non-Telegram social completion requiring an authoritative provider event/API.
+- Future Web completion requiring a signed S2S webhook or authenticated server-bound single-use token.
 
 Generic `SERVER_VERIFIED_CONTRACTS` entries are contracts/placeholders, not evidence that a provider exists or is enabled.
 
-### Phase 2 remaining acceptance
+### Phase 2 acceptance
 
-- Broader real task adapters/verifiers only where concrete provider evidence exists.
-- Broader anti-fraud and provider/context acceptance hardening.
-- Full acceptance of advertisement-task behavior across required providers/contexts.
+The **DzMoney implementation scope is closed** for the currently defined contracts. Runtime health, full test suite, migration/security checks, and Economy reconciliation have passed on the post-merge `main` CI gate.
 
-**Phase 2 remains open until its acceptance criteria are satisfied and verified.**
+Remaining work is external-provider dependent and therefore tracked as `PENDING_PROVIDER`, not as an unimplemented internal service.
 
 ## Phase 3 — Referral
 
@@ -125,7 +126,7 @@ The audited milestone includes server-side blockchain evidence validation, trans
 - Issue #100's 20% lifetime reward is already implemented; it must not be reimplemented.
 - Issue #106 is closed as completed because its required canonical referral-link/bootstrap contract is already present in merged main through PRs #108 and #109.
 - Issue #99 is closed against the merged Daily/Referral implementation; its Share contract is Click Proof, not Telegram-native share attestation.
-- Issue #134 remains the Phase 2 evidence-contract gate for new provider-specific verifiers.
+- Issue #134 remains the Phase 2 evidence/provider gate for future external-provider integrations; it is not a request to create placeholder verifiers.
 
 ## Later phases
 
@@ -140,11 +141,12 @@ The audited milestone includes server-side blockchain evidence validation, trans
 
 ## Next authorized work
 
-1. Keep the authoritative baseline synchronized through PR workflow.
-2. Complete Phase 2 evidence-contract work (Issue #134) only where a concrete, testable provider/evidence source exists.
-3. Write tests before implementation of any newly authorized verifier.
-4. Reuse the existing Task, Verification, Advertisement, Referral and Economy/Ledger boundaries.
-5. Do not begin the next phase until current phase acceptance criteria are satisfied.
+1. Keep the Phase 2 implementation baseline stable; do not create new verification services for provider-dependent categories.
+2. Treat Special/Partner as `CODE COMPLETE / PENDING_PROVIDER` until a real provider supplies a trusted, testable evidence contract.
+3. If a real provider arrives, write contract tests first and integrate it through the existing Verification boundary only.
+4. Complete Phase 3 only through concrete acceptance gaps; do not reimplement already-merged referral functionality.
+5. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Issues → Runtime failure history.
+6. Do not begin a later phase until its predecessor's required acceptance gate is satisfied.
 
 ## Update Rule
 
