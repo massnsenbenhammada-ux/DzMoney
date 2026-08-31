@@ -1,18 +1,19 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` at `d9c47ad3c58ff1dd2ae1a6b7330bfed9d1ae856a` (post-PR #187 documentation reconciliation).
+> **Authoritative baseline:** `main` after PR #190 (Squad contract lock).
 >
 > This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
 ## Current state
 
-- **Current phase:** Phase 2 — Activity / Ads / Tasks.
+- **Current phase:** Phase 4 — Squad specification locked; implementation not started.
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
-- **Phase 3:** Referral core is implemented but Phase 3 is not closed; Share with Friends uses the canonical referral link and existing Click Proof verification boundary. Telegram-native attestation that a share actually occurred is not claimed.
+- **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract. Attribution, qualification, activation reward, referral achievements, canonical referral-link/bootstrap, lifetime 20% reward, and the accepted Click Proof Share with Friends contract are implemented and validated. Telegram-native attestation of an actual share is explicitly outside the accepted contract and is not a remaining DzMoney implementation gap.
+- **Phase 4:** 🟡 **SPECIFICATION LOCKED / IMPLEMENTATION NOT STARTED**. The authoritative Squad contract is `docs/SQUAD_SYSTEM_CONTRACT.md`, with `docs/ADR-0012-SQUAD.md` and `docs/PHASE4_SQUAD.md`.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #186.
-- **Latest status reconciliation:** PR #188.
+- **Latest Squad contract lock:** PR #190.
 
 ## Phase 0 — Specification Lock
 
@@ -80,15 +81,15 @@ Generic `SERVER_VERIFIED_CONTRACTS` entries are contracts/placeholders, not evid
 
 ### Phase 2 acceptance
 
-The **DzMoney implementation scope is closed** for the currently defined contracts. Runtime health, full test suite, migration/security checks, and Economy reconciliation have passed on the post-merge `main` CI gate.
+The **DzMoney implementation scope is closed** for the currently defined contracts. Runtime health, full test suite, migration/security checks, and Economy reconciliation have passed on the validated `main` CI gate.
 
 Remaining work is external-provider dependent and therefore tracked as `PENDING_PROVIDER`, not as an unimplemented internal service.
 
 ## Phase 3 — Referral
 
-🟡 Core foundation implemented; Phase 3 is not closed.
+🟢 **Closed / Complete for the accepted Referral contract.**
 
-Implemented:
+Implemented and validated:
 
 - attribution;
 - server-side qualification;
@@ -103,12 +104,21 @@ Implemented:
 
 **Issue #106 — canonical referral-link/bootstrap contract: RESOLVED.** Existing merged PRs #108 and #109 provide the required contract; no new referral service/table/migration is required.
 
-**Issue #99 — Daily system tasks and referral achievements: RESOLVED against merged implementation.** Share with Friends is implemented under the locked Click Proof contract; no Telegram-native share attestation is claimed.
+**Issue #99 — Daily system tasks and referral achievements: RESOLVED against merged implementation.** Share with Friends is implemented under the locked Click Proof contract; no Telegram-native share attestation is claimed or required by the accepted contract.
 
-Pending:
+**Acceptance basis:** PRs #94/#95 established attribution and qualification, PR #96 established the activation reward, the merged lifetime reward implementation established the 20% base-activity rule, and PRs #108/#109 established the canonical referral-link/bootstrap contract. PR #187 reconciled the repository status and resolved the remaining stale referral issue. The full post-merge CI gate has passed. No concrete internal Phase 3 implementation gap remains.
 
-- further referral UI/acceptance coverage only where a concrete gap is demonstrated;
-- no new trusted verifier for Telegram share itself unless a real provider-attested evidence contract becomes available.
+## Phase 4 — Squad
+
+🟡 **Specification locked / implementation not started.**
+
+The authoritative contract is:
+
+- `docs/SQUAD_SYSTEM_CONTRACT.md`
+- `docs/ADR-0012-SQUAD.md`
+- `docs/PHASE4_SQUAD.md`
+
+These documents supersede obsolete hierarchical/10-level Squad material. Phase 4 runtime implementation is authorized only after this Phase 3 acceptance closure.
 
 ## TON Deposit
 
@@ -130,7 +140,6 @@ The audited milestone includes server-side blockchain evidence validation, trans
 
 ## Later phases
 
-- Phase 4 — Squad: not started.
 - Phase 5 — Reward Pool: not started.
 - Phase 6 — Packages: not started.
 - Phase 7 — Buying Points & Conversion UI: not started.
@@ -143,10 +152,10 @@ The audited milestone includes server-side blockchain evidence validation, trans
 
 1. Keep the Phase 2 implementation baseline stable; do not create new verification services for provider-dependent categories.
 2. Treat Special/Partner as `CODE COMPLETE / PENDING_PROVIDER` until a real provider supplies a trusted, testable evidence contract.
-3. If a real provider arrives, write contract tests first and integrate it through the existing Verification boundary only.
-4. Complete Phase 3 only through concrete acceptance gaps; do not reimplement already-merged referral functionality.
+3. Begin Phase 4 only from the locked Squad contract and with focused TDD.
+4. Reuse the existing Task, Verification, Advertisement, Activity, Economy/Ledger, configuration and rounding boundaries.
 5. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Issues → Runtime failure history.
-6. Do not begin a later phase until its predecessor's required acceptance gate is satisfied.
+6. Do not resurrect legacy Squad migrations or create a second Economy/Ledger/Reward/Verification source.
 
 ## Update Rule
 
