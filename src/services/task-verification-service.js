@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
+const { activateOnVerifiedActivity } = require('./squad-membership-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 const { resolveVerificationConfig } = require('./task-verification-config');
@@ -136,6 +137,7 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
     const amounts = rewardAmounts(row);
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, modifiers: [] });
     if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
+    await activateOnVerifiedActivity(client, row.user_id);
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
     return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, transaction: reward.transaction };

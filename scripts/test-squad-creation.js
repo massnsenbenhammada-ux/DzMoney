@@ -41,3 +41,5 @@ test('Squad read route does not provision and user bootstrap does', () => {
   assert.doesNotMatch(squadRoute, /provisionSquadForUsers/);
   assert.match(meRoute, /provisionSquadForUsers\(withTransaction\)/);
 });
+
+require('./test-squad-membership-invite.js');
