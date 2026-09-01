@@ -35,7 +35,7 @@
 .task-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;margin-bottom:14px;border:1px solid var(--line);border-radius:16px;background:rgba(13,25,22,.75)}
 .task-mode-tab{padding:11px 8px;border-radius:12px;background:transparent;color:var(--muted);font-size:11px;font-weight:800}
 .task-mode-tab.active{background:var(--primary-dark);color:var(--primary)}
-.creator-panel{display:block}
+.creator-panel[hidden]{display:none}
 .reward-popup{position:fixed;left:50%;bottom:150px;transform:translate(-50%,12px) scale(.98);opacity:0;pointer-events:none;width:min(calc(100% - 40px),360px);padding:13px 15px;border-radius:15px;background:#14231f;border:1px solid rgba(85,230,176,.25);box-shadow:0 16px 45px rgba(0,0,0,.35);z-index:40;text-align:center;transition:opacity .18s ease,transform .18s ease}
 .reward-popup.show{opacity:1;transform:translate(-50%,0) scale(1)}
 .reward-popup[hidden]{display:block;visibility:hidden}
