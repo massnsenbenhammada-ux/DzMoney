@@ -44,6 +44,7 @@ async function cleanup(userId, squadId) {
     await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)', [userId]);
     await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
+    if (squadId) await client.query('DELETE FROM squad_memberships WHERE squad_id=$1', [squadId]);
     if (squadId) await client.query('DELETE FROM squads WHERE id=$1', [squadId]);
     await client.query('DELETE FROM users WHERE id=$1', [userId]);
   });
