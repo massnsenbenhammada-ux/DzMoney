@@ -199,4 +199,4 @@ async function convertDzxToDzp({ idempotencyKey, userId, dzx }) {
 function tonToDZX(ton) { return positiveNumber(ton, 'ton') * TON_DZX; }
 function dzxToTON(dzx) { return positiveNumber(dzx, 'dzx') / TON_DZX; }
 
-module.exports = { INTERNAL_CURRENCIES, ACTIVITY_REWARD_SOURCES, TON_DZX, TON_COIN, DZX_COIN, DZX_COIN, DZP_COIN, DZP_DZX, getEconomySettings, postEconomyTransaction, postEconomyTransactionOnClient, creditActivityReward, creditActivityRewardOnClient, convertCoinToDzp, convertDzxToDzp, tonToDZX, dzxToTON };
+module.exports = { INTERNAL_CURRENCIES, ACTIVITY_REWARD_SOURCES, TON_DZX, TON_COIN, DZX_COIN, DZP_COIN, DZP_DZX, getEconomySettings, postEconomyTransaction, postEconomyTransactionOnClient, creditActivityReward, creditActivityRewardOnClient, convertCoinToDzp, convertDzxToDzp, tonToDZX, dzxToTON };
