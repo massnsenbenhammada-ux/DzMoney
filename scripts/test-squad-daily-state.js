@@ -32,7 +32,7 @@ test('daily Squad state uses verified activity, target OR 50%, and freezes eligi
     assert.equal(first.eligibleMemberCount, 3);
     assert.equal(first.dailyTarget, '30.000000000');
     assert.equal(first.activeMemberCount, 0);
-    assert.equal(first.dzpContribution, '0');
+    assert.equal(first.dzpContribution, '0.000000000');
     assert.equal(first.status, 'risk');
 
     await verifiedAd(users[1].id, `${suffix}-a`);
@@ -41,14 +41,14 @@ test('daily Squad state uses verified activity, target OR 50%, and freezes eligi
     await creditActivityReward({ idempotencyKey: `daily-state-b-${suffix}`, userId: users[2].id, source: 'task', coin: 0, dzx: 0, dzp: 1, modifiers: [] });
     const activityReached = await getDailySquadState({ squadId });
     assert.equal(activityReached.activeMemberCount, 2);
-    assert.equal(activityReached.dzpContribution, '2');
+    assert.equal(activityReached.dzpContribution, '2.000000000');
     assert.equal(activityReached.status, 'active');
     assert.equal(activityReached.activationReason, 'activity');
 
     await creditActivityReward({ idempotencyKey: `daily-state-c-${suffix}`, userId: users[1].id, source: 'task', coin: 0, dzx: 0, dzp: 28, modifiers: [] });
     const targetReached = await getDailySquadState({ squadId });
     assert.equal(targetReached.activeMemberCount, 2);
-    assert.equal(targetReached.dzpContribution, '30');
+    assert.equal(targetReached.dzpContribution, '30.000000000');
     assert.equal(targetReached.status, 'active');
     assert.equal(targetReached.activationReason, 'both');
 
