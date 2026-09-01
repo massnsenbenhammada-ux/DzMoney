@@ -138,7 +138,7 @@ function normalizeActivityReward({ source, coin, dzx, dzp, modifiers }) {
     multiplier = multiplyScaled(multiplier, DECIMAL_SCALE + rateScaled);
     normalizedModifiers.push({ type: 'squad', rate });
   }
-  const reward = Object.fromEntries(Object.entries(baseScaled).map(([currency, amount]) => [currency, scaledToDecimal(multiplyScaled(amount, multiplier))]));
+  const reward = Object.fromEntries(Object.entries(baseScaled).map(([currency, amount]) => [currency, currency === 'dzp' ? scaledToDecimal(amount) : scaledToDecimal(multiplyScaled(amount, multiplier))]));
   return { baseReward, reward, normalizedModifiers };
 }
 
