@@ -1,19 +1,20 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` after PR #190 (Squad contract lock).
+> **Authoritative baseline:** `main` after the merged Phase 4 implementation milestones through PR #204.
 >
 > This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
 ## Current state
 
-- **Current phase:** Phase 4 — Squad specification locked; implementation not started.
+- **Current phase:** Phase 4 — Squad implementation in progress from the locked contract.
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
 - **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract. Attribution, qualification, activation reward, referral achievements, canonical referral-link/bootstrap, lifetime 20% reward, and the accepted Click Proof Share with Friends contract are implemented and validated. Telegram-native attestation of an actual share is explicitly outside the accepted contract and is not a remaining DzMoney implementation gap.
-- **Phase 4:** 🟡 **SPECIFICATION LOCKED / IMPLEMENTATION NOT STARTED**. The authoritative Squad contract is `docs/SQUAD_SYSTEM_CONTRACT.md`, with `docs/ADR-0012-SQUAD.md` and `docs/PHASE4_SQUAD.md`.
+- **Phase 4:** 🟡 **IMPLEMENTATION IN PROGRESS**. The authoritative Squad contract is `docs/SQUAD_SYSTEM_CONTRACT.md`, with `docs/ADR-0012-SQUAD.md` and `docs/PHASE4_SQUAD.md`.
 - **Latest audited TON/Deposit milestone:** PR #148.
-- **Latest Tasks UI/scope milestone:** PR #186.
+- **Latest Tasks UI/scope milestone:** PR #204.
 - **Latest Squad contract lock:** PR #190.
+- **Latest merged Squad implementation milestone:** PR #202 (Weekly Challenge accounting/settlement).
 
 ## Phase 0 — Specification Lock
 
@@ -110,7 +111,7 @@ Implemented and validated:
 
 ## Phase 4 — Squad
 
-🟡 **Specification locked / implementation not started.**
+🟡 **Implementation in progress from the locked contract.**
 
 The authoritative contract is:
 
@@ -118,7 +119,35 @@ The authoritative contract is:
 - `docs/ADR-0012-SQUAD.md`
 - `docs/PHASE4_SQUAD.md`
 
-These documents supersede obsolete hierarchical/10-level Squad material. Phase 4 runtime implementation is authorized only after this Phase 3 acceptance closure.
+These documents supersede obsolete hierarchical/10-level Squad material.
+
+### Implemented and merged slices
+
+- System-created Squads and deterministic server-side Owner assignment (PR #194).
+- Free membership invitation/acceptance/activation boundary (PR #195).
+- Paid membership purchase/activation boundary with existing Economy/Ledger burn path (PR #196).
+- Daily Squad State (PR #198).
+- Daily DZP Contribution + Modifier (PR #200).
+- Weekly Challenge accounting and settlement (PR #202), using existing Verified Activity and Economy/Ledger sources and adding only Challenge/Accounting persistence.
+
+### Weekly Challenge acceptance state
+
+The merged implementation contains:
+
+- six locked Challenge scopes;
+- seven-day UTC+1 challenge windows;
+- immutable configuration snapshots;
+- current-cycle DZP Contribution accounting;
+- settlement-time membership eligibility;
+- proportional deterministic reward distribution with canonical fixed-point rounding;
+- idempotent reward settlement through the existing Economy/Ledger boundary;
+- no second Activity, Verification, Reward, Economy or Ledger system.
+
+The repository contains focused Weekly Challenge tests and includes `test:squad-weekly-challenge` in `test:all`. The merge itself is recorded by PR #202. Independent workflow-run records for the PR merge commit are not exposed by the available GitHub Actions connector, so this status deliberately does not claim a new post-merge workflow run for that merge commit.
+
+### Remaining Phase 4 work
+
+Phase 4 is **not closed**. Remaining implementation must be derived only from the locked Squad contract and verified incrementally through Constitution 54. No legacy Squad migration or duplicate economic/activity/reward/verification system may be introduced.
 
 ## TON Deposit
 
@@ -152,7 +181,7 @@ The audited milestone includes server-side blockchain evidence validation, trans
 
 1. Keep the Phase 2 implementation baseline stable; do not create new verification services for provider-dependent categories.
 2. Treat Special/Partner as `CODE COMPLETE / PENDING_PROVIDER` until a real provider supplies a trusted, testable evidence contract.
-3. Begin Phase 4 only from the locked Squad contract and with focused TDD.
+3. Continue Phase 4 only from the locked Squad contract and with focused TDD.
 4. Reuse the existing Task, Verification, Advertisement, Activity, Economy/Ledger, configuration and rounding boundaries.
 5. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Issues → Runtime failure history.
 6. Do not resurrect legacy Squad migrations or create a second Economy/Ledger/Reward/Verification source.
