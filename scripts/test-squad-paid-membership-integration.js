@@ -5,13 +5,13 @@ const walletService = require('../src/services/wallet-service');
 const { purchasePaidMembership } = require('../src/services/squad-membership-service');
 
 test('paid membership burns DZP, selects the smallest eligible Squad, starts inactive, and is idempotent', { skip: !process.env.DATABASE_URL }, async () => {
-  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const suffix = `${Date.now()}`;
   const ids = [];
   const squadIds = [];
   try {
     const users = [];
     for (let index = 0; index < 7; index += 1) {
-      const user = await walletService.createUser({ telegramUserId: `93${suffix}${index}`, username: `squad_paid_${suffix}_${index}` });
+      const user = await walletService.createUser({ telegramUserId: `9${suffix}${index + 1}`, username: `squad_paid_${suffix}_${index}` });
       users.push(user);
       ids.push(user.id);
     }
