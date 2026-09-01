@@ -4,12 +4,9 @@ const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
 const { startAdvertisementEvent, markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider } = require('./ad-provider-service');
+const { activateOnVerifiedActivity } = require('./squad-membership-service');
 
-function requiredId(value, name) {
-  if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
-  return value;
-}
-
+function requiredId(value, name) { if (value === undefined || value === null || value === '') throw new Error(`${name} is required`); return value; }
 async function getExistingAdvertisement({ userId, idempotencyKey, taskId }) {
   const result = await query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1', [idempotencyKey]);
   if (!result.rowCount) return null;
@@ -18,16 +15,13 @@ async function getExistingAdvertisement({ userId, idempotencyKey, taskId }) {
   if (event.context !== 'task' || event.metadata?.task_id !== taskId) throw new Error('Advertisement idempotency key is bound to another task');
   return event;
 }
-
 async function getActiveTask(taskId) {
   const result = await query("SELECT id FROM activity_tasks WHERE id=$1 AND status='active'", [requiredId(taskId, 'taskId')]);
   if (!result.rowCount) throw new Error('Task not found or not active');
   return result.rows[0];
 }
-
 async function startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry }) {
-  requiredId(userId, 'userId');
-  requiredId(idempotencyKey, 'idempotencyKey');
+  requiredId(userId, 'userId'); requiredId(idempotencyKey, 'idempotencyKey');
   const existing = await getExistingAdvertisement({ userId, idempotencyKey, taskId });
   if (existing) return { adEvent: existing, providerId: existing.metadata?.provider_id, duplicate: true };
   await getActiveTask(taskId);
@@ -36,11 +30,6 @@ async function startTaskAdvertisement({ userId, taskId, idempotencyKey, provider
   const result = await startAdvertisementEvent({ userId, context: 'task', idempotencyKey, externalAdId, metadata: { task_id: taskId, provider_id: provider.id } });
   return { ...result, providerId: provider.id };
 }
-
-async function verifyTaskAdvertisement() {
-  throw new Error('Task advertisement verification must use trusted provider ingress');
-}
-
 function validateServerVerification(verification, providerId) {
   if (!verification || verification.verified !== true) throw new Error('Advertisement provider verification failed');
   if (typeof verification.reference !== 'string' || !verification.reference.trim()) throw new Error('Trusted task provider reference is required');
@@ -48,7 +37,7 @@ function validateServerVerification(verification, providerId) {
   if (verification.providerId !== providerId) throw new Error('Trusted task provider identity does not match');
   if (verification.context !== 'task') throw new Error('Trusted task provider context must be task');
 }
-
+async function verifyTaskAdvertisement() { throw new Error('Task advertisement verification must use trusted provider ingress'); }
 async function verifyTrustedTaskAdvertisement({ providerId, providerPayload, providerRegistry }) {
   requiredId(providerId, 'providerId');
   if (!providerPayload || typeof providerPayload !== 'object') throw new Error('Trusted provider payload is required');
@@ -65,7 +54,6 @@ async function verifyTrustedTaskAdvertisement({ providerId, providerPayload, pro
   if (event.verified) return { adEvent: event, duplicate: true };
   return markAdvertisementVerified({ adEventId: event.id, providerReference: verification.reference, verificationMetadata: { provider_id: providerId, source: 'trusted_provider', context: 'task' } });
 }
-
 async function getViewAdsProgress(client, event) {
   const taskResult = await client.query("SELECT config FROM activity_tasks WHERE id=$1", [event.metadata?.task_id]);
   const config = taskResult.rows[0]?.config || {};
@@ -77,10 +65,8 @@ async function getViewAdsProgress(client, event) {
   const completed = Math.min(completedResult.rows[0]?.completed || 0, target);
   return { completed, target, rank: rankResult.rows[0]?.rank || 0 };
 }
-
 async function finalizeTaskAdvertisement({ userId, adEventId }) {
-  requiredId(userId, 'userId');
-  requiredId(adEventId, 'adEventId');
+  requiredId(userId, 'userId'); requiredId(adEventId, 'adEventId');
   return withTransaction(async client => {
     const result = await client.query('SELECT * FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context=$3 FOR UPDATE', [adEventId, userId, 'task']);
     if (!result.rowCount) throw new Error('Task advertisement event not found');
@@ -95,9 +81,9 @@ async function finalizeTaskAdvertisement({ userId, adEventId }) {
     const reward = { coin: progress ? 1000 : (values['activity.default_reward_coin'] ?? 1000), dzx: progress ? 1 : (values['activity.default_reward_dzx'] ?? 1), dzp: progress ? 1 : (values['activity.default_reward_dzp'] ?? 1) };
     const transaction = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', ...reward, modifiers: [] });
     if (!transaction.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: userId, source: 'advertisement', sourceReferenceId: event.id, idempotencyKey: `referral-lifetime:advertisement:${event.id}`, baseReward: { coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1 } });
+    await activateOnVerifiedActivity(client, userId);
     await client.query("UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1", [event.id, JSON.stringify({ reward_transaction_id: transaction.transaction.id, reward_idempotency_key: rewardIdempotencyKey, reward_coin: reward.coin, reward_dzx: reward.dzx, reward_dzp: reward.dzp })]);
     return { duplicate: transaction.duplicate, rewarded: true, rewardIdempotencyKey, reward, transaction: transaction.transaction, progress: progress ? { ...progress, rewarded: true } : undefined };
   });
 }
-
 module.exports = { startTaskAdvertisement, verifyTaskAdvertisement, verifyTrustedTaskAdvertisement, finalizeTaskAdvertisement };
