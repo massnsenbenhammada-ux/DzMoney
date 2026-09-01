@@ -4,7 +4,14 @@ function renderPaidMembership(tiers) {
   return `<section><h3>Join a Squad</h3><p>Select a membership tier. DzMoney chooses the smallest eligible Squad in that tier.</p><div>${tiers.map(tier => `<button type="button" data-squad-tier="${Number(tier.maxMembers)}">${Number(tier.minMembers)}–${Number(tier.maxMembers)} members · ${Number(tier.price)} DZP</button>`).join('')}</div></section>`;
 }
 
-function renderSquad(squad, tiers = []) {
+function renderDailyState(state) {
+  if (!state) return '<section><h4>Daily Squad</h4><p>No Squad membership yet.</p></section>';
+  const status = String(state.status).toUpperCase();
+  const reason = state.activationReason ? ` · ${String(state.activationReason)}` : '';
+  return `<section><h4>Daily Squad · ${status}</h4><p>${Number(state.activeMemberCount)}/${Number(state.eligibleMemberCount)} members active · ${String(state.dzpContribution)}/${String(state.dailyTarget)} DZP contribution${reason}</p><p>Effective for ${String(state.effectiveForDate)} · Verified Squad ads target: ${Number(state.verifiedAdTarget)}</p></section>`;
+}
+
+function renderSquad(squad, tiers = [], state = null) {
   const card = squadCard();
   if (!card) return;
   if (!squad) {
@@ -13,7 +20,7 @@ function renderSquad(squad, tiers = []) {
   }
   const ownerText = squad.isOwner ? 'You are the Squad Owner' : 'Server-assigned Squad Owner';
   const purchase = squad.membershipStatus === 'cancelled' ? renderPaidMembership(tiers) : '';
-  card.innerHTML = `<strong>Squad #${String(squad.id)}</strong><p>${ownerText}</p><p><b>${Number(squad.memberCount)}</b> members</p><p>Membership: <b>${String(squad.membershipStatus || 'active')}</b></p>${purchase}<div id="squadInvitations"></div>${squad.isOwner ? '<form id="squadInviteForm"><input id="squadInviteTelegramId" inputmode="numeric" placeholder="Invitee Telegram ID" required><button type="submit">Invite</button></form>' : ''}`;
+  card.innerHTML = `<strong>Squad #${String(squad.id)}</strong><p>${ownerText}</p><p><b>${Number(squad.memberCount)}</b> members</p><p>Membership: <b>${String(squad.membershipStatus || 'active')}</b></p>${renderDailyState(state)}${purchase}<div id="squadInvitations"></div>${squad.isOwner ? '<form id="squadInviteForm"><input id="squadInviteTelegramId" inputmode="numeric" placeholder="Invitee Telegram ID" required><button type="submit">Invite</button></form>' : ''}`;
   loadInvitations();
 }
 
@@ -79,8 +86,8 @@ async function loadSquad() {
   if (!card) return;
   card.innerHTML = '<strong>Loading Squad…</strong><p>Checking your server-side membership.</p>';
   try {
-    const [data, tiers] = await Promise.all([api('/api/squad'), loadPaidTiers()]);
-    renderSquad(data.squad || null, tiers);
+    const [data, tiers, stateData] = await Promise.all([api('/api/squad'), loadPaidTiers(), api('/api/squad/daily-state')]);
+    renderSquad(data.squad || null, tiers, stateData.state || null);
   } catch (error) {
     card.innerHTML = `<strong>Squad unavailable</strong><p>${String(error.message || 'Please try again later.')}</p>`;
   }
