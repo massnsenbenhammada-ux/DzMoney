@@ -1,13 +1,13 @@
 const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
-const referralService = require('../services/referral-service');
-const { activateOnVerifiedActivity } = require('../services/squad-membership-service');
-const { markAdvertisementVerified } = require('../services/ad-event-service');
-const { selectProvider, verifyWithProvider } = require('../services/ad-provider-service');
-const { resolveVerificationConfig } = require('../services/task-verification-config');
-const { matchesUrlFormat } = require('../services/game-url-format-match');
-const { isTelegramChannelMember } = require('../services/telegram-channel-verifier');
+const referralService = require('./referral-service');
+const { activateOnVerifiedActivity } = require('./squad-membership-service');
+const { markAdvertisementVerified } = require('./ad-event-service');
+const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
+const { resolveVerificationConfig } = require('./task-verification-config');
+const { matchesUrlFormat } = require('./game-url-format-match');
+const { isTelegramChannelMember } = require('./telegram-channel-verifier');
 
 const TELEGRAM_TASK_CHANNELS = { 'telegram.dzmoney_updates': '@dzmoneycom' };
 
