@@ -35,6 +35,18 @@ test('reward distribution is proportional, deterministic and sums to the configu
   assert.strictEqual(result.reduce((sum, item) => sum + BigInt(item.rewardScaled), 0n), 100000000000n);
 });
 
+test('reward distribution never allocates a negative remainder', () => {
+  const result = distributeReward('2', [
+    { userId: '1', contribution: '1' },
+    { userId: '2', contribution: '1' },
+    { userId: '3', contribution: '1' },
+    { userId: '4', contribution: '1' }
+  ]);
+  assert.deepStrictEqual(result.map(item => item.rewardAmount), ['0.5', '0.5', '0.5', '0.5']);
+  assert.ok(result.every(item => BigInt(item.rewardScaled) >= 0n));
+  assert.strictEqual(result.reduce((sum, item) => sum + BigInt(item.rewardScaled), 0n), 2000000000n);
+});
+
 test('zero contribution produces no distribution', () => {
   assert.deepStrictEqual(distributeReward('100', []), []);
 });

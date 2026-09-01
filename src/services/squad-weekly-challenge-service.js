@@ -21,10 +21,6 @@ function decimalFromScaled(value) {
   return `${integerPart}${fraction ? `.${fraction}` : ''}`;
 }
 
-function roundRatio(numerator, denominator) {
-  return (numerator + denominator / 2n) / denominator;
-}
-
 function nextChallengeStart(now = new Date()) {
   const local = new Date(now.getTime() + 3600000);
   const start = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + 1));
@@ -55,12 +51,19 @@ function distributeReward(totalReward, contributors) {
     .sort((a, b) => a.contribution === b.contribution ? a.userId.localeCompare(b.userId) : a.contribution > b.contribution ? -1 : 1);
   const totalContribution = normalized.reduce((sum, item) => sum + item.contribution, 0n);
   if (totalContribution === 0n) return [];
-  let allocated = 0n;
-  return normalized.map((item, index) => {
-    const rewardScaled = index === normalized.length - 1 ? total - allocated : roundRatio(total * item.contribution, totalContribution);
-    allocated += rewardScaled;
-    return { userId: item.userId, contribution: decimalFromScaled(item.contribution), rewardScaled: String(rewardScaled), rewardAmount: decimalFromScaled(rewardScaled) };
+
+  const allocations = normalized.map(item => {
+    const numerator = total * item.contribution;
+    return { ...item, rewardScaled: numerator / totalContribution, remainder: numerator % totalContribution };
   });
+  let remaining = total - allocations.reduce((sum, item) => sum + item.rewardScaled, 0n);
+  allocations.sort((a, b) => a.remainder === b.remainder ? a.userId.localeCompare(b.userId) : a.remainder > b.remainder ? -1 : 1);
+  for (let index = 0; remaining > 0n; index = (index + 1) % allocations.length) {
+    allocations[index].rewardScaled += 1n;
+    remaining -= 1n;
+  }
+  allocations.sort((a, b) => a.contribution === b.contribution ? a.userId.localeCompare(b.userId) : a.contribution > b.contribution ? -1 : 1);
+  return allocations.map(item => ({ userId: item.userId, contribution: decimalFromScaled(item.contribution), rewardScaled: String(item.rewardScaled), rewardAmount: decimalFromScaled(item.rewardScaled) }));
 }
 
 function validateScope(scope, scopeValue) {
