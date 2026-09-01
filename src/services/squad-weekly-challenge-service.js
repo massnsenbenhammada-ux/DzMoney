@@ -138,6 +138,7 @@ async function settleWeeklyChallenge({ challengeId, now = new Date() }) {
     );
     const rewards = distributeReward(challenge.reward_amount, eligible.rows.map(row => ({ userId: row.user_id, contribution: row.dzp_contribution })));
     for (const reward of rewards) {
+      if (reward.rewardAmount === '0') continue;
       const transaction = await postEconomyTransactionOnClient(client, {
         idempotencyKey: `squad-challenge:${challenge.id}:${reward.userId}`,
         userId: reward.userId,
