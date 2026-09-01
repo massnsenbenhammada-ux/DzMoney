@@ -6,15 +6,17 @@ const UTC_PLUS_ONE = 'Etc/GMT-1';
 
 function dayDate(value = null) {
   if (value) {
-    const text = String(value);
+    const text = String(value).slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) throw new Error('day must be YYYY-MM-DD');
     return text;
   }
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Algiers' });
+  return new Date(Date.now() + 3600000).toISOString().slice(0, 10);
 }
 
 function nextDay(value) {
-  const date = new Date(`${value}T00:00:00Z`);
+  const text = value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+  const date = new Date(`${text}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) throw new Error('Invalid daily state date');
   date.setUTCDate(date.getUTCDate() + 1);
   return date.toISOString().slice(0, 10);
 }
