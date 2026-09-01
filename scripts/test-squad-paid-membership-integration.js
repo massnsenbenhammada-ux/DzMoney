@@ -37,6 +37,10 @@ test('paid membership burns DZP, selects the smallest eligible Squad, starts ina
     const memberships = await query("SELECT COUNT(*)::int AS count FROM squad_memberships WHERE user_id = $1 AND status <> 'cancelled'", [users[5].id]);
     assert.equal(memberships.rows[0].count, 1);
   } finally {
+    if (ids.length) {
+      await query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[])) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = ANY($1::bigint[]))', [ids]);
+      await query('DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])', [ids]);
+    }
     if (squadIds.length) await query('DELETE FROM squads WHERE id = ANY($1::bigint[])', [squadIds]);
     if (ids.length) await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [ids]);
   }
