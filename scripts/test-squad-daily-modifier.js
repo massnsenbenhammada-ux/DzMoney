@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { query, pool } = require('../src/db/pool');
+const { query, pool, withTransaction } = require('../src/db/pool');
 const walletService = require('../src/services/wallet-service');
 const { creditActivityReward } = require('../src/services/economy-service');
 const { getDailySquadState, getApplicableSquadModifierOnClient } = require('../src/services/squad-daily-state-service');
@@ -20,19 +20,19 @@ test('daily modifier is mapped from contribution, snapshots contributors, and ap
     squadId = squad.rows[0].id;
     await query("INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ($1,$2,'active'),($1,$3,'active'),($1,$4,'active')", [squadId, users[0].id, users[1].id, users[2].id]);
 
-    const day = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const nextDay = new Date(`${day}T00:00:00Z`);
-    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
-    const applicationDay = nextDay.toISOString().slice(0, 10);
+    const day = new Date(Date.now() + 3600000).toISOString().slice(0, 10);
+    const nextDayDate = new Date(`${day}T00:00:00Z`);
+    nextDayDate.setUTCDate(nextDayDate.getUTCDate() + 1);
+    const applicationDay = nextDayDate.toISOString().slice(0, 10);
     await creditActivityReward({ idempotencyKey: `modifier-a-${suffix}`, userId: users[1].id, source: 'task', coin: 0, dzx: 0, dzp: 1500, modifiers: [] });
     await creditActivityReward({ idempotencyKey: `modifier-b-${suffix}`, userId: users[2].id, source: 'task', coin: 0, dzx: 0, dzp: 1, modifiers: [] });
     await getDailySquadState({ squadId, day });
 
-    const applied = await getApplicableSquadModifierOnClient({ query }, { userId: users[1].id, day: applicationDay });
+    const applied = await withTransaction(client => getApplicableSquadModifierOnClient(client, { userId: users[1].id, day: applicationDay }));
     assert.equal(applied.rate, '0.15');
     assert.equal(applied.contributor, true);
 
-    const notContributor = await getApplicableSquadModifierOnClient({ query }, { userId: users[0].id, day: applicationDay });
+    const notContributor = await withTransaction(client => getApplicableSquadModifierOnClient(client, { userId: users[0].id, day: applicationDay }));
     assert.equal(notContributor.contributor, false);
     assert.equal(notContributor.rate, '0');
 
