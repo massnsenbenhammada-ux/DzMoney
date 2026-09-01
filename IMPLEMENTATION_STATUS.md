@@ -1,6 +1,6 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` after the merged Phase 4 implementation milestones through PR #204.
+> **Authoritative baseline:** `main` after the merged Phase 4 implementation milestones through PR #207.
 >
 > This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
@@ -14,7 +14,7 @@
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #204.
 - **Latest Squad contract lock:** PR #190.
-- **Latest merged Squad implementation milestone:** PR #202 (Weekly Challenge accounting/settlement).
+- **Latest merged Squad implementation milestone:** PR #207 (canonical Economy rounding correction for Weekly Challenge settlement).
 
 ## Phase 0 — Specification Lock
 
@@ -128,7 +128,7 @@ These documents supersede obsolete hierarchical/10-level Squad material.
 - Paid membership purchase/activation boundary with existing Economy/Ledger burn path (PR #196).
 - Daily Squad State (PR #198).
 - Daily DZP Contribution + Modifier (PR #200).
-- Weekly Challenge accounting and settlement (PR #202), using existing Verified Activity and Economy/Ledger sources and adding only Challenge/Accounting persistence.
+- Weekly Challenge accounting and settlement (PR #202), followed by canonical Economy rounding correction and zero-share hardening (PR #207).
 
 ### Weekly Challenge acceptance state
 
@@ -139,15 +139,22 @@ The merged implementation contains:
 - immutable configuration snapshots;
 - current-cycle DZP Contribution accounting;
 - settlement-time membership eligibility;
-- proportional deterministic reward distribution with canonical fixed-point rounding;
+- proportional deterministic reward distribution using the existing Economy fixed-point half-up rounding rule;
+- non-negative allocations and exact configured reward total, including sub-unit rounding cases;
 - idempotent reward settlement through the existing Economy/Ledger boundary;
 - no second Activity, Verification, Reward, Economy or Ledger system.
 
-The repository contains focused Weekly Challenge tests and includes `test:squad-weekly-challenge` in `test:all`. The merge itself is recorded by PR #202. Independent workflow-run records for the PR merge commit are not exposed by the available GitHub Actions connector, so this status deliberately does not claim a new post-merge workflow run for that merge commit.
+PR #207 is merged at `5202bd82578de8e06d60a1335977d20781ae4038`. Its PR CI passed the migrations, security audit, runtime health, full test suite, Weekly Challenge tests, monetary-precision tests, and Economy reconciliation gate. PR #207 specifically removed the Squad-specific largest-remainder approach introduced by PR #206 and restored the locked canonical Economy rounding rule.
 
 ### Remaining Phase 4 work
 
-Phase 4 is **not closed**. Remaining implementation must be derived only from the locked Squad contract and verified incrementally through Constitution 54. No legacy Squad migration or duplicate economic/activity/reward/verification system may be introduced.
+Phase 4 is **not closed**. The locked contract requires App Ban to be able to terminate a Squad membership, but the current repository has no authoritative App-Ban/Admin membership-termination boundary. Because Admin Panel is a later phase and architecture rules prohibit introducing later-phase runtime services/routes/migrations early, this is recorded as a phase-boundary dependency rather than an invented Squad endpoint.
+
+The existing membership model already represents `suspended` and `cancelled` states, and implemented membership/challenge boundaries prevent cancelled/ineligible memberships from receiving Challenge rewards. No separate suspension or ban subsystem is authorized in Phase 4 without an authoritative upstream control surface.
+
+### Phase 4 acceptance gate
+
+Phase 4 remains gated by Constitution 54. The next implementation must be derived from a concrete, currently authorized contract gap; no legacy Squad migration, duplicate economic/activity/reward/verification system, or speculative Admin boundary may be introduced.
 
 ## TON Deposit
 
@@ -185,6 +192,7 @@ The audited milestone includes server-side blockchain evidence validation, trans
 4. Reuse the existing Task, Verification, Advertisement, Activity, Economy/Ledger, configuration and rounding boundaries.
 5. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Issues → Runtime failure history.
 6. Do not resurrect legacy Squad migrations or create a second Economy/Ledger/Reward/Verification source.
+7. Do not implement the App-Ban membership-termination boundary until an authorized upstream App-Ban/Admin control surface exists.
 
 ## Update Rule
 
