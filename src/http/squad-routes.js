@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/pool');
 const { telegramAuth } = require('./telegram-auth');
 const { createInvitation, acceptInvitation, getPaidMembershipTiers, purchasePaidMembership } = require('../services/squad-membership-service');
+const { getCurrentUserSquadState } = require('../services/squad-daily-state-service');
 
 const router = express.Router();
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -40,6 +41,13 @@ router.get('/', asyncRoute(async (req, res) => {
       isOwner: Number(row.owner_user_id) === Number(userId)
     }
   });
+}));
+
+router.get('/daily-state', asyncRoute(async (req, res) => {
+  const userId = await currentUserId(req);
+  if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
+  const state = await getCurrentUserSquadState({ userId });
+  res.json({ ok: true, state });
 }));
 
 router.get('/membership-tiers', asyncRoute(async (req, res) => {
