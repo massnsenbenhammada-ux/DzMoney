@@ -47,6 +47,15 @@ test('reward distribution never allocates a negative remainder', () => {
   assert.strictEqual(result.reduce((sum, item) => sum + BigInt(item.rewardScaled), 0n), 2000000000n);
 });
 
+test('reward distribution uses the canonical Economy proportional rounding primitive', () => {
+  const economy = fs.readFileSync(path.join(root, 'src/services/economy-service.js'), 'utf8');
+  const squad = fs.readFileSync(path.join(root, 'src/services/squad-weekly-challenge-service.js'), 'utf8');
+  assert.match(economy, /function multiplyRatioScaled\(amount, numerator, denominator\)/);
+  assert.match(economy, /remainder.*2n.*denominator/);
+  assert.match(squad, /multiplyRatioScaled\(remainingReward, item\.contribution, remainingContribution\)/);
+  assert.doesNotMatch(squad, /largest fractional remainder|remainder.*sort|function roundRatio/);
+});
+
 test('zero contribution produces no distribution', () => {
   assert.deepStrictEqual(distributeReward('100', []), []);
 });
