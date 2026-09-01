@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
-const { postEconomyTransactionOnClient, divideScaled } = require('./economy-service');
+const { postEconomyTransactionOnClient, multiplyRatioScaled } = require('./economy-service');
 
 const VALID_SCOPES = ['ALL TASKS', 'Type Tasks', 'Verified Ad', 'Verified Task', 'Verified Squad AdView', 'All Activity Verified'];
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
@@ -53,7 +53,7 @@ function distributeReward(totalReward, contributors) {
   let remainingContribution = normalized.reduce((sum, item) => sum + item.contribution, 0n);
   if (remainingContribution === 0n) return [];
   return normalized.map((item, index) => {
-    const rewardScaled = index === normalized.length - 1 ? remainingReward : divideScaled(remainingReward * item.contribution, remainingContribution);
+    const rewardScaled = index === normalized.length - 1 ? remainingReward : multiplyRatioScaled(remainingReward, item.contribution, remainingContribution);
     remainingReward -= rewardScaled;
     remainingContribution -= item.contribution;
     return { userId: item.userId, contribution: decimalFromScaled(item.contribution), rewardScaled: String(rewardScaled), rewardAmount: decimalFromScaled(rewardScaled) };
