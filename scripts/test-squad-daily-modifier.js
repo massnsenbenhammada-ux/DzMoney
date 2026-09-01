@@ -24,6 +24,7 @@ test('daily modifier is mapped from contribution and applied only to D+1 qualify
     const nextDayDate = new Date(`${day}T00:00:00Z`);
     nextDayDate.setUTCDate(nextDayDate.getUTCDate() + 1);
     const applicationDay = nextDayDate.toISOString().slice(0, 10);
+    await query(`INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,completed_at,verified,metadata) VALUES($1,'task',$2,$3,NOW(),NOW(),TRUE,$4),($5,'task',$6,$7,NOW(),NOW(),TRUE,$8)`, [users[1].id, `verified-a-${suffix}`, `verified-a-${suffix}`, JSON.stringify({ task_id: 'fixture' }), users[2].id, `verified-b-${suffix}`, `verified-b-${suffix}`, JSON.stringify({ task_id: 'fixture' })]);
     await creditActivityReward({ idempotencyKey: `modifier-a-${suffix}`, userId: users[1].id, source: 'task', coin: 0, dzx: 0, dzp: 1500, modifiers: [] });
     await creditActivityReward({ idempotencyKey: `modifier-b-${suffix}`, userId: users[2].id, source: 'task', coin: 0, dzx: 0, dzp: 1, modifiers: [] });
     await getDailySquadState({ squadId, day });
