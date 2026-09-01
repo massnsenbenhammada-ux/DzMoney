@@ -1,5 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
-const { postEconomyTransactionOnClient } = require('./economy-service');
+const { postEconomyTransactionOnClient, multiplyRatioScaled } = require('./economy-service');
 
 const VALID_SCOPES = ['ALL TASKS', 'Type Tasks', 'Verified Ad', 'Verified Task', 'Verified Squad AdView', 'All Activity Verified'];
 const TASK_TYPES = ['daily', 'game', 'social', 'web', 'special'];
@@ -49,21 +49,15 @@ function distributeReward(totalReward, contributors) {
     .map(item => ({ userId: String(item.userId), contribution: scaledDecimal(item.contribution) }))
     .filter(item => item.contribution > 0n)
     .sort((a, b) => a.contribution === b.contribution ? a.userId.localeCompare(b.userId) : a.contribution > b.contribution ? -1 : 1);
-  const totalContribution = normalized.reduce((sum, item) => sum + item.contribution, 0n);
-  if (totalContribution === 0n) return [];
-
-  const allocations = normalized.map(item => {
-    const numerator = total * item.contribution;
-    return { ...item, rewardScaled: numerator / totalContribution, remainder: numerator % totalContribution };
+  let remainingReward = total;
+  let remainingContribution = normalized.reduce((sum, item) => sum + item.contribution, 0n);
+  if (remainingContribution === 0n) return [];
+  return normalized.map((item, index) => {
+    const rewardScaled = index === normalized.length - 1 ? remainingReward : multiplyRatioScaled(remainingReward, item.contribution, remainingContribution);
+    remainingReward -= rewardScaled;
+    remainingContribution -= item.contribution;
+    return { userId: item.userId, contribution: decimalFromScaled(item.contribution), rewardScaled: String(rewardScaled), rewardAmount: decimalFromScaled(rewardScaled) };
   });
-  let remaining = total - allocations.reduce((sum, item) => sum + item.rewardScaled, 0n);
-  allocations.sort((a, b) => a.remainder === b.remainder ? a.userId.localeCompare(b.userId) : a.remainder > b.remainder ? -1 : 1);
-  for (let index = 0; remaining > 0n; index = (index + 1) % allocations.length) {
-    allocations[index].rewardScaled += 1n;
-    remaining -= 1n;
-  }
-  allocations.sort((a, b) => a.contribution === b.contribution ? a.userId.localeCompare(b.userId) : a.contribution > b.contribution ? -1 : 1);
-  return allocations.map(item => ({ userId: item.userId, contribution: decimalFromScaled(item.contribution), rewardScaled: String(item.rewardScaled), rewardAmount: decimalFromScaled(item.rewardScaled) }));
 }
 
 function validateScope(scope, scopeValue) {
@@ -144,6 +138,7 @@ async function settleWeeklyChallenge({ challengeId, now = new Date() }) {
     );
     const rewards = distributeReward(challenge.reward_amount, eligible.rows.map(row => ({ userId: row.user_id, contribution: row.dzp_contribution })));
     for (const reward of rewards) {
+      if (reward.rewardAmount === '0') continue;
       const transaction = await postEconomyTransactionOnClient(client, {
         idempotencyKey: `squad-challenge:${challenge.id}:${reward.userId}`,
         userId: reward.userId,

@@ -1,13 +1,16 @@
 const assert = require('node:assert/strict');
 const { pool, withTransaction } = require('../src/db/pool');
 const { createUser } = require('../src/services/wallet-service');
-const { creditActivityReward } = require('../src/services/economy-service');
+const { creditActivityReward, multiplyRatioScaled, decimalToScaled, scaledToDecimal } = require('../src/services/economy-service');
 
 async function main() {
   const marker = `monetary-precision-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   let user;
 
   try {
+    assert.equal(scaledToDecimal(multiplyRatioScaled(decimalToScaled('100', 'amount'), decimalToScaled('2', 'part'), decimalToScaled('3', 'total'))), '66.666666667');
+    assert.equal(scaledToDecimal(multiplyRatioScaled(decimalToScaled('2', 'amount'), decimalToScaled('1', 'part'), decimalToScaled('4', 'total'))), '0.5');
+
     user = await createUser({
       telegramUserId: -Date.now(),
       username: marker,

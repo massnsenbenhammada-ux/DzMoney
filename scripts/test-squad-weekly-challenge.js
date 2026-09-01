@@ -47,6 +47,30 @@ test('reward distribution never allocates a negative remainder', () => {
   assert.strictEqual(result.reduce((sum, item) => sum + BigInt(item.rewardScaled), 0n), 2000000000n);
 });
 
+test('reward distribution uses the canonical Economy proportional rounding primitive', () => {
+  const economy = fs.readFileSync(path.join(root, 'src/services/economy-service.js'), 'utf8');
+  const squad = fs.readFileSync(path.join(root, 'src/services/squad-weekly-challenge-service.js'), 'utf8');
+  assert.match(economy, /function multiplyRatioScaled\(amount, numerator, denominator\)/);
+  assert.match(economy, /remainder.*2n.*denominator/);
+  assert.match(squad, /multiplyRatioScaled\(remainingReward, item\.contribution, remainingContribution\)/);
+  assert.doesNotMatch(squad, /largest fractional remainder|remainder.*sort|function roundRatio/);
+});
+
+test('sub-unit rounded shares remain non-negative and keep the configured total', () => {
+  const result = distributeReward('0.000000001', [
+    { userId: '1', contribution: '1' },
+    { userId: '2', contribution: '1' }
+  ]);
+  assert.deepStrictEqual(result.map(item => item.rewardAmount), ['0.000000001', '0']);
+  assert.ok(result.every(item => BigInt(item.rewardScaled) >= 0n));
+  assert.strictEqual(result.reduce((sum, item) => sum + BigInt(item.rewardScaled), 0n), 1n);
+});
+
+test('settlement skips zero rounded shares before Economy posting', () => {
+  const squad = fs.readFileSync(path.join(root, 'src/services/squad-weekly-challenge-service.js'), 'utf8');
+  assert.match(squad, /if \(reward\.rewardAmount === '0'\) continue;/);
+});
+
 test('zero contribution produces no distribution', () => {
   assert.deepStrictEqual(distributeReward('100', []), []);
 });
