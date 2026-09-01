@@ -135,7 +135,7 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
       return { duplicate: false, status: 'rejected', rewarded: false };
     }
     const amounts = rewardAmounts(row);
-    const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, modifiers: [], qualifyingVerifiedActivity: true });
+    const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, activityType: row.task_type, activityContext: 'task', modifiers: [], qualifyingVerifiedActivity: true });
     if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
     await activateOnVerifiedActivity(client, row.user_id);
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
