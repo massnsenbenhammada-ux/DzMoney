@@ -1,10 +1,10 @@
 const { randomUUID } = require('crypto');
-const { withTransaction, query } = require('../src/db/pool');
-const { creditActivityRewardOnClient } = require('../src/services/economy-service');
-const referralService = require('../src/services/referral-service');
-const { startAdvertisementEvent, markAdvertisementVerified } = require('../src/services/ad-event-service');
-const { selectProvider } = require('../src/services/ad-provider-service');
-const { activateOnVerifiedActivity } = require('../src/services/squad-membership-service');
+const { withTransaction, query } = require('../db/pool');
+const { creditActivityRewardOnClient } = require('../services/economy-service');
+const referralService = require('../services/referral-service');
+const { startAdvertisementEvent, markAdvertisementVerified } = require('../services/ad-event-service');
+const { selectProvider } = require('../services/ad-provider-service');
+const { activateOnVerifiedActivity } = require('../services/squad-membership-service');
 
 function requiredId(value, name) { if (value === undefined || value === null || value === '') throw new Error(`${name} is required`); return value; }
 async function getExistingAdvertisement({ userId, idempotencyKey, taskId }) { const result = await query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1', [idempotencyKey]); if (!result.rowCount) return null; const event = result.rows[0]; if (event.user_id !== userId) throw new Error('Advertisement idempotency key belongs to another user'); if (event.context !== 'task' || event.metadata?.task_id !== taskId) throw new Error('Advertisement idempotency key is bound to another task'); return event; }
