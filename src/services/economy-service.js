@@ -56,9 +56,9 @@ function multiplyScaled(left, right) {
   return quotient;
 }
 
-function divideScaled(numerator, denominator) {
-  if (denominator <= 0n) throw new Error('Division denominator must be positive');
-  const product = numerator * DECIMAL_SCALE;
+function multiplyRatioScaled(amount, numerator, denominator) {
+  if (denominator <= 0n) throw new Error('Ratio denominator must be positive');
+  const product = amount * numerator;
   const quotient = product / denominator;
   const remainder = product % denominator;
   if (remainder !== 0n && (remainder < 0n ? -remainder : remainder) * 2n >= denominator) return quotient + (product < 0n ? -1n : 1n);
@@ -208,4 +208,4 @@ async function convertDzxToDzp({ idempotencyKey, userId, dzx }) {
 function tonToDZX(ton) { return positiveNumber(ton, 'ton') * TON_DZX; }
 function dzxToTON(dzx) { return positiveNumber(dzx, 'dzx') / TON_DZX; }
 
-module.exports = { INTERNAL_CURRENCIES, ACTIVITY_REWARD_SOURCES, TON_DZX, TON_COIN, DZX_COIN, DZP_COIN, DZP_DZX, getEconomySettings, postEconomyTransaction, postEconomyTransactionOnClient, creditActivityReward, creditActivityRewardOnClient, convertCoinToDzp, convertDzxToDzp, tonToDZX, dzxToTON, decimalToScaled, scaledToDecimal, multiplyScaled, divideScaled };
+module.exports = { INTERNAL_CURRENCIES, ACTIVITY_REWARD_SOURCES, TON_DZX, TON_COIN, DZX_COIN, DZP_COIN, DZP_DZX, getEconomySettings, postEconomyTransaction, postEconomyTransactionOnClient, creditActivityReward, creditActivityRewardOnClient, convertCoinToDzp, convertDzxToDzp, tonToDZX, dzxToTON, decimalToScaled, scaledToDecimal, multiplyScaled, multiplyRatioScaled };
