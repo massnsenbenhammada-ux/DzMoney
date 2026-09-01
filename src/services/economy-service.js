@@ -1,4 +1,4 @@
-const { withTransaction, query } = require('../db/pool');
+const { withTransaction, query } = require('../src/db/pool');
 
 const INTERNAL_CURRENCIES = ['COIN', 'DZX', 'DZP'];
 const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'reward_pool', 'promo'];
@@ -162,8 +162,14 @@ function normalizeActivityReward({ source, coin, dzx, dzp, modifiers }) {
 }
 
 async function creditActivityRewardOnClient(client, args) {
-  const { idempotencyKey, userId, source = 'advertisement', coin = 0, dzx = 0, dzp = 0, modifiers = [] } = args;
-  const { baseReward, reward, normalizedModifiers } = normalizeActivityReward({ source, coin, dzx, dzp, modifiers });
+  const { idempotencyKey, userId, source = 'advertisement', coin = 0, dzx = 0, dzp = 0, modifiers = [], qualifyingVerifiedActivity = false, activityDay = null } = args;
+  let effectiveModifiers = modifiers;
+  if (qualifyingVerifiedActivity && !modifiers.some(modifier => modifier?.type === 'squad')) {
+    const { getApplicableSquadModifierOnClient } = require('./squad-daily-state-service');
+    const applied = await getApplicableSquadModifierOnClient(client, { userId, day: activityDay });
+    if (applied.rate !== '0') effectiveModifiers = [...modifiers, { type: 'squad', rate: applied.rate }];
+  }
+  const { baseReward, reward, normalizedModifiers } = normalizeActivityReward({ source, coin, dzx, dzp, modifiers: effectiveModifiers });
   const movements = [];
   if (reward.coin !== '0') movements.push({ currency: 'COIN', amount: reward.coin, source });
   if (reward.dzx !== '0') movements.push({ currency: 'DZX', amount: reward.dzx, source });
