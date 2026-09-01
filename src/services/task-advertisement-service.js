@@ -79,7 +79,7 @@ async function finalizeTaskAdvertisement({ userId, adEventId }) {
     const settings = await client.query("SELECT key,value FROM admin_settings WHERE key IN ('activity.default_reward_coin','activity.default_reward_dzx','activity.default_reward_dzp')");
     const values = Object.fromEntries(settings.rows.map(row => [row.key, Number(row.value)]));
     const reward = { coin: progress ? 1000 : (values['activity.default_reward_coin'] ?? 1000), dzx: progress ? 1 : (values['activity.default_reward_dzx'] ?? 1), dzp: progress ? 1 : (values['activity.default_reward_dzp'] ?? 1) };
-    const transaction = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', ...reward, modifiers: [] });
+    const transaction = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', ...reward, modifiers: [], qualifyingVerifiedActivity: true });
     if (!transaction.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: userId, source: 'advertisement', sourceReferenceId: event.id, idempotencyKey: `referral-lifetime:advertisement:${event.id}`, baseReward: { coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1 } });
     await activateOnVerifiedActivity(client, userId);
     await client.query("UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1", [event.id, JSON.stringify({ reward_transaction_id: transaction.transaction.id, reward_idempotency_key: rewardIdempotencyKey, reward_coin: reward.coin, reward_dzx: reward.dzx, reward_dzp: reward.dzp })]);
