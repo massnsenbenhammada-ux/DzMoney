@@ -11,6 +11,14 @@ const TASK_CATEGORY_ORDER = [
   { key: 'special', label: 'Special / Partner Task', description: 'Partner campaigns and integrations', icon: '★' }
 ];
 const DAILY_SUBTYPE_ORDER = ['daily_check_in', 'check_for_update', 'share_with_friends', 'view_ads', 'invite_1_friend', 'invite_10_friends', 'invite_20_friends', 'invite_50_friends', 'invite_100_friends'];
+const TASK_ICONS = {
+  daily_check_in: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M3.5 9.5h17"/><path d="M8 3v3.4M16 3v3.4"/><path d="M8.2 14l2.3 2.3 4.8-4.8"/></svg>',
+  check_for_update: '<svg viewBox="0 0 24 24"><path d="M20 11.5A8 8 0 1 0 17.8 17"/><path d="M20 5v6.5h-6.5"/></svg>',
+  share_with_friends: '<svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.6"/><circle cx="17.5" cy="5.5" r="2.6"/><circle cx="17.5" cy="18.5" r="2.6"/><path d="M8.3 10.6l6.9-3.7M8.3 13.4l6.9 3.7"/></svg>',
+  view_ads: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3.5"/><path d="M10.2 9l5 3-5 3z" fill="currentColor" stroke="none"/></svg>',
+  invite: '<svg viewBox="0 0 24 24"><circle cx="9.5" cy="8" r="3.3"/><path d="M3.5 19.5a6 6 0 0 1 12 0"/><path d="M17.5 7.5v5.5M14.7 10.3h5.6"/></svg>',
+  open_link: '<svg viewBox="0 0 24 24"><path d="M9 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><path d="M14 4h6v6"/><path d="M10 14L19.5 4.5"/></svg>'
+};
 let monetagHandler = null;
 const MONETAG_READY_TIMEOUT_MS = 15000;
 const MONETAG_PRELOAD_TIMEOUT_SECONDS = 12;
@@ -120,21 +128,38 @@ function taskActionLabel(task) {
   if (isInviteTask(task)) return task.claimable === true ? 'Claim' : 'Invite';
   return saved?.attemptId ? 'Verify' : 'Open Task';
 }
+function taskIconMarkup(task, isDaily) {
+  const key = String(task.systemKey || '');
+  if (key === 'daily_check_in') return TASK_ICONS.daily_check_in;
+  if (key === 'check_for_update') return TASK_ICONS.check_for_update;
+  if (key === 'share_with_friends') return TASK_ICONS.share_with_friends;
+  if (key === 'view_ads') return TASK_ICONS.view_ads;
+  if (isInviteTask(task)) return TASK_ICONS.invite;
+  return TASK_ICONS.open_link;
+}
 function taskCard(task) {
   const key = String(task.systemKey || '');
   const method = task.verification?.method ? String(task.verification.method).replace(/_/g, ' ') : 'verified';
-  const progress = key === 'view_ads' ? `<small class="task-progress">${state.dailyAdProgress?.completed || 0}/${state.dailyAdProgress?.target || 20}</small>` : '';
-  const reward = key === 'view_ads' ? '<b class="task-reward">+1,000 COIN • +1 DZX • +1 DZP / verified ad</b>' : `<b class="task-reward">${taskReward(task)}</b>`;
   const isDaily = key === 'daily_check_in' || key === 'check_for_update' || key === 'share_with_friends' || key === 'view_ads' || isInviteTask(task);
+  const icon = taskIconMarkup(task, isDaily);
+  const title = String(task.title || task.name || 'Task');
+  const type = String(task.taskType || task.type || 'Activity');
+  const rewardPill = key === 'view_ads' ? '<span class="task-reward-pill">+1,000 COIN • +1 DZX • +1 DZP / verified ad</span>' : `<span class="task-reward-pill">${taskReward(task)}</span>`;
+  const progress = key === 'view_ads' ? (() => {
+    const completed = state.dailyAdProgress?.completed || 0;
+    const target = state.dailyAdProgress?.target || 20;
+    const pct = Math.max(0, Math.min(100, Math.round((completed / target) * 100)));
+    return `<div class="task-progress-row"><div class="task-progress-track"><i style="width:${pct}%"></i></div><small>${completed}/${target} watched</small></div>`;
+  })() : '';
+  const head = `<div class="task-card-top"><div class="task-icon">${icon}</div><div class="task-info"><strong>${title}</strong><span class="task-type">${type}</span></div>${rewardPill}</div>`;
+  const methodRow = `<span class="task-method"><i class="task-method-dot"></i>${method}</span>`;
   if (!isDaily) {
     const saved = state.taskActions[task.id];
     const verifyDisabled = saved?.attemptId ? '' : 'disabled';
-    return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small>${reward}</div><div class="task-actions"><button class="secondary-btn task-open-action" data-task-open="${String(task.id)}">Open Task</button><button class="secondary-btn task-verify-action" data-task-verify="${String(task.id)}" ${verifyDisabled}>Verify</button></div></article>`;
+    return `<article class="task-card" data-task-id="${String(task.id)}">${head}<div class="task-card-bottom">${methodRow}<div class="task-actions"><button class="task-btn task-btn-ghost task-open-action" data-task-open="${String(task.id)}">Open</button><button class="task-btn task-btn-primary task-verify-action" data-task-verify="${String(task.id)}" ${verifyDisabled}>Verify</button></div></div></article>`;
   }
   const label = taskActionLabel(task);
-  const action = `data-system-key="${key}"`;
-  const actionClass = 'daily-system-action';
-  return `<article class="task-card" data-task-id="${String(task.id)}"><div class="task-icon">▶</div><div class="task-info"><strong>${String(task.title || task.name || 'Task')}</strong><span>${String(task.taskType || task.type || 'Activity')}</span><small>${method}</small>${progress}${reward}</div><button class="secondary-btn ${actionClass}" data-task-action="${key}" ${action}>${label}</button></article>`;
+  return `<article class="task-card task-card--daily" data-task-id="${String(task.id)}">${head}${progress}<div class="task-card-bottom">${methodRow}<button class="task-btn task-btn-primary daily-system-action" data-task-action="${key}" data-system-key="${key}">${label}</button></div></article>`;
 }
 function setTaskModeTabsVisible(visible) {
   const tabs = document.querySelector('.task-mode-tabs');
