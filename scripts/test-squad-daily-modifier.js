@@ -38,9 +38,9 @@ test('daily modifier is mapped from contribution and applied only to D+1 qualify
     assert.equal(notContributor.contributor, false);
 
     const reward = await creditActivityReward({ idempotencyKey: `modifier-reward-${suffix}`, userId: users[1].id, source: 'task', coin: 1000, dzx: 1, dzp: 1, modifiers: [], qualifyingVerifiedActivity: true, activityDay: applicationDay });
-    assert.equal(reward.entries.find(entry => entry.currency === 'COIN').amount, '1150');
-    assert.equal(reward.entries.find(entry => entry.currency === 'DZX').amount, '1.15');
-    assert.equal(reward.entries.find(entry => entry.currency === 'DZP').amount, '1');
+    assert.equal(Number(reward.entries.find(entry => entry.currency === 'COIN').amount), 1150);
+    assert.equal(Number(reward.entries.find(entry => entry.currency === 'DZX').amount), 1.15);
+    assert.equal(Number(reward.entries.find(entry => entry.currency === 'DZP').amount), 1);
   } finally {
     if (squadId) await query('DELETE FROM squads WHERE id=$1', [squadId]);
     if (ids.length) {
