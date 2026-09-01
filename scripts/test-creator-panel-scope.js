@@ -1,6 +1,7 @@
 const fs = require('fs');
 
 const app = fs.readFileSync('public/app.js', 'utf8');
+const creatorCss = fs.readFileSync('public/creator-task.css', 'utf8');
 
 const categoriesStart = app.indexOf('function renderTaskCategories()');
 const categoriesEnd = app.indexOf('\nfunction sortDailyTasks', categoriesStart);
@@ -25,5 +26,13 @@ if (!categoryBody.includes('creatorPanel.hidden = true')) {
   throw new Error('Creator panel must be hidden inside a specific task category');
 }
 
+if (!/\.creator-panel\[hidden\]\{display:none\}/.test(creatorCss)) {
+  throw new Error('Creator panel hidden state must be enforced by CSS');
+}
+if (/\.creator-panel\{display:block\}/.test(creatorCss)) {
+  throw new Error('Creator CSS must not override the hidden attribute with display:block');
+}
+
 console.log('CREATOR_PANEL_LANDING_SCOPE: PASS');
 console.log('CREATOR_PANEL_CATEGORY_SCOPE: PASS');
+console.log('CREATOR_PANEL_HIDDEN_CSS: PASS');
