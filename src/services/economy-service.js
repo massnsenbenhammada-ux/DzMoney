@@ -1,4 +1,4 @@
-const { withTransaction, query } = require('../src/db/pool');
+const { withTransaction, query } = require('../db/pool');
 
 const INTERNAL_CURRENCIES = ['COIN', 'DZX', 'DZP'];
 const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'reward_pool', 'promo'];
@@ -13,16 +13,12 @@ const DECIMAL_SCALE = 1000000000n;
 
 function numericInput(value, name, { allowZero = true } = {}) {
   if (typeof value === 'number') {
-    if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) {
-      throw new Error(`${name} must be a finite safe numeric value`);
-    }
+    if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) throw new Error(`${name} must be a finite safe numeric value`);
   }
   const text = String(value).trim();
   if (!NUMERIC_PATTERN.test(text)) throw new Error(`${name} must be a valid decimal number`);
   const [integerPart, fractionPart = ''] = text.replace('-', '').split('.');
-  if (integerPart.replace(/^0+/, '').length > 21 || fractionPart.length > NUMERIC_SCALE) {
-    throw new Error(`${name} exceeds NUMERIC(30,9) precision`);
-  }
+  if (integerPart.replace(/^0+/, '').length > 21 || fractionPart.length > NUMERIC_SCALE) throw new Error(`${name} exceeds NUMERIC(30,9) precision`);
   const isZero = /^0+(?:\.0*)?$/.test(text);
   if (!allowZero && isZero) throw new Error(`${name} must be non-zero`);
   return text;
@@ -56,9 +52,7 @@ function multiplyScaled(left, right) {
   const product = left * right;
   const quotient = product / DECIMAL_SCALE;
   const remainder = product % DECIMAL_SCALE;
-  if (remainder !== 0n && (remainder < 0n ? -remainder : remainder) * 2n >= DECIMAL_SCALE) {
-    return quotient + (product < 0n ? -1n : 1n);
-  }
+  if (remainder !== 0n && (remainder < 0n ? -remainder : remainder) * 2n >= DECIMAL_SCALE) return quotient + (product < 0n ? -1n : 1n);
   return quotient;
 }
 
@@ -91,22 +85,9 @@ async function applyMovement(client, { userId, currency, amount, source, dzpBuck
     if (!['earned_dzp', 'converted_dzp', 'purchased_dzp'].includes(dzpBucket)) throw new Error('Invalid DZP source bucket');
     updates.push(`${dzpBucket} = ${dzpBucket} + $1::numeric`);
   }
-  const updated = await client.query(
-    `UPDATE wallet_accounts
-     SET ${updates.join(', ')}
-     WHERE id = $2 AND balance + $1::numeric >= 0
-     RETURNING balance`,
-    params
-  );
+  const updated = await client.query(`UPDATE wallet_accounts SET ${updates.join(', ')} WHERE id = $2 AND balance + $1::numeric >= 0 RETURNING balance`, params);
   if (!updated.rowCount) throw new Error(`Insufficient ${currency} balance`);
-  return {
-    walletId: wallet.id,
-    currency,
-    amount: delta,
-    before: wallet.balance,
-    after: updated.rows[0].balance,
-    source,
-  };
+  return { walletId: wallet.id, currency, amount: delta, before: wallet.balance, after: updated.rows[0].balance, source };
 }
 
 async function createTransaction(client, { idempotencyKey, userId, type, metadata }) {
@@ -218,4 +199,4 @@ async function convertDzxToDzp({ idempotencyKey, userId, dzx }) {
 function tonToDZX(ton) { return positiveNumber(ton, 'ton') * TON_DZX; }
 function dzxToTON(dzx) { return positiveNumber(dzx, 'dzx') / TON_DZX; }
 
-module.exports = { INTERNAL_CURRENCIES, ACTIVITY_REWARD_SOURCES, TON_DZX, TON_COIN, DZX_COIN, DZP_COIN, DZP_DZX, getEconomySettings, postEconomyTransaction, postEconomyTransactionOnClient, creditActivityReward, creditActivityRewardOnClient, convertCoinToDzp, convertDzxToDzp, tonToDZX, dzxToTON };
+module.exports = { INTERNAL_CURRENCIES, ACTIVITY_REWARD_SOURCES, TON_DZX, TON_COIN, DZX_COIN, DZX_COIN, DZP_COIN, DZP_DZX, getEconomySettings, postEconomyTransaction, postEconomyTransactionOnClient, creditActivityReward, creditActivityRewardOnClient, convertCoinToDzp, convertDzxToDzp, tonToDZX, dzxToTON };
