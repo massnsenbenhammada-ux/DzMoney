@@ -30,12 +30,12 @@ test('daily modifier is mapped from contribution and applied only to D+1 qualify
     await getDailySquadState({ squadId, day });
 
     const applied = await withTransaction(client => getApplicableSquadModifierOnClient(client, { userId: users[1].id, day: applicationDay }));
-    assert.equal(applied.rate, '0.15');
+    assert.equal(Number(applied.rate), 0.15);
     assert.equal(applied.contributor, true);
 
     const notContributor = await withTransaction(client => getApplicableSquadModifierOnClient(client, { userId: users[0].id, day: applicationDay }));
+    assert.equal(Number(notContributor.rate), 0);
     assert.equal(notContributor.contributor, false);
-    assert.equal(notContributor.rate, '0');
 
     const reward = await creditActivityReward({ idempotencyKey: `modifier-reward-${suffix}`, userId: users[1].id, source: 'task', coin: 1000, dzx: 1, dzp: 1, modifiers: [], qualifyingVerifiedActivity: true, activityDay: applicationDay });
     assert.equal(reward.entries.find(entry => entry.currency === 'COIN').amount, '1150');
