@@ -30,7 +30,7 @@ test('daily Squad state uses verified activity, target OR 50%, and freezes eligi
 
     const first = await getDailySquadState({ squadId });
     assert.equal(first.eligibleMemberCount, 3);
-    assert.equal(first.dailyTarget, 30);
+    assert.equal(first.dailyTarget, '30.000000000');
     assert.equal(first.activeMemberCount, 0);
     assert.equal(first.dzpContribution, '0');
     assert.equal(first.status, 'risk');
@@ -55,7 +55,7 @@ test('daily Squad state uses verified activity, target OR 50%, and freezes eligi
     await query("INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ($1,$2,'active')", [squadId, users[3].id]);
     const frozen = await getDailySquadState({ squadId });
     assert.equal(frozen.eligibleMemberCount, 3);
-    assert.equal(frozen.dailyTarget, 30);
+    assert.equal(frozen.dailyTarget, '30.000000000');
   } finally {
     if (squadId) await query('DELETE FROM squads WHERE id=$1', [squadId]);
     if (ids.length) {
