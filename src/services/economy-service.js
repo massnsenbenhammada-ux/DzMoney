@@ -13,16 +13,12 @@ const DECIMAL_SCALE = 1000000000n;
 
 function numericInput(value, name, { allowZero = true } = {}) {
   if (typeof value === 'number') {
-    if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) {
-      throw new Error(`${name} must be a finite safe numeric value`);
-    }
+    if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) throw new Error(`${name} must be a finite safe numeric value`);
   }
   const text = String(value).trim();
   if (!NUMERIC_PATTERN.test(text)) throw new Error(`${name} must be a valid decimal number`);
   const [integerPart, fractionPart = ''] = text.replace('-', '').split('.');
-  if (integerPart.replace(/^0+/, '').length > 21 || fractionPart.length > NUMERIC_SCALE) {
-    throw new Error(`${name} exceeds NUMERIC(30,9) precision`);
-  }
+  if (integerPart.replace(/^0+/, '').length > 21 || fractionPart.length > NUMERIC_SCALE) throw new Error(`${name} exceeds NUMERIC(30,9) precision`);
   const isZero = /^0+(?:\.0*)?$/.test(text);
   if (!allowZero && isZero) throw new Error(`${name} must be non-zero`);
   return text;
@@ -56,9 +52,7 @@ function multiplyScaled(left, right) {
   const product = left * right;
   const quotient = product / DECIMAL_SCALE;
   const remainder = product % DECIMAL_SCALE;
-  if (remainder !== 0n && (remainder < 0n ? -remainder : remainder) * 2n >= DECIMAL_SCALE) {
-    return quotient + (product < 0n ? -1n : 1n);
-  }
+  if (remainder !== 0n && (remainder < 0n ? -remainder : remainder) * 2n >= DECIMAL_SCALE) return quotient + (product < 0n ? -1n : 1n);
   return quotient;
 }
 
@@ -91,22 +85,9 @@ async function applyMovement(client, { userId, currency, amount, source, dzpBuck
     if (!['earned_dzp', 'converted_dzp', 'purchased_dzp'].includes(dzpBucket)) throw new Error('Invalid DZP source bucket');
     updates.push(`${dzpBucket} = ${dzpBucket} + $1::numeric`);
   }
-  const updated = await client.query(
-    `UPDATE wallet_accounts
-     SET ${updates.join(', ')}
-     WHERE id = $2 AND balance + $1::numeric >= 0
-     RETURNING balance`,
-    params
-  );
+  const updated = await client.query(`UPDATE wallet_accounts SET ${updates.join(', ')} WHERE id = $2 AND balance + $1::numeric >= 0 RETURNING balance`, params);
   if (!updated.rowCount) throw new Error(`Insufficient ${currency} balance`);
-  return {
-    walletId: wallet.id,
-    currency,
-    amount: delta,
-    before: wallet.balance,
-    after: updated.rows[0].balance,
-    source,
-  };
+  return { walletId: wallet.id, currency, amount: delta, before: wallet.balance, after: updated.rows[0].balance, source };
 }
 
 async function createTransaction(client, { idempotencyKey, userId, type, metadata }) {
@@ -157,13 +138,19 @@ function normalizeActivityReward({ source, coin, dzx, dzp, modifiers }) {
     multiplier = multiplyScaled(multiplier, DECIMAL_SCALE + rateScaled);
     normalizedModifiers.push({ type: 'squad', rate });
   }
-  const reward = Object.fromEntries(Object.entries(baseScaled).map(([currency, amount]) => [currency, scaledToDecimal(multiplyScaled(amount, multiplier))]));
+  const reward = Object.fromEntries(Object.entries(baseScaled).map(([currency, amount]) => [currency, currency === 'dzp' ? scaledToDecimal(amount) : scaledToDecimal(multiplyScaled(amount, multiplier))]));
   return { baseReward, reward, normalizedModifiers };
 }
 
 async function creditActivityRewardOnClient(client, args) {
-  const { idempotencyKey, userId, source = 'advertisement', coin = 0, dzx = 0, dzp = 0, modifiers = [] } = args;
-  const { baseReward, reward, normalizedModifiers } = normalizeActivityReward({ source, coin, dzx, dzp, modifiers });
+  const { idempotencyKey, userId, source = 'advertisement', coin = 0, dzx = 0, dzp = 0, modifiers = [], qualifyingVerifiedActivity = false, activityDay = null } = args;
+  let effectiveModifiers = modifiers;
+  if (qualifyingVerifiedActivity && !modifiers.some(modifier => modifier?.type === 'squad')) {
+    const { getApplicableSquadModifierOnClient } = require('./squad-daily-state-service');
+    const applied = await getApplicableSquadModifierOnClient(client, { userId, day: activityDay });
+    if (applied.rate !== '0') effectiveModifiers = [...modifiers, { type: 'squad', rate: applied.rate }];
+  }
+  const { baseReward, reward, normalizedModifiers } = normalizeActivityReward({ source, coin, dzx, dzp, modifiers: effectiveModifiers });
   const movements = [];
   if (reward.coin !== '0') movements.push({ currency: 'COIN', amount: reward.coin, source });
   if (reward.dzx !== '0') movements.push({ currency: 'DZX', amount: reward.dzx, source });

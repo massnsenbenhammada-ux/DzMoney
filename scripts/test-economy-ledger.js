@@ -46,8 +46,8 @@ async function main() {
     const balancesAfterReward = Object.fromEntries(state.map(w => [w.currency, Number(w.balance)]));
     assert.equal(balancesAfterReward.COIN, 15000);
     assert.equal(balancesAfterReward.DZX, 15);
-    assert.equal(balancesAfterReward.DZP, 1.5);
-    assert.equal(Number(state.find(w => w.currency === 'DZP').earned_dzp), 1.5);
+    assert.equal(balancesAfterReward.DZP, 1);
+    assert.equal(Number(state.find(w => w.currency === 'DZP').earned_dzp), 1);
 
     const rewardTx = await query(
       `SELECT transaction_type, metadata
@@ -74,7 +74,7 @@ async function main() {
     const afterPromo = Object.fromEntries(state.map(w => [w.currency, Number(w.balance)]));
     assert.equal(afterPromo.COIN, 15000);
     assert.equal(afterPromo.DZX, 17);
-    assert.equal(afterPromo.DZP, 1.5);
+    assert.equal(afterPromo.DZP, 1);
 
     await assert.rejects(
       () => creditActivityReward({
@@ -95,8 +95,8 @@ async function main() {
 
     state = await getUserWallets(user.id);
     const afterCoinConversion = state.find(w => w.currency === 'DZP');
-    assert.equal(Number(afterCoinConversion.balance), 2.5);
-    assert.equal(Number(afterCoinConversion.earned_dzp), 1.5);
+    assert.equal(Number(afterCoinConversion.balance), 2);
+    assert.equal(Number(afterCoinConversion.earned_dzp), 1);
     assert.equal(Number(afterCoinConversion.converted_dzp), 1);
 
     const dzxConversion = await convertDzxToDzp({
@@ -108,9 +108,9 @@ async function main() {
 
     state = await getUserWallets(user.id);
     const afterDzxConversion = state.find(w => w.currency === 'DZP');
-    assert.equal(Number(afterDzxConversion.balance), 3.5);
+    assert.equal(Number(afterDzxConversion.balance), 3);
     assert.equal(Number(afterDzxConversion.converted_dzp), 2);
-    assert.equal(Number(afterDzxConversion.earned_dzp), 1.5);
+    assert.equal(Number(afterDzxConversion.earned_dzp), 1);
 
     await postEconomyTransaction({
       idempotencyKey: `${marker}:purchase-dzp`,
@@ -127,9 +127,9 @@ async function main() {
 
     state = await getUserWallets(user.id);
     const afterPurchase = state.find(w => w.currency === 'DZP');
-    assert.equal(Number(afterPurchase.balance), 8.5);
+    assert.equal(Number(afterPurchase.balance), 8);
     assert.equal(Number(afterPurchase.purchased_dzp), 5);
-    assert.equal(Number(afterPurchase.earned_dzp), 1.5);
+    assert.equal(Number(afterPurchase.earned_dzp), 1);
     assert.equal(Number(afterPurchase.converted_dzp), 2);
 
     await assert.rejects(
@@ -149,8 +149,6 @@ async function main() {
        WHERE lt.user_id = $1`,
       [user.id]
     );
-    // 3 reward entries + 1 promo entry + 2 COIN conversion + 2 DZX conversion + 1 purchase.
-    // The overspend transaction is rolled back, so it must not leave a ledger entry behind.
     assert.equal(Number(ledger.rows[0].count), 9);
 
     const badBalances = await query(

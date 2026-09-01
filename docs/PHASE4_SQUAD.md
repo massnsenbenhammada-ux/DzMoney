@@ -15,8 +15,9 @@ Current implementation status:
 - System-created Squad persistence: merged.
 - Free membership invitation/activation: merged.
 - Paid membership purchase/activation: merged.
-- Daily Squad State: implemented on `feature/squad-daily-state`, pending CI/runtime acceptance.
+- Daily Squad State: merged on `main`.
+- Daily DZP Contribution + Modifier: implemented on `feature/squad-daily-modifier-clean`, pending CI/runtime acceptance.
 
-The Daily Squad State slice freezes the day's eligible-member count, derives the daily DZP target from that snapshot, counts active members from existing verified task/ad activity records, and evaluates `ACTIVE` when either the daily DZP target or the 50% active-member condition is reached. DZP contribution is read from the existing Economy/Ledger reward records. The resulting state is effective for the following UTC+1 day.
+The Daily Modifier slice persists the daily modifier rate and a contributor snapshot, uses the locked mapping of 1,500 DZP → 15%, 5,000 DZP → 50%, and 10,000+ DZP → 100%, and applies the result only to qualifying Verified Activity rewards on the following UTC+1 day. The existing Economy/Ledger remains the economic source of truth; DZP is never increased by the modifier.
 
 Implementation remains gated by Constitution 54: every slice must pass the required code, history, PR, CI, tracing, tests, documentation, issues, runtime/failure-history and final-diff gates before merge.
