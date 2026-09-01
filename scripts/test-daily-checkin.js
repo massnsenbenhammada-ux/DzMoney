@@ -32,18 +32,27 @@ async function balance(userId, currency) {
   return Number(result.rows[0].balance);
 }
 
-async function cleanup(userId) {
+async function createInactiveMembership(userId) {
+  const squad = await pool.query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [userId]);
+  const membership = await pool.query("INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ($1,$2,'inactive') RETURNING id", [squad.rows[0].id, userId]);
+  return { squadId: squad.rows[0].id, membershipId: membership.rows[0].id };
+}
+
+async function cleanup(userId, squadId) {
   await withTransaction(async client => {
     await client.query('DELETE FROM daily_checkins WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)', [userId]);
     await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
     await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
+    if (squadId) await client.query('DELETE FROM squad_memberships WHERE squad_id=$1', [squadId]);
+    if (squadId) await client.query('DELETE FROM squads WHERE id=$1', [squadId]);
     await client.query('DELETE FROM users WHERE id=$1', [userId]);
   });
 }
 
 async function main() {
   const userId = await createUser();
+  const membership = await createInactiveMembership(userId);
   try {
     assert.deepStrictEqual(await getDailyCheckinStatus({ userId }), { status: 'available' });
     const claim = await startDailyCheckinClaim({ userId, idempotencyKey: `daily-${Date.now()}`, providerRegistry: registry });
@@ -62,9 +71,12 @@ async function main() {
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
     assert.strictEqual(await balance(userId, 'DZX'), 1);
     assert.strictEqual(await balance(userId, 'DZP'), 1);
+    const membershipState = await pool.query('SELECT status FROM squad_memberships WHERE id=$1', [membership.membershipId]);
+    assert.strictEqual(membershipState.rows[0].status, 'active');
     const duplicate = await finalizeDailyCheckin({ userId, claimIdempotencyKey: claim.claimIdempotencyKey });
     assert.strictEqual(duplicate.duplicate, true);
     assert.strictEqual(await balance(userId, 'COIN'), 1000);
+    assert.strictEqual(await pool.query('SELECT status FROM squad_memberships WHERE id=$1', [membership.membershipId]).then(result => result.rows[0].status), 'active');
     let cooldownError;
     try {
       await startDailyCheckinClaim({ userId, idempotencyKey: `daily-${Date.now()}-second`, providerRegistry: registry });
@@ -78,7 +90,7 @@ async function main() {
     assert.ok(new Date(cooldownError.nextEligibleAt).getTime() > Date.now(), 'nextEligibleAt must be in the future');
     console.log('Daily Check-in invariants: PASS');
   } finally {
-    await cleanup(userId);
+    await cleanup(userId, membership.squadId);
     await pool.end();
   }
 }
