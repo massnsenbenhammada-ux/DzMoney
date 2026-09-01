@@ -2,6 +2,7 @@ const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
+const { activateOnVerifiedActivity } = require('./squad-membership-service');
 const { markAdvertisementVerified } = require('./ad-event-service');
 const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 
@@ -146,6 +147,7 @@ async function finalizeDailyCheckin({ userId, claimIdempotencyKey }) {
       });
     }
     if (reward.duplicate) return { duplicate: true, rewarded: false, reward };
+    await activateOnVerifiedActivity(client, userId);
     const updated = await client.query('UPDATE daily_checkins SET last_claimed_at=NOW(),updated_at=NOW() WHERE user_id=$1 RETURNING *', [userId]);
     return { duplicate: false, rewarded: true, reward, state: updated.rows[0] };
   });
