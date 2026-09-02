@@ -14,7 +14,7 @@ async function insertAd(userId, context, suffix, verified) {
 
 test('Reward Pool activation counts only verified Reward Pool ads', { skip: !process.env.DATABASE_URL }, async () => {
   const suffix = `${Date.now()}`;
-  const user = await walletService.createUser({ telegramUserId: `rp_${suffix}`, username: `reward_pool_${suffix}` });
+  const user = await walletService.createUser({ telegramUserId: suffix, username: `reward_pool_${suffix}` });
   try {
     let status = await getRewardPoolStatus({ userId: user.id });
     assert.equal(status.activationTarget, 10);
