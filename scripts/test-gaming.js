@@ -27,7 +27,7 @@ function testConfigValidation() {
   };
   assert.strictEqual(validateGamingConfig(valid), valid);
   assert.throws(() => validateGamingConfig({ ...valid, dailyAdLimit:0 }), /positive integer/);
-  assert.throws(() => validateGamingConfig({ ...valid, adBonus:{coin_100:-1} }), /non-negative integers/);
+  assert.throws(() => validateGamingConfig({ ...valid, adBonus:{coin_100:-1} }), /Gaming reward weights are invalid/);
 }
 
 function testSourceBoundaries() {
