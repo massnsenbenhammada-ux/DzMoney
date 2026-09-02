@@ -53,6 +53,9 @@ async function getAccount(userId) {
 }
 
 async function cleanupUser(userId) {
+  await query('DELETE FROM ledger_entries WHERE wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)', [userId]);
+  await query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
+  await query('DELETE FROM wallet_accounts WHERE user_id=$1', [userId]);
   await query('DELETE FROM users WHERE id=$1', [userId]);
 }
 
