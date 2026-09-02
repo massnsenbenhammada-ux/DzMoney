@@ -75,7 +75,7 @@ const taskUxChecks = {
   creatorTabsVisibleOnCategoryList: /function renderTaskCategories\([\s\S]*?setTaskModeTabsVisible\(true\)/.test(app),
   creatorNotInHome: !/<button[^>]+data-go="tasks"[^>]+data-open-task-mode="creator"/.test(index),
   creatorNotInBottomNav: !/<nav class="bottom-nav"[\s\S]*data-open-task-mode="creator"/.test(index),
-  tasksLandingDefault: /function showPage\(page\)[\s\S]*?if \(page === 'tasks' \) \{ state\.taskCategory = null; loadTasks\(\); \}/.test(app),
+  tasksLandingDefault: /function showPage\(page\)[\s\S]*?if \(page === 'tasks'\) \{ state\.taskCategory = null; loadTasks\(\); \}/.test(app),
   dailyRefreshOutsideRenderer: renderTaskCategoryBody.length > 0 && !renderTaskCategoryBody.includes('loadDailyTaskStatus()') && !renderTaskCategoryBody.includes('loadDailyAdProgress()'),
   dailyRefreshOnCategoryEntry: categoryDailyRefresh.includes('renderTaskCategory(category.dataset.taskCategory)') && categoryDailyRefresh.includes("category.dataset.taskCategory === 'daily'") && categoryDailyRefresh.includes('loadDailyTaskStatus()') && categoryDailyRefresh.includes('loadDailyAdProgress()'),
   dailyRefreshScopedToDailyPage: /state\.page === 'tasks' && state\.taskCategory === 'daily'/.test(app),
@@ -84,7 +84,7 @@ const taskUxChecks = {
   taskAdProviderSelection: /selectProvider\(providerRegistry, \{ context: 'task' \}\)/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8'))
 };
 const failedTaskUxChecks = Object.entries(taskUxChecks).filter(([, passed]) => !passed).map(([name]) => name);
-if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskUxChecks.join(', ')}`);
+if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskChecks.join(', ')}`);
 
 console.log('FRONTEND_SYNTAX: PASS');
 console.log('DAILY_ACTION_BINDING: PASS');
