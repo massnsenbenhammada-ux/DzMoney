@@ -3,6 +3,7 @@
   const root = document.querySelector('[data-page="gaming"]');
   if (!root) return;
   const state = { gaming: null, view: 'home', busy: false };
+  const assetVersion = new URL(document.currentScript?.src || '', window.location.href).searchParams.get('v') || 'runtime';
 
   const api = async (path, options = {}) => {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
@@ -25,7 +26,17 @@
   const wheelResults = ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'none'];
   const wheelLabels = { coin_100:'100 COIN', coin_1000:'1K COIN', dzx_1:'1 DZX', dzx_10:'10 DZX', dzp_1:'1 DZP', dzp_10:'10 DZP', extra_spin:'+1 SPIN', none:'NO REWARD' };
 
+  function ensureGamingRuntimeStyles() {
+    if (document.querySelector('link[data-dzmoney-gaming-runtime-css]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `/gaming-runtime.css?v=${encodeURIComponent(assetVersion)}`;
+    link.dataset.dzmoneyGamingRuntimeCss = 'true';
+    document.head.appendChild(link);
+  }
+
   function ensureSpinWheel() {
+    ensureGamingRuntimeStyles();
     const card = root.querySelector('[data-spin-wheel-host]') || root.querySelector('[data-spin-result]')?.parentElement;
     if (!card || card.querySelector('[data-spin-wheel]')) return;
     const host = document.createElement('div');
@@ -115,7 +126,7 @@
     if (!wheel) return Promise.resolve();
     const index = Math.max(0, wheelResults.indexOf(result));
     const segment = 360 / wheelResults.length;
-    const rotation = 360 * 5 - index * segment - segment / 2;
+    const rotation = 360 * 3 - index * segment - segment / 2;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     wheel.style.setProperty('--wheel-rotation', `${rotation}deg`);
     wheel.classList.remove('is-winner', 'is-spinning');

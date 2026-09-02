@@ -48,6 +48,7 @@ function testSourceBoundaries() {
   const economy = fs.readFileSync(require.resolve('../src/services/economy-service.js'), 'utf8');
   const verification = fs.readFileSync(require.resolve('../src/services/task-verification-service.js'), 'utf8');
   const routes = fs.readFileSync(require.resolve('../src/http/gaming-routes.js'), 'utf8');
+  const onclickaRoutes = fs.readFileSync(require.resolve('../src/http/onclicka-postback-routes.js'), 'utf8');
   const adminRoutes = fs.readFileSync(require.resolve('../src/http/admin-gaming-routes.js'), 'utf8');
   const server = fs.readFileSync(require.resolve('../server.js'), 'utf8');
   assert(service.includes("source: 'gaming'"));
@@ -63,6 +64,10 @@ function testSourceBoundaries() {
   assert(!verification.includes('row.config.gamingResource'));
   assert(routes.includes('function publicSession(session)'));
   assert(routes.includes('publicGamingState(await gaming.getGamingState({ userId }))'));
+  assert(onclickaRoutes.includes("const CONTEXTS = new Set(['task', 'daily_checkin', 'verification', 'gaming'])"));
+  assert(onclickaRoutes.includes('taskAdvertisementService.verifyTrustedTaskAdvertisement'));
+  assert(onclickaRoutes.includes('router.get(\'/\', handlePostback)'));
+  assert(onclickaRoutes.includes('const context = event.context'));
   assert(adminRoutes.includes('router.use(adminAuth)'));
   assert(adminRoutes.includes("router.put('/config'"));
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
@@ -80,8 +85,10 @@ function testRewardTables() {
 function testGamingFrontendContract() {
   const gaming = fs.readFileSync('public/gaming.js', 'utf8');
   const css = fs.readFileSync('public/gaming.css', 'utf8');
+  const runtimeCss = fs.readFileSync('public/gaming-runtime.css', 'utf8');
   const html = fs.readFileSync('public/index.html', 'utf8');
   const adClient = fs.readFileSync('public/ad-provider-client.js', 'utf8');
+  const onclickaLoader = fs.readFileSync('public/onclicka-sdk-loader.js', 'utf8');
 
   assert(gaming.includes('data-spin-wheel'));
   assert(gaming.includes('data-spin-wheel-segment'));
@@ -93,19 +100,27 @@ function testGamingFrontendContract() {
   assert(gaming.includes('adapter?.ready'));
   assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
   assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
-  assert(gaming.includes('360 * 5 - index * segment'));
+  assert(gaming.includes('360 * 3 - index * segment'));
   assert(gaming.includes("const wheelResults = ['coin_100'"));
   assert(gaming.includes('renderRewardLists'));
+  assert(gaming.includes('gaming-runtime.css'));
+  assert(gaming.includes('assetVersion'));
   assert(css.includes('conic-gradient'));
   assert(css.includes('45deg'));
   assert(css.includes('@container'));
   assert(css.includes(':has('));
+  assert(runtimeCss.includes('dzmoney-wheel-three-turns'));
+  assert(runtimeCss.includes('data-spin-wheel-segment="coin_100"'));
+  assert(runtimeCss.includes('transform-origin: 100% 50%'));
+  assert(runtimeCss.includes('translateX(-74%)'));
   assert(html.includes('Gaming Ads'));
   assert(html.includes('data-gaming-ad="spin"'));
   assert(html.includes('data-gaming-ad="digging"'));
   assert(adClient.includes('DzMoneyOnclicka.show'));
   assert(adClient.includes("gamingProvider?.id === 'monetag' && window.DzMoneyMonetag?.ready"));
   assert(adClient.includes("provider: 'monetag'"));
+  assert(onclickaLoader.includes('preloadSelectedOnclicka'));
+  assert(onclickaLoader.includes('setTimeout(preloadSelectedOnclicka, 0)'));
 }
 
 async function testEconomicConfig() {
