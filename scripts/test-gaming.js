@@ -39,11 +39,31 @@ function testSourceBoundaries() {
   assert(service.includes('FOR UPDATE'));
 }
 
+function testGamingFrontendContract() {
+  const gaming = fs.readFileSync('public/gaming.js', 'utf8');
+  const css = fs.readFileSync('public/gaming.css', 'utf8');
+  const adClient = fs.readFileSync('public/ad-provider-client.js', 'utf8');
+
+  assert(gaming.includes('data-spin-wheel'));
+  assert(gaming.includes('data-spin-wheel-segment'));
+  assert(gaming.includes('data-digging-image'));
+  assert(gaming.includes('<svg'));
+  assert(gaming.includes('data-spin-result'));
+  assert(gaming.includes('DzMoneyGamingAd'));
+  assert(gaming.includes('No advertisement provider is configured'));
+  assert(gaming.includes('adapter?.ready'));
+  assert(css.includes('conic-gradient'));
+  assert(css.includes('@container'));
+  assert(css.includes(':has('));
+  assert(adClient.includes('DzMoneyOnclicka.show'));
+}
+
 try {
   testProviderContext();
   testConfigContract();
   testConfigValidation();
   testSourceBoundaries();
+  testGamingFrontendContract();
   require('./simulate-gaming-economy').run();
   console.log('Gaming core invariants: PASS');
 } catch (error) {

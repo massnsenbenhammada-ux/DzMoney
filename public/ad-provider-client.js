@@ -6,6 +6,7 @@ const gamingProvider = providerConfig.gaming;
 function createOnclickaHandler(config) {
   return async payload => {
     if (payload?.type === 'preload') return true;
+    if (typeof window.DzMoneyOnclicka?.show === 'function') return window.DzMoneyOnclicka.show({ spotId: config.spotId });
     if (typeof window.DzMoneyLoadOnclickaSdk !== 'function') throw new Error('OnClickA SDK loader is unavailable');
     await window.DzMoneyLoadOnclickaSdk();
     if (typeof window.initCdTma !== 'function') throw new Error('OnClickA TMA SDK is unavailable');
