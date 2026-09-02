@@ -52,6 +52,7 @@ async function ensureOnclickaReady(spotId) {
 
 window.DzMoneyOnclicka = {
   provider: ONCLICKA_PROVIDER,
+  prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId),
   show: async ({ spotId } = {}) => {
     const show = await ensureOnclickaReady(spotId);
     if (typeof show !== 'function') throw new Error('OnClickA show method is unavailable after initialization');
