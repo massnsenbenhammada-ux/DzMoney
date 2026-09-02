@@ -37,6 +37,8 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
       DATABASE_SSL: "false"
+      ONCLICKA_ENABLED: "true"
+      ONCLICKA_SPOT_ID: "6134799"
     services:
       postgres:
         image: postgres:16
@@ -68,6 +70,8 @@ jobs:
         run: npm run migrate
       - name: Run Gaming invariants and economic simulation
         run: node ./scripts/test-gaming.js
+      - name: Run OnClickA Gaming callback integration
+        run: node ./scripts/test-onclicka-gaming-callback.js
       - name: Run TON admin configuration boundary tests
         run: node --test ./tests/admin-ton-settings.test.js
       - name: Run TON blockchain evidence verifier tests
