@@ -55,9 +55,8 @@ router.post('/tasks/claim', asyncRoute(async (req, res) => {
 router.post('/ads/start', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req);
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
-  const game = String(req.body?.game || '');
-  const result = await gaming.startGamingAdvertisement({ userId, game, idempotencyKey: idempotency(req), providerRegistry: req.app.locals.adProviderRegistry });
-  res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, adEventId: String(result.adEvent.id), providerId: result.providerId });
+  const result = await gaming.startGamingAdvertisement({ userId, game: String(req.body?.game || ''), idempotencyKey: idempotency(req), providerRegistry: req.app.locals.adProviderRegistry });
+  res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, adEventId: String(result.adEvent.id), externalAdId: result.adEvent.external_ad_id, providerId: result.providerId });
 }));
 
 module.exports = router;
