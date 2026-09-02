@@ -107,6 +107,10 @@ function testGamingFrontendContract() {
   assert(gaming.includes('renderRewardLists'));
   assert(gaming.includes('gaming-runtime.css'));
   assert(gaming.includes('assetVersion'));
+  assert(gaming.includes("const startPromise = api('/api/gaming/ads/start'"));
+  assert(gaming.includes('const adPromise = adapter.handler({ requestVar: \'gaming\' })'));
+  assert(gaming.includes('Promise.all([startPromise, adPromise])'));
+  assert(!gaming.includes("const response = await api('/api/gaming/ads/start'"));
   assert(css.includes('conic-gradient'));
   assert(css.includes('45deg'));
   assert(css.includes('@container'));
