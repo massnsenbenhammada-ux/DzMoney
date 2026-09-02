@@ -3,7 +3,6 @@ const { multiplyRatioScaled, postEconomyTransactionOnClient } = require('./econo
 
 const DEFAULT_ACTIVATION_ADS = 10;
 const SCALE = 1000000000n;
-const UTC_PLUS_ONE = 'Etc/GMT-1';
 
 function positiveInteger(value, fallback) {
   const number = Number(value);
@@ -49,8 +48,7 @@ function previousUtcPlusOneDay(now = new Date()) {
 
 async function getDailyPool(client) {
   const result = await client.query("SELECT value FROM admin_settings WHERE key='reward_pool.daily_dzx'");
-  const value = result.rows[0]?.value;
-  return value === undefined ? '0' : String(value);
+  return result.rows[0]?.value === undefined ? '0' : String(result.rows[0].value);
 }
 
 async function settleRewardPool({ periodStart, periodEnd, now = new Date() }) {
@@ -66,23 +64,18 @@ async function settleRewardPool({ periodStart, periodEnd, now = new Date() }) {
     const poolDzx = String(await getDailyPool(client));
     const activity = await client.query(
       `WITH eligible_users AS (
-         SELECT user_id
-         FROM activity_ad_events
+         SELECT user_id FROM activity_ad_events
          WHERE context='reward_pool' AND verified=TRUE
-         GROUP BY user_id
-         HAVING COUNT(*) >= $1
+         GROUP BY user_id HAVING COUNT(*) >= $1
        )
        SELECT lt.user_id, SUM(le.amount)::text AS activity_dzp
        FROM ledger_transactions lt
        JOIN ledger_entries le ON le.transaction_id=lt.id
        JOIN eligible_users eu ON eu.user_id=lt.user_id
-       WHERE lt.transaction_type='REWARD'
-         AND le.currency='DZP' AND le.amount > 0
+       WHERE lt.transaction_type='REWARD' AND le.currency='DZP' AND le.amount > 0
          AND lt.created_at >= $2 AND lt.created_at < $3
          AND lt.metadata->>'source' IN ('task','advertisement')
-       GROUP BY lt.user_id
-       HAVING SUM(le.amount) > 0
-       ORDER BY lt.user_id`,
+       GROUP BY lt.user_id HAVING SUM(le.amount) > 0 ORDER BY lt.user_id`,
       [activationTarget, periodStart, periodEnd]
     );
     const total = activity.rows.reduce((sum, row) => sum + scaledDecimal(row.activity_dzp), 0n);
@@ -98,9 +91,10 @@ async function settleRewardPool({ periodStart, periodEnd, now = new Date() }) {
     const rewards = [];
     let remaining = pool;
     let remainingWeight = total;
-    for (const row of activity.rows) {
+    for (let index = 0; index < activity.rows.length; index += 1) {
+      const row = activity.rows[index];
       const weight = scaledDecimal(row.activity_dzp);
-      const rewardScaled = row === activity.rows[activity.rows.length - 1] ? remaining : multiplyRatioScaled(remaining, weight, remainingWeight);
+      const rewardScaled = index === activity.rows.length - 1 ? remaining : multiplyRatioScaled(remaining, weight, remainingWeight);
       remaining -= rewardScaled;
       remainingWeight -= weight;
       if (rewardScaled <= 0n) continue;
@@ -112,12 +106,10 @@ async function settleRewardPool({ periodStart, periodEnd, now = new Date() }) {
         metadata: { source: 'reward_pool', distribution_run_id: String(run.id), period_start: periodStart.toISOString(), period_end: periodEnd.toISOString(), activity_dzp: row.activity_dzp },
         movements: [{ currency: 'DZX', amount: rewardDzx, source: 'reward_pool' }],
       });
-      const effectiveWeight = row.activity_dzp;
-      const shareRatio = Number(decimalFromScaled(multiplyRatioScaled(weight, SCALE, total))).toFixed(18);
       await client.query(
         `INSERT INTO reward_pool_distribution_entries(run_id,user_id,activity_dzp,effective_weight,share_ratio,reward_dzx,reward_transaction_id)
-         VALUES($1,$2,$3::numeric,$3::numeric,$4::numeric,$5::numeric,$6)`,
-        [run.id, row.user_id, effectiveWeight, shareRatio, rewardDzx, transaction.transaction.id]
+         VALUES($1,$2,$3::numeric,$3::numeric,($3::numeric/$4::numeric),$5::numeric,$6)`,
+        [run.id, row.user_id, row.activity_dzp, decimalFromScaled(total), rewardDzx, transaction.transaction.id]
       );
       rewards.push({ userId: row.user_id, activityDzp: row.activity_dzp, rewardDzx });
     }
