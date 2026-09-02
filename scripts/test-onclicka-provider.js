@@ -50,9 +50,12 @@ function testOnclickaIsActiveAtRuntime() {
   }
 }
 
-function testPostbackRouterUsesOnClickAUserIdCallbackWithoutLocalSecret() {
+function testPostbackRouterUsesCanonicalOnClickAUserIdCallback() {
   const router = createOnclickaPostbackRouter({ providerRegistry });
   assert.ok(router);
+  const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
+  assert(server.includes("app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));"));
+  assert(!server.includes('ONCLICKA_CONFIRMATION_SECRET'));
 }
 
 function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
@@ -68,7 +71,7 @@ function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
     await testRejectsWrongSpot();
     await testRejectsMissingUser();
     testOnclickaIsActiveAtRuntime();
-    testPostbackRouterUsesOnClickAUserIdCallbackWithoutLocalSecret();
+    testPostbackRouterUsesCanonicalOnClickAUserIdCallback();
     testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider();
     console.log('OnClickA provider contract: PASS');
   } catch (error) {
