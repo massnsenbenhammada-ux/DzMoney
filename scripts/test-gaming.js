@@ -89,6 +89,7 @@ function testGamingFrontendContract() {
   const html = fs.readFileSync('public/index.html', 'utf8');
   const adClient = fs.readFileSync('public/ad-provider-client.js', 'utf8');
   const onclickaLoader = fs.readFileSync('public/onclicka-sdk-loader.js', 'utf8');
+  const onclickaEntry = fs.readFileSync('public/onclicka-adapter-entry.js', 'utf8');
 
   assert(gaming.includes('data-spin-wheel'));
   assert(gaming.includes('data-spin-wheel-segment'));
@@ -123,6 +124,8 @@ function testGamingFrontendContract() {
   assert(adClient.includes("provider: 'monetag'"));
   assert(onclickaLoader.includes('preloadSelectedOnclicka'));
   assert(onclickaLoader.includes('setTimeout(preloadSelectedOnclicka, 0)'));
+  assert(onclickaLoader.includes('DzMoneyOnclicka?.prepare'));
+  assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
 }
 
 async function testEconomicConfig() {
