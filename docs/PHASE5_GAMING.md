@@ -127,7 +127,7 @@ Initial Spin weights:
 - 1,000 COIN: 15
 - 1 DZX: 5
 - 1 DZP: 3
-- 10 DZX: 1
+- 10 DZX: 2
 - 10 DZP: 1
 
 Initial Digging weights use the same values, with `+1 Axe` replacing `+1 Spin`.
