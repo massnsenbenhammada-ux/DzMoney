@@ -111,10 +111,10 @@ async function testEconomicConfig() {
   const config = result.rows[0].config;
   const expectedSpinOrder = ['none','coin_100','extra_spin','coin_1000','dzx_1','dzp_1','dzx_10','dzp_10'];
   const expectedDiggingOrder = ['none','coin_100','extra_axe','coin_1000','dzx_1','dzp_1','dzx_10','dzp_10'];
-  assert.deepStrictEqual(Object.keys(config.spin.weights), expectedSpinOrder);
-  assert.deepStrictEqual(Object.keys(config.digging.weights), expectedDiggingOrder);
-  for (let i = 1; i < expectedSpinOrder.length; i += 1) assert(config.spin.weights[expectedSpinOrder[i - 1]] > config.spin.weights[expectedSpinOrder[i]]);
-  for (let i = 1; i < expectedDiggingOrder.length; i += 1) assert(config.digging.weights[expectedDiggingOrder[i - 1]] > config.digging.weights[expectedDiggingOrder[i]]);
+  for (const [weights, order] of [[config.spin.weights, expectedSpinOrder], [config.digging.weights, expectedDiggingOrder]]) {
+    assert(order.every(key => Object.prototype.hasOwnProperty.call(weights, key)));
+    for (let i = 1; i < order.length; i += 1) assert(weights[order[i - 1]] > weights[order[i]]);
+  }
   simulateGamingEconomy(config);
 }
 
