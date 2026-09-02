@@ -68,6 +68,8 @@ jobs:
         run: npm run migrate
       - name: Run Gaming invariants and economic simulation
         run: node ./scripts/test-gaming.js
+      - name: Run OnClickA Gaming callback boundary test
+        run: node ./scripts/test-onclicka-gaming-callback.js
       - name: Run TON admin configuration boundary tests
         run: node --test ./tests/admin-ton-settings.test.js
       - name: Run TON blockchain evidence verifier tests
