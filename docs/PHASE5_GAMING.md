@@ -53,6 +53,7 @@ The Spin and Digging ad counters are independent.
 - 1 Spin produces exactly one server-side roll and exactly one result.
 - The wheel animation is presentation only; the server result is authoritative.
 - Game Random Reward results are:
+  - 100 COIN
   - 1,000 COIN
   - 1 DZX
   - 10 DZX
@@ -85,6 +86,7 @@ Digging uses the same Random Reward table as Spin, except the resource result is
 - +1 Axe
 
 The full Digging Game Random Reward table is:
+- 100 COIN
 - 1,000 COIN
 - 1 DZX
 - 10 DZX
@@ -114,7 +116,23 @@ Admin controls, as applicable:
 
 Every configuration change creates a new configuration version. Existing sessions retain the version under which they were created.
 
-Reward weights are configuration data. Where the product contract specifies reward outcomes but no probability is specified, no new probability is invented by the implementation.
+The initial distribution is intentionally ordered:
+
+`No Reward > 100 COIN > +1 Spin/+1 Axe > 1,000 COIN > 1 DZX > 1 DZP > 10 DZX > 10 DZP`
+
+Initial Spin weights:
+- No Reward: 750
+- 100 COIN: 180
+- +1 Spin: 50
+- 1,000 COIN: 15
+- 1 DZX: 5
+- 1 DZP: 3
+- 10 DZX: 1
+- 10 DZP: 1
+
+Initial Digging weights use the same values, with `+1 Axe` replacing `+1 Spin`.
+
+Weights are versioned configuration data and remain Admin-configurable through the existing Admin authentication boundary. The initial values must pass the economic simulation gate before merge.
 
 ## Audit and idempotency
 
@@ -170,5 +188,9 @@ Before finalizing reward values or weights, simulate 1,000 users × 30 days and 
 - average reward;
 - best/worst case;
 - total Gaming cost to the existing Economy.
+
+The simulation must consume the current versioned Gaming configuration rather than an independent copy of reward weights.
+
+The existing 1,200-DZX average-cost guardrail remains unchanged.
 
 No simulation result is to be treated as a final economic contract until reviewed.
