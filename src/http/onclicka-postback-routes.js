@@ -5,21 +5,18 @@ const { verifyDailyCheckinAd, finalizeDailyCheckin } = require('../services/dail
 const { verifyTaskAdvertisement, finalizeTaskVerification } = require('../services/task-verification-service');
 const taskAdvertisementService = require('../services/task-advertisement-service');
 const gamingService = require('../services/gaming-service');
-const { assertProviderSecret } = require('./provider-auth');
 const { createRateLimit } = require('./rate-limit');
 
 const CONTEXTS = new Set(['task', 'daily_checkin', 'verification', 'gaming']);
 
-function createOnclickaPostbackRouter({ providerRegistry, secret }) {
+function createOnclickaPostbackRouter({ providerRegistry }) {
   if (!providerRegistry) throw new Error('Advertisement provider registry is required');
-  if (!secret) throw new Error('OnClickA confirmation secret is required');
   const router = express.Router();
   router.use(createRateLimit({ windowMs: 60_000, max: 60, key: req => `provider:${req.ip || 'unknown'}` }));
 
   const handlePostback = async (req, res, next) => {
     const userId = String(req.query.USERID || '');
     try {
-      assertProviderSecret(req, secret);
       if (!userId || !/^\d{1,20}$/.test(userId)) return res.status(400).json({ ok: false, error: 'USERID is invalid' });
 
       const eventResult = await query(
