@@ -42,13 +42,6 @@ CREATE TABLE IF NOT EXISTS gaming_spin_results (
   UNIQUE(user_id,idempotency_key)
 );
 
-CREATE TABLE IF NOT EXISTS gaming_resource_claims (
-  task_attempt_id BIGINT PRIMARY KEY REFERENCES task_attempts(id) ON DELETE CASCADE,
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  resource TEXT NOT NULL CHECK (resource IN ('spin','axe')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 INSERT INTO gaming_config_versions(version, config)
 VALUES (1, '{
   "enabled": true,
