@@ -1,1 +1,62 @@
-.gaming-home,.gaming-game{display:grid;gap:12px}.gaming-card,.gaming-board-card{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.018));border:1px solid var(--line);border-radius:22px;padding:18px}.gaming-card{display:grid;gap:8px;text-align:left}.gaming-card h2{margin:0;font-size:20px}.gaming-card p{margin:0;color:var(--muted);font-size:11px;line-height:1.55}.gaming-resource{display:flex;align-items:center;justify-content:space-between;gap:10px}.gaming-resource strong{font-size:28px}.gaming-resource span{color:var(--muted);font-size:10px}.gaming-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px}.gaming-back{background:transparent;color:var(--muted);font-size:11px;font-weight:700;padding:4px 0}.gaming-stat{padding:12px 14px;border-radius:16px;background:rgba(85,230,176,.07);border:1px solid rgba(85,230,176,.14)}.gaming-stat strong{display:block;font-size:22px}.gaming-stat small{color:var(--muted);font-size:9px}.gaming-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.gaming-action{width:100%;min-height:48px;border-radius:14px;background:var(--primary);color:#06251d;font-weight:800;font-size:12px}.gaming-action:disabled{opacity:.4;cursor:not-allowed}.gaming-ad{display:grid;gap:9px}.gaming-ad-head{display:flex;align-items:center;justify-content:space-between}.gaming-ad-head strong{font-size:13px}.gaming-ad-head span{color:var(--muted);font-size:10px}.gaming-progress{height:6px;border-radius:8px;background:#16241f;overflow:hidden}.gaming-progress i{display:block;height:100%;width:0;background:var(--primary);border-radius:inherit}.gaming-tasks{display:grid;gap:8px}.gaming-task{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--line)}.gaming-task:first-child{border-top:0}.gaming-task span{font-size:11px}.gaming-task small{color:var(--muted);font-size:9px}.gaming-board{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.gaming-tile{aspect-ratio:1;border-radius:15px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;font-size:18px;font-weight:800}.gaming-tile.revealed{background:var(--primary-dark);color:var(--primary)}.gaming-result{text-align:center;min-height:56px;display:grid;place-items:center;color:var(--muted);font-size:11px}.gaming-reward-list{display:flex;flex-wrap:wrap;gap:7px}.gaming-pill{padding:7px 10px;border-radius:999px;background:rgba(85,230,176,.08);border:1px solid rgba(85,230,176,.14);color:var(--primary);font-size:9px;font-weight:800}.gaming-note{color:var(--muted);font-size:9px;line-height:1.5;margin:0}.gaming-hidden{display:none!important}.gaming-card:focus-visible,.gaming-back:focus-visible,.gaming-tile:focus-visible,.gaming-action:focus-visible{outline:2px solid var(--primary);outline-offset:2px}@media (prefers-reduced-motion:reduce){.gaming-tile,.gaming-action{transition:none!important}.gaming-result{animation:none!important}}
+.gaming-home,.gaming-game{display:grid;gap:12px}
+.gaming-card,.gaming-board-card{background:linear-gradient(165deg,rgba(255,255,255,.05),rgba(255,255,255,.016));border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:0 12px 34px rgba(0,0,0,.16)}
+.gaming-card{display:grid;grid-template-columns:46px 1fr auto;align-items:center;gap:13px;text-align:left;position:relative;overflow:hidden;transition:transform .15s ease,border-color .15s ease}
+.gaming-card:active{transform:scale(.985)}
+.gaming-card-icon{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:20px;background:rgba(85,230,176,.09);border:1px solid rgba(85,230,176,.16);color:var(--primary)}
+.gaming-card-body{min-width:0;display:grid;gap:3px}
+.gaming-card h2{margin:0;font-size:16px;font-weight:800}
+.gaming-card p{margin:0;color:var(--muted);font-size:10.5px;line-height:1.5}
+.gaming-card-count{display:grid;justify-items:end;gap:2px}
+.gaming-card-count strong{font-size:22px;line-height:1;font-weight:800}
+.gaming-card-count span{color:var(--muted);font-size:8.5px;font-weight:700;letter-spacing:.08em}
+.gaming-card::after{content:'›';position:absolute;right:14px;bottom:12px;color:#6d837c;font-size:15px;opacity:0;transition:opacity .15s}
+.gaming-card:hover::after,.gaming-card:focus-visible::after{opacity:1}
+
+.gaming-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.gaming-back{display:flex;align-items:center;gap:5px;background:transparent;color:var(--muted);font-size:11px;font-weight:700;padding:6px 0}
+.gaming-back:active{color:var(--text)}
+.gaming-stat{padding:12px 16px;border-radius:16px;background:rgba(85,230,176,.07);border:1px solid rgba(85,230,176,.14);text-align:right;min-width:64px}
+.gaming-stat strong{display:block;font-size:20px;font-weight:800;line-height:1.1}
+.gaming-stat small{color:var(--muted);font-size:8.5px;font-weight:700;letter-spacing:.08em}
+.gaming-stats{display:flex;gap:8px}
+
+.gaming-action{width:100%;min-height:50px;border-radius:15px;background:var(--primary);color:#06251d;font-weight:800;font-size:12.5px;letter-spacing:.02em;transition:opacity .15s,transform .1s}
+.gaming-action:active:not(:disabled){transform:scale(.98)}
+.gaming-action:disabled{opacity:.35;cursor:not-allowed}
+.gaming-busy .gaming-action{pointer-events:none}
+
+.gaming-ad{display:grid;gap:10px}
+.gaming-ad-head{display:flex;align-items:center;justify-content:space-between}
+.gaming-ad-head strong{font-size:13px;display:flex;align-items:center;gap:6px}
+.gaming-ad-head strong::before{content:'▶';font-size:9px;color:var(--primary)}
+.gaming-ad-head span{color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
+.gaming-progress{height:7px;border-radius:8px;background:#16241f;overflow:hidden}
+.gaming-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--primary-dark),var(--primary));border-radius:inherit;transition:width .5s ease}
+
+.gaming-tasks{display:grid;gap:8px}
+.gaming-task{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+.gaming-task:first-child{border-top:0}
+.gaming-task span{font-size:11px}
+.gaming-task small{color:var(--muted);font-size:9px}
+
+.gaming-board{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;min-height:0;transition:min-height .2s}
+.gaming-board.is-active{min-height:1px}
+.gaming-tile{aspect-ratio:1;border-radius:16px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;font-size:19px;font-weight:800;transition:transform .18s ease,background .18s ease,border-color .18s ease;animation:tile-in .25s ease both;animation-delay:var(--tile-delay,0ms)}
+.gaming-tile:active:not(:disabled){transform:scale(.93)}
+.gaming-tile.revealed{background:var(--primary-dark);color:var(--primary);border-color:rgba(85,230,176,.35);animation:tile-flip .35s ease}
+.gaming-tile-reward{font-size:8.5px;font-weight:800;line-height:1.2;padding:0 3px;text-align:center;word-break:break-word}
+@keyframes tile-in{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes tile-flip{from{transform:rotateY(90deg)}to{transform:rotateY(0)}}
+
+.gaming-result{text-align:center;min-height:52px;display:grid;place-items:center;color:var(--muted);font-size:11.5px;font-weight:600;border-radius:14px;background:rgba(255,255,255,.02);padding:8px;text-transform:capitalize}
+.gaming-result-flash{animation:result-flash .7s ease}
+@keyframes result-flash{0%{background:rgba(85,230,176,.22);color:var(--text)}100%{background:rgba(255,255,255,.02)}}
+
+.gaming-reward-list{display:flex;flex-wrap:wrap;gap:7px}
+.gaming-pill{padding:7px 11px;border-radius:999px;background:rgba(85,230,176,.08);border:1px solid rgba(85,230,176,.14);color:var(--primary);font-size:9px;font-weight:800}
+.gaming-pill.jackpot{background:linear-gradient(120deg,rgba(255,199,0,.18),rgba(255,140,0,.12));border-color:rgba(255,199,0,.4);color:#ffd257}
+.gaming-note{color:var(--muted);font-size:9.5px;line-height:1.55;margin:0}
+.gaming-hidden{display:none!important}
+
+.gaming-card:focus-visible,.gaming-back:focus-visible,.gaming-tile:focus-visible,.gaming-action:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.gaming-tile,.gaming-action,.gaming-card{transition:none!important;animation:none!important}.gaming-result{animation:none!important}}
