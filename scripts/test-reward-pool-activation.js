@@ -78,8 +78,8 @@ test('Reward Pool daily settlement excludes non-activity DZP, requires activatio
     assert.equal(distributions.rows[0].total, '30.000000000');
     const walletA = await query(`SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency='DZX'`, [userA.id]);
     const walletB = await query(`SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency='DZX'`, [userB.id]);
-    assert.equal(walletA.rows[0].balance, '20');
-    assert.equal(walletB.rows[0].balance, '10');
+    assert.equal(walletA.rows[0].balance, '20.000000000');
+    assert.equal(walletB.rows[0].balance, '10.000000000');
   } finally {
     await query('DELETE FROM reward_pool_distribution_entries WHERE run_id IN (SELECT id FROM reward_pool_distribution_runs WHERE period_start=$1)', [periodStart]);
     await query('DELETE FROM reward_pool_distribution_runs WHERE period_start=$1', [periodStart]);
