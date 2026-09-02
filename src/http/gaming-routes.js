@@ -18,10 +18,19 @@ function idempotency(req) {
   return key;
 }
 
+function publicSession(session) {
+  if (!session) return null;
+  return { ...session, board: (session.board || []).map(tile => tile.revealed ? tile : { id:tile.id, revealed:false, reward:{} }) };
+}
+
+function publicGamingState(state) {
+  return { ...state, activeSession: publicSession(state.activeSession) };
+}
+
 router.get('/', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req);
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
-  res.json({ ok: true, gaming: await gaming.getGamingState({ userId }) });
+  res.json({ ok: true, gaming: publicGamingState(await gaming.getGamingState({ userId })) });
 }));
 
 router.post('/spin', asyncRoute(async (req, res) => {
@@ -35,14 +44,14 @@ router.post('/digging/start', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req);
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
   const result = await gaming.startDigging({ userId });
-  res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, session: result.session });
+  res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, session: publicSession(result.session) });
 }));
 
 router.post('/digging/reveal', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req);
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
   const result = await gaming.revealDiggingTile({ userId, sessionId: req.body?.sessionId, tileId: req.body?.tileId });
-  res.json({ ok: true, duplicate: result.duplicate, tile: result.tile, session: result.session, transactionId: result.transaction?.id ? String(result.transaction.id) : null });
+  res.json({ ok: true, duplicate: result.duplicate, tile: result.tile, session: publicSession(result.session), transactionId: result.transaction?.id ? String(result.transaction.id) : null });
 }));
 
 router.post('/ads/start', asyncRoute(async (req, res) => {
