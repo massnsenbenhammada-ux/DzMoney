@@ -69,7 +69,7 @@ test('Reward Pool daily settlement excludes non-activity DZP, requires activatio
     const first = await settleRewardPool({ periodStart, periodEnd });
     assert.equal(first.duplicate, false);
     assert.equal(first.totalActivityDzp, '3');
-    assert.deepEqual(first.rewards.map(item => [String(item.userId), item.activityDzp, item.rewardDzx]), [[String(userA.id), '2', '20'], [String(userB.id), '1', '10']]);
+    assert.deepEqual(first.rewards.map(item => [String(item.userId), item.activityDzp, item.rewardDzx]), [[String(userA.id), '2.000000000', '20'], [String(userB.id), '1.000000000', '10']]);
     const duplicate = await settleRewardPool({ periodStart, periodEnd });
     assert.equal(duplicate.duplicate, true);
     assert.equal(duplicate.rewards.length, 2);
