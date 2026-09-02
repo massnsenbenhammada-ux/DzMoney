@@ -51,7 +51,7 @@
     "test:task-card-creator-scope": "node ./scripts/test-task-card-creator-scope.js",
     "test:task-verification-config": "node ./scripts/test-task-verification-config.js",
     "test:creator-provider-verification-config": "node --test ./tests/creator-provider-verification-config.test.js",
-    "test:game-url-format-match": "node --test ./scripts/test-game-url-format-match.js",
+    "test:game-url-format-match": "node --test ./tests/game-url-format-match.test.js",
     "test:task-trusted-verifier": "node ./scripts/test-task-trusted-verifier.js",
     "test:task-verification-transaction-boundary": "node ./scripts/test-task-verification-transaction-boundary.js",
     "test:telegram-social-verifier": "node ./scripts/test-telegram-social-verifier.js",
