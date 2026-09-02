@@ -36,10 +36,18 @@
     result?.before(host);
   }
 
+  function renderRewardLists() {
+    const spinList = root.querySelector('[data-gaming-view="spin"] .gaming-reward-list');
+    if (spinList) spinList.innerHTML = wheelResults.map(result => `<span class="gaming-pill">${wheelLabels[result]}</span>`).join('');
+    const diggingList = root.querySelector('[data-gaming-view="digging"] .gaming-reward-list');
+    if (diggingList) diggingList.innerHTML = wheelResults.map(result => `<span class="gaming-pill">${result === 'extra_spin' ? '+1 AXE' : wheelLabels[result]}</span>`).join('');
+  }
+
   function render() {
     const gaming = state.gaming;
     if (!gaming) return;
     ensureSpinWheel();
+    renderRewardLists();
     const account = gaming.account || {};
     const dailyAdLimit = Number(gaming.config?.dailyAdLimit) || 1;
     setAll('[data-spin-balance]', account.spins ?? 0);
