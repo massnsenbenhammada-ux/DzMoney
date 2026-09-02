@@ -19,7 +19,7 @@ SELECT
   'Watch the verification advertisement to claim +1 Spin.',
   (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_coin'),
   (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzx'),
-  (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzx'),
+  (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzp'),
   (SELECT (value #>> '{}')::integer FROM admin_settings WHERE key = 'activity.verification_ad_seconds'),
   'active',
   '{"gamingResource":"spin","completion":{"mode":"server_verified"},"verification":{"mode":"advertisement"}}'::jsonb
@@ -45,7 +45,7 @@ SELECT
   'Watch the verification advertisement to claim +1 Axe.',
   (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_coin'),
   (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzx'),
-  (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_coin'),
+  (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzx'),
   (SELECT (value #>> '{}')::integer FROM admin_settings WHERE key = 'activity.verification_ad_seconds'),
   'active',
   '{"gamingResource":"axe","completion":{"mode":"server_verified"},"verification":{"mode":"advertisement"}}'::jsonb
