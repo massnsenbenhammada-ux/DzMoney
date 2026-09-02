@@ -1,26 +1,45 @@
 const squadCard = () => document.getElementById('squadCard');
 
+const escapeHtml = value => String(value ?? '').replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char]));
+
+function renderLoading() {
+  return '<div class="squad-loading" aria-busy="true"><div class="squad-spin" aria-hidden="true"></div><div class="squad-skeleton short"></div><div class="squad-skeleton long"></div><div class="squad-skeleton long"></div></div>';
+}
+
 function renderPaidMembership(tiers) {
-  return `<section><h3>Join a Squad</h3><p>Select a membership tier. DzMoney chooses the smallest eligible Squad in that tier.</p><div>${tiers.map(tier => `<button type="button" data-squad-tier="${Number(tier.maxMembers)}">${Number(tier.minMembers)}–${Number(tier.maxMembers)} members · ${Number(tier.price)} DZP</button>`).join('')}</div></section>`;
+  if (!tiers.length) return '';
+  return `<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">MEMBERSHIP</span><h3>Choose your Squad</h3></div></div><p>Select a tier. DzMoney chooses the smallest eligible Squad in that tier.</p><div class="squad-tier-grid">${tiers.map(tier => `<button type="button" class="squad-tier" data-squad-tier="${Number(tier.maxMembers)}"><span class="squad-tier-label">MEMBERSHIP TIER</span><span class="squad-tier-members">${Number(tier.minMembers)}–${Number(tier.maxMembers)} members</span><span class="squad-tier-price">${Number(tier.price)} DZP</span></button>`).join('')}</div></section>`;
 }
 
 function renderDailyState(state) {
-  if (!state) return '<section><h4>Daily Squad</h4><p>No Squad membership yet.</p></section>';
-  const status = String(state.status).toUpperCase();
-  const reason = state.activationReason ? ` · ${String(state.activationReason)}` : '';
-  return `<section><h4>Daily Squad · ${status}</h4><p>${Number(state.activeMemberCount)}/${Number(state.eligibleMemberCount)} members active · ${String(state.dzpContribution)}/${String(state.dailyTarget)} DZP contribution${reason}</p><p>Effective for ${String(state.effectiveForDate)} · Verified Squad ads target: ${Number(state.verifiedAdTarget)}</p></section>`;
+  if (!state) return '';
+  const active = Math.max(0, Number(state.activeMemberCount));
+  const eligible = Math.max(0, Number(state.eligibleMemberCount));
+  const contribution = Math.max(0, Number(state.dzpContribution));
+  const target = Math.max(0, Number(state.dailyTarget));
+  const memberPercent = eligible ? Math.min(100, (active / eligible) * 100) : 0;
+  const dzpPercent = target ? Math.min(100, (contribution / target) * 100) : 0;
+  const status = String(state.status || '').toLowerCase();
+  const reason = state.activationReason ? `<span> · ${escapeHtml(state.activationReason)}</span>` : '';
+  return `<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">TODAY</span><h3>Daily Squad</h3><p class="squad-date">Effective ${escapeHtml(state.effectiveForDate)}</p></div><span class="squad-status ${status === 'active' ? 'active' : 'inactive'}">${escapeHtml(status || 'unknown')}</span></div><div class="squad-metric"><div class="squad-progress-meta"><span>Active members</span><strong>${active}/${eligible}</strong></div><div class="squad-progress" role="progressbar" aria-valuenow="${Math.round(memberPercent)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${memberPercent}%"></i></div></div><div class="squad-metric"><div class="squad-progress-meta"><span>DZP contribution</span><strong>${escapeHtml(state.dzpContribution)}/${escapeHtml(state.dailyTarget)}</strong></div><div class="squad-progress dzp" role="progressbar" aria-valuenow="${Math.round(dzpPercent)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${dzpPercent}%"></i></div></div><p>${escapeHtml(state.verifiedAdTarget)} verified Squad ads target${reason}</p></section>`;
+}
+
+function renderInvitationsShell() {
+  return '<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">INBOX</span><h3>Invitations</h3></div></div><div id="squadInvitations" class="squad-invitations"><div class="squad-skeleton short"></div><div class="squad-skeleton long"></div></div></section>';
 }
 
 function renderSquad(squad, tiers = [], state = null) {
   const card = squadCard();
   if (!card) return;
   if (!squad) {
-    card.innerHTML = `<strong>Squad is being formed</strong><p>DzMoney creates Squads automatically when the required member pool is available.</p>${renderPaidMembership(tiers)}<div id="squadInvitations"></div>`;
+    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>No Squad yet</h2><p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p></div>${renderPaidMembership(tiers)}${renderInvitationsShell()}`;
+    loadInvitations();
     return;
   }
-  const ownerText = squad.isOwner ? 'You are the Squad Owner' : 'Server-assigned Squad Owner';
-  const purchase = squad.membershipStatus === 'cancelled' ? renderPaidMembership(tiers) : '';
-  card.innerHTML = `<strong>Squad #${String(squad.id)}</strong><p>${ownerText}</p><p><b>${Number(squad.memberCount)}</b> members</p><p>Membership: <b>${String(squad.membershipStatus || 'active')}</b></p>${renderDailyState(state)}${purchase}<div id="squadInvitations"></div>${squad.isOwner ? '<form id="squadInviteForm"><input id="squadInviteTelegramId" inputmode="numeric" placeholder="Invitee Telegram ID" required><button type="submit">Invite</button></form>' : ''}`;
+  const membership = String(squad.membershipStatus || 'active');
+  const owner = Boolean(squad.isOwner);
+  const purchase = membership === 'cancelled' ? renderPaidMembership(tiers) : '';
+  card.innerHTML = `<div class="squad-hero"><div class="squad-hero-top"><div><span class="squad-eyebrow">SQUAD</span><h2 class="squad-number">#${escapeHtml(squad.id)}</h2></div>${owner ? '<span class="squad-owner-badge">OWNER</span>' : `<span class="squad-status active">${escapeHtml(membership)}</span>`}</div><div class="squad-stats"><div class="squad-stat"><strong>${Number(squad.memberCount)}</strong><span>Members</span></div><div class="squad-stat"><strong>${owner ? 'Owner' : 'Member'}</strong><span>Your role</span></div></div></div>${renderDailyState(state)}${purchase}${renderInvitationsShell()}${owner ? '<section class="squad-section"><span class="squad-eyebrow">GROW YOUR SQUAD</span><h3>Invite a member</h3><p>Enter the member Telegram ID to send an invitation.</p><form id="squadInviteForm" class="squad-invite-form"><div class="squad-invite-row"><input class="squad-input" id="squadInviteTelegramId" inputmode="numeric" autocomplete="off" placeholder="Telegram user ID" aria-label="Invitee Telegram ID" required><button class="squad-btn primary" type="submit">Invite</button></div></form></section>' : ''}`;
   loadInvitations();
 }
 
@@ -34,36 +53,41 @@ async function loadInvitations() {
   if (!container) return;
   try {
     const data = await api('/api/squad/invitations');
-    const invitations = data.invitations || [];
-    container.innerHTML = invitations.length
-      ? `<h4>Pending invitations</h4>${invitations.map(item => `<div><span>Squad #${String(item.squadId)}</span> <button data-accept-invitation="${String(item.id)}">Accept</button></div>`).join('')}`
-      : '<p>No pending invitations.</p>';
+    const invitations = Array.isArray(data.invitations) ? data.invitations : [];
+    container.innerHTML = invitations.length ? invitations.map(item => `<article class="squad-invitation"><div><strong>Squad #${escapeHtml(item.squadId)}</strong><small>Pending invitation</small></div><button class="squad-btn primary" type="button" data-accept-invitation="${escapeHtml(item.id)}">Accept</button></article>`).join('') : '<div class="squad-empty-inline">No pending invitations.</div>';
   } catch (error) {
-    container.innerHTML = `<p>${String(error.message || 'Invitations unavailable')}</p>`;
+    container.innerHTML = `<div class="squad-empty-inline">${escapeHtml(error.message || 'Invitations unavailable')}</div>`;
   }
 }
 
 async function inviteUser(event) {
   event.preventDefault();
+  const form = event.target;
   const input = document.getElementById('squadInviteTelegramId');
-  const squad = await api('/api/squad');
-  if (!squad.squad || !squad.squad.isOwner) return;
-  await api('/api/squad/invitations', { method: 'POST', body: JSON.stringify({ squadId: squad.squad.id, inviteeTelegramUserId: input.value.trim() }) });
-  input.value = '';
-  await loadInvitations();
+  const submit = form.querySelector('button[type="submit"]');
+  if (!input || !submit) return;
+  submit.disabled = true;
+  submit.textContent = 'Sending…';
+  try {
+    const squad = await api('/api/squad');
+    if (!squad.squad || !squad.squad.isOwner) return;
+    await api('/api/squad/invitations', { method: 'POST', body: JSON.stringify({ squadId: squad.squad.id, inviteeTelegramUserId: input.value.trim() }) });
+    input.value = '';
+    await loadInvitations();
+  } finally {
+    submit.disabled = false;
+    submit.textContent = 'Invite';
+  }
 }
 
 async function purchaseMembership(maxMembers) {
   const button = document.querySelector(`[data-squad-tier="${String(maxMembers)}"]`);
-  if (button) button.disabled = true;
+  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
   try {
-    await api('/api/squad/membership/purchase', {
-      method: 'POST',
-      body: JSON.stringify({ maxMembers, idempotencyKey: crypto.randomUUID() })
-    });
+    await api('/api/squad/membership/purchase', { method: 'POST', body: JSON.stringify({ maxMembers, idempotencyKey: crypto.randomUUID() }) });
     await loadSquad();
   } catch (error) {
-    if (button) button.disabled = false;
+    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
     alert(String(error.message || 'Squad membership purchase failed'));
   }
 }
@@ -72,11 +96,15 @@ async function acceptInvitation(event) {
   const button = event.target.closest('[data-accept-invitation]');
   if (!button) return;
   button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.textContent = 'Accepting…';
   try {
     await api(`/api/squad/invitations/${button.dataset.acceptInvitation}/accept`, { method: 'POST' });
     await loadSquad();
   } catch (error) {
     button.disabled = false;
+    button.removeAttribute('aria-busy');
+    button.textContent = 'Accept';
     alert(String(error.message || 'Invitation could not be accepted'));
   }
 }
@@ -84,12 +112,12 @@ async function acceptInvitation(event) {
 async function loadSquad() {
   const card = squadCard();
   if (!card) return;
-  card.innerHTML = '<strong>Loading Squad…</strong><p>Checking your server-side membership.</p>';
+  card.innerHTML = renderLoading();
   try {
     const [data, tiers, stateData] = await Promise.all([api('/api/squad'), loadPaidTiers(), api('/api/squad/daily-state')]);
     renderSquad(data.squad || null, tiers, stateData.state || null);
   } catch (error) {
-    card.innerHTML = `<strong>Squad unavailable</strong><p>${String(error.message || 'Please try again later.')}</p>`;
+    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">!</div><span class="squad-eyebrow">TEMPORARILY UNAVAILABLE</span><h2>Squad unavailable</h2><p>${escapeHtml(error.message || 'Please try again later.')}</p></div>`;
   }
 }
 
