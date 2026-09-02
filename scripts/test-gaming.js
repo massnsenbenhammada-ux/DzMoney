@@ -71,8 +71,8 @@ function testSourceBoundaries() {
 
 function testRewardTables() {
   const service = fs.readFileSync(require.resolve('../src/services/gaming-service.js'), 'utf8');
-  for (const key of ['coin_1000','dzx_1','dzx_10','dzp_1','dzp_10','extra_spin']) assert(service.includes(key));
-  for (const key of ['coin_1000','dzx_1','dzx_10','dzp_1','dzp_10','extra_axe']) assert(service.includes(key));
+  for (const key of ['coin_100','coin_1000','dzx_1','dzx_10','dzp_1','dzp_10','extra_spin']) assert(service.includes(key));
+  for (const key of ['coin_100','coin_1000','dzx_1','dzx_10','dzp_1','dzp_10','extra_axe']) assert(service.includes(key));
   assert(service.includes("bonus === 'coin_100' ? { coin: 100 } : { dzx: 1 }"));
   assert(service.includes('diggingAxeEveryAds'));
 }
@@ -94,7 +94,10 @@ function testGamingFrontendContract() {
   assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
   assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
   assert(gaming.includes('360 * 5 - index * segment'));
+  assert(gaming.includes('const wheelResults = [\'coin_100\''));
+  assert(gaming.includes('renderRewardLists'));
   assert(css.includes('conic-gradient'));
+  assert(css.includes('45deg'));
   assert(css.includes('@container'));
   assert(css.includes(':has('));
   assert(html.includes('Gaming Ads'));
