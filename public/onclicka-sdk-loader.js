@@ -31,7 +31,12 @@ function loadOnclickaSdk() {
 
 function preloadSelectedOnclicka() {
   const config = window.__DzMoneyAdProviderConfig || {};
-  if (!Object.values(config).some(provider => provider?.id === 'onclicka')) return;
+  const provider = Object.values(config).find(candidate => candidate?.id === 'onclicka');
+  if (!provider) return;
+  if (typeof window.DzMoneyOnclicka?.prepare === 'function') {
+    window.DzMoneyOnclicka.prepare({ spotId: provider.spotId }).catch(() => {});
+    return;
+  }
   loadOnclickaSdk().catch(() => {});
 }
 
