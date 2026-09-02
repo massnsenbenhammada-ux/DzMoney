@@ -1,7 +1,9 @@
 const assert = require('assert');
 const fs = require('fs');
+const { query } = require('../src/db/pool');
 const { validateGamingConfig } = require('../src/services/gaming-service');
 const { AD_PROVIDER_CONTEXTS } = require('../src/services/ad-provider-service');
+const { run: simulateGamingEconomy } = require('./simulate-gaming-economy');
 
 function testProviderContext() {
   assert(AD_PROVIDER_CONTEXTS.includes('gaming'));
@@ -96,7 +98,20 @@ function testGamingFrontendContract() {
   assert(adClient.includes("provider: 'monetag'"));
 }
 
-try {
+async function testEconomicConfig() {
+  const result = await query('SELECT config FROM gaming_config_versions ORDER BY version DESC LIMIT 1');
+  assert.strictEqual(result.rowCount, 1);
+  const config = result.rows[0].config;
+  const expectedSpinOrder = ['none','coin_100','extra_spin','coin_1000','dzx_1','dzp_1','dzx_10','dzp_10'];
+  const expectedDiggingOrder = ['none','coin_100','extra_axe','coin_1000','dzx_1','dzp_1','dzx_10','dzp_10'];
+  assert.deepStrictEqual(Object.keys(config.spin.weights), expectedSpinOrder);
+  assert.deepStrictEqual(Object.keys(config.digging.weights), expectedDiggingOrder);
+  for (let i = 1; i < expectedSpinOrder.length; i += 1) assert(config.spin.weights[expectedSpinOrder[i - 1]] > config.spin.weights[expectedSpinOrder[i]]);
+  for (let i = 1; i < expectedDiggingOrder.length; i += 1) assert(config.digging.weights[expectedDiggingOrder[i - 1]] > config.digging.weights[expectedDiggingOrder[i]]);
+  simulateGamingEconomy(config);
+}
+
+async function run() {
   testProviderContext();
   testConfigContract();
   testGamingTaskContract();
@@ -104,10 +119,12 @@ try {
   testSourceBoundaries();
   testRewardTables();
   testGamingFrontendContract();
-  require('./simulate-gaming-economy').run();
+  await testEconomicConfig();
   console.log('Gaming core invariants: PASS');
-} catch (error) {
+}
+
+run().catch(error => {
   console.error('Gaming core invariants: FAIL');
   console.error(error);
   process.exitCode = 1;
-}
+});
