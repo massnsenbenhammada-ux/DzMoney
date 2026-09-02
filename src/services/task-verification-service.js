@@ -138,9 +138,15 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, activityType: row.task_type, activityContext: 'task', modifiers: [], qualifyingVerifiedActivity: true });
     if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
     await activateOnVerifiedActivity(client, row.user_id);
+    let gamingResource = null;
+    if (row.config?.gamingResource) {
+      const { grantGamingResourceOnClient } = require('./gaming-service');
+      if (!['spin', 'axe'].includes(row.config.gamingResource)) throw new Error('Invalid Gaming task resource');
+      gamingResource = await grantGamingResourceOnClient(client, { userId: row.user_id, resource: row.config.gamingResource, sourceReference: `task:${attemptId}` });
+    }
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
-    return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, transaction: reward.transaction };
+    return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, gamingResource, transaction: reward.transaction };
   });
 }
 

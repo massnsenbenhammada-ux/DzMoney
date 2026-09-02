@@ -3,10 +3,11 @@ const { query } = require('../db/pool');
 const { ONCLICKA_PROVIDER_ID } = require('../services/onclicka-adapter');
 const { verifyDailyCheckinAd, finalizeDailyCheckin } = require('../services/daily-checkin-service');
 const { verifyTaskAdvertisement, finalizeTaskVerification } = require('../services/task-verification-service');
+const gamingService = require('../services/gaming-service');
 const { assertProviderSecret } = require('./provider-auth');
 const { createRateLimit } = require('./rate-limit');
 
-const CONTEXTS = new Set(['daily_checkin', 'verification']);
+const CONTEXTS = new Set(['daily_checkin', 'verification', 'gaming']);
 
 function createOnclickaPostbackRouter({ providerRegistry, secret }) {
   if (!providerRegistry) throw new Error('Advertisement provider registry is required');
@@ -43,6 +44,15 @@ function createOnclickaPostbackRouter({ providerRegistry, secret }) {
 
       const event = eventResult.rows[0];
       const providerPayload = { USERID: userId, confirmedByPostback: true };
+      if (context === 'gaming') {
+        const verification = await gamingService.finalizeGamingAdvertisement({
+          userId: event.user_id,
+          adEventId: event.id,
+          providerReference: `onclicka:${userId}`,
+          verificationMetadata: { provider_id: ONCLICKA_PROVIDER_ID, confirmedByPostback: true }
+        });
+        return res.json({ ok: true, context, verified: true, duplicate: verification.duplicate, rewarded: verification.rewarded, resourceGranted: verification.resourceGranted || null, progress: verification.progress || null });
+      }
       if (context === 'daily_checkin') {
         const verified = await verifyDailyCheckinAd({
           userId: event.user_id,

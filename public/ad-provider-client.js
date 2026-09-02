@@ -1,6 +1,7 @@
 const providerConfig = window.__DzMoneyAdProviderConfig || {};
 const verificationProvider = providerConfig.verification;
 const dailyProvider = providerConfig.daily_checkin;
+const gamingProvider = providerConfig.gaming;
 
 function createOnclickaHandler(config) {
   return async payload => {
@@ -19,8 +20,11 @@ function exposeProvider(context, config) {
   const handler = createOnclickaHandler(config);
   if (context === 'verification') window.DzMoneyMonetag = { provider: 'onclicka', ready: Promise.resolve(), handler };
   if (context === 'daily_checkin') window.DzMoneyMonetag = { provider: 'onclicka', ready: Promise.resolve(), handler };
+  if (context === 'gaming') window.DzMoneyGamingAd = { provider: 'onclicka', ready: Promise.resolve(), handler };
 }
 
+if (gamingProvider?.id === 'onclicka') exposeProvider('gaming', gamingProvider);
+if (gamingProvider?.id === 'monetag' && window.DzMoneyMonetag?.handler) window.DzMoneyGamingAd = window.DzMoneyMonetag;
 if (verificationProvider?.id === 'onclicka' || dailyProvider?.id === 'onclicka') {
   window.__DzMoneySelectedAdProvider = verificationProvider?.id === 'onclicka' ? 'onclicka' : dailyProvider?.id;
   exposeProvider('verification', verificationProvider?.id === 'onclicka' ? verificationProvider : dailyProvider);

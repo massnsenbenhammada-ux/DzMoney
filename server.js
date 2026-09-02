@@ -26,7 +26,7 @@ const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMI
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 function clientAdConfig() {
-  return Object.fromEntries(['task', 'daily_checkin', 'verification'].map(context => {
+  return Object.fromEntries(['task', 'gaming', 'daily_checkin', 'verification'].map(context => {
     const provider = providerRegistry.listAvailable(context)[0] || null;
     return [context, provider ? { id: provider.id, ...(provider.clientConfig || {}) } : null];
   }));
@@ -41,6 +41,7 @@ function monetagScriptsForClient() {
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+app.locals.adProviderRegistry = providerRegistry;
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -80,6 +81,7 @@ app.use('/api', publicApiRateLimit);
 app.use('/api/me', meRoutes);
 app.use('/api/squad', squadRoutes);
 app.use('/api/conversion', conversionRoutes);
+app.use('/api/gaming', require('./src/http/gaming-routes'));
 app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/admin/squad', createAdminSquadChallengeRouter());
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
