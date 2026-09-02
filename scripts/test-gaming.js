@@ -14,9 +14,9 @@ function testConfigContract() {
   assert(migration.includes('gaming_accounts'));
   assert(migration.includes('gaming_sessions'));
   assert(migration.includes('gaming_resource_claims'));
-  assert(migration.includes('"dailyAdLimit":100'));
-  assert(migration.includes('"boardSize":16'));
-  assert(migration.includes('"energy":3'));
+  assert(/"dailyAdLimit"\s*:\s*100/.test(migration));
+  assert(/"boardSize"\s*:\s*16/.test(migration));
+  assert(/"energy"\s*:\s*3/.test(migration));
 }
 
 function testConfigValidation() {
