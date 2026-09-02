@@ -2,75 +2,74 @@
 
 ## Authoritative snapshot
 
-- Audited baseline: `main` at `de1280d42f3f2d438665b9708f1ac2ae9c3abc99` (PR #148 milestone).
-- PR #150 was merged as `ba3a003b6f674c7091a8981abd8d3ea7508048aa` to revert the earlier unauthorized direct-to-main documentation mutation.
-- Documentation changes from this point forward must use branch → PR → CI → review/authorization → merge.
-- The repository's existing `IMPLEMENTATION_STATUS.md` was stale relative to the audited baseline; this branch reconciles it without changing runtime behavior.
+- Current authoritative baseline is `main` after the merged Phase 4 milestones through PR #207.
+- Documentation changes must use branch → PR → CI → review/authorization → merge.
+- GitHub `main`, merged code, tests, CI, migrations, ADRs and locked contracts are the implementation evidence. Open Issues/PRs are not proof of missing implementation.
 
 ## Current phase
 
-- Phase 2 — Activity / Ads / Tasks: open.
-- Phase 3 — Referral: core implemented, not closed.
-- Later phases remain gated by roadmap/phase isolation.
+- Phase 2 — Activity / Ads / Tasks: code scope closed for currently defined contracts; provider-dependent evidence remains `PENDING_PROVIDER`.
+- Phase 3 — Referral: closed/complete for the accepted Referral contract.
+- Phase 4 — Squad: implementation in progress from the locked contract.
+- Later phases remain gated by phase isolation.
 
 ## Validated architecture
 
-- `activity_tasks` remains the task catalog/source of truth.
-- Existing Task Execution, Task Verification, Advertisement, Referral and Economy/Ledger boundaries must be reused.
-- No second reward store, ledger, economy, verification system or referral counter is allowed.
-- Verification must be server-authoritative; frontend flags are not trusted evidence.
-- Verification-ad gating remains distinct from task completion evidence.
+- Existing Task Catalog, Task Execution, Task Verification, Advertisement, Activity, Referral and Economy/Ledger boundaries remain canonical.
+- No second reward store, ledger, economy, verification, activity or referral system is allowed.
+- Verification and economic mutations are server-authoritative and idempotent.
 - Daily Check-in uses rolling 24 hours; applicable Daily system tasks use the documented UTC+1 calendar-day policy.
-- Referral achievements are permanent and threshold-based.
-- Share with Friends must not reward from frontend-only share/click/dialog signals.
+- Share with Friends uses the accepted Click Proof contract; no Telegram-native share attestation is claimed.
+- Squad is independent of Referral/Reward Pool and reuses existing Verified Activity and Economy/Ledger sources.
+
+## Phase 4 — Squad status
+
+Implemented and merged:
+
+- PR #194 — system-created Squads and deterministic Owner assignment.
+- PR #195 — free membership invitation/acceptance/activation.
+- PR #196 — paid membership purchase/activation through the existing Economy/Ledger burn path.
+- PR #198 — Daily Squad State.
+- PR #200 — Daily DZP Contribution + Modifier.
+- PR #202 — Weekly Challenge accounting/settlement.
+- PR #207 — canonical Economy proportional rounding correction and zero-share hardening for Weekly Challenge settlement.
+
+PR #207 merge commit: `5202bd82578de8e06d60a1335977d20781ae4038`.
+
+The Weekly Challenge implementation supports the six locked scopes, exact seven-day UTC+1 windows, immutable configuration snapshots, current-cycle DZP contribution accounting, settlement-time eligibility, deterministic proportional allocation, canonical Economy fixed-point half-up rounding, exact configured reward totals, non-negative allocations and idempotent settlement.
+
+## Remaining Phase 4 boundary
+
+The locked Squad contract requires App Ban to be able to terminate a Squad membership. The current repository has no authoritative App-Ban/Admin membership-termination boundary. Admin Panel is a later phase, and architecture rules prohibit introducing later-phase runtime services/routes/migrations early. Therefore this is recorded as a phase-boundary dependency, not as permission to invent a Squad endpoint or Admin subsystem.
+
+The existing membership model represents `suspended` and `cancelled` states, and Challenge settlement respects membership eligibility. No separate suspension/ban subsystem is authorized without an authoritative upstream control surface.
 
 ## Phase 2 evidence status
 
 ### Proven
 
-- Telegram Channel Membership: existing verifier uses authenticated Telegram identity and Bot API `getChatMember`.
-- Monetag and OnClickA: existing provider postback boundaries provide advertisement-provider evidence; these are not generic task-completion evidence.
+- Telegram Channel Membership through the existing verifier and authenticated Telegram identity.
+- Monetag and OnClickA as advertisement-provider evidence boundaries.
+- Existing Creator verification contracts within the accepted verification boundary.
 
-### Not yet proven as generic task-completion evidence
+### Pending provider evidence
 
-- Provider-specific Daily completion beyond the existing ad-event boundary.
-- Game / Mini App completion from a concrete trusted backend contract.
-- Non-Telegram social actions without an authoritative provider event/API.
-- Web completion without a signed S2S webhook or authenticated server-bound single-use token.
-- Special/Partner completion without a concrete authenticity/signature/HMAC contract and identity binding.
+- Special/Partner completion requiring a real partner backend/API/HMAC/Webhook evidence source.
+- Future Game/Mini App completion requiring provider-owned trusted backend evidence beyond current Creator methods.
+- Future non-Telegram social completion requiring an authoritative provider event/API.
+- Future Web completion requiring signed S2S webhook or authenticated server-bound single-use token.
 
-Issue #134 remains the evidence-contract gate. No new verifier is authorized merely because a generic provider configuration entry exists.
-
-## Referral status
-
-Implemented in the audited codebase:
-
-- attribution;
-- server-side qualification;
-- activation;
-- qualified referral count;
-- permanent achievements;
-- Telegram bootstrap/referral-link foundation;
-- lifetime 20% reward through the existing Economy/Ledger path.
-
-Pending:
-
-- trusted production Share with Friends completion/reward;
-- remaining referral UI/acceptance coverage.
+No new verifier is authorized merely because a generic provider configuration entry exists.
 
 ## TON Deposit
 
-The audited PR #148 milestone contains server-side blockchain evidence validation, transaction normalization, finality handling, trace binding, persisted network handling and the deposit evidence gate. Automated validation is part of the audited CI evidence. Production acceptance remains a separate operational gate.
+The audited PR #148 milestone contains server-side blockchain evidence validation, transaction normalization, finality handling, trace binding, persisted network handling and the deposit evidence gate. Production acceptance remains a separate operational gate.
 
 ## Reconciliation rules
 
-- Open Issues/PRs are not proof of missing implementation.
-- Merged `main` code, tests and CI are the implementation evidence.
-- Already-implemented behavior must be reconciled, not reimplemented.
-- PRs #146/#147 are superseded by the PR #148 milestone where their changes overlap.
-- Issue #100's 20% lifetime reward is already implemented.
-- Issue #106 must be reconciled against the current referral bootstrap implementation before new work is authorized.
-
-## Next authorized action
-
-After this documentation reconciliation PR is validated and merged, freeze the baseline and proceed with Phase 2 / Issue #134: identify a concrete, testable evidence contract before writing any new verifier. Tests must precede newly authorized implementation, and all changes must follow the normal PR workflow.
+- Never restart or redesign settled work.
+- Before every change follow Constitution 54: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
+- Use YAGNI, KISS and DRY.
+- Tests precede newly authorized implementation.
+- Reuse canonical rounding; do not create Squad-specific rounding algorithms.
+- Do not resurrect legacy Squad migrations or introduce duplicate economic/activity/reward/verification systems.
