@@ -16,7 +16,8 @@ const adCall = app.indexOf('await showTaskVerificationAd(result.verificationAdId
 const verifyCall = app.indexOf("api('/api/daily-tasks/verify'");
 const statusCall = app.indexOf("api('/api/daily-checkin/status'");
 const dailyAction = app.includes('daily-system-action');
-const sdkBundle = index.includes('/monetag-adapter.bundle.js');
+const monetagEntry = index.includes('/monetag-adapter-entry.js?v=__ASSET_VERSION__');
+const staleMonetagBundle = index.includes('/monetag-adapter.bundle.js');
 const homeDailyButton = index.includes('id="dailyBtn"');
 const stylesheet = index.match(/<link[^>]+rel=["']stylesheet["'][^>]+href=["']\/style\.css(?:\?[^"']*)?["']/i);
 const creatorStylesheet = index.includes('/creator-task.css');
@@ -24,7 +25,7 @@ const staleDiagnosticsPage = index.includes('data-page="diagnostics"') || index.
 const staleDiagnosticsScript = server.includes('monetag-runtime-diagnostics.js') || index.includes('monetag-runtime-diagnostics.js');
 
 const dailyFlowContract = dailyFlow >= 0 && verificationAd >= 0 && ensureSdk >= 0 && executeCall >= dailyFlow && adCall > executeCall && ensureSdk > verificationAd;
-if (!dailyFlowContract || verifyCall < 0 || !dailyAction || !sdkBundle) throw new Error('Daily Check-in must use the canonical Daily Task flow and wait for the advertisement adapter');
+if (!dailyFlowContract || verifyCall < 0 || !dailyAction || !monetagEntry || staleMonetagBundle) throw new Error('Daily Check-in must use the canonical Daily Task flow and the current advertisement adapter entry');
 if (statusCall < 0 || homeDailyButton) throw new Error('Daily Check-in must be exposed under Tasks and synchronize status server-side');
 if (!stylesheet || !creatorStylesheet) throw new Error('Frontend must load the public stylesheets');
 if (staleDiagnosticsPage || staleDiagnosticsScript) throw new Error('Temporary advertisement diagnostics must not remain in the production Mini App');

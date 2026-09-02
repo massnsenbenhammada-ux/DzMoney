@@ -3,6 +3,7 @@
   const root = document.querySelector('[data-page="gaming"]');
   if (!root) return;
   const state = { gaming: null, view: 'home', busy: false };
+  const assetVersion = new URL(document.currentScript?.src || '', window.location.href).searchParams.get('v') || 'runtime';
 
   const api = async (path, options = {}) => {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
@@ -25,7 +26,17 @@
   const wheelResults = ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'none'];
   const wheelLabels = { coin_100:'100 COIN', coin_1000:'1K COIN', dzx_1:'1 DZX', dzx_10:'10 DZX', dzp_1:'1 DZP', dzp_10:'10 DZP', extra_spin:'+1 SPIN', none:'NO REWARD' };
 
+  function ensureGamingRuntimeStyles() {
+    if (document.querySelector('link[data-dzmoney-gaming-runtime-css]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `/gaming-runtime.css?v=${encodeURIComponent(assetVersion)}`;
+    link.dataset.dzmoneyGamingRuntimeCss = 'true';
+    document.head.appendChild(link);
+  }
+
   function ensureSpinWheel() {
+    ensureGamingRuntimeStyles();
     const card = root.querySelector('[data-spin-wheel-host]') || root.querySelector('[data-spin-result]')?.parentElement;
     if (!card || card.querySelector('[data-spin-wheel]')) return;
     const host = document.createElement('div');
@@ -89,7 +100,7 @@
     if (!board) return;
     if (!session) { board.innerHTML = ''; board.classList.remove('is-active'); return; }
     board.classList.add('is-active');
-    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed gaming-tile-' + (tile.result || 'none') : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward, tile.result)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 7M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
+    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed gaming-tile-' + (tile.result || 'none') : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward, tile.result)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 5M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
   }
 
   async function load() {
@@ -115,7 +126,7 @@
     if (!wheel) return Promise.resolve();
     const index = Math.max(0, wheelResults.indexOf(result));
     const segment = 360 / wheelResults.length;
-    const rotation = 360 * 5 - index * segment - segment / 2;
+    const rotation = 360 * 3 - index * segment - segment / 2;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     wheel.style.setProperty('--wheel-rotation', `${rotation}deg`);
     wheel.classList.remove('is-winner', 'is-spinning');
@@ -188,10 +199,9 @@
     setBusy(true);
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
-      const response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
-      await adapter.ready;
-      await adapter.handler({ type: 'preload', ymid: response.externalAdId, requestVar: 'gaming', timeout: 15 });
-      await adapter.handler({ ymid: response.externalAdId, requestVar: 'gaming' });
+      const startPromise = api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
+      const adPromise = adapter.handler({ requestVar: 'gaming' });
+      const [response] = await Promise.all([startPromise, adPromise]);
       if (button) button.textContent = 'VERIFYING…';
       const previousCount = state.gaming?.adCounts?.[game] || 0;
       let credited = response.duplicate === true;
