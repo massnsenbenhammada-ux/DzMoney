@@ -16,29 +16,34 @@
   const idempotencyKey = prefix => `${prefix}:${crypto.randomUUID()}`;
   const formatReward = reward => Object.entries(reward || {}).map(([key, value]) => `${value} ${key.toUpperCase()}`).join(' + ') || 'No Reward';
   const toast = message => { if (typeof window.showToast === 'function') window.showToast(message); else console.info(message); };
+  // The Gaming Home card and game toolbar intentionally share the same counter attributes.
+  // Update every match so both surfaces stay synchronized.
+  const setAll = (selector, value) => root.querySelectorAll(selector).forEach(el => { el.textContent = value; });
 
   function render() {
     const gaming = state.gaming;
     if (!gaming) return;
     const account = gaming.account || {};
-    root.querySelector('[data-spin-balance]').textContent = account.spins ?? 0;
-    root.querySelector('[data-axe-balance]').textContent = account.axes ?? 0;
-    root.querySelector('[data-energy]').textContent = `${account.energy_remaining ?? 0}/3`;
-    root.querySelector('[data-spin-ad-count]').textContent = `${gaming.adCounts?.spin || 0}/${gaming.config.dailyAdLimit}`;
-    root.querySelector('[data-dig-ad-count]').textContent = `${gaming.adCounts?.digging || 0}/${gaming.config.dailyAdLimit}`;
-    const spinBar = root.querySelector('[data-spin-ad-bar]');
-    const digBar = root.querySelector('[data-dig-ad-bar]');
-    spinBar.style.width = `${Math.min(100, ((gaming.adCounts?.spin || 0) / gaming.config.dailyAdLimit) * 100)}%`;
-    digBar.style.width = `${Math.min(100, ((gaming.adCounts?.digging || 0) / gaming.config.dailyAdLimit) * 100)}%`;
+    const dailyAdLimit = Number(gaming.config?.dailyAdLimit) || 1;
+    setAll('[data-spin-balance]', account.spins ?? 0);
+    setAll('[data-axe-balance]', account.axes ?? 0);
+    setAll('[data-energy]', `${account.energy_remaining ?? 0}/${gaming.config?.digging?.energy ?? 3}`);
+    setAll('[data-spin-ad-count]', `${gaming.adCounts?.spin || 0}/${dailyAdLimit}`);
+    setAll('[data-dig-ad-count]', `${gaming.adCounts?.digging || 0}/${dailyAdLimit}`);
+    root.querySelectorAll('[data-spin-ad-bar]').forEach(bar => { bar.style.width = `${Math.min(100, ((gaming.adCounts?.spin || 0) / dailyAdLimit) * 100)}%`; });
+    root.querySelectorAll('[data-dig-ad-bar]').forEach(bar => { bar.style.width = `${Math.min(100, ((gaming.adCounts?.digging || 0) / dailyAdLimit) * 100)}%`; });
     root.querySelectorAll('[data-gaming-view]').forEach(el => el.classList.toggle('gaming-hidden', el.dataset.gamingView !== state.view));
+    root.querySelectorAll('[data-dig-start]').forEach(btn => { btn.disabled = state.busy || account.axes < 1 || !!gaming.activeSession; });
+    root.querySelectorAll('[data-spin-action]').forEach(btn => { btn.disabled = state.busy || account.spins < 1; });
     renderSession();
   }
 
   function renderSession() {
     const session = state.gaming?.activeSession;
     const board = root.querySelector('[data-board]');
-    if (!session) { board.innerHTML = ''; return; }
-    board.innerHTML = session.board.map(tile => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed' : ''}" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Tile ${tile.id}">${tile.revealed ? formatReward(tile.reward) : '◆'}</button>`).join('');
+    if (!session) { board.innerHTML = ''; board.classList.remove('is-active'); return; }
+    board.classList.add('is-active');
+    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed' : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Tile ${tile.id}">${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward)}</span>` : '<span aria-hidden="true">◆</span>'}</button>`).join('');
   }
 
   async function load() {
@@ -53,54 +58,70 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function setBusy(isBusy) {
+    state.busy = isBusy;
+    root.classList.toggle('gaming-busy', isBusy);
+  }
+
   async function spin() {
     if (state.busy) return;
-    state.busy = true;
-    const button = root.querySelector('[data-spin-action]');
-    button.disabled = true;
+    setBusy(true);
+    render();
+    const resultEl = root.querySelector('[data-spin-result]');
     try {
       const response = await api('/api/gaming/spin', { method: 'POST', body: JSON.stringify({ idempotencyKey: idempotencyKey('gaming-spin') }) });
-      root.querySelector('[data-spin-result]').textContent = `${response.result.result}: ${formatReward(response.result.reward)}`;
+      resultEl.textContent = `${response.result.result.replace(/_/g, ' ')}: ${formatReward(response.result.reward)}`;
+      resultEl.classList.add('gaming-result-flash');
+      setTimeout(() => resultEl.classList.remove('gaming-result-flash'), 700);
       await load();
     } catch (error) { toast(error.message); }
-    finally { state.busy = false; button.disabled = false; }
+    finally { setBusy(false); render(); }
   }
 
   async function startDigging() {
+    if (state.busy) return;
+    setBusy(true);
+    render();
     try { await api('/api/gaming/digging/start', { method: 'POST' }); await load(); }
     catch (error) { toast(error.message); }
+    finally { setBusy(false); render(); }
   }
 
   async function reveal(tileId) {
     if (state.busy) return;
-    state.busy = true;
+    setBusy(true);
     try {
       const session = state.gaming.activeSession;
       const response = await api('/api/gaming/digging/reveal', { method: 'POST', body: JSON.stringify({ sessionId: session.id, tileId }) });
-      root.querySelector('[data-dig-result]').textContent = `${formatReward(response.tile.reward)}`;
+      root.querySelector('[data-dig-result]').textContent = formatReward(response.tile.reward);
       await load();
     } catch (error) { toast(error.message); }
-    finally { state.busy = false; }
+    finally { setBusy(false); render(); }
   }
 
   async function watchAd(game) {
     if (state.busy) return;
-    state.busy = true;
+    setBusy(true);
+    const button = root.querySelector(`[data-gaming-ad="${game}"]`);
+    const originalLabel = button?.textContent;
     try {
       const response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
       const adapter = window.DzMoneyGamingAd;
-      if (!adapter?.ready || typeof adapter.handler !== 'function') throw new Error('Gaming advertisement provider is unavailable');
+      if (!adapter?.ready || typeof adapter.handler !== 'function') throw new Error('No advertisement provider is configured for Gaming right now. Please try again later.');
       await adapter.ready;
       await adapter.handler({ type: 'preload', ymid: response.externalAdId, requestVar: 'gaming', timeout: 15 });
       await adapter.handler({ ymid: response.externalAdId, requestVar: 'gaming' });
-      for (let i = 0; i < 10; i += 1) {
+      if (button) { button.textContent = 'VERIFYING…'; button.disabled = true; }
+      const previousCount = state.gaming?.adCounts?.[game] || 0;
+      let credited = response.duplicate === true;
+      for (let i = 0; i < 10 && !credited; i += 1) {
         await new Promise(resolve => setTimeout(resolve, 1500));
         await load();
-        if ((state.gaming.adCounts?.[game] || 0) >= Number(state.gaming.config.dailyAdLimit) || response.duplicate) break;
+        if ((state.gaming.adCounts?.[game] || 0) > previousCount) credited = true;
       }
-      toast('Advertisement completed. Verification is server-side.');
+      toast(credited ? 'Ad verified — reward credited.' : 'Ad watched. Verification can take a little longer — check back shortly.');
     } catch (error) { toast(error.message); }
-    finally { state.busy = false; }
+    finally { setBusy(false); if (button) button.textContent = originalLabel; render(); }
   }
 
   root.addEventListener('click', event => {
