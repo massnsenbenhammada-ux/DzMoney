@@ -1,7 +1,7 @@
 const { withTransaction, query } = require('../db/pool');
 
 const INTERNAL_CURRENCIES = ['COIN', 'DZX', 'DZP'];
-const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'reward_pool', 'promo'];
+const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'promo'];
 const TON_DZX = 10000;
 const TON_COIN = 10000000;
 const DZX_COIN = 1000;
@@ -73,7 +73,7 @@ async function settingNumber(client, key, fallback) {
 }
 
 async function getEconomySettings() {
-  const result = await query(`SELECT key, value FROM admin_settings WHERE key LIKE 'economy.%' OR key LIKE 'activity.%' OR key LIKE 'reward_pool.%' OR key LIKE 'withdrawal.%' ORDER BY key`);
+  const result = await query(`SELECT key, value FROM admin_settings WHERE key LIKE 'economy.%' OR key LIKE 'activity.%' OR key LIKE 'withdrawal.%' ORDER BY key`);
   return Object.fromEntries(result.rows.map(row => [row.key, row.value]));
 }
 
