@@ -14,7 +14,11 @@
   };
 
   const idempotencyKey = prefix => `${prefix}:${crypto.randomUUID()}`;
-  const formatReward = reward => Object.entries(reward || {}).map(([key, value]) => `${value} ${key.toUpperCase()}`).join(' + ') || 'No Reward';
+  const formatReward = (reward, result) => {
+    if (result === 'extra_spin') return '+1 SPIN';
+    if (result === 'extra_axe') return '+1 AXE';
+    return Object.entries(reward || {}).map(([key, value]) => `${value} ${key.toUpperCase()}`).join(' + ') || 'No Reward';
+  };
   const toast = message => { if (typeof window.showToast === 'function') window.showToast(message); else console.info(message); };
   const setAll = (selector, value) => root.querySelectorAll(selector).forEach(el => { el.textContent = value; });
 
@@ -58,7 +62,7 @@
     if (!board) return;
     if (!session) { board.innerHTML = ''; board.classList.remove('is-active'); return; }
     board.classList.add('is-active');
-    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed' : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 7M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
+    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed' : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward, tile.result)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 7M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
   }
 
   async function load() {
@@ -83,7 +87,7 @@
     if (!wheel) return;
     const index = Math.max(0, wheelResults.indexOf(result));
     const segment = 360 / wheelResults.length;
-    const rotation = 360 * 5 + (360 - index * segment - segment / 2);
+    const rotation = 360 * 5 - index * segment;
     wheel.style.setProperty('--wheel-rotation', `${rotation}deg`);
     wheel.classList.remove('is-spinning');
     void wheel.offsetWidth;
@@ -98,7 +102,7 @@
     try {
       const response = await api('/api/gaming/spin', { method: 'POST', body: JSON.stringify({ idempotencyKey: idempotencyKey('gaming-spin') }) });
       animateWheel(response.result.result);
-      resultEl.textContent = `${response.result.result.replace(/_/g, ' ')}: ${formatReward(response.result.reward)}`;
+      resultEl.textContent = `${response.result.result.replace(/_/g, ' ')}: ${formatReward(response.result.reward, response.result.result)}`;
       resultEl.classList.add('gaming-result-flash');
       setTimeout(() => resultEl.classList.remove('gaming-result-flash'), 700);
       await load();
@@ -121,7 +125,7 @@
     try {
       const session = state.gaming.activeSession;
       const response = await api('/api/gaming/digging/reveal', { method: 'POST', body: JSON.stringify({ sessionId: session.id, tileId }) });
-      root.querySelector('[data-dig-result]').textContent = formatReward(response.tile.reward);
+      root.querySelector('[data-dig-result]').textContent = formatReward(response.tile.reward, response.tile.result);
       await load();
     } catch (error) { toast(error.message); }
     finally { setBusy(false); render(); }

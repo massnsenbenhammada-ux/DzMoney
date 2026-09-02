@@ -61,6 +61,9 @@ function testGamingFrontendContract() {
   assert(gaming.includes('DzMoneyGamingAd'));
   assert(gaming.includes('No advertisement provider is configured'));
   assert(gaming.includes('adapter?.ready'));
+  assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
+  assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
+  assert(gaming.includes('360 * 5 - index * segment'));
   assert(css.includes('conic-gradient'));
   assert(css.includes('@container'));
   assert(css.includes(':has('));
