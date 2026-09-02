@@ -48,7 +48,7 @@ function testGamingFrontendContract() {
   assert(gaming.includes('data-spin-wheel-segment'));
   assert(gaming.includes('data-digging-image'));
   assert(gaming.includes('<svg'));
-  assert(gaming.includes('spin-wheel-result'));
+  assert(gaming.includes('data-spin-result'));
   assert(gaming.includes('DzMoneyGamingAd'));
   assert(gaming.includes('No advertisement provider is configured'));
   assert(gaming.includes('adapter?.ready'));
