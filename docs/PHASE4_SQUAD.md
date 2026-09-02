@@ -1,7 +1,7 @@
 # Phase 4 — Squad
 
 **Specification status: LOCKED**  
-**Implementation status: IN PROGRESS**
+**Implementation status: CLOSED**
 
 The authoritative Phase 4 business contract is:
 
@@ -10,21 +10,25 @@ The authoritative Phase 4 business contract is:
 
 These documents supersede all earlier Squad-specific business rules in legacy roadmap material.
 
-Current implementation status:
+Validated implementation on `main` includes:
 
-- System-created Squad persistence: merged.
-- Free membership invitation/activation: merged.
-- Paid membership purchase/activation: merged.
-- Daily Squad State: merged on `main`.
-- Daily DZP Contribution + Modifier: merged on `main` and validated through the Constitution 54 gate.
-- Weekly Challenge accounting/settlement: merged through PR #202 and the canonical-rounding correction in PR #207; the final merged implementation is validated by CI.
+- System-created Squad persistence.
+- Free membership invitation/activation.
+- Paid membership purchase/activation.
+- Daily Squad State.
+- Daily DZP Contribution + Modifier.
+- Weekly Challenge accounting/settlement with the canonical Economy rounding rule.
 
 The Weekly Challenge implementation uses the existing Verified Activity and Economy/Ledger records as its only evidence and economic sources. Each challenge snapshots its scope/reward configuration, spans exactly seven UTC+1 days, keeps independent accounting, supports the locked challenge scopes, and settles idempotently through the existing Economy/Ledger. A member must remain eligible at settlement. Proportional allocation reuses the existing Economy fixed-point half-up rounding rule; no Squad-specific rounding algorithm exists.
 
 The `Verified Squad AdView` scope is supported by the accounting contract, but no new activity producer is introduced here because the current repository has no verified Squad-ad producer. Existing verified activity producers remain the source of truth.
 
-Phase 4 remains **in progress** because the locked contract still contains membership-lifecycle obligations whose authoritative upstream control surface is not implemented in the current phase. In particular, the contract requires App Ban to be able to terminate a Squad membership, while the repository currently has no App-Ban/Admin membership-termination boundary. Constitution 54 and phase isolation prohibit inventing that boundary or introducing an Admin service/route/migration before its authorized phase.
+### App Ban boundary
 
-Suspended/cancelled membership states are represented by the existing membership model and are respected by the implemented membership/challenge boundaries; no separate suspension system is authorized.
+App Ban is **not an automatic Squad action** and is not owned by the Squad subsystem. The system may generate an administrative warning when evidence indicates that a user should be suspended/banned. The **Admin is the enforcement authority**: after reviewing the warning/evidence, an authorized Admin explicitly decides whether to suspend/ban the user. Ignoring a warning performs no membership mutation.
 
-Implementation remains gated by Constitution 54: every slice must pass the required code, history, PR, CI, tracing, tests, documentation, issues, runtime/failure-history and final-diff gates before merge.
+The existing `squad_membership.status` model already represents `suspended` and `cancelled`, and implemented membership/challenge boundaries respect membership eligibility. The authoritative Admin warning/enforcement control surface belongs to the later Admin Panel phase and must be implemented there when that phase is opened; Phase 4 must not invent a duplicate Admin service, route, or enforcement system.
+
+Accordingly, the absence of the later Admin control surface is no longer treated as an implementation blocker for Phase 4. Phase 4 is closed on the Squad implementation currently authorized by its contract; the future Admin integration remains a documented later-phase dependency.
+
+Every future slice remains subject to Constitution 54: code, history, PR, CI, tracing, tests, documentation, issues, runtime/failure-history and final-diff gates before merge.
