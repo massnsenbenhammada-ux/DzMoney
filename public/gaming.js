@@ -31,16 +31,16 @@
     const host = document.createElement('div');
     host.className = 'spin-wheel-host';
     host.setAttribute('data-spin-wheel-host', '');
-    host.innerHTML = `<div class="spin-wheel-wrap"><span class="spin-wheel-pointer" aria-hidden="true"></span><div class="spin-wheel" data-spin-wheel role="button" tabindex="0" aria-label="Spin the wheel"><div class="spin-wheel-labels">${wheelResults.map((result, index) => `<span data-spin-wheel-segment="${result}" style="--i:${index}">${wheelLabels[result]}</span>`).join('')}</div><div class="spin-wheel-center">SPIN</div></div></div>`;
+    host.innerHTML = `<div class="spin-wheel-wrap"><span class="spin-wheel-pointer" aria-hidden="true"></span><div class="spin-wheel" data-spin-wheel role="button" tabindex="0" aria-label="Spin the wheel"><div class="spin-wheel-labels">${wheelResults.map((result, index) => `<span class="spin-wheel-segment" data-spin-wheel-segment="${result}" style="--i:${index}"><b>${wheelLabels[result]}</b></span>`).join('')}</div><div class="spin-wheel-center">SPIN</div></div></div>`;
     const result = card.querySelector('[data-spin-result]');
     result?.before(host);
   }
 
   function renderRewardLists() {
     const spinList = root.querySelector('[data-gaming-view="spin"] .gaming-reward-list');
-    if (spinList) spinList.innerHTML = wheelResults.map(result => `<span class="gaming-pill">${wheelLabels[result]}</span>`).join('');
+    if (spinList) spinList.innerHTML = wheelResults.map(result => `<span class="gaming-pill gaming-pill-${result}">${wheelLabels[result]}</span>`).join('');
     const diggingList = root.querySelector('[data-gaming-view="digging"] .gaming-reward-list');
-    if (diggingList) diggingList.innerHTML = wheelResults.map(result => `<span class="gaming-pill">${result === 'extra_spin' ? '+1 AXE' : wheelLabels[result]}</span>`).join('');
+    if (diggingList) diggingList.innerHTML = wheelResults.map(result => `<span class="gaming-pill gaming-pill-${result === 'extra_spin' ? 'extra_axe' : result}">${result === 'extra_spin' ? '+1 AXE' : wheelLabels[result]}</span>`).join('');
   }
 
   function render() {
@@ -60,7 +60,26 @@
     root.querySelectorAll('[data-gaming-view]').forEach(el => el.classList.toggle('gaming-hidden', el.dataset.gamingView !== state.view));
     root.querySelectorAll('[data-dig-start]').forEach(btn => { btn.disabled = state.busy || account.axes < 1 || !!gaming.activeSession; });
     root.querySelectorAll('[data-spin-action]').forEach(btn => { btn.disabled = state.busy || account.spins < 1; });
-    root.querySelectorAll('[data-gaming-ad]').forEach(btn => { btn.disabled = state.busy || (gaming.adCounts?.[btn.dataset.gamingAd] || 0) >= dailyAdLimit; });
+    root.querySelectorAll('[data-gaming-ad]').forEach(btn => {
+      const reachedLimit = (gaming.adCounts?.[btn.dataset.gamingAd] || 0) >= dailyAdLimit;
+      btn.disabled = state.busy || reachedLimit;
+      if (!state.busy) btn.textContent = reachedLimit ? 'DAILY LIMIT REACHED' : 'WATCH AD';
+    });
+    root.querySelectorAll('.gaming-card-count').forEach(count => {
+      const value = Number(count.querySelector('strong')?.textContent) || 0;
+      count.classList.toggle('ready', value > 0);
+      count.classList.toggle('empty', value < 1);
+    });
+    const wheel = root.querySelector('[data-spin-wheel]');
+    if (wheel) {
+      const unavailable = account.spins < 1 || state.busy;
+      wheel.classList.toggle('is-unavailable', account.spins < 1);
+      wheel.classList.toggle('is-busy', state.busy);
+      wheel.setAttribute('aria-disabled', String(unavailable));
+      wheel.setAttribute('tabindex', unavailable ? '-1' : '0');
+      const center = wheel.querySelector('.spin-wheel-center');
+      if (center) center.textContent = state.busy ? '…' : 'SPIN';
+    }
     renderSession();
   }
 
@@ -70,7 +89,7 @@
     if (!board) return;
     if (!session) { board.innerHTML = ''; board.classList.remove('is-active'); return; }
     board.classList.add('is-active');
-    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed' : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward, tile.result)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 7M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
+    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed gaming-tile-' + (tile.result || 'none') : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward, tile.result)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 7M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
   }
 
   async function load() {
@@ -82,7 +101,8 @@
   function showView(view) {
     state.view = view;
     render();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
   }
 
   function setBusy(isBusy) {
@@ -92,24 +112,41 @@
 
   function animateWheel(result) {
     const wheel = root.querySelector('[data-spin-wheel]');
-    if (!wheel) return;
+    if (!wheel) return Promise.resolve();
     const index = Math.max(0, wheelResults.indexOf(result));
     const segment = 360 / wheelResults.length;
     const rotation = 360 * 5 - index * segment - segment / 2;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     wheel.style.setProperty('--wheel-rotation', `${rotation}deg`);
-    wheel.classList.remove('is-spinning');
+    wheel.classList.remove('is-winner', 'is-spinning');
     void wheel.offsetWidth;
+    if (reduced) {
+      wheel.classList.add('is-winner');
+      wheel.querySelector(`[data-spin-wheel-segment="${result}"]`)?.classList.add('is-winning');
+      return Promise.resolve();
+    }
     wheel.classList.add('is-spinning');
+    return new Promise(resolve => {
+      window.setTimeout(() => {
+        wheel.classList.remove('is-spinning');
+        wheel.classList.add('is-winner');
+        wheel.querySelectorAll('[data-spin-wheel-segment]').forEach(segmentEl => segmentEl.classList.remove('is-winning'));
+        wheel.querySelector(`[data-spin-wheel-segment="${result}"]`)?.classList.add('is-winning');
+        root.querySelector('.spin-wheel-pointer')?.classList.add('is-bouncing');
+        window.setTimeout(() => root.querySelector('.spin-wheel-pointer')?.classList.remove('is-bouncing'), 260);
+        resolve();
+      }, 3200);
+    });
   }
 
   async function spin() {
-    if (state.busy) return;
+    if (state.busy || (state.gaming?.account?.spins || 0) < 1) return;
     setBusy(true);
     render();
     const resultEl = root.querySelector('[data-spin-result]');
     try {
       const response = await api('/api/gaming/spin', { method: 'POST', body: JSON.stringify({ idempotencyKey: idempotencyKey('gaming-spin') }) });
-      animateWheel(response.result.result);
+      await animateWheel(response.result.result);
       resultEl.textContent = `${response.result.result.replace(/_/g, ' ')}: ${formatReward(response.result.reward, response.result.result)}`;
       resultEl.classList.add('gaming-result-flash');
       setTimeout(() => resultEl.classList.remove('gaming-result-flash'), 700);
@@ -147,7 +184,7 @@
       return;
     }
     const button = root.querySelector(`[data-gaming-ad="${game}"]`);
-    const originalLabel = button?.textContent;
+    const originalLabel = button?.textContent || 'WATCH AD';
     setBusy(true);
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
@@ -164,8 +201,13 @@
         if ((state.gaming.adCounts?.[game] || 0) > previousCount) credited = true;
       }
       toast(credited ? 'Ad verified — reward credited.' : 'Ad watched. Verification can take a little longer — check back shortly.');
-    } catch (error) { toast(error.message); }
-    finally { setBusy(false); if (button) { button.textContent = originalLabel; button.removeAttribute('aria-busy'); } render(); }
+    } catch (error) {
+      toast(`Gaming Ad failed: ${error.message || 'Unable to load the advertisement.'}`);
+    } finally {
+      setBusy(false);
+      if (button) { button.textContent = originalLabel; button.removeAttribute('aria-busy'); }
+      render();
+    }
   }
 
   root.addEventListener('click', event => {
