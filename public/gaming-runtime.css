@@ -1,0 +1,69 @@
+/* Phase 5 runtime presentation correction: keep the wheel radial, legible and visibly animated. */
+.spin-wheel-labels span {
+  left: 50%;
+  top: 50%;
+  width: 31%;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  transform-origin: 0 50%;
+  transform: rotate(calc(var(--i, 0) * 45deg - 90deg)) translateX(74%);
+  pointer-events: none;
+}
+
+.spin-wheel-labels span b {
+  width: 88%;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 4px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.24);
+  background: rgba(7,16,14,.42);
+  box-shadow: inset 0 1px rgba(255,255,255,.14), 0 4px 10px rgba(0,0,0,.18);
+  font-size: 8.5px;
+  font-weight: 950;
+  line-height: 1.05;
+  letter-spacing: .025em;
+  text-align: center;
+  white-space: normal;
+  transform: rotate(calc(var(--i, 0) * -45deg + 90deg));
+}
+
+.spin-wheel-labels [data-spin-wheel-segment="coin_100"] b,
+.spin-wheel-labels [data-spin-wheel-segment="coin_1000"] b {
+  color: #ffd37a;
+  border-color: rgba(255,211,122,.38);
+}
+.spin-wheel-labels [data-spin-wheel-segment="dzx_1"] b,
+.spin-wheel-labels [data-spin-wheel-segment="dzx_10"] b {
+  color: #72f0c2;
+  border-color: rgba(114,240,194,.38);
+}
+.spin-wheel-labels [data-spin-wheel-segment="dzp_1"] b,
+.spin-wheel-labels [data-spin-wheel-segment="dzp_10"] b {
+  color: #a9b8ff;
+  border-color: rgba(169,184,255,.38);
+}
+.spin-wheel-labels [data-spin-wheel-segment="extra_spin"] b {
+  color: #f39cff;
+  border-color: rgba(243,156,255,.42);
+}
+.spin-wheel-labels [data-spin-wheel-segment="none"] b {
+  color: #d5c9c2;
+  border-color: rgba(213,201,194,.28);
+}
+
+.spin-wheel.is-spinning {
+  animation: dzmoney-wheel-three-turns 3.2s cubic-bezier(.12,.78,.08,1) both;
+  transition: none;
+}
+
+@keyframes dzmoney-wheel-three-turns {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(var(--wheel-rotation, 0deg)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin-wheel.is-spinning { animation: none; }
+}
