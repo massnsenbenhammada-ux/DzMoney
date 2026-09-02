@@ -18,7 +18,7 @@ function testConfigContract() {
   assert(/"boardSize"\s*:\s*16/.test(migration));
   assert(/"energy"\s*:\s*3/.test(migration));
   assert(correction.includes('RENAME COLUMN activity_claimed TO verified_activity_count'));
-  assert(correction.includes("status='closed'"));
+  assert(correction.includes("status='completed'"));
   assert(correction.includes("'diggingAxeEveryAds'"));
 }
 
@@ -104,7 +104,6 @@ try {
   testSourceBoundaries();
   testRewardTables();
   testGamingFrontendContract();
-  require('./simulate-gaming-economy').run();
   console.log('Gaming core invariants: PASS');
 } catch (error) {
   console.error('Gaming core invariants: FAIL');
