@@ -40,7 +40,7 @@ function createOnclickaPostbackRouter({ providerRegistry }) {
 
       const event = eventResult.rows[0];
       const context = event.context;
-      const providerPayload = { USERID: userId, confirmedByPostback: true };
+      const providerPayload = { USERID: userId, postbackConfirmed: true };
       if (context === 'task') {
         const verified = await taskAdvertisementService.verifyTrustedTaskAdvertisement({
           providerId: ONCLICKA_PROVIDER_ID,
@@ -52,13 +52,15 @@ function createOnclickaPostbackRouter({ providerRegistry }) {
         return res.json({ ok: true, context, verified: true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, progress: finalization.progress || null });
       }
       if (context === 'gaming') {
-        const verification = await gamingService.finalizeGamingAdvertisement({
+        const provider = providerRegistry.get(ONCLICKA_PROVIDER_ID);
+        const verification = await provider.verifyCompletion(providerPayload);
+        const finalization = await gamingService.finalizeGamingAdvertisement({
           userId: event.user_id,
           adEventId: event.id,
-          providerReference: `onclicka:${userId}`,
-          verificationMetadata: { provider_id: ONCLICKA_PROVIDER_ID, confirmedByPostback: true }
+          providerReference: verification.reference,
+          verificationMetadata: { ...verification.metadata, postbackConfirmed: true }
         });
-        return res.json({ ok: true, context, verified: true, duplicate: verification.duplicate, rewarded: verification.rewarded, resourceGranted: verification.resourceGranted || null, progress: verification.progress || null });
+        return res.json({ ok: true, context, verified: verification.verified === true, duplicate: finalization.duplicate, rewarded: finalization.rewarded, resourceGranted: finalization.resourceGranted || null, progress: finalization.progress || null });
       }
       if (context === 'daily_checkin') {
         const verified = await verifyDailyCheckinAd({
