@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS gaming_accounts (
   user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   spins INTEGER NOT NULL DEFAULT 0 CHECK (spins >= 0),
   axes INTEGER NOT NULL DEFAULT 0 CHECK (axes >= 0),
+  activity_claimed INTEGER NOT NULL DEFAULT 0 CHECK (activity_claimed >= 0),
+  activity_day DATE NOT NULL DEFAULT ((NOW() AT TIME ZONE 'UTC') + INTERVAL '1 hour')::date,
   spin_ad_progress INTEGER NOT NULL DEFAULT 0 CHECK (spin_ad_progress >= 0),
   digging_ad_progress INTEGER NOT NULL DEFAULT 0 CHECK (digging_ad_progress >= 0),
   energy_remaining INTEGER NOT NULL DEFAULT 3 CHECK (energy_remaining >= 0),
@@ -36,11 +38,10 @@ CREATE TABLE IF NOT EXISTS gaming_spin_results (
   config_version INTEGER NOT NULL REFERENCES gaming_config_versions(version),
   result TEXT NOT NULL,
   reward JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  idempotency_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, idempotency_key)
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS gaming_spin_result_idempotency
-  ON gaming_spin_results(user_id, id);
 
 INSERT INTO gaming_config_versions(version, config)
 VALUES (1, '{
