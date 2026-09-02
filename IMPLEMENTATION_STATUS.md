@@ -9,7 +9,7 @@
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
 - **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract.
-- **Phase 4:** 🟡 **IMPLEMENTATION IN PROGRESS**. The authoritative Squad contract is `docs/SQUAD_SYSTEM_CONTRACT.md`, with `docs/ADR-0012-SQUAD.md` and `docs/PHASE4_SQUAD.md`.
+- **Phase 4:** 🟢 **CLOSED** for the locked Squad implementation currently authorized. The later Admin Panel owns the App-Ban warning/review/enforcement control surface.
 - **Phase 5:** 🟡 **AUTHORIZED / NOT IMPLEMENTED**. The canonical contract is `docs/PHASE5_GAMING.md` and the reconciled `PROJECT_ROADMAP.md`.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #204.
@@ -61,7 +61,7 @@ No concrete internal Phase 3 implementation gap remains.
 
 ## Phase 4 — Squad
 
-🟡 **Implementation in progress from the locked contract.**
+🟢 **Closed for the locked Squad implementation currently authorized.**
 
 Authoritative documents:
 - `docs/SQUAD_SYSTEM_CONTRACT.md`
@@ -70,7 +70,7 @@ Authoritative documents:
 
 Implemented and merged slices include system-created Squads, membership invitation/acceptance, paid membership, Daily Squad State, Daily DZP Contribution + Modifier, and Weekly Challenge accounting/settlement with the canonical Economy rounding correction.
 
-Phase 4 is **not closed**. The locked contract requires App Ban to be able to terminate a Squad membership, but the current repository has no authoritative App-Ban/Admin membership-termination boundary. Architecture rules prohibit inventing a later-phase Admin runtime boundary early. This remains a phase-boundary dependency.
+The remaining App-Ban control surface is intentionally not a Phase 4 runtime boundary. App Ban is an administrative enforcement action: the system may generate a warning with evidence, an authorized Admin reviews it, and the Admin explicitly chooses whether to suspend/ban. No automatic ban is permitted. The later Admin Panel phase owns that control surface, while the existing Squad membership model already represents `suspended` and `cancelled` states and Challenge settlement respects membership eligibility.
 
 ## Phase 5 — Gaming
 
@@ -94,7 +94,7 @@ No Gaming runtime route, service, migration or duplicate Economy/Ledger/Reward/V
 - Phase 9 — Withdrawal: not started as a complete product phase.
 - Phase 10 — Promo Codes: not started as a complete product phase.
 - Phase 11 — User App UI: partial UI exists through merged milestones; full roadmap phase is not marked complete.
-- Phase 12 — Admin Panel: not started as a complete product phase.
+- Phase 12 — Admin Panel: not started as a complete product phase; it will own the App-Ban warning/review/enforcement control surface.
 - Phase 13 — Ledger/Security hardening: ongoing baseline controls exist; final hardening remains gated.
 - Phase 14 — Testing/Release: not complete.
 
@@ -107,8 +107,8 @@ No Gaming runtime route, service, migration or duplicate Economy/Ledger/Reward/V
 
 ## Next authorized work
 
-1. Continue Phase 4 only from its locked Squad contract and its concrete authorized gap.
-2. In parallel, Phase 5 Gaming may be implemented through a dedicated vertical slice once the implementation branch is opened; do not invent a parallel domain service for an existing primitive.
+1. Phase 4 Squad implementation is closed; do not invent an early Admin/App-Ban runtime boundary.
+2. Phase 5 Gaming is the next active implementation phase and must be implemented through a dedicated vertical slice.
 3. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
 4. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
 5. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.

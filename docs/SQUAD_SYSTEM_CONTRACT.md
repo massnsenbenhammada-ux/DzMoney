@@ -73,6 +73,14 @@ Example: a 100-member Squad may accept another selected member and become a 101-
 - Suspension/activation is distinct from the Squad's daily ACTIVE/RISK state.
 - A suspended member is not made active merely by hypothetical activity while suspended; the membership must first be valid for activity to count.
 
+### App Ban enforcement boundary
+
+- App Ban is an **administrative enforcement action**, not an automatic Squad or activity action.
+- The system may generate an administrative warning when available evidence indicates that a user should be suspended/banned.
+- An authorized Admin reviews the warning/evidence and explicitly decides whether to suspend/ban the user.
+- Ignoring a warning performs no membership mutation.
+- The Admin warning/review/enforcement control surface belongs to the later Admin Panel phase. Phase 4 must not invent a duplicate Admin service, route, or enforcement system.
+
 ## 3. Daily Squad state
 
 Each UTC+1 calendar day is evaluated independently.
@@ -226,4 +234,5 @@ The following earlier Squad assumptions are obsolete and must not be implemented
 - modifying DZP with the Squad percentage;
 - paying membership purchase DZP to the Squad Owner;
 - allowing users to select a specific Squad directly;
-- allowing users to create Squads or self-assign ownership.
+- allowing users to create Squads or self-assign ownership;
+- automatic App Ban from Squad/activity logic.
