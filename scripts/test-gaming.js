@@ -70,13 +70,17 @@ function testSourceBoundaries() {
   assert(routes.includes('publicGamingState(await gaming.getGamingState({ userId }))'));
   assert(onclickaRoutes.includes("const CONTEXTS = new Set(['task', 'daily_checkin', 'verification', 'gaming'])"));
   assert(onclickaRoutes.includes('taskAdvertisementService.verifyTrustedTaskAdvertisement'));
-  assert(onclickaRoutes.includes('router.get(\'/\', handlePostback)'));
+  assert(onclickaRoutes.includes("router.get('/', handlePostback)"));
   assert(onclickaRoutes.includes('const context = event.context'));
+  assert(onclickaRoutes.includes('createOnclickaPostbackRouter({ providerRegistry })'));
+  assert(!onclickaRoutes.includes('assertProviderSecret'));
   assert(monetagRoutes.includes('a.external_ad_id=$1 OR a.idempotency_key=$1'));
   assert(adminRoutes.includes('router.use(adminAuth)'));
   assert(adminRoutes.includes("router.put('/config'"));
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
   assert(server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"));
+  assert(server.includes("app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));"));
+  assert(!server.includes('onclickaConfirmationSecret'));
 }
 
 function testRewardTables() {
@@ -141,3 +145,35 @@ function testGamingFrontendContract() {
   assert(onclickaLoader.includes('DzMoneyOnclicka?.prepare'));
   assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
 }
+
+async function testSimulation() {
+  const result = await simulateGamingEconomy({ users: 1000, days: 30, activitiesPerDay: 20, gamingAdsPerDay: 100, diggingRevealsPerDay: 3 });
+  assert.strictEqual(result.users, 1000);
+  assert.strictEqual(result.days, 30);
+  assert(result.totalSpinAds > 0);
+  assert(result.totalDiggingAds > 0);
+}
+
+async function testDatabaseContract() {
+  const result = await query("SELECT column_name FROM information_schema.columns WHERE table_name='activity_ad_events' AND column_name IN ('external_ad_id','idempotency_key','verified')");
+  assert.strictEqual(result.rows.length, 3);
+}
+
+(async () => {
+  try {
+    testProviderContext();
+    testConfigContract();
+    testGamingTaskContract();
+    testConfigValidation();
+    testSourceBoundaries();
+    testRewardTables();
+    testGamingFrontendContract();
+    await testSimulation();
+    await testDatabaseContract();
+    console.log('Gaming contract: PASS');
+  } catch (error) {
+    console.error('Gaming contract: FAIL');
+    console.error(error);
+    process.exitCode = 1;
+  }
+})();
