@@ -1,20 +1,20 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` after the merged Phase 5 Reward Pool activation-gate milestone (PR #209).
+> **Authoritative baseline:** `main` after the merged Phase 4 implementation milestones through PR #207.
 >
 > This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
 ## Current state
 
-- **Current phase:** Phase 5 — Reward Pool implementation in progress from the roadmap contract.
+- **Current phase:** Phase 4 — Squad implementation in progress from the locked contract.
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
 - **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract. Attribution, qualification, activation reward, referral achievements, canonical referral-link/bootstrap, lifetime 20% reward, and the accepted Click Proof Share with Friends contract are implemented and validated. Telegram-native attestation of an actual share is explicitly outside the accepted contract and is not a remaining DzMoney implementation gap.
-- **Phase 4:** 🟡 **IMPLEMENTATION IN PROGRESS**. The authoritative Squad contract is `docs/SQUAD_SYSTEM_CONTRACT.md`, with `docs/ADR-0012-SQUAD.md` and `docs/PHASE4_SQUAD.md`. The remaining App-Ban membership-termination obligation is blocked at the authorized upstream control-surface boundary.
+- **Phase 4:** 🟡 **IMPLEMENTATION IN PROGRESS**. The authoritative Squad contract is `docs/SQUAD_SYSTEM_CONTRACT.md`, with `docs/ADR-0012-SQUAD.md` and `docs/PHASE4_SQUAD.md`.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #204.
-- **Latest Squad implementation milestone:** PR #207 (canonical Economy rounding correction for Weekly Challenge settlement).
-- **Latest Reward Pool implementation milestone:** PR #209 (activation gate status).
+- **Latest Squad contract lock:** PR #190.
+- **Latest merged Squad implementation milestone:** PR #207 (canonical Economy rounding correction for Weekly Challenge settlement).
 
 ## Phase 0 — Specification Lock
 
@@ -156,35 +156,6 @@ The existing membership model already represents `suspended` and `cancelled` sta
 
 Phase 4 remains gated by Constitution 54. The next implementation must be derived from a concrete, currently authorized contract gap; no legacy Squad migration, duplicate economic/activity/reward/verification system, or speculative Admin boundary may be introduced.
 
-## Phase 5 — Reward Pool
-
-🟡 **Implementation in progress from the roadmap contract.**
-
-The roadmap is the authoritative product contract for this phase. PR #209 implements and validates the first executable slice: server-side activation-gate state.
-
-### Implemented and merged
-
-- Authenticated `GET /api/reward-pool` status boundary.
-- Server-side activation target from `admin_settings.reward_pool.activation_ads`, defaulting to the roadmap value of 10 when the setting is absent/invalid.
-- Activation count uses only `activity_ad_events` where `context='reward_pool'` and `verified=TRUE`.
-- Task ads, verification ads and unverified Reward Pool ads do not satisfy the activation gate.
-- Locked/unlocked state and remaining-ad count are derived server-side.
-- No new migration/table was introduced because the existing verified advertisement event table is already the canonical source for Reward Pool ad evidence.
-- Focused integration coverage is registered in `test:all`.
-
-### Validation evidence
-
-PR #209 was merged as `f5690ec4b7d9f2e6b1144fc4e84296d883f3e0f9` after exact-HEAD PR CI passed. The post-merge `main` workflow for that merge commit also passed migrations, dependency security audit, runtime health and the full test suite.
-
-The first PR CI attempt failed only because the new test fixture used a non-numeric Telegram user ID against the existing `BIGINT` schema. The failure was traced directly from the CI assertion/database error, corrected minimally to use the repository's actual bigint contract, and the exact new PR HEAD then passed the complete gate.
-
-### Remaining Phase 5 work
-
-- Reward Pool advertisement execution/verification must reuse the existing Advertisement/Economy/Ledger boundaries.
-- No current production ad provider in the runtime registry advertises `reward_pool` support; Monetag currently exposes task/daily-checkin/verification contexts and OnClickA exposes daily-checkin/verification. Therefore no fake Reward Pool provider integration is authorized. A real provider context/evidence contract is required before Reward Pool ads can become a production reward source.
-- Reward Pool activation status is implemented, but activation cannot be claimed from frontend state or an unverified ad event.
-- Daily distribution, earned-activity weight calculation, package multiplier integration, and auditable distribution settlement remain unimplemented and must be developed only from the roadmap contract and existing Economy/Ledger primitives.
-
 ## TON Deposit
 
 🟢 Implementation and automated validation for the audited milestone.
@@ -205,6 +176,7 @@ The audited milestone includes server-side blockchain evidence validation, trans
 
 ## Later phases
 
+- Phase 5 — Reward Pool: not started.
 - Phase 6 — Packages: not started.
 - Phase 7 — Buying Points & Conversion UI: not started.
 - Phase 9 — Withdrawal: not started.
@@ -214,13 +186,13 @@ The audited milestone includes server-side blockchain evidence validation, trans
 
 ## Next authorized work
 
-1. Continue Phase 5 only from the Reward Pool roadmap contract and existing Advertisement/Economy/Ledger boundaries.
-2. Do not invent a provider: Reward Pool ad execution/verification requires a real provider context/evidence contract before it can authorize rewards.
-3. After a real provider contract exists, implement Reward Pool ad execution/verification with the existing advertisement event and Economy/Ledger primitives, preserving `reward_pool` context separation and idempotency.
-4. In parallel only where no provider dependency exists, implement the next Reward Pool accounting slice from the roadmap: daily earned-activity weight and auditable DZX distribution, without package multipliers until the package phase provides that source of truth.
-5. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
-6. Keep Phase 4 untouched; do not implement the App-Ban membership-termination boundary until an authorized upstream App-Ban/Admin control surface exists.
-7. Do not create a second Economy, Ledger, Activity, Advertisement, Verification or Reward system.
+1. Keep the Phase 2 implementation baseline stable; do not create new verification services for provider-dependent categories.
+2. Treat Special/Partner as `CODE COMPLETE / PENDING_PROVIDER` until a real provider supplies a trusted, testable evidence contract.
+3. Continue Phase 4 only from the locked Squad contract and with focused TDD.
+4. Reuse the existing Task, Verification, Advertisement, Activity, Economy/Ledger, configuration and rounding boundaries.
+5. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Issues → Runtime failure history.
+6. Do not resurrect legacy Squad migrations or create a second Economy/Ledger/Reward/Verification source.
+7. Do not implement the App-Ban membership-termination boundary until an authorized upstream App-Ban/Admin control surface exists.
 
 ## Update Rule
 
