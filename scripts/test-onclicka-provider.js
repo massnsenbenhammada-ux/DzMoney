@@ -4,6 +4,7 @@ const path = require('path');
 process.env.ONCLICKA_ENABLED = 'true';
 const { ONCLICKA_PROVIDER_ID } = require('../src/services/onclicka-adapter');
 const { createOnclickaProvider } = require('../src/services/onclicka-adapter');
+const { createOnclickaPostbackRouter } = require('../src/http/onclicka-postback-routes');
 const providerRegistry = require('../src/services/ad-provider-registry-runtime');
 
 async function testProviderContract() {
@@ -50,6 +51,11 @@ function testOnclickaIsActiveAtRuntime() {
   }
 }
 
+function testPostbackRouterUsesOnClickAUserIdCallbackWithoutLocalSecret() {
+  const router = createOnclickaPostbackRouter({ providerRegistry });
+  assert.ok(router);
+}
+
 function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
   const html = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
   assert.match(html, /__MONETAG_SCRIPTS__/);
@@ -63,6 +69,7 @@ function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
     await testRejectsWrongSpot();
     await testRejectsMissingUser();
     testOnclickaIsActiveAtRuntime();
+    testPostbackRouterUsesOnClickAUserIdCallbackWithoutLocalSecret();
     testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider();
     console.log('OnClickA provider contract: PASS');
   } catch (error) {
