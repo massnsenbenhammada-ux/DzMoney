@@ -75,7 +75,7 @@ test('Reward Pool daily settlement excludes non-activity DZP, requires activatio
     assert.equal(duplicate.rewards.length, 2);
     const distributions = await query(`SELECT COUNT(*)::int AS count, COALESCE(SUM(reward_dzx),0)::text AS total FROM reward_pool_distribution_entries e JOIN reward_pool_distribution_runs r ON r.id=e.run_id WHERE r.period_start=$1`, [periodStart]);
     assert.equal(distributions.rows[0].count, 2);
-    assert.equal(distributions.rows[0].total, '30');
+    assert.equal(distributions.rows[0].total, '30.000000000');
     const walletA = await query(`SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency='DZX'`, [userA.id]);
     const walletB = await query(`SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency='DZX'`, [userB.id]);
     assert.equal(walletA.rows[0].balance, '20');
