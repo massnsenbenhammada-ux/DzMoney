@@ -37,7 +37,7 @@ SELECT latest.version + 1,
              'coin_1000', 15,
              'dzx_1', 5,
              'dzp_1', 3,
-             'dzx_10', 1,
+             'dzx_10', 2,
              'dzp_10', 1
            )
          ),
@@ -51,7 +51,7 @@ SELECT latest.version + 1,
              'coin_1000', 15,
              'dzx_1', 5,
              'dzp_1', 3,
-             'dzx_10', 1,
+             'dzx_10', 2,
              'dzp_10', 1
            )
          ),
