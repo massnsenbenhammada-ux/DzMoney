@@ -1,9 +1,8 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { ONCLICKA_PROVIDER_ID } = require('../src/services/onclicka-adapter');
-const { createOnclickaProvider } = require('../src/services/onclicka-adapter');
-const providerRegistry = require('../src/services/ad-provider-registry-runtime');
+const { ONCLICKA_PROVIDER_ID, createOnclickaProvider } = require('../src/services/onclicka-adapter');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 
 async function testProviderContract() {
   const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
@@ -43,9 +42,10 @@ async function testRejectsMissingUser() {
   );
 }
 
-function testOnclickaIsActiveAtRuntime() {
+function testEnabledRegistryContract() {
+  const registry = new AdProviderRegistry([createOnclickaProvider({ enabled: true, spotId: '6134799' })]);
   for (const context of ['task', 'daily_checkin', 'verification', 'gaming']) {
-    assert.strictEqual(providerRegistry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
+    assert.strictEqual(registry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
   }
 }
 
@@ -61,7 +61,7 @@ function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
     await testRejectsUnauthenticatedCompletion();
     await testRejectsWrongSpot();
     await testRejectsMissingUser();
-    testOnclickaIsActiveAtRuntime();
+    testEnabledRegistryContract();
     testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider();
     console.log('OnClickA provider contract: PASS');
   } catch (error) {
