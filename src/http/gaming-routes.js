@@ -45,13 +45,6 @@ router.post('/digging/reveal', asyncRoute(async (req, res) => {
   res.json({ ok: true, duplicate: result.duplicate, tile: result.tile, session: result.session, transactionId: result.transaction?.id ? String(result.transaction.id) : null });
 }));
 
-router.post('/tasks/claim', asyncRoute(async (req, res) => {
-  const userId = await currentUserId(req);
-  if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
-  const result = await gaming.claimGamingTaskResource({ userId, attemptId: req.body?.attemptId, resource: req.body?.resource });
-  res.status(result.duplicate ? 200 : 201).json({ ok: true, ...result, claim: result.claim ? { ...result.claim, task_attempt_id: String(result.claim.task_attempt_id), user_id: String(result.claim.user_id) } : undefined });
-}));
-
 router.post('/ads/start', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req);
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
