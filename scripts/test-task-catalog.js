@@ -50,7 +50,7 @@ async function main() {
       "SELECT title, status, config FROM activity_tasks WHERE task_type='game' AND config ? 'gamingResource' ORDER BY title"
     );
     assert.ok(gamingTasks.rowCount >= 2, 'historical Gaming Watch Ad task rows should remain auditable');
-    assert.ok(gamingTasks.rows.every(row => row.status === 'closed'), 'Gaming Watch Ad tasks must not be active');
+    assert.ok(gamingTasks.rows.every(row => row.status === 'completed'), 'Gaming Watch Ad tasks must be retired');
     assert.ok(gamingTasks.rows.every(row => !Object.prototype.hasOwnProperty.call(row.config, 'completion')));
     assert.ok(gamingTasks.rows.every(row => row.config.dailyMode === 'advertisement'), 'historical Gaming task rows retain their canonical verification metadata');
 
