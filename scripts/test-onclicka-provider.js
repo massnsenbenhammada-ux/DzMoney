@@ -54,10 +54,8 @@ function testRuntimeRegistryWiring() {
   const provider = runtimeProviderRegistry.get(ONCLICKA_PROVIDER_ID);
   assert(provider, 'Runtime registry must register OnClickA');
   assert.strictEqual(provider.id, ONCLICKA_PROVIDER_ID);
-  if (process.env.ONCLICKA_ENABLED === 'true') {
-    for (const context of ['task', 'daily_checkin', 'verification', 'gaming']) {
-      assert.strictEqual(runtimeProviderRegistry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
-    }
+  for (const context of ['task', 'daily_checkin', 'verification', 'gaming']) {
+    assert.strictEqual(runtimeProviderRegistry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
   }
 }
 
