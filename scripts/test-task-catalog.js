@@ -46,6 +46,19 @@ async function main() {
     const legacyState = await pool.query("SELECT id FROM activity_tasks WHERE config ? 'completion'");
     assert.strictEqual(legacyState.rowCount, 0, 'database must contain no legacy completion configuration');
 
+    const gamingTasks = await pool.query(
+      "SELECT title, config FROM activity_tasks WHERE task_type='game' AND config ? 'gamingResource' ORDER BY title"
+    );
+    assert.strictEqual(gamingTasks.rowCount, 2, 'database must contain the two canonical Gaming Tasks');
+    assert.deepStrictEqual(
+      gamingTasks.rows.map(row => ({ title: row.title, resource: row.config.gamingResource })),
+      [
+        { title: 'Digging — Watch Ad', resource: 'axe' },
+        { title: 'Spin — Watch Ad', resource: 'spin' }
+      ]
+    );
+    assert.ok(gamingTasks.rows.every(row => !Object.prototype.hasOwnProperty.call(row.config, 'completion')));
+
     const daily = await createTask({
       taskType: 'daily',
       title: 'Daily catalog test',

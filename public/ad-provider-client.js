@@ -25,7 +25,17 @@ function exposeProvider(context, config) {
 }
 
 if (gamingProvider?.id === 'onclicka') exposeProvider('gaming', gamingProvider);
-if (gamingProvider?.id === 'monetag' && window.DzMoneyMonetag?.handler) window.DzMoneyGamingAd = window.DzMoneyMonetag;
+if (gamingProvider?.id === 'monetag' && window.DzMoneyMonetag?.ready) {
+  const adapter = window.DzMoneyMonetag;
+  window.DzMoneyGamingAd = {
+    provider: 'monetag',
+    ready: adapter.ready,
+    handler: async payload => {
+      if (typeof adapter.handler !== 'function') throw new Error('Monetag SDK handler is unavailable');
+      return adapter.handler(payload);
+    }
+  };
+}
 if (verificationProvider?.id === 'onclicka' || dailyProvider?.id === 'onclicka') {
   window.__DzMoneySelectedAdProvider = verificationProvider?.id === 'onclicka' ? 'onclicka' : dailyProvider?.id;
   exposeProvider('verification', verificationProvider?.id === 'onclicka' ? verificationProvider : dailyProvider);

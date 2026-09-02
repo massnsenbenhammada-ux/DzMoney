@@ -27,7 +27,7 @@
     const host = document.createElement('div');
     host.className = 'spin-wheel-host';
     host.setAttribute('data-spin-wheel-host', '');
-    host.innerHTML = `<div class="spin-wheel-wrap"><span class="spin-wheel-pointer" aria-hidden="true"></span><div class="spin-wheel" data-spin-wheel role="img" aria-label="Gaming Spin wheel"><div class="spin-wheel-labels">${wheelResults.map(result => `<span data-spin-wheel-segment="${result}">${wheelLabels[result]}</span>`).join('')}</div><div class="spin-wheel-center">SPIN</div></div></div>`;
+    host.innerHTML = `<div class="spin-wheel-wrap"><span class="spin-wheel-pointer" aria-hidden="true"></span><div class="spin-wheel" data-spin-wheel role="button" tabindex="0" aria-label="Spin the wheel"><div class="spin-wheel-labels">${wheelResults.map(result => `<span data-spin-wheel-segment="${result}">${wheelLabels[result]}</span>`).join('')}</div><div class="spin-wheel-center">SPIN</div></div></div>`;
     const result = card.querySelector('[data-spin-result]');
     result?.before(host);
   }
@@ -58,7 +58,7 @@
     if (!board) return;
     if (!session) { board.innerHTML = ''; board.classList.remove('is-active'); return; }
     board.classList.add('is-active');
-    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed' : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 7M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
+    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed' : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 7M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
   }
 
   async function load() {
@@ -159,6 +159,8 @@
   root.addEventListener('click', event => {
     const view = event.target.closest('[data-gaming-view-link]');
     if (view) return showView(view.dataset.gamingViewLink);
+    const wheel = event.target.closest('[data-spin-wheel]');
+    if (wheel) return spin();
     const spinButton = event.target.closest('[data-spin-action]');
     if (spinButton) return spin();
     const digStart = event.target.closest('[data-dig-start]');
@@ -167,6 +169,11 @@
     if (tile) return reveal(Number(tile.dataset.tileId));
     const ad = event.target.closest('[data-gaming-ad]');
     if (ad) return watchAd(ad.dataset.gamingAd);
+  });
+
+  root.addEventListener('keydown', event => {
+    const wheel = event.target.closest('[data-spin-wheel]');
+    if (wheel && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); spin(); }
   });
 
   document.addEventListener('click', event => {
