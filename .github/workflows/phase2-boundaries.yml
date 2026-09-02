@@ -37,6 +37,8 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
       DATABASE_SSL: "false"
+      ONCLICKA_ENABLED: "true"
+      ONCLICKA_SPOT_ID: "6134799"
     services:
       postgres:
         image: postgres:16
