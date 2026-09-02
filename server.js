@@ -4,7 +4,6 @@ const fs = require('fs');
 const { query } = require('./src/db/pool');
 const meRoutes = require('./src/http/me-routes');
 const squadRoutes = require('./src/http/squad-routes');
-const rewardPoolRoutes = require('./src/http/reward-pool-routes');
 const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
 const { createDailySystemTaskRouter } = require('./src/http/daily-system-task-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
@@ -79,7 +78,6 @@ const publicApiRateLimit = createRateLimit({ windowMs: 60_000, max: 300, key: re
 app.use('/api', publicApiRateLimit);
 app.use('/api/me', meRoutes);
 app.use('/api/squad', squadRoutes);
-app.use('/api/reward-pool', rewardPoolRoutes);
 app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/admin/squad', createAdminSquadChallengeRouter());
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
