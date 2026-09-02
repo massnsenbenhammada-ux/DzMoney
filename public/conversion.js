@@ -1,4 +1,7 @@
 (() => {
+  const style = document.createElement('style');
+  style.textContent = '.conversion-modal{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.68);display:grid;place-items:center;padding:20px}.conversion-modal[hidden]{display:none}.conversion-dialog{position:relative;width:min(420px,100%);padding:24px;border-radius:20px;background:#101817;border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 70px rgba(0,0,0,.4)}.conversion-dialog h2{margin:6px 0 10px}.conversion-dialog p{line-height:1.5}.conversion-dialog label{display:grid;gap:7px;margin:16px 0;font-weight:600}.conversion-dialog select,.conversion-dialog input{width:100%;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#0b1110;color:inherit}.conversion-close{position:absolute;right:14px;top:10px;border:0;background:none;color:inherit;font-size:28px;cursor:pointer}.conversion-rate{opacity:.75;font-size:13px}';
+  document.head.appendChild(style);
   const ensureModal = () => {
     let modal = document.getElementById('conversionModal');
     if (modal) return modal;
@@ -13,7 +16,6 @@
     modal.querySelector('#conversionSubmit').addEventListener('click', submitConversion);
     return modal;
   };
-
   let rates = null;
   async function loadRates() {
     const modal = ensureModal();
@@ -23,11 +25,8 @@
       const source = modal.querySelector('#conversionSource').value;
       const key = source === 'coin' ? 'economy.coin_per_dzp' : 'economy.dzx_per_dzp';
       modal.querySelector('#conversionRate').textContent = `1 DZP = ${format(rates[key])} ${source.toUpperCase()}`;
-    } catch (error) {
-      modal.querySelector('#conversionRate').textContent = error.message || 'Rates unavailable';
-    }
+    } catch (error) { modal.querySelector('#conversionRate').textContent = error.message || 'Rates unavailable'; }
   }
-
   async function submitConversion() {
     const modal = ensureModal();
     const button = modal.querySelector('#conversionSubmit');
@@ -43,21 +42,14 @@
       modal.hidden = true;
       await loadMe();
       toast('Conversion completed.');
-    } catch (error) {
-      toast(error.message || 'Conversion failed.');
-    } finally {
-      button.disabled = false;
-    }
+    } catch (error) { toast(error.message || 'Conversion failed.'); }
+    finally { button.disabled = false; }
   }
-
   function openConversion() {
     const modal = ensureModal();
     modal.hidden = false;
     modal.querySelector('#conversionAmount').value = '';
     loadRates();
   }
-
-  document.addEventListener('click', event => {
-    if (event.target.closest('#openConversion, #walletConversion')) openConversion();
-  });
+  document.addEventListener('click', event => { if (event.target.closest('#openConversion, #walletConversion')) openConversion(); });
 })();
