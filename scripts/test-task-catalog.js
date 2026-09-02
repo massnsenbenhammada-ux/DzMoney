@@ -58,6 +58,7 @@ async function main() {
       ]
     );
     assert.ok(gamingTasks.rows.every(row => !Object.prototype.hasOwnProperty.call(row.config, 'completion')));
+    assert.ok(gamingTasks.rows.every(row => row.config.dailyMode === 'advertisement'), 'Gaming Tasks must use the canonical advertisement mode');
 
     const daily = await createTask({
       taskType: 'daily',
