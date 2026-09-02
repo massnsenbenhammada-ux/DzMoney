@@ -1,6 +1,6 @@
 const { withTransaction, query } = require('../db/pool');
 
-const AD_CONTEXTS = ['task', 'reward_pool', 'daily_checkin', 'verification'];
+const AD_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification'];
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
