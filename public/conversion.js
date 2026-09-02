@@ -1,4 +1,9 @@
 (() => {
+  const stylesheet = document.createElement('link');
+  stylesheet.rel = 'stylesheet';
+  stylesheet.href = '/conversion.css?v=__ASSET_VERSION__';
+  document.head.appendChild(stylesheet);
+
   const ensureModal = () => {
     let dialog = document.getElementById('conversionModal');
     if (dialog) return dialog;
