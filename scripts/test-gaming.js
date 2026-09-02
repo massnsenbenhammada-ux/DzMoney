@@ -48,11 +48,14 @@ function testSourceBoundaries() {
   const economy = fs.readFileSync(require.resolve('../src/services/economy-service.js'), 'utf8');
   const verification = fs.readFileSync(require.resolve('../src/services/task-verification-service.js'), 'utf8');
   const routes = fs.readFileSync(require.resolve('../src/http/gaming-routes.js'), 'utf8');
+  const adminRoutes = fs.readFileSync(require.resolve('../src/http/admin-gaming-routes.js'), 'utf8');
+  const server = fs.readFileSync(require.resolve('../server.js'), 'utf8');
   assert(service.includes("source: 'gaming'"));
   assert(service.includes('gaming:spin:'));
   assert(service.includes('gaming:digging:'));
   assert(service.includes('gaming:ad:'));
   assert(service.includes('recordVerifiedActivityOnClient'));
+  assert(service.includes('requiredId(actorTelegramUserId'));
   assert(!service.includes('dailyActivityLimit'));
   assert(economy.includes('qualifyingVerifiedActivity && !transaction.duplicate'));
   assert(economy.includes('recordVerifiedActivityOnClient'));
@@ -60,6 +63,10 @@ function testSourceBoundaries() {
   assert(!verification.includes('row.config.gamingResource'));
   assert(routes.includes('function publicSession(session)'));
   assert(routes.includes('publicGamingState(await gaming.getGamingState({ userId }))'));
+  assert(adminRoutes.includes('router.use(adminAuth)'));
+  assert(adminRoutes.includes("router.put('/config'"));
+  assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
+  assert(server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"));
 }
 
 function testRewardTables() {
