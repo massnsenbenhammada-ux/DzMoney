@@ -49,6 +49,7 @@ function testSourceBoundaries() {
   const verification = fs.readFileSync(require.resolve('../src/services/task-verification-service.js'), 'utf8');
   const routes = fs.readFileSync(require.resolve('../src/http/gaming-routes.js'), 'utf8');
   const onclickaRoutes = fs.readFileSync(require.resolve('../src/http/onclicka-postback-routes.js'), 'utf8');
+  const monetagRoutes = fs.readFileSync(require.resolve('../src/http/monetag-postback-routes.js'), 'utf8');
   const adminRoutes = fs.readFileSync(require.resolve('../src/http/admin-gaming-routes.js'), 'utf8');
   const server = fs.readFileSync(require.resolve('../server.js'), 'utf8');
   assert(service.includes("source: 'gaming'"));
@@ -68,6 +69,7 @@ function testSourceBoundaries() {
   assert(onclickaRoutes.includes('taskAdvertisementService.verifyTrustedTaskAdvertisement'));
   assert(onclickaRoutes.includes('router.get(\'/\', handlePostback)'));
   assert(onclickaRoutes.includes('const context = event.context'));
+  assert(monetagRoutes.includes('a.external_ad_id=$1 OR a.idempotency_key=$1'));
   assert(adminRoutes.includes('router.use(adminAuth)'));
   assert(adminRoutes.includes("router.put('/config'"));
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
@@ -108,7 +110,8 @@ function testGamingFrontendContract() {
   assert(gaming.includes('gaming-runtime.css'));
   assert(gaming.includes('assetVersion'));
   assert(gaming.includes("const startPromise = api('/api/gaming/ads/start'"));
-  assert(gaming.includes('const adPromise = adapter.handler({ requestVar: \'gaming\' })'));
+  assert(gaming.includes('const gamingAdIdempotencyKey = idempotencyKey(`gaming-ad:${game}`)'));
+  assert(gaming.includes('ymid: gamingAdIdempotencyKey'));
   assert(gaming.includes('Promise.all([startPromise, adPromise])'));
   assert(!gaming.includes("const response = await api('/api/gaming/ads/start'"));
   assert(css.includes('conic-gradient'));

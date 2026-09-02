@@ -199,8 +199,9 @@
     setBusy(true);
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
-      const startPromise = api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
-      const adPromise = adapter.handler({ requestVar: 'gaming' });
+      const gamingAdIdempotencyKey = idempotencyKey(`gaming-ad:${game}`);
+      const startPromise = api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: gamingAdIdempotencyKey }) });
+      const adPromise = adapter.handler({ ymid: gamingAdIdempotencyKey, requestVar: 'gaming' });
       const [response] = await Promise.all([startPromise, adPromise]);
       if (button) button.textContent = 'VERIFYING…';
       const previousCount = state.gaming?.adCounts?.[game] || 0;

@@ -21,7 +21,7 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
     console.info('[Monetag postback] received', { ymid: payload.ymid || null, eventType: payload.event_type || null, rewardEventType: payload.reward_event_type || null, zoneId: payload.zone_id || null, subZoneId: payload.sub_zone_id || null, requestVar: payload.request_var || null, telegramIdPresent: Boolean(payload.telegram_id) });
     try {
       assertProviderSecret(req, secret);
-      const eventResult = await query(`SELECT a.id,a.user_id,a.context,a.external_ad_id,a.verified,u.telegram_user_id,d.claim_idempotency_key,g.attempt_id FROM activity_ad_events a JOIN users u ON u.id=a.user_id LEFT JOIN daily_checkins d ON d.ad_event_id=a.id LEFT JOIN task_verification_gates g ON g.ad_event_id=a.id WHERE a.context IN ('daily_checkin','verification','task','gaming') AND a.external_ad_id=$1`, [String(payload.ymid || '')]);
+      const eventResult = await query(`SELECT a.id,a.user_id,a.context,a.external_ad_id,a.verified,u.telegram_user_id,d.claim_idempotency_key,g.attempt_id FROM activity_ad_events a JOIN users u ON u.id=a.user_id LEFT JOIN daily_checkins d ON d.ad_event_id=a.id LEFT JOIN task_verification_gates g ON g.ad_event_id=a.id WHERE a.context IN ('daily_checkin','verification','task','gaming') AND (a.external_ad_id=$1 OR a.idempotency_key=$1)`, [String(payload.ymid || '')]);
       if (eventResult.rowCount !== 1) return res.status(404).json({ ok: false, error: 'Advertisement event not found' });
       const event = eventResult.rows[0];
       validateMonetagPostback(payload, event.context);
