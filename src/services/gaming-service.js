@@ -79,23 +79,6 @@ async function grantGamingResourceOnClient(client, { userId, resource, sourceRef
   return { granted:true,resource,sourceReference,account:result.rows[0] };
 }
 
-async function claimGamingResource(args) { return withTransaction(client => grantGamingResourceOnClient(client,args)); }
-
-async function claimGamingTaskResource({ userId, attemptId, resource }) {
-  requiredId(userId,'userId'); requiredId(attemptId,'attemptId'); if (!RESOURCE_KEYS.has(resource)) throw new Error('Invalid Gaming resource');
-  return withTransaction(async client => {
-    const attempt = await client.query(`SELECT a.id,t.config FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id WHERE a.id=$1 AND a.user_id=$2 AND a.status='verified' FOR SHARE`,[attemptId,userId]);
-    if (!attempt.rowCount) throw new Error('Verified task attempt not found');
-    if (attempt.rows[0].config?.gamingResource !== resource) throw new Error('Task is not configured for this Gaming resource');
-    const existing = await client.query('SELECT * FROM gaming_resource_claims WHERE task_attempt_id=$1 FOR SHARE',[attemptId]);
-    if (existing.rowCount) return { duplicate:true,claim:existing.rows[0] };
-    const granted = await grantGamingResourceOnClient(client,{userId,resource,sourceReference:`task:${attemptId}`});
-    if (!granted.granted) return { duplicate:false,...granted };
-    const claim = await client.query('INSERT INTO gaming_resource_claims(task_attempt_id,user_id,resource) VALUES($1,$2,$3) RETURNING *',[attemptId,userId,resource]);
-    return { duplicate:false,...granted,claim:claim.rows[0] };
-  });
-}
-
 async function spin({ userId,idempotencyKey }) {
   requiredId(userId,'userId'); requiredId(idempotencyKey,'idempotencyKey');
   return withTransaction(async client => {
@@ -177,4 +160,4 @@ async function getGamingState({userId}) {
 
 async function updateGamingConfig({config,actorTelegramUserId=null}) { validateGamingConfig(config);return withTransaction(async client=>{const latest=await getConfig(client),version=Number(latest.version)+1;await client.query('INSERT INTO gaming_config_versions(version,config,actor_telegram_user_id) VALUES($1,$2,$3)',[version,config,actorTelegramUserId]);return{version,config};}); }
 
-module.exports={getGamingState,spin,startDigging,revealDiggingTile,startGamingAdvertisement,finalizeGamingAdvertisement,grantGamingResourceOnClient,claimGamingResource,claimGamingTaskResource,updateGamingConfig,getConfig,validateGamingConfig};
+module.exports={getGamingState,spin,startDigging,revealDiggingTile,startGamingAdvertisement,finalizeGamingAdvertisement,grantGamingResourceOnClient,updateGamingConfig,getConfig,validateGamingConfig};
