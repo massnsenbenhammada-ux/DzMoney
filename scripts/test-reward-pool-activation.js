@@ -13,6 +13,8 @@ async function insertAd(userId, context, suffix, verified) {
   );
 }
 
+test.after(async () => pool.end());
+
 test('Reward Pool activation counts only verified Reward Pool ads', { skip: !process.env.DATABASE_URL }, async () => {
   const suffix = `${Date.now()}`;
   const user = await walletService.createUser({ telegramUserId: suffix, username: `reward_pool_${suffix}` });
@@ -40,7 +42,6 @@ test('Reward Pool activation counts only verified Reward Pool ads', { skip: !pro
     await query('DELETE FROM ledger_entries WHERE wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)', [user.id]);
     await query('DELETE FROM ledger_transactions WHERE user_id=$1', [user.id]);
     await query('DELETE FROM users WHERE id=$1', [user.id]);
-    await pool.end();
   }
 });
 
@@ -65,7 +66,6 @@ test('Reward Pool daily settlement excludes non-activity DZP, requires activatio
     await economyService.creditActivityReward({ idempotencyKey: `rp-c-${suffix}`, userId: userC.id, source: 'task', coin: 0, dzx: 0, dzp: 100 });
     await query('UPDATE ledger_transactions SET created_at=$1 WHERE idempotency_key=$2', [new Date('2026-09-02T14:00:00.000Z'), `rp-c-${suffix}`]);
     await query(`INSERT INTO admin_settings(key,value) VALUES('reward_pool.daily_dzx','30'::jsonb) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value`);
-
     const first = await settleRewardPool({ periodStart, periodEnd });
     assert.equal(first.duplicate, false);
     assert.equal(first.totalActivityDzp, '3');
@@ -88,6 +88,5 @@ test('Reward Pool daily settlement excludes non-activity DZP, requires activatio
     await query('DELETE FROM ledger_transactions WHERE user_id IN ($1,$2,$3)', [userA.id, userB.id, userC.id]);
     await query('DELETE FROM users WHERE id IN ($1,$2,$3)', [userA.id, userB.id, userC.id]);
     await query("DELETE FROM admin_settings WHERE key='reward_pool.daily_dzx'");
-    await pool.end();
   }
 });
