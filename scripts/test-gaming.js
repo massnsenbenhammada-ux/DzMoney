@@ -2,7 +2,6 @@ const assert = require('assert');
 const fs = require('fs');
 const { validateGamingConfig } = require('../src/services/gaming-service');
 const { AD_PROVIDER_CONTEXTS } = require('../src/services/ad-provider-service');
-const config = require('../migrations/038_gaming.sql');
 
 function testProviderContext() {
   assert(AD_PROVIDER_CONTEXTS.includes('gaming'));
@@ -41,16 +40,12 @@ function testSourceBoundaries() {
   assert(service.includes('FOR UPDATE'));
 }
 
-function testSimulation() {
-  require('./simulate-gaming-economy').run();
-}
-
 try {
   testProviderContext();
   testConfigContract();
   testConfigValidation();
   testSourceBoundaries();
-  testSimulation();
+  require('./simulate-gaming-economy').run();
   console.log('Gaming core invariants: PASS');
 } catch (error) {
   console.error('Gaming core invariants: FAIL');
