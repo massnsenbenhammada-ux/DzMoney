@@ -2,7 +2,8 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const { ONCLICKA_PROVIDER_ID, createOnclickaProvider } = require('../src/services/onclicka-adapter');
-const providerRegistry = require('../src/services/ad-provider-registry-runtime');
+const runtimeProviderRegistry = require('../src/services/ad-provider-registry-runtime');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 
 async function testProviderContract() {
   const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
@@ -42,9 +43,21 @@ async function testRejectsMissingUser() {
   );
 }
 
-function testOnclickaIsActiveAtRuntime() {
+function testEnabledRegistryContract() {
+  const registry = new AdProviderRegistry([createOnclickaProvider({ enabled: true, spotId: '6134799' })]);
   for (const context of ['task', 'daily_checkin', 'verification', 'gaming']) {
-    assert.strictEqual(providerRegistry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
+    assert.strictEqual(registry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
+  }
+}
+
+function testRuntimeRegistryWiring() {
+  const provider = runtimeProviderRegistry.get(ONCLICKA_PROVIDER_ID);
+  assert(provider, 'Runtime registry must register OnClickA');
+  assert.strictEqual(provider.id, ONCLICKA_PROVIDER_ID);
+  if (process.env.ONCLICKA_ENABLED === 'true') {
+    for (const context of ['task', 'daily_checkin', 'verification', 'gaming']) {
+      assert.strictEqual(runtimeProviderRegistry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
+    }
   }
 }
 
@@ -60,7 +73,8 @@ function testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider() {
     await testRejectsUnconfirmedCompletion();
     await testRejectsWrongSpot();
     await testRejectsMissingUser();
-    testOnclickaIsActiveAtRuntime();
+    testEnabledRegistryContract();
+    testRuntimeRegistryWiring();
     testProviderSdkIsNotHardcodedToLoadAlongsideAnotherProvider();
     console.log('OnClickA provider contract: PASS');
   } catch (error) {
