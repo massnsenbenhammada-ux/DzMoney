@@ -1,4 +1,4 @@
-const AD_PROVIDER_CONTEXTS = ['task', 'reward_pool', 'daily_checkin', 'verification'];
+const AD_PROVIDER_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification'];
 
 class ProviderUnavailableError extends Error {
   constructor(message) {
