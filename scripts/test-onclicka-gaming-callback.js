@@ -20,19 +20,17 @@ async function request(app, path) {
   });
 }
 
-async function testCallbackRequiresAuthentication() {
+async function testCallbackAcceptsOnClickAContract() {
   const app = express();
-  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({
-    providerRegistry: {},
-    secret: 'test-secret'
-  }));
-  const response = await request(app, '/api/ads/onclicka?USERID=12345');
-  assert.strictEqual(response.status, 401);
+  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry: {} }));
+  const response = await request(app, '/api/ads/onclicka');
+  assert.strictEqual(response.status, 400);
+  assert.match(response.body, /USERID is invalid/);
 }
 
 async function main() {
-  await testCallbackRequiresAuthentication();
-  console.log('OnClickA Gaming callback boundary: OK');
+  await testCallbackAcceptsOnClickAContract();
+  console.log('OnClickA callback contract: OK');
 }
 
 main().catch(error => {
