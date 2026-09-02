@@ -14,7 +14,7 @@ function idempotencyKey(req) {
     error.statusCode = 400;
     throw error;
   }
-  return value;
+  return `${req.path}:${value}`;
 }
 
 function amount(body, field) {
