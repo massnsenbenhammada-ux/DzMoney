@@ -18,6 +18,15 @@ function testConfigContract() {
   assert(/"energy"\s*:\s*3/.test(migration));
 }
 
+function testGamingTaskContract() {
+  const migration = fs.readFileSync(require.resolve('../migrations/039_gaming_tasks.sql'), 'utf8');
+  assert(migration.includes('"gamingResource":"spin"'));
+  assert(migration.includes('"gamingResource":"axe"'));
+  assert(migration.includes('"mode":"advertisement"'));
+  assert(migration.includes("config->>'gamingResource'='spin'"));
+  assert(migration.includes("config->>'gamingResource'='axe'"));
+}
+
 function testConfigValidation() {
   const valid = {
     enabled:true,dailyActivityLimit:20,dailyAdLimit:100,diggingAxeEveryAds:10,
@@ -56,11 +65,14 @@ function testGamingFrontendContract() {
   assert(css.includes('@container'));
   assert(css.includes(':has('));
   assert(adClient.includes('DzMoneyOnclicka.show'));
+  assert(adClient.includes("gamingProvider?.id === 'monetag' && window.DzMoneyMonetag?.ready"));
+  assert(adClient.includes("provider: 'monetag'"));
 }
 
 try {
   testProviderContext();
   testConfigContract();
+  testGamingTaskContract();
   testConfigValidation();
   testSourceBoundaries();
   testGamingFrontendContract();
