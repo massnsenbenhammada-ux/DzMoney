@@ -164,7 +164,12 @@ async function creditActivityRewardOnClient(client, args) {
   if (reward.coin !== '0') movements.push({ currency: 'COIN', amount: reward.coin, source });
   if (reward.dzx !== '0') movements.push({ currency: 'DZX', amount: reward.dzx, source });
   if (reward.dzp !== '0') movements.push({ currency: 'DZP', amount: reward.dzp, source, dzpBucket: 'earned_dzp' });
-  return postEconomyTransactionOnClient(client, { idempotencyKey, userId, type: 'REWARD', metadata: { source, ...(activityType ? { activity_type: activityType } : {}), ...(activityContext ? { activity_context: activityContext } : {}), base_reward: baseReward, final_reward: reward, modifiers: normalizedModifiers }, movements });
+  const transaction = await postEconomyTransactionOnClient(client, { idempotencyKey, userId, type: 'REWARD', metadata: { source, ...(activityType ? { activity_type: activityType } : {}), ...(activityContext ? { activity_context: activityContext } : {}), base_reward: baseReward, final_reward: reward, modifiers: normalizedModifiers }, movements });
+  if (qualifyingVerifiedActivity && !transaction.duplicate) {
+    const { recordVerifiedActivityOnClient } = require('./gaming-service');
+    await recordVerifiedActivityOnClient(client, { userId });
+  }
+  return transaction;
 }
 
 async function creditActivityReward(args) { return withTransaction(client => creditActivityRewardOnClient(client, args)); }
