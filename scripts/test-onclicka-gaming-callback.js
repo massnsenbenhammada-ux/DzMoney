@@ -32,6 +32,7 @@ async function createUser(marker) {
     'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id,telegram_user_id',
     [marker, `onclicka_${marker}`, 'OnClickA Test']
   );
+  await query("INSERT INTO wallet_accounts(user_id,currency) VALUES($1,'COIN'),($1,'DZX'),($1,'DZP')", [result.rows[0].id]);
   return result.rows[0];
 }
 
