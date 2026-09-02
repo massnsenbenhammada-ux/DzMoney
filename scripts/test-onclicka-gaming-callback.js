@@ -5,6 +5,7 @@ const http = require('http');
 const express = require('express');
 const { pool } = require('../src/db/pool');
 const gamingService = require('../src/services/gaming-service');
+const { createOnclickaProvider } = require('../src/services/onclicka-adapter');
 const { createOnclickaPostbackRouter } = require('../src/http/onclicka-postback-routes');
 
 async function request(app, path) {
@@ -55,25 +56,31 @@ async function testGamingCallbackCorrelatesPendingEvent() {
       return { duplicate: false, rewarded: true, resourceGranted: 'spin', progress: 1 };
     };
 
+    const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
+    const providerRegistry = {
+      get: providerId => providerId === 'onclicka' ? provider : null,
+      isContextEnabled: (providerId, context) => providerId === 'onclicka' && context === 'gaming',
+      listAvailable: context => context === 'gaming' ? [provider] : []
+    };
     const app = express();
-    app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry: {} }));
+    app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));
     const response = await request(app, `/api/ads/onclicka?USERID=${telegramUserId}`);
 
     assert.strictEqual(response.status, 200);
     assert.deepStrictEqual(JSON.parse(response.body), {
-      ok: true,
-      context: 'gaming',
-      verified: true,
-      duplicate: false,
-      rewarded: true,
-      resourceGranted: 'spin',
-      progress: 1
+      ok: true, context: 'gaming', verified: true, duplicate: false,
+      rewarded: true, resourceGranted: 'spin', progress: 1
     });
     assert.deepStrictEqual(finalizeArgs, {
       userId,
       adEventId,
-      providerReference: `onclicka:${telegramUserId}`,
-      verificationMetadata: { provider_id: 'onclicka', confirmedByPostback: true }
+      providerReference: `onclicka:6134799:${telegramUserId}`,
+      verificationMetadata: {
+        provider_id: 'onclicka',
+        spot_id: '6134799',
+        telegram_user_id: telegramUserId,
+        postbackConfirmed: true
+      }
     });
   } finally {
     gamingService.finalizeGamingAdvertisement = originalFinalize;
