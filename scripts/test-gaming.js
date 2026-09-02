@@ -20,7 +20,7 @@ function testConfigContract() {
   assert(/"boardSize"\s*:\s*16/.test(migration));
   assert(/"energy"\s*:\s*3/.test(migration));
   assert(correction.includes('RENAME COLUMN activity_claimed TO verified_activity_count'));
-  assert(correction.includes("status='completed'"));
+  assert(correction.includes("status='closed'"));
   assert(correction.includes("'diggingAxeEveryAds'"));
 }
 
@@ -94,7 +94,7 @@ function testGamingFrontendContract() {
   assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
   assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
   assert(gaming.includes('360 * 5 - index * segment'));
-  assert(gaming.includes('const wheelResults = [\'coin_100\''));
+  assert(gaming.includes("const wheelResults = ['coin_100'"));
   assert(gaming.includes('renderRewardLists'));
   assert(css.includes('conic-gradient'));
   assert(css.includes('45deg'));
