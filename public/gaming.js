@@ -100,7 +100,7 @@
     if (!board) return;
     if (!session) { board.innerHTML = ''; board.classList.remove('is-active'); return; }
     board.classList.add('is-active');
-    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed gaming-tile-' + (tile.result || 'none') : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward, tile.result)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 7M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
+    board.innerHTML = session.board.map((tile, index) => `<button type="button" class="gaming-tile${tile.revealed ? ' revealed gaming-tile-' + (tile.result || 'none') : ''}" style="--tile-delay:${index * 25}ms" data-tile-id="${tile.id}" ${tile.revealed ? 'disabled' : ''} aria-label="Dig tile ${tile.id}"><span class="gaming-tile-image" data-digging-image>${tile.revealed ? `<span class="gaming-tile-reward">${formatReward(tile.reward, tile.result)}</span>` : '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="34" r="22" fill="rgba(85,230,176,.08)" stroke="none"/><path d="M14 49h36M24 45l18-18M38 25l7-7 8 8-7 7M25 44l-5 5M18 50h14"/><path d="M43 13l8 8"/></svg>'}</span></button>`).join('');
   }
 
   async function load() {
@@ -199,10 +199,9 @@
     setBusy(true);
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
-      const response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
-      await adapter.ready;
-      await adapter.handler({ type: 'preload', ymid: response.externalAdId, requestVar: 'gaming', timeout: 15 });
-      await adapter.handler({ ymid: response.externalAdId, requestVar: 'gaming' });
+      const startPromise = api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
+      const adPromise = adapter.handler({ requestVar: 'gaming' });
+      const [response] = await Promise.all([startPromise, adPromise]);
       if (button) button.textContent = 'VERIFYING…';
       const previousCount = state.gaming?.adCounts?.[game] || 0;
       let credited = response.duplicate === true;
