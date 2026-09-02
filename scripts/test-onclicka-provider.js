@@ -1,6 +1,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+process.env.ONCLICKA_ENABLED = 'true';
 const { ONCLICKA_PROVIDER_ID } = require('../src/services/onclicka-adapter');
 const { createOnclickaProvider } = require('../src/services/onclicka-adapter');
 const providerRegistry = require('../src/services/ad-provider-registry-runtime');
