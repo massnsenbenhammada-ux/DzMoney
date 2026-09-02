@@ -72,6 +72,7 @@ function testSourceBoundaries() {
   assert(adminRoutes.includes("router.put('/config'"));
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
   assert(server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"));
+  assert(server.includes("app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));"));
 }
 
 function testRewardTables() {
@@ -107,10 +108,12 @@ function testGamingFrontendContract() {
   assert(gaming.includes('renderRewardLists'));
   assert(gaming.includes('gaming-runtime.css'));
   assert(gaming.includes('assetVersion'));
-  assert(gaming.includes("const startPromise = api('/api/gaming/ads/start'"));
-  assert(gaming.includes('const adPromise = adapter.handler({ requestVar: \'gaming\' })'));
-  assert(gaming.includes('Promise.all([startPromise, adPromise])'));
-  assert(!gaming.includes("const response = await api('/api/gaming/ads/start'"));
+  assert(gaming.includes("const response = await api('/api/gaming/ads/start'"));
+  assert(gaming.includes("await adapter.handler({ requestVar: 'gaming' })"));
+  assert(!gaming.includes('const startPromise = api'));
+  assert(!gaming.includes('const adPromise = adapter.handler'));
+  assert(!gaming.includes('Promise.all([startPromise, adPromise])'));
+  assert(!gaming.includes('setTimeout(resolve, 1500)'));
   assert(css.includes('conic-gradient'));
   assert(css.includes('45deg'));
   assert(css.includes('@container'));
