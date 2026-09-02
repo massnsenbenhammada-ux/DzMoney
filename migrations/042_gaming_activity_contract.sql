@@ -20,8 +20,7 @@ WHERE task_type='game'
   AND config->>'gamingResource' IN ('spin','axe');
 
 -- Publish the corrected reward contract as a new immutable Gaming config snapshot.
--- Initial weights are deliberately admin-configurable; these values only establish the
--- starting distribution. Higher weight means higher relative probability.
+-- Initial weights are admin-configurable; these values establish only the starting distribution.
 -- Intended frequency order: no reward > 100 coin > +1 spin > 1000 coin >
 -- 1 DZX > 1 DZP > 10 DZX > 10 DZP.
 INSERT INTO gaming_config_versions(version, config)
