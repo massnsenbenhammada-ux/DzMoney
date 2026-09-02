@@ -196,8 +196,9 @@ async function getGamingState({ userId }) {
   });
 }
 
-async function updateGamingConfig({ config, actorTelegramUserId = null }) {
+async function updateGamingConfig({ config, actorTelegramUserId }) {
   validateGamingConfig(config);
+  requiredId(actorTelegramUserId, 'actorTelegramUserId');
   return withTransaction(async client => {
     const latest = await getConfig(client), version = Number(latest.version) + 1;
     await client.query('INSERT INTO gaming_config_versions(version,config,actor_telegram_user_id) VALUES($1,$2,$3)', [version, config, actorTelegramUserId]);
