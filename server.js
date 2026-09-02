@@ -26,7 +26,7 @@ const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMI
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 function clientAdConfig() {
-  return Object.fromEntries(['task', 'daily_checkin', 'verification'].map(context => {
+  return Object.fromEntries(['task', 'gaming', 'daily_checkin', 'verification'].map(context => {
     const provider = providerRegistry.listAvailable(context)[0] || null;
     return [context, provider ? { id: provider.id, ...(provider.clientConfig || {}) } : null];
   }));
@@ -41,6 +41,7 @@ function monetagScriptsForClient() {
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+app.locals.adProviderRegistry = providerRegistry;
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -48,31 +49,15 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '64kb' }));
-app.use(express.static(publicDir, {
-  index: false,
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-store');
-      return;
-    }
-    if (/\.(js|css)$/.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    }
-  }
-}));
+app.use(express.static(publicDir, { index: false, setHeaders: (res, filePath) => {
+  if (filePath.endsWith('.html')) return res.setHeader('Cache-Control', 'no-store');
+  if (/\.(js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+} }));
 
-app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'DzMoney', version: '2.0.0' });
-});
-
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'DzMoney', version: '2.0.0' }));
 app.get('/health/db', async (_req, res) => {
-  try {
-    const result = await query('SELECT 1 AS ok');
-    res.json({ ok: result.rows[0].ok === 1, database: 'connected' });
-  } catch (error) {
-    console.error('Database health check failed:', error);
-    res.status(503).json({ ok: false, database: 'disconnected' });
-  }
+  try { const result = await query('SELECT 1 AS ok'); res.json({ ok: result.rows[0].ok === 1, database: 'connected' }); }
+  catch (error) { console.error('Database health check failed:', error); res.status(503).json({ ok: false, database: 'disconnected' }); }
 });
 
 const publicApiRateLimit = createRateLimit({ windowMs: 60_000, max: 300, key: req => `ip:${req.ip || 'unknown'}` });
@@ -80,26 +65,21 @@ app.use('/api', publicApiRateLimit);
 app.use('/api/me', meRoutes);
 app.use('/api/squad', squadRoutes);
 app.use('/api/conversion', conversionRoutes);
+app.use('/api/gaming', require('./src/http/gaming-routes'));
 app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/admin/squad', createAdminSquadChallengeRouter());
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
 app.use('/api/creator/tasks', createCreatorTaskRouter());
 app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
-if (monetagPostbackSecret) {
-  app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry, secret: monetagPostbackSecret }));
-}
-if (onclickaConfirmationSecret) {
-  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry, secret: onclickaConfirmationSecret }));
-}
+if (monetagPostbackSecret) app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry, secret: monetagPostbackSecret }));
+if (onclickaConfirmationSecret) app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry, secret: onclickaConfirmationSecret }));
 
 app.get('/', (_req, res) => {
-  const html = indexHtml
-    .replaceAll('__ASSET_VERSION__', assetVersion)
+  const html = indexHtml.replaceAll('__ASSET_VERSION__', assetVersion)
     .replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion))
     .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'));
-  res.setHeader('Cache-Control', 'no-store');
-  res.type('html').send(html);
+  res.setHeader('Cache-Control', 'no-store'); res.type('html').send(html);
 });
 
 app.use((error, _req, res, _next) => {
@@ -110,7 +90,4 @@ app.use((error, _req, res, _next) => {
   if (status === 429 && error.retryAfterSeconds) payload.retryAfterSeconds = error.retryAfterSeconds;
   res.status(status).json(payload);
 });
-
-app.listen(port, '0.0.0.0', () => {
-  console.log(`DzMoney 2.0 listening on ${port}`);
-});
+app.listen(port, '0.0.0.0', () => console.log(`DzMoney 2.0 listening on ${port}`));
