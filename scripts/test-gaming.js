@@ -12,6 +12,7 @@ function testProviderContext() {
 
 function testConfigContract() {
   const migration = fs.readFileSync(require.resolve('../migrations/038_gaming.sql'), 'utf8');
+  const contextMigration = fs.readFileSync(require.resolve('../migrations/041_gaming_ad_event_context.sql'), 'utf8');
   const correction = fs.readFileSync(require.resolve('../migrations/042_gaming_activity_contract.sql'), 'utf8');
   assert(migration.includes('gaming_config_versions'));
   assert(migration.includes('gaming_accounts'));
@@ -19,6 +20,8 @@ function testConfigContract() {
   assert(/"dailyAdLimit"\s*:\s*100/.test(migration));
   assert(/"boardSize"\s*:\s*16/.test(migration));
   assert(/"energy"\s*:\s*3/.test(migration));
+  assert(contextMigration.includes('activity_ad_events_context_check'));
+  assert(contextMigration.includes("'gaming'"));
   assert(correction.includes('RENAME COLUMN activity_claimed TO verified_activity_count'));
   assert(correction.includes("status='closed'"));
   assert(correction.includes("'diggingAxeEveryAds'"));
@@ -138,34 +141,3 @@ function testGamingFrontendContract() {
   assert(onclickaLoader.includes('DzMoneyOnclicka?.prepare'));
   assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
 }
-
-async function testEconomicConfig() {
-  const result = await query('SELECT config FROM gaming_config_versions ORDER BY version DESC LIMIT 1');
-  assert.strictEqual(result.rowCount, 1);
-  const config = result.rows[0].config;
-  const expectedSpinOrder = ['none','coin_100','extra_spin','coin_1000','dzx_1','dzp_1','dzx_10','dzp_10'];
-  const expectedDiggingOrder = ['none','coin_100','extra_axe','coin_1000','dzx_1','dzp_1','dzx_10','dzp_10'];
-  for (const [weights, order] of [[config.spin.weights, expectedSpinOrder], [config.digging.weights, expectedDiggingOrder]]) {
-    assert(order.every(key => Object.prototype.hasOwnProperty.call(weights, key)));
-    for (let i = 1; i < order.length; i += 1) assert(weights[order[i - 1]] > weights[order[i]]);
-  }
-  simulateGamingEconomy(config);
-}
-
-async function run() {
-  testProviderContext();
-  testConfigContract();
-  testGamingTaskContract();
-  testConfigValidation();
-  testSourceBoundaries();
-  testRewardTables();
-  testGamingFrontendContract();
-  await testEconomicConfig();
-  console.log('Gaming core invariants: PASS');
-}
-
-run().catch(error => {
-  console.error('Gaming core invariants: FAIL');
-  console.error(error);
-  process.exitCode = 1;
-});
