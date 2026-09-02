@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/pool');
 const { ONCLICKA_PROVIDER_ID } = require('../services/onclicka-adapter');
+const { verifyWithProvider } = require('../services/ad-provider-service');
 const { verifyDailyCheckinAd, finalizeDailyCheckin } = require('../services/daily-checkin-service');
 const { verifyTaskAdvertisement, finalizeTaskVerification } = require('../services/task-verification-service');
 const taskAdvertisementService = require('../services/task-advertisement-service');
@@ -52,13 +53,19 @@ function createOnclickaPostbackRouter({ providerRegistry }) {
         return res.json({ ok: true, context, verified: true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, progress: finalization.progress || null });
       }
       if (context === 'gaming') {
-        const verification = await gamingService.finalizeGamingAdvertisement({
+        const { verification } = await verifyWithProvider(providerRegistry, {
+          context: 'gaming',
+          providerId: ONCLICKA_PROVIDER_ID,
+          payload: providerPayload
+        });
+        if (!verification.verified) return res.status(202).json({ ok: true, context, verified: false });
+        const finalization = await gamingService.finalizeGamingAdvertisement({
           userId: event.user_id,
           adEventId: event.id,
-          providerReference: `onclicka:${userId}`,
-          verificationMetadata: { provider_id: ONCLICKA_PROVIDER_ID, confirmedByPostback: true }
+          providerReference: verification.reference,
+          verificationMetadata: { ...verification.metadata, confirmedByPostback: true }
         });
-        return res.json({ ok: true, context, verified: true, duplicate: verification.duplicate, rewarded: verification.rewarded, resourceGranted: verification.resourceGranted || null, progress: verification.progress || null });
+        return res.json({ ok: true, context, verified: true, duplicate: finalization.duplicate, rewarded: finalization.rewarded, resourceGranted: finalization.resourceGranted || null, progress: finalization.progress || null });
       }
       if (context === 'daily_checkin') {
         const verified = await verifyDailyCheckinAd({
