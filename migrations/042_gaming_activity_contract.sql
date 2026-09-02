@@ -20,8 +20,10 @@ WHERE task_type='game'
   AND config->>'gamingResource' IN ('spin','axe');
 
 -- Publish the corrected reward contract as a new immutable Gaming config snapshot.
--- Keep the latest config row separate from MAX(version) so PostgreSQL does not require
--- the JSON config column to be grouped.
+-- Initial weights are deliberately admin-configurable; these values only establish the
+-- starting distribution. Higher weight means higher relative probability.
+-- Order of intended frequency: no reward > 100 coin > +1 spin > 1000 coin >
+-- 1 DZX > 1 DZP > 10 DZX > 10 DZP.
 INSERT INTO gaming_config_versions(version, config)
 SELECT latest.version + 1,
        jsonb_strip_nulls(jsonb_build_object(
@@ -30,26 +32,28 @@ SELECT latest.version + 1,
          'resetTimezone', COALESCE(current_config.config->>'resetTimezone','UTC+1'),
          'spin', jsonb_build_object(
            'weights', jsonb_build_object(
-             'coin_1000', COALESCE((current_config.config->'spin'->'weights'->>'coin_100')::integer,0) + COALESCE((current_config.config->'spin'->'weights'->>'coin_1000')::integer,0),
-             'dzx_1', COALESCE((current_config.config->'spin'->'weights'->>'dzx_1')::integer,0),
-             'dzx_10', COALESCE((current_config.config->'spin'->'weights'->>'dzx_10')::integer,0),
-             'dzp_1', COALESCE((current_config.config->'spin'->'weights'->>'dzp_1')::integer,0),
-             'dzp_10', COALESCE((current_config.config->'spin'->'weights'->>'dzp_10')::integer,0),
-             'extra_spin', COALESCE((current_config.config->'spin'->'weights'->>'extra_spin')::integer,0),
-             'none', COALESCE((current_config.config->'spin'->'weights'->>'none')::integer,0)
+             'none', 600,
+             'coin_100', 220,
+             'extra_spin', 100,
+             'coin_1000', 50,
+             'dzx_1', 20,
+             'dzp_1', 8,
+             'dzx_10', 2,
+             'dzp_10', 1
            )
          ),
          'digging', jsonb_build_object(
            'boardSize', COALESCE((current_config.config->'digging'->>'boardSize')::integer,16),
            'energy', COALESCE((current_config.config->'digging'->>'energy')::integer,3),
            'weights', jsonb_build_object(
-             'coin_1000', COALESCE((current_config.config->'digging'->'weights'->>'coin_100')::integer,0),
-             'dzx_1', COALESCE((current_config.config->'digging'->'weights'->>'dzx_1')::integer,0),
-             'dzx_10', 0,
-             'dzp_1', COALESCE((current_config.config->'digging'->'weights'->>'dzp_1')::integer,0),
-             'dzp_10', 0,
-             'extra_axe', COALESCE((current_config.config->'digging'->'weights'->>'extra_axe')::integer,0),
-             'none', COALESCE((current_config.config->'digging'->'weights'->>'none')::integer,0)
+             'none', 600,
+             'coin_100', 220,
+             'extra_axe', 100,
+             'coin_1000', 50,
+             'dzx_1', 20,
+             'dzp_1', 8,
+             'dzx_10', 2,
+             'dzp_10', 1
            )
          ),
          'adBonus', COALESCE(current_config.config->'adBonus','{"coin_100":95,"dzx_1":5}'::jsonb),
