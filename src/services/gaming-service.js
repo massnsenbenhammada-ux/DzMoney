@@ -51,7 +51,7 @@ function spinReward(config) {
   const weights = { ...config.spin.weights };
   if (config.spin.jackpotEnabled !== true) delete weights.jackpot;
   const result = weightedChoice(weights);
-  const reward = { coin_1000: { coin: 1000 }, dzx_1: { dzx: 1 }, dzx_10: { dzx: 10 }, dzp_1: { dzp: 1 }, dzp_10: { dzp: 10 }, jackpot: { dzx: Number(config.spin.jackpotRewardDzx) } }[result] || {};
+  const reward = { coin_100: { coin: 100 }, coin_1000: { coin: 1000 }, dzx_1: { dzx: 1 }, dzx_10: { dzx: 10 }, dzp_1: { dzp: 1 }, dzp_10: { dzp: 10 }, jackpot: { dzx: Number(config.spin.jackpotRewardDzx) } }[result] || {};
   return { result, reward };
 }
 
@@ -59,7 +59,7 @@ function diggingReward(config) {
   const weights = { ...config.digging.weights };
   if (config.digging.jackpotEnabled !== true) delete weights.jackpot;
   const result = weightedChoice(weights);
-  const reward = { coin_1000: { coin: 1000 }, dzx_1: { dzx: 1 }, dzx_10: { dzx: 10 }, dzp_1: { dzp: 1 }, dzp_10: { dzp: 10 } }[result] || {};
+  const reward = { coin_100: { coin: 100 }, coin_1000: { coin: 1000 }, dzx_1: { dzx: 1 }, dzx_10: { dzx: 10 }, dzp_1: { dzp: 1 }, dzp_10: { dzp: 10 } }[result] || {};
   return { result, reward };
 }
 
@@ -128,7 +128,7 @@ async function revealDiggingTile({ userId, sessionId, tileId }) {
     if (!cfg.rowCount) throw new Error('Digging configuration version not found');
     const config = cfg.rows[0].config, account = await ensureAccount(client, userId, config);
     if (account.energy_remaining < 1) throw new Error('No more digs today');
-    const reward = tile.result === 'extra_axe' ? {} : tile.result === 'jackpot' ? { dzx: Number(config.digging.jackpotRewardDzx) } : ({ coin_1000: { coin: 1000 }, dzx_1: { dzx: 1 }, dzx_10: { dzx: 10 }, dzp_1: { dzp: 1 }, dzp_10: { dzp: 10 } }[tile.result] || {});
+    const reward = tile.result === 'extra_axe' ? {} : tile.result === 'jackpot' ? { dzx: Number(config.digging.jackpotRewardDzx) } : ({ coin_100: { coin: 100 }, coin_1000: { coin: 1000 }, dzx_1: { dzx: 1 }, dzx_10: { dzx: 10 }, dzp_1: { dzp: 1 }, dzp_10: { dzp: 10 } }[tile.result] || {});
     tile.revealed = true; tile.reward = reward;
     await client.query('UPDATE gaming_accounts SET energy_remaining=energy_remaining-1,updated_at=NOW() WHERE user_id=$1', [userId]);
     if (tile.result === 'extra_axe') await client.query('UPDATE gaming_accounts SET axes=axes+1 WHERE user_id=$1', [userId]);
