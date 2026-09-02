@@ -13,6 +13,7 @@ const { createTaskRouter } = require('./src/http/task-routes');
 const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
 const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-routes');
 const { createAdminSquadChallengeRouter } = require('./src/http/admin-squad-challenge-routes');
+const { createAdminGamingRouter } = require('./src/http/admin-gaming-routes');
 const { createRateLimit } = require('./src/http/rate-limit');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
@@ -84,6 +85,7 @@ app.use('/api/conversion', conversionRoutes);
 app.use('/api/gaming', require('./src/http/gaming-routes'));
 app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/admin/squad', createAdminSquadChallengeRouter());
+app.use('/api/admin/gaming', createAdminGamingRouter());
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
 app.use('/api/creator/tasks', createCreatorTaskRouter());
 app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));

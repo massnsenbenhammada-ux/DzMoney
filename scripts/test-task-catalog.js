@@ -47,18 +47,17 @@ async function main() {
     assert.strictEqual(legacyState.rowCount, 0, 'database must contain no legacy completion configuration');
 
     const gamingTasks = await pool.query(
-      "SELECT title, config FROM activity_tasks WHERE task_type='game' AND config ? 'gamingResource' ORDER BY title"
+      "SELECT title, status, config FROM activity_tasks WHERE task_type='game' AND config ? 'gamingResource' ORDER BY title"
     );
-    assert.strictEqual(gamingTasks.rowCount, 2, 'database must contain the two canonical Gaming Tasks');
-    assert.deepStrictEqual(
-      gamingTasks.rows.map(row => ({ title: row.title, resource: row.config.gamingResource })),
-      [
-        { title: 'Digging — Watch Ad', resource: 'axe' },
-        { title: 'Spin — Watch Ad', resource: 'spin' }
-      ]
-    );
+    assert.ok(gamingTasks.rowCount >= 2, 'historical Gaming Watch Ad task rows should remain auditable');
+    assert.ok(gamingTasks.rows.every(row => row.status === 'closed'), 'Gaming Watch Ad tasks must not be active');
     assert.ok(gamingTasks.rows.every(row => !Object.prototype.hasOwnProperty.call(row.config, 'completion')));
-    assert.ok(gamingTasks.rows.every(row => row.config.dailyMode === 'advertisement'), 'Gaming Tasks must use the canonical advertisement mode');
+    assert.ok(gamingTasks.rows.every(row => row.config.dailyMode === 'advertisement'), 'historical Gaming task rows retain their canonical verification metadata');
+
+    const activeGamingTasks = await pool.query(
+      "SELECT id FROM activity_tasks WHERE task_type='game' AND status='active' AND config ? 'gamingResource'"
+    );
+    assert.strictEqual(activeGamingTasks.rowCount, 0, 'Gaming Ads must not be exposed as Game Tasks');
 
     const daily = await createTask({
       taskType: 'daily',
@@ -92,6 +91,7 @@ async function main() {
     const all = await listActiveTasks();
     assert.ok(all.some(task => task.id === daily.id));
     assert.ok(!all.some(task => task.id === social.id));
+    assert.ok(!all.some(task => task.config?.gamingResource), 'active task list must not expose Gaming Ads as Tasks');
 
     const filtered = await listActiveTasks({ taskType: 'daily' });
     const createdDaily = filtered.find(task => task.id === daily.id);
