@@ -22,7 +22,6 @@ const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, 'public');
 const indexPath = path.join(publicDir, 'index.html');
 const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
-const onclickaConfirmationSecret = process.env.ONCLICKA_CONFIRMATION_SECRET;
 const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || process.env.RAILWAY_DEPLOYMENT_ID || `runtime-${Date.now()}`;
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
@@ -93,9 +92,7 @@ app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
 if (monetagPostbackSecret) {
   app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry, secret: monetagPostbackSecret }));
 }
-if (onclickaConfirmationSecret) {
-  app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry, secret: onclickaConfirmationSecret }));
-}
+app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));
 
 app.get('/', (_req, res) => {
   const html = indexHtml
