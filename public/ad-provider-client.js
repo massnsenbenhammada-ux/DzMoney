@@ -24,6 +24,7 @@ function exposeProvider(context, config) {
 }
 
 if (gamingProvider?.id === 'onclicka') exposeProvider('gaming', gamingProvider);
+if (gamingProvider?.id === 'monetag' && window.DzMoneyMonetag?.handler) window.DzMoneyGamingAd = window.DzMoneyMonetag;
 if (verificationProvider?.id === 'onclicka' || dailyProvider?.id === 'onclicka') {
   window.__DzMoneySelectedAdProvider = verificationProvider?.id === 'onclicka' ? 'onclicka' : dailyProvider?.id;
   exposeProvider('verification', verificationProvider?.id === 'onclicka' ? verificationProvider : dailyProvider);
