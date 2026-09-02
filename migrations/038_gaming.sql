@@ -58,7 +58,7 @@ VALUES (1, '{
   "spin": {
     "jackpotEnabled": true,
     "jackpotRewardDzx": 25,
-    "weights": {"coin_100":400,"coin_1000":40,"dzx_1":20,"dzx_10":2,"dzp_1":20,"dzp_10":2,"extra_spin":16,"jackpot":1,"none":1500}
+    "weights": {"coin_100":400,"coin_1000":40,"dzx_1":20,"dzx_10":2,"dzp_1":4,"dzp_10":1,"extra_spin":16,"jackpot":1,"none":1500}
   },
   "digging": {
     "boardSize": 16,
