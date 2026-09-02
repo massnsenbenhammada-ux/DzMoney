@@ -29,8 +29,7 @@ CREATE TABLE IF NOT EXISTS gaming_sessions (
   completed_at TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS gaming_one_active_session_per_user
-  ON gaming_sessions(user_id) WHERE status = 'active';
+CREATE UNIQUE INDEX IF NOT EXISTS gaming_one_active_session_per_user ON gaming_sessions(user_id) WHERE status='active';
 
 CREATE TABLE IF NOT EXISTS gaming_spin_results (
   id BIGSERIAL PRIMARY KEY,
@@ -40,7 +39,14 @@ CREATE TABLE IF NOT EXISTS gaming_spin_results (
   reward JSONB NOT NULL DEFAULT '{}'::jsonb,
   idempotency_key TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(user_id, idempotency_key)
+  UNIQUE(user_id,idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS gaming_resource_claims (
+  task_attempt_id BIGINT PRIMARY KEY REFERENCES task_attempts(id) ON DELETE CASCADE,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  resource TEXT NOT NULL CHECK (resource IN ('spin','axe')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 INSERT INTO gaming_config_versions(version, config)
@@ -52,35 +58,16 @@ VALUES (1, '{
   "spin": {
     "jackpotEnabled": true,
     "jackpotRewardDzx": 25,
-    "weights": {
-      "coin_100": 400,
-      "coin_1000": 40,
-      "dzx_1": 20,
-      "dzx_10": 2,
-      "dzp_1": 20,
-      "dzp_10": 2,
-      "extra_spin": 16,
-      "jackpot": 1,
-      "none": 1500
-    }
+    "weights": {"coin_100":400,"coin_1000":40,"dzx_1":20,"dzx_10":2,"dzp_1":20,"dzp_10":2,"extra_spin":16,"jackpot":1,"none":1500}
   },
   "digging": {
     "boardSize": 16,
     "energy": 3,
     "jackpotEnabled": false,
     "jackpotRewardDzx": 10,
-    "weights": {
-      "coin_100": 3,
-      "dzx_1": 1,
-      "dzp_1": 1,
-      "extra_axe": 1,
-      "none": 10
-    }
+    "weights": {"coin_100":3,"dzx_1":1,"dzp_1":1,"extra_axe":1,"none":10}
   },
-  "adBonus": {
-    "coin_100": 95,
-    "dzx_1": 5
-  },
+  "adBonus": {"coin_100":95,"dzx_1":5},
   "diggingAxeEveryAds": 10
 }'::jsonb)
 ON CONFLICT (version) DO NOTHING;
