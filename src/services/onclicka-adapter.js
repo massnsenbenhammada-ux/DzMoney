@@ -15,7 +15,7 @@ function requiredUserId(value) {
 
 function verifyPostbackPayload(payload, spotId) {
   const userId = requiredUserId(payload.USERID ?? payload.userId);
-  if (!payload.confirmedByPostback) throw new Error('Authenticated OnClickA postback is required');
+  if (!payload.postbackConfirmed) throw new Error('OnClickA postback confirmation is required');
   if (payload.spot_id && String(payload.spot_id) !== spotId) throw new Error('Spot ID mismatch');
   return {
     verified: true,
