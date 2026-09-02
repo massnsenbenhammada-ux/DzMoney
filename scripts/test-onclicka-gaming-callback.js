@@ -90,8 +90,8 @@ async function testHappyPathAndDuplicate(app) {
     const directDuplicate = await gamingService.finalizeGamingAdvertisement({
       userId: user.id,
       adEventId: started.adEvent.id,
-      providerReference: `onclicka:${marker}`,
-      verificationMetadata: { provider_id: ONCLICKA_PROVIDER_ID, confirmedByPostback: true }
+      providerReference: `onclicka:${process.env.ONCLICKA_SPOT_ID}:${marker}`,
+      verificationMetadata: { provider_id: ONCLICKA_PROVIDER_ID, spot_id: process.env.ONCLICKA_SPOT_ID, telegram_user_id: marker, confirmedByPostback: true }
     });
     assert.strictEqual(directDuplicate.duplicate, true);
     assert.strictEqual(directDuplicate.rewarded, true);
