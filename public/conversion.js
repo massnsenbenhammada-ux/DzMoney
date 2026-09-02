@@ -21,6 +21,39 @@
     return dialog;
   };
 
+  const ensureOutcomeModal = () => {
+    let dialog = document.getElementById('conversionOutcomeModal');
+    if (dialog) return dialog;
+    dialog = document.createElement('dialog');
+    dialog.id = 'conversionOutcomeModal';
+    dialog.className = 'conversion-dialog conversion-outcome-dialog';
+    dialog.setAttribute('aria-labelledby', 'conversionOutcomeTitle');
+    dialog.innerHTML = `<div class="conversion-outcome"><div id="conversionOutcomeIcon" class="conversion-outcome-icon" aria-hidden="true"></div><span id="conversionOutcomeEyebrow" class="eyebrow">CONVERSION</span><h2 id="conversionOutcomeTitle"></h2><p id="conversionOutcomeMessage"></p><div id="conversionOutcomeDetails" class="conversion-outcome-details" hidden></div><button type="button" class="primary-btn conversion-outcome-action" id="conversionOutcomeAction">Done</button></div>`;
+    document.body.appendChild(dialog);
+    dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+    dialog.querySelector('#conversionOutcomeAction').addEventListener('click', () => dialog.close());
+    return dialog;
+  };
+
+  function showConversionOutcome({ success, title, message, details = '' }) {
+    const dialog = ensureOutcomeModal();
+    const icon = dialog.querySelector('#conversionOutcomeIcon');
+    const action = dialog.querySelector('#conversionOutcomeAction');
+    const detailsEl = dialog.querySelector('#conversionOutcomeDetails');
+    dialog.classList.toggle('conversion-outcome--success', success);
+    dialog.classList.toggle('conversion-outcome--error', !success);
+    icon.textContent = success ? '✓' : '!';
+    dialog.querySelector('#conversionOutcomeEyebrow').textContent = success ? 'COMPLETED' : 'UNABLE TO CONVERT';
+    dialog.querySelector('#conversionOutcomeTitle').textContent = title;
+    dialog.querySelector('#conversionOutcomeMessage').textContent = message;
+    detailsEl.textContent = details;
+    detailsEl.hidden = !details;
+    action.textContent = success ? 'Done' : 'Try Again';
+    action.onclick = () => { dialog.close(); if (!success) openConversion(); };
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+  }
+
   let rates = null;
   let source = 'coin';
 
@@ -90,24 +123,32 @@
     button.disabled = true;
     try {
       const key = crypto.randomUUID();
-      await api(config.endpoint, { method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify({ [config.field]: amount.toString() }) });
+      const result = await api(config.endpoint, { method: 'POST', headers: { 'Idempotency-Key': key }, body: JSON.stringify({ [config.field]: amount.toString() }) });
       dialog.close();
       await loadMe();
-      toast('Conversion completed.');
+      const rate = parsePositiveInteger(String(rates?.[config.rateKey] ?? ''));
+      const received = result.dzp ?? (rate ? amount / rate : null);
+      showConversionOutcome({ success: true, title: 'Conversion successful', message: 'Your balance has been updated.', details: received !== null ? `${amount.toLocaleString()} ${config.unit} → ${received.toLocaleString()} DZP` : '' });
+      resetConversionForm();
     } catch (error) {
-      toast(error.message || 'Conversion failed.');
       button.disabled = false;
       updatePreview();
+      showConversionOutcome({ success: false, title: 'Conversion failed', message: error.message || 'The conversion could not be completed.', details: '' });
     }
+  }
+
+  function resetConversionForm() {
+    const dialog = ensureModal();
+    dialog.querySelector('#conversionAmount').value = '';
+    updatePreview();
   }
 
   function openConversion() {
     const dialog = ensureModal();
-    dialog.querySelector('#conversionAmount').value = '';
+    resetConversionForm();
     if (typeof dialog.showModal === 'function') dialog.showModal();
     else dialog.setAttribute('open', '');
     loadRates();
-    updatePreview();
     dialog.querySelector('#conversionAmount').focus({ preventScroll: true });
   }
 
