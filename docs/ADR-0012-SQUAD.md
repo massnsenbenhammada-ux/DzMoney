@@ -5,7 +5,7 @@
 
 ## Context
 
-Earlier Squad material described a hierarchical ten-level model and a daily activation rule requiring both a member target and 50% activity. That design is obsolete. The current Squad contract must remain the only business source of truth before Phase 4 runtime work.
+Earlier Squad material described a hierarchical ten-level model and a daily activation rule requiring both a member target and 50% activity. That design is obsolete. The current Squad contract must remain the only business source of truth before and during Phase 4 runtime work.
 
 ## Decision
 
@@ -42,11 +42,13 @@ Authoritative decisions include:
 27. User must remain eligible at settlement to receive Challenge rewards.
 28. Existing project rounding is canonical.
 29. Membership activation, purchase/burn, daily calculations, Modifier generation and Challenge settlement are server-authoritative and idempotent.
+30. App Ban is an administrative enforcement action, not an automatic Squad or activity action. The system may issue an administrative warning when evidence indicates that a user should be suspended/banned. An authorized Admin reviews that warning/evidence and explicitly decides whether to suspend/ban; ignoring the warning performs no membership mutation.
+31. The Admin warning/review/enforcement control surface belongs to the later Admin Panel phase. Phase 4 must not invent a duplicate Admin service, route, or enforcement system merely to satisfy the Squad membership dependency.
 
 ## Obsolete decisions
 
-Do not implement the old hierarchical ten-level model, AND activation rule, Risk-as-member-state, separate Squad economic/reward/verification systems, cross-cycle Challenge accounting, DZP modification, Owner payment from membership purchase, direct Squad selection, user-created Squads, or self-assigned ownership.
+Do not implement the old hierarchical ten-level model, AND activation rule, Risk-as-member-state, separate Squad economic/reward/verification systems, cross-cycle Challenge accounting, DZP modification, Owner payment from membership purchase, direct Squad selection, user-created Squads, self-assigned ownership, or automatic App Ban from Squad/activity logic.
 
 ## Consequences
 
-Phase 4 implementation must begin with focused TDD and minimum persistence, reusing existing identity, Verified Activity, Economy, Ledger, configuration and rounding primitives. Legacy migration 008 must not be resurrected as runtime design.
+Phase 4 runtime reuses existing identity, Verified Activity, Economy, Ledger, configuration, rounding and membership primitives. The existing membership model can represent suspended/cancelled membership, while the later Admin phase owns the warning/review/enforcement control surface. Legacy migration 008 must not be resurrected as runtime design.
