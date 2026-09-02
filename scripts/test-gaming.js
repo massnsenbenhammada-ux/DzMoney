@@ -41,11 +41,15 @@ function testConfigValidation() {
 
 function testSourceBoundaries() {
   const service = fs.readFileSync(require.resolve('../src/services/gaming-service.js'), 'utf8');
+  const routes = fs.readFileSync(require.resolve('../src/http/gaming-routes.js'), 'utf8');
   assert(service.includes("source:'gaming'"));
   assert(service.includes('gaming:spin:'));
   assert(service.includes('gaming:digging:'));
   assert(service.includes('gaming:ad:'));
   assert(service.includes('FOR UPDATE'));
+  assert(routes.includes('function publicSession(session)'));
+  assert(routes.includes('tile.revealed ? tile : { id:tile.id, revealed:false, reward:{} }'));
+  assert(routes.includes('publicGamingState(await gaming.getGamingState({ userId }))'));
 }
 
 function testGamingFrontendContract() {
