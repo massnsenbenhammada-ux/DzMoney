@@ -39,11 +39,7 @@ function spinReward(config) {
   const weights = { ...config.spin.weights };
   if (!config.spin.jackpotEnabled) delete weights.jackpot;
   const result = weightedChoice(weights);
-  const reward = {
-    coin_100: { coin: 100 }, coin_1000: { coin: 1000 }, dzx_1: { dzx: 1 },
-    dzx_10: { dzx: 10 }, dzp_1: { dzp: 1 }, dzp_10: { dzp: 10 },
-    jackpot: { dzx: Number(config.spin.jackpotRewardDzx) }
-  }[result] || {};
+  const reward = { coin_100: { coin: 100 }, coin_1000: { coin: 1000 }, dzx_1: { dzx: 1 }, dzx_10: { dzx: 10 }, dzp_1: { dzp: 1 }, dzp_10: { dzp: 10 }, jackpot: { dzx: Number(config.spin.jackpotRewardDzx) } }[result] || {};
   return { result, reward };
 }
 
@@ -56,10 +52,7 @@ function diggingReward(config) {
 }
 
 async function creditGamingReward(client, userId, idempotencyKey, reward, metadata) {
-  const movements = Object.entries(reward).map(([currency, amount]) => ({
-    currency: currency === 'coin' ? 'COIN' : currency === 'dzx' ? 'DZX' : 'DZP', amount, source: 'gaming',
-    ...(currency === 'dzp' ? { dzpBucket: 'earned_dzp' } : {})
-  }));
+  const movements = Object.entries(reward).map(([currency, amount]) => ({ currency: currency === 'coin' ? 'COIN' : currency === 'dzx' ? 'DZX' : 'DZP', amount, source: 'gaming', ...(currency === 'dzp' ? { dzpBucket: 'earned_dzp' } : {}) }));
   if (!movements.length) return { transaction: null, duplicate: false };
   return postEconomyTransactionOnClient(client, { idempotencyKey, userId, type: 'GAMING_REWARD', metadata, movements });
 }
@@ -76,6 +69,22 @@ async function grantGamingResourceOnClient(client, { userId, resource, sourceRef
 }
 
 async function claimGamingResource(args) { return withTransaction(client => grantGamingResourceOnClient(client, args)); }
+
+async function claimGamingTaskResource({ userId, attemptId, resource }) {
+  requiredId(userId, 'userId'); requiredId(attemptId, 'attemptId');
+  if (!['spin', 'axe'].includes(resource)) throw new Error('Invalid Gaming resource');
+  return withTransaction(async client => {
+    const attempt = await client.query(`SELECT a.id,t.config FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id WHERE a.id=$1 AND a.user_id=$2 AND a.status='verified' FOR SHARE`, [attemptId, userId]);
+    if (!attempt.rowCount) throw new Error('Verified task attempt not found');
+    if (attempt.rows[0].config?.gamingResource !== resource) throw new Error('Task is not configured for this Gaming resource');
+    const existing = await client.query('SELECT * FROM gaming_resource_claims WHERE task_attempt_id=$1 FOR SHARE', [attemptId]);
+    if (existing.rowCount) return { duplicate: true, claim: existing.rows[0] };
+    const granted = await grantGamingResourceOnClient(client, { userId, resource, sourceReference: `task:${attemptId}` });
+    if (!granted.granted) return { duplicate: false, ...granted };
+    const claim = await client.query('INSERT INTO gaming_resource_claims(task_attempt_id,user_id,resource) VALUES($1,$2,$3) RETURNING *', [attemptId, userId, resource]);
+    return { duplicate: false, ...granted, claim: claim.rows[0] };
+  });
+}
 
 async function spin({ userId, idempotencyKey }) {
   requiredId(userId, 'userId'); requiredId(idempotencyKey, 'idempotencyKey');
@@ -199,4 +208,4 @@ async function updateGamingConfig({ config, actorTelegramUserId = null }) {
   return withTransaction(async client => { const latest = await getConfig(client); const version = Number(latest.version) + 1; await client.query('INSERT INTO gaming_config_versions(version,config,actor_telegram_user_id) VALUES($1,$2,$3)', [version, config, actorTelegramUserId]); return { version, config }; });
 }
 
-module.exports = { getGamingState, spin, startDigging, revealDiggingTile, startGamingAdvertisement, finalizeGamingAdvertisement, grantGamingResourceOnClient, claimGamingResource, updateGamingConfig, getConfig };
+module.exports = { getGamingState, spin, startDigging, revealDiggingTile, startGamingAdvertisement, finalizeGamingAdvertisement, grantGamingResourceOnClient, claimGamingResource, claimGamingTaskResource, updateGamingConfig, getConfig };
