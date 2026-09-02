@@ -13,9 +13,9 @@ UPDATE gaming_accounts
 SET verified_activity_count = 0;
 
 -- The canonical Gaming Watch Ad tasks duplicated the standalone Gaming Ads surface.
--- They are closed; normal Game Tasks remain supported by the existing Task pipeline.
+-- They are retired as completed rows; normal Game Tasks remain supported by the existing Task pipeline.
 UPDATE activity_tasks
-SET status='closed'
+SET status='completed'
 WHERE task_type='game'
   AND config->>'gamingResource' IN ('spin','axe');
 
