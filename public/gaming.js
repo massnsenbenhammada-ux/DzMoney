@@ -60,7 +60,16 @@
     root.querySelectorAll('[data-gaming-view]').forEach(el => el.classList.toggle('gaming-hidden', el.dataset.gamingView !== state.view));
     root.querySelectorAll('[data-dig-start]').forEach(btn => { btn.disabled = state.busy || account.axes < 1 || !!gaming.activeSession; });
     root.querySelectorAll('[data-spin-action]').forEach(btn => { btn.disabled = state.busy || account.spins < 1; });
-    root.querySelectorAll('[data-gaming-ad]').forEach(btn => { btn.disabled = state.busy || (gaming.adCounts?.[btn.dataset.gamingAd] || 0) >= dailyAdLimit; });
+    root.querySelectorAll('[data-gaming-ad]').forEach(btn => {
+      const reachedLimit = (gaming.adCounts?.[btn.dataset.gamingAd] || 0) >= dailyAdLimit;
+      btn.disabled = state.busy || reachedLimit;
+      if (!state.busy) btn.textContent = reachedLimit ? 'DAILY LIMIT REACHED' : 'WATCH AD';
+    });
+    root.querySelectorAll('.gaming-card-count').forEach(count => {
+      const value = Number(count.querySelector('strong')?.textContent) || 0;
+      count.classList.toggle('ready', value > 0);
+      count.classList.toggle('empty', value < 1);
+    });
     const wheel = root.querySelector('[data-spin-wheel]');
     if (wheel) {
       const unavailable = account.spins < 1 || state.busy;
@@ -92,7 +101,8 @@
   function showView(view) {
     state.view = view;
     render();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
   }
 
   function setBusy(isBusy) {
