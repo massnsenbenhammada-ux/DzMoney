@@ -40,16 +40,14 @@ function testSourceBoundaries() {
 }
 
 function testGamingFrontendContract() {
-  const html = fs.readFileSync('public/index.html', 'utf8');
   const gaming = fs.readFileSync('public/gaming.js', 'utf8');
   const css = fs.readFileSync('public/gaming.css', 'utf8');
   const adClient = fs.readFileSync('public/ad-provider-client.js', 'utf8');
 
-  assert(html.includes('data-spin-wheel'));
-  assert(html.includes('data-spin-wheel-segment'));
-  assert(html.includes('data-digging-image'));
-  assert(html.includes('<svg'));
   assert(gaming.includes('data-spin-wheel'));
+  assert(gaming.includes('data-spin-wheel-segment'));
+  assert(gaming.includes('data-digging-image'));
+  assert(gaming.includes('<svg'));
   assert(gaming.includes('spin-wheel-result'));
   assert(gaming.includes('DzMoneyGamingAd'));
   assert(gaming.includes('No advertisement provider is configured'));
