@@ -8,6 +8,7 @@ const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
 const { resolveVerificationConfig } = require('./task-verification-config');
 const { matchesUrlFormat } = require('./game-url-format-match');
 const { isTelegramChannelMember } = require('./telegram-channel-verifier');
+const { grantGamingResourceOnClient } = require('./gaming-service');
 
 const TELEGRAM_TASK_CHANNELS = { 'telegram.dzmoney_updates': '@dzmoneycom' };
 
@@ -103,9 +104,7 @@ async function loadTaskVerificationAttempt(attemptId, lock = false, client = nul
   return result.rows[0];
 }
 
-function rewardAmounts(row) {
-  return { coin: Number(row.reward_coin), dzx: Number(row.reward_dzx), dzp: Number(row.reward_dzp) };
-}
+function rewardAmounts(row) { return { coin: Number(row.reward_coin), dzx: Number(row.reward_dzx), dzp: Number(row.reward_dzp) }; }
 
 function validateTaskVerificationState(row) {
   if (row.status === 'verified') return { duplicate: true, status: 'verified', rewarded: true, reward: rewardAmounts(row) };
@@ -116,8 +115,7 @@ function validateTaskVerificationState(row) {
 }
 
 async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmittedUrl, verifyTaskCompletion }) {
-  requiredId(attemptId, 'attemptId');
-  requiredId(idempotencyKey, 'idempotencyKey');
+  requiredId(attemptId, 'attemptId'); requiredId(idempotencyKey, 'idempotencyKey');
   const initialRow = await loadTaskVerificationAttempt(attemptId);
   const initialState = validateTaskVerificationState(initialRow);
   if (initialState) return initialState;
@@ -138,15 +136,19 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, activityType: row.task_type, activityContext: 'task', modifiers: [], qualifyingVerifiedActivity: true });
     if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
     await activateOnVerifiedActivity(client, row.user_id);
+    let gamingResource = null;
+    if (row.config?.gamingResource) {
+      if (!['spin', 'axe'].includes(row.config.gamingResource)) throw new Error('Invalid Gaming task resource');
+      gamingResource = await grantGamingResourceOnClient(client, { userId: row.user_id, resource: row.config.gamingResource, sourceReference: `task:${attemptId}` });
+    }
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
-    return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, transaction: reward.transaction };
+    return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, gamingResource, transaction: reward.transaction };
   });
 }
 
 async function getTaskVerificationStatus({ attemptId, userId }) {
-  requiredId(attemptId, 'attemptId');
-  requiredId(userId, 'userId');
+  requiredId(attemptId, 'attemptId'); requiredId(userId, 'userId');
   const result = await query(`SELECT a.id,a.status,a.metadata,t.reward_coin,t.reward_dzx,t.reward_dzp,g.status AS gate_status,g.ad_event_id,g.ad_completed_at,g.verified_at FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 AND a.user_id=$2`, [attemptId, userId]);
   if (!result.rowCount) throw new Error('Task attempt not found');
   const row = result.rows[0];
