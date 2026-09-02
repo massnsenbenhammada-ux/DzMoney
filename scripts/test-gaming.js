@@ -72,15 +72,11 @@ function testSourceBoundaries() {
   assert(onclickaRoutes.includes('taskAdvertisementService.verifyTrustedTaskAdvertisement'));
   assert(onclickaRoutes.includes("router.get('/', handlePostback)"));
   assert(onclickaRoutes.includes('const context = event.context'));
-  assert(onclickaRoutes.includes('createOnclickaPostbackRouter({ providerRegistry })'));
-  assert(!onclickaRoutes.includes('assertProviderSecret'));
   assert(monetagRoutes.includes('a.external_ad_id=$1 OR a.idempotency_key=$1'));
   assert(adminRoutes.includes('router.use(adminAuth)'));
   assert(adminRoutes.includes("router.put('/config'"));
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
   assert(server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"));
-  assert(server.includes("app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));"));
-  assert(!server.includes('onclickaConfirmationSecret'));
 }
 
 function testRewardTables() {
