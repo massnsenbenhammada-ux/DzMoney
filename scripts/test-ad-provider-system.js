@@ -26,7 +26,8 @@ async function testContextSelection() {
   ]);
   assert.strictEqual(selectProvider(registry, { context: 'verification' }).id, 'verification');
   assert.strictEqual(selectProvider(registry, { context: 'daily_checkin' }).id, 'daily-only');
-  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('reward_pool'), true);
+  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('gaming'), true);
+  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('reward_pool'), false);
 }
 
 function testProviderValidation() {
@@ -84,7 +85,7 @@ async function testNoProviderFailsClosed() {
 
 async function testAdminCanDisableOneContextOnly() {
   const registry = new AdProviderRegistry([
-    provider('multi', ['task', 'verification', 'daily_checkin', 'reward_pool'])
+    provider('multi', ['task', 'verification', 'daily_checkin', 'gaming'])
   ]);
 
   registry.setContextEnabled('multi', 'daily_checkin', false);
@@ -92,12 +93,12 @@ async function testAdminCanDisableOneContextOnly() {
   assert.strictEqual(selectProvider(registry, { context: 'task' }).id, 'multi');
   assert.strictEqual(selectProvider(registry, { context: 'verification' }).id, 'multi');
   assert.throws(() => selectProvider(registry, { context: 'daily_checkin' }), /No advertisement provider available/);
-  assert.strictEqual(selectProvider(registry, { context: 'reward_pool' }).id, 'multi');
+  assert.strictEqual(selectProvider(registry, { context: 'gaming' }).id, 'multi');
 }
 
 async function testExplicitProviderCannotBypassContextDisablement() {
   const registry = new AdProviderRegistry([
-    provider('multi', ['task', 'verification', 'daily_checkin', 'reward_pool'])
+    provider('multi', ['task', 'verification', 'daily_checkin', 'gaming'])
   ]);
 
   registry.setContextEnabled('multi', 'task', false);
