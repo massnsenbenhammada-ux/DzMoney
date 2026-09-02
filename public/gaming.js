@@ -22,8 +22,8 @@
   const toast = message => { if (typeof window.showToast === 'function') window.showToast(message); else console.info(message); };
   const setAll = (selector, value) => root.querySelectorAll(selector).forEach(el => { el.textContent = value; });
 
-  const wheelResults = ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'jackpot', 'none'];
-  const wheelLabels = { coin_100:'100 COIN', coin_1000:'1K COIN', dzx_1:'1 DZX', dzx_10:'10 DZX', dzp_1:'1 DZP', dzp_10:'10 DZP', extra_spin:'+1 SPIN', jackpot:'JACKPOT', none:'NO REWARD' };
+  const wheelResults = ['coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'none'];
+  const wheelLabels = { coin_1000:'1K COIN', dzx_1:'1 DZX', dzx_10:'10 DZX', dzp_1:'1 DZP', dzp_10:'10 DZP', extra_spin:'+1 SPIN', none:'NO REWARD' };
 
   function ensureSpinWheel() {
     const card = root.querySelector('[data-spin-wheel-host]') || root.querySelector('[data-spin-result]')?.parentElement;
@@ -31,7 +31,7 @@
     const host = document.createElement('div');
     host.className = 'spin-wheel-host';
     host.setAttribute('data-spin-wheel-host', '');
-    host.innerHTML = `<div class="spin-wheel-wrap"><span class="spin-wheel-pointer" aria-hidden="true"></span><div class="spin-wheel" data-spin-wheel role="button" tabindex="0" aria-label="Spin the wheel"><div class="spin-wheel-labels">${wheelResults.map(result => `<span data-spin-wheel-segment="${result}">${wheelLabels[result]}</span>`).join('')}</div><div class="spin-wheel-center">SPIN</div></div></div>`;
+    host.innerHTML = `<div class="spin-wheel-wrap"><span class="spin-wheel-pointer" aria-hidden="true"></span><div class="spin-wheel" data-spin-wheel role="button" tabindex="0" aria-label="Spin the wheel"><div class="spin-wheel-labels">${wheelResults.map((result, index) => `<span data-spin-wheel-segment="${result}" style="--i:${index}">${wheelLabels[result]}</span>`).join('')}</div><div class="spin-wheel-center">SPIN</div></div></div>`;
     const result = card.querySelector('[data-spin-result]');
     result?.before(host);
   }
@@ -87,7 +87,7 @@
     if (!wheel) return;
     const index = Math.max(0, wheelResults.indexOf(result));
     const segment = 360 / wheelResults.length;
-    const rotation = 360 * 5 - index * segment;
+    const rotation = 360 * 5 - index * segment - segment / 2;
     wheel.style.setProperty('--wheel-rotation', `${rotation}deg`);
     wheel.classList.remove('is-spinning');
     void wheel.offsetWidth;
