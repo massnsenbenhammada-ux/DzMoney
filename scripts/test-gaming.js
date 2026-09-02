@@ -143,11 +143,29 @@ function testGamingFrontendContract() {
 }
 
 async function testSimulation() {
-  const result = await simulateGamingEconomy({ users: 1000, days: 30, activitiesPerDay: 20, gamingAdsPerDay: 100, diggingRevealsPerDay: 3 });
+  const config = {
+    dailyAdLimit: 100,
+    diggingAxeEveryAds: 10,
+    spin: {
+      weights: {
+        coin_100: 400, coin_1000: 40, dzx_1: 20, dzx_10: 2,
+        dzp_1: 4, dzp_10: 1, extra_spin: 16, none: 1500
+      }
+    },
+    digging: {
+      energy: 3,
+      weights: {
+        coin_100: 3, dzx_1: 1, dzp_1: 1, extra_axe: 1, none: 10
+      }
+    },
+    adBonus: { coin_100: 95, dzx_1: 5 }
+  };
+  const result = simulateGamingEconomy(config);
   assert.strictEqual(result.users, 1000);
   assert.strictEqual(result.days, 30);
-  assert(result.totalSpinAds > 0);
-  assert(result.totalDiggingAds > 0);
+  assert(result.averages.spins > 0);
+  assert(result.averages.axes > 0);
+  assert(result.totalEconomyCostDZXEquivalent >= 0);
 }
 
 async function testDatabaseContract() {
