@@ -43,7 +43,7 @@ async function getRewardPoolStatus({ userId }) {
 function previousUtcPlusOneDay(now = new Date()) {
   const local = new Date(now.getTime() + 3600000);
   const start = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - 86400000);
-  return { periodStart: new Date(start.getTime() - 3600000), periodEnd: new Date(start.getTime() + 23 * 3600000) };
+  return { periodStart: new Date(start.getTime() - 3600000), periodEnd: new Date(start.getTime() + 24 * 3600000) };
 }
 
 async function getDailyPool(client) {
