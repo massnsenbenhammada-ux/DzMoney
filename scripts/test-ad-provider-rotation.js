@@ -69,7 +69,7 @@ function fakeClient() {
         return { rowCount: row ? 1 : 0, rows: row ? [row] : [] };
       }
       if (sql.includes("metadata->>'provider_id' AS provider_id")) {
-        const row = [...events].reverse().find(event => event.context === params[0] && event.metadata.provider_id);
+        const row = [...events].reverse().find(event => event.user_id === params[0] && event.context === params[1] && event.metadata.provider_id);
         return { rowCount: row ? 1 : 0, rows: row ? [{ provider_id: row.metadata.provider_id }] : [] };
       }
       if (sql.includes('INSERT INTO activity_ad_events')) {
@@ -99,6 +99,16 @@ function fakeClient() {
     providerRegistry: registry
   });
   assert.strictEqual(first.providerId, 'gigapub');
+
+  const otherUserFirst = await startRotatedAdvertisementEventOnClient(client, {
+    userId: 2,
+    context: 'gaming',
+    idempotencyKey: 'ad-2',
+    metadata: { game: 'spin' },
+    providerRegistry: registry
+  });
+  assert.strictEqual(otherUserFirst.providerId, 'gigapub');
+
   const duplicate = await startRotatedAdvertisementEventOnClient(client, {
     userId: 1,
     context: 'gaming',
@@ -108,17 +118,36 @@ function fakeClient() {
   });
   assert.strictEqual(duplicate.providerId, 'gigapub');
   assert.strictEqual(duplicate.duplicate, true);
-  assert.strictEqual(client.events.length, 1);
+  assert.strictEqual(client.events.length, 2);
 
+  registry.get('onclicka').enabled = true;
   const second = await startRotatedAdvertisementEventOnClient(client, {
     userId: 1,
     context: 'gaming',
-    idempotencyKey: 'ad-2',
+    idempotencyKey: 'ad-3',
     metadata: { game: 'digging' },
     providerRegistry: registry
   });
-  assert.strictEqual(second.providerId, 'monetag');
-  assert.strictEqual(client.events.length, 2);
+  assert.strictEqual(second.providerId, 'onclicka');
+
+  const third = await startRotatedAdvertisementEventOnClient(client, {
+    userId: 1,
+    context: 'gaming',
+    idempotencyKey: 'ad-4',
+    metadata: { game: 'spin' },
+    providerRegistry: registry
+  });
+  assert.strictEqual(third.providerId, 'monetag');
+
+  const fourth = await startRotatedAdvertisementEventOnClient(client, {
+    userId: 1,
+    context: 'gaming',
+    idempotencyKey: 'ad-5',
+    metadata: { game: 'digging' },
+    providerRegistry: registry
+  });
+  assert.strictEqual(fourth.providerId, 'gigapub');
+  assert.strictEqual(client.events.length, 5);
   console.log('Advertisement provider rotation contract tests passed.');
 })().catch(error => {
   console.error(error);
