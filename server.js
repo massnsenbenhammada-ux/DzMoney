@@ -29,17 +29,17 @@ function clientAdConfig() {
   const contexts = ['task', 'gaming', 'daily_checkin', 'verification'];
   const providers = Object.fromEntries(providerRegistry.listRegistered().map(id => {
     const provider = providerRegistry.get(id);
-    return [id, { id: provider.id, ...(provider.clientConfig || {}) }];
-  }));
+    return provider.enabled ? [id, { id: provider.id, ...(provider.clientConfig || {}) }] : null;
+  }).filter(Boolean));
   return {
     providers,
-    ...Object.fromEntries(contexts.map(context => [context, providerRegistry.listAvailable(context).map(provider => providers[provider.id])]))
+    ...Object.fromEntries(contexts.map(context => [context, providerRegistry.listAvailable(context).map(provider => providers[provider.id]).filter(Boolean)]))
   };
 }
 
 function monetagScriptsForClient() {
   const selected = clientAdConfig();
-  const usesMonetag = Object.values(selected.providers).some(provider => provider?.id === 'monetag');
+  const usesMonetag = Boolean(selected.providers.monetag);
   if (!usesMonetag) return '';
   return '<script src="//libtl.com/sdk.js" data-zone="11627577" data-sdk="show_11627577" onload="window.__DzMoneyMonetagSdkLoad=\'loaded\'" onerror="window.__DzMoneyMonetagSdkLoad=\'error\'"></script>';
 }
