@@ -26,7 +26,7 @@ async function main() {
   assert.match(index, /__MONETAG_SCRIPTS__/, 'HTML must keep Monetag SDK loading behind the server-side provider capability boundary');
   assert.match(server, /function monetagScriptsForClient\(\)/, 'Server must own Monetag SDK loading');
   assert.match(server, /selected\.providers/, 'Server must inspect registered provider capabilities');
-  assert.match(server, /provider\?\.id === ['"]monetag['"]/, 'Server must recognize Monetag provider capabilities');
+  assert.match(server, /selected\.providers\.monetag/, 'Server must recognize Monetag through the registered provider capabilities');
   assert.match(server, /11627577/, 'Server must load the configured Monetag zone 11627577');
   assert.match(server, /show_11627577/, 'Server must load the configured Monetag handler show_11627577');
   assert.doesNotMatch(adapter, /monetag-tg-sdk/, 'Monetag adapter must not dynamically load a second SDK copy');
