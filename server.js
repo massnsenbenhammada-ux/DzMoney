@@ -9,6 +9,7 @@ const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
 const { createDailySystemTaskRouter } = require('./src/http/daily-system-task-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
+const { createGigaPubOfferWallRouter } = require('./src/http/gigapub-offerwall-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
 const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-routes');
@@ -23,6 +24,7 @@ const publicDir = path.join(__dirname, 'public');
 const indexPath = path.join(publicDir, 'index.html');
 const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
 const onclickaConfirmationSecret = process.env.ONCLICKA_CONFIRMATION_SECRET;
+const gigapubProjectId = String(process.env.GIGAPUB_PROJECT_ID || '7958');
 const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || process.env.RAILWAY_DEPLOYMENT_ID || `runtime-${Date.now()}`;
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
@@ -90,6 +92,7 @@ app.use('/api/tasks', createTaskRouter({ providerRegistry }));
 app.use('/api/creator/tasks', createCreatorTaskRouter());
 app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
+app.use('/api/ads/gigapub/offerwall', createGigaPubOfferWallRouter());
 if (monetagPostbackSecret) {
   app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry, secret: monetagPostbackSecret }));
 }
@@ -101,7 +104,8 @@ app.get('/', (_req, res) => {
   const html = indexHtml
     .replaceAll('__ASSET_VERSION__', assetVersion)
     .replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion))
-    .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'));
+    .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'))
+    .replace('</body>', `<script>window.__DzMoneyGigaPubOfferWall={projectId:${JSON.stringify(gigapubProjectId)}};</script><script src="/gigapub-offerwall.js?v=${assetVersion}"></script></body>`);
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(html);
 });
