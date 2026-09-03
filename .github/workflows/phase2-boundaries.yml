@@ -3,10 +3,28 @@ name: Phase 2 boundaries
 on:
   pull_request:
     branches: [main]
-    paths: ['server.js','src/**','scripts/**','migrations/**','public/**','package.json','*.md','docs/**','.github/workflows/**']
+    paths:
+      - 'server.js'
+      - 'src/**'
+      - 'scripts/**'
+      - 'migrations/**'
+      - 'public/**'
+      - 'package.json'
+      - '*.md'
+      - 'docs/**'
+      - '.github/workflows/**'
   push:
     branches: [main]
-    paths: ['server.js','src/**','scripts/**','migrations/**','public/**','package.json','*.md','docs/**','.github/workflows/**']
+    paths:
+      - 'server.js'
+      - 'src/**'
+      - 'scripts/**'
+      - 'migrations/**'
+      - 'public/**'
+      - 'package.json'
+      - '*.md'
+      - 'docs/**'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:
@@ -24,18 +42,26 @@ jobs:
     services:
       postgres:
         image: postgres:16
-        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: dzmoney_test }
-        ports: [5432:5432]
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dzmoney_test
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d dzmoney_test"
-          --health-interval 10s --health-timeout 5s --health-retries 5
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with: { ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }} }
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
       - name: Setup Node.js
         uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with:
+          node-version: 20
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Dependency security audit
@@ -57,7 +83,12 @@ jobs:
           node server.js > /tmp/dzmoney-server.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
-          for attempt in {1..30}; do curl --fail --silent http://127.0.0.1:3000/health > /tmp/health.json && break || sleep 1; done
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/health > /tmp/health.json; then
+              break
+            fi
+            sleep 1
+          done
           test "$(node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync('/tmp/health.json','utf8')); process.stdout.write(String(data.ok))")" = "true"
           curl --fail --silent http://127.0.0.1:3000/health/db > /tmp/health-db.json
           test "$(node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync('/tmp/health-db.json','utf8')); process.stdout.write(String(data.ok))")" = "true"
