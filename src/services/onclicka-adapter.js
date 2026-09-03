@@ -1,7 +1,6 @@
 const {
   ONCLICKA_SPOT_ID,
   ONCLICKA_ENABLED,
-  ONCLICKA_PRIORITY,
   ONCLICKA_CONTEXTS
 } = require('../config/onclicka');
 
@@ -30,7 +29,6 @@ function createOnclickaProvider(options = {}) {
     id: ONCLICKA_PROVIDER_ID,
     contexts: [...ONCLICKA_CONTEXTS],
     enabled: options.enabled ?? ONCLICKA_ENABLED,
-    priority: options.priority ?? ONCLICKA_PRIORITY,
     clientConfig: { scriptUrl: ONCLICKA_SCRIPT_URL, spotId },
     async verifyCompletion(payload = {}) { return verifyPostbackPayload(payload, spotId); },
     async verifyServerCompletion(payload = {}) {
