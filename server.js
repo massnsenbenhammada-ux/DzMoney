@@ -26,15 +26,20 @@ const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMI
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 function clientAdConfig() {
-  return Object.fromEntries(['task', 'gaming', 'daily_checkin', 'verification'].map(context => {
-    const provider = providerRegistry.listAvailable(context)[0] || null;
-    return [context, provider ? { id: provider.id, ...(provider.clientConfig || {}) } : null];
+  const contexts = ['task', 'gaming', 'daily_checkin', 'verification'];
+  const providers = Object.fromEntries(providerRegistry.listRegistered().map(id => {
+    const provider = providerRegistry.get(id);
+    return [id, { id: provider.id, ...(provider.clientConfig || {}) }];
   }));
+  return {
+    providers,
+    ...Object.fromEntries(contexts.map(context => [context, providerRegistry.listAvailable(context).map(provider => providers[provider.id])]))
+  };
 }
 
 function monetagScriptsForClient() {
   const selected = clientAdConfig();
-  const usesMonetag = Object.values(selected).some(provider => provider?.id === 'monetag');
+  const usesMonetag = Object.values(selected.providers).some(provider => provider?.id === 'monetag');
   if (!usesMonetag) return '';
   return '<script src="//libtl.com/sdk.js" data-zone="11627577" data-sdk="show_11627577" onload="window.__DzMoneyMonetagSdkLoad=\'loaded\'" onerror="window.__DzMoneyMonetagSdkLoad=\'error\'"></script>';
 }
