@@ -44,5 +44,5 @@ document.addEventListener('click', event => {
   if (event.target.closest('[data-go="diagnostics"]')) loadSharedAdDiagnostics();
 });
 
+document.addEventListener('DOMContentLoaded', preloadOnclicka, { once: true });
 window.DzMoneyLoadOnclickaSdk = loadOnclickaSdk;
-setTimeout(preloadOnclicka, 0);
