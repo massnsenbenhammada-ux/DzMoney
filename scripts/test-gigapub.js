@@ -5,6 +5,7 @@ const provider = createGigaPubProvider();
 assert.strictEqual(provider.id, GIGAPUB_PROVIDER_ID);
 assert.deepStrictEqual(provider.contexts, ['gaming']);
 assert.strictEqual(provider.clientConfig.projectId, GIGAPUB_PROJECT_ID);
+assert.strictEqual(provider.enabled, process.env.GIGAPUB_ENABLED === 'true');
 
 (async () => {
   const result = await provider.verifyCompletion({ userId: '123', adEventId: '456' });
