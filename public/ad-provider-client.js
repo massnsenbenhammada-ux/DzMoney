@@ -1,7 +1,5 @@
 const providerConfig = window.__DzMoneyAdProviderConfig || {};
-const verificationProvider = providerConfig.verification;
-const dailyProvider = providerConfig.daily_checkin;
-const gamingProvider = providerConfig.gaming;
+const providerAdapters = {};
 
 function createOnclickaHandler(config) {
   return async payload => {
@@ -16,29 +14,30 @@ function createOnclickaHandler(config) {
   };
 }
 
-function exposeProvider(context, config) {
+function registerOnclicka(config) {
   if (!config || config.id !== 'onclicka') return;
-  const handler = createOnclickaHandler(config);
-  if (context === 'verification') window.DzMoneyMonetag = { provider: 'onclicka', ready: Promise.resolve(), handler };
-  if (context === 'daily_checkin') window.DzMoneyMonetag = { provider: 'onclicka', ready: Promise.resolve(), handler };
-  if (context === 'gaming') window.DzMoneyGamingAd = { provider: 'onclicka', ready: Promise.resolve(), handler };
+  const adapter = { provider: 'onclicka', ready: Promise.resolve(), handler: createOnclickaHandler(config) };
+  providerAdapters.onclicka = adapter;
+  window.DzMoneyOnclicka = window.DzMoneyOnclicka || adapter;
 }
 
-if (gamingProvider?.id === 'onclicka') exposeProvider('gaming', gamingProvider);
-if (gamingProvider?.id === 'monetag' && window.DzMoneyMonetag?.ready) {
-  const adapter = window.DzMoneyMonetag;
-  window.DzMoneyGamingAd = {
-    provider: 'monetag',
-    ready: adapter.ready,
-    handler: async payload => {
-      if (typeof adapter.handler !== 'function') throw new Error('Monetag SDK handler is unavailable');
-      return adapter.handler(payload);
-    }
-  };
-}
-if (verificationProvider?.id === 'onclicka' || dailyProvider?.id === 'onclicka') {
-  window.__DzMoneySelectedAdProvider = verificationProvider?.id === 'onclicka' ? 'onclicka' : dailyProvider?.id;
-  exposeProvider('verification', verificationProvider?.id === 'onclicka' ? verificationProvider : dailyProvider);
+function registerMonetag() {
+  if (typeof window.DzMoneyMonetag?.handler !== 'function') return;
+  providerAdapters.monetag = window.DzMoneyMonetag;
 }
 
-window.DzMoneyAdClient = { providerConfig, exposeProvider };
+function registerGigaPub() {
+  if (typeof window.DzMoneyGamingAd?.handler !== 'function') return;
+  providerAdapters.gigapub = window.DzMoneyGamingAd;
+}
+
+for (const config of Object.values(providerConfig.providers || {})) registerOnclicka(config);
+registerMonetag();
+registerGigaPub();
+
+window.DzMoneyAdClient = {
+  providerConfig,
+  getProvider(providerId) {
+    return providerAdapters[providerId] || null;
+  }
+};
