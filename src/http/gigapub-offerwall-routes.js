@@ -6,7 +6,6 @@ const { GIGAPUB_PROJECT_ID, GIGAPUB_SECRET_KEY, verifyRewardClaim, buildConfirma
 
 const router = express.Router();
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
-
 router.use(telegramAuth);
 
 function normalizeClaim(body) {
@@ -20,14 +19,17 @@ router.post('/reward', asyncRoute(async (req, res) => {
   const claim = normalizeClaim(req.body);
   if (!claim.rewardId || !claim.userId || !claim.projectId || claim.amount === undefined || typeof claim.hash !== 'string') return res.status(400).json({ ok: false, error: 'Invalid GigaPub reward claim' });
   if (claim.userId !== String(req.telegramUser.id)) return res.status(403).json({ ok: false, error: 'GigaPub user does not match Telegram user' });
-  verifyRewardClaim(claim, { projectId: GIGAPUB_PROJECT_ID, secretKey: GIGAPUB_SECRET_KEY });
+  try {
+    verifyRewardClaim(claim, { projectId: GIGAPUB_PROJECT_ID, secretKey: GIGAPUB_SECRET_KEY });
+  } catch (error) {
+    throw Object.assign(error, { statusCode: /not configured/.test(error.message) ? 503 : 403 });
+  }
 
   const result = await withTransaction(async client => {
     const user = await client.query('SELECT id FROM users WHERE telegram_user_id = $1 FOR SHARE', [claim.userId]);
     if (!user.rowCount) throw Object.assign(new Error('User not found'), { statusCode: 404 });
-    const idempotencyKey = `gigapub:offerwall:${claim.rewardId}`;
     const transaction = await postEconomyTransactionOnClient(client, {
-      idempotencyKey,
+      idempotencyKey: `gigapub:offerwall:${claim.rewardId}`,
       userId: user.rows[0].id,
       type: 'REWARD',
       metadata: { source: 'gigapub_offerwall', provider: 'gigapub', project_id: claim.projectId, reward_id: claim.rewardId, gigapub_user_id: claim.userId, gigapub_amount: String(claim.amount) },
@@ -36,11 +38,10 @@ router.post('/reward', asyncRoute(async (req, res) => {
     return { transaction };
   });
 
-  const confirmationHash = buildConfirmationHash(claim, GIGAPUB_SECRET_KEY);
-  res.json({ ok: true, success: true, duplicate: result.transaction.duplicate, confirmationHash });
+  res.json({ ok: true, success: true, duplicate: result.transaction.duplicate, confirmationHash: buildConfirmationHash(claim, GIGAPUB_SECRET_KEY) });
 }));
 
-router.get('/status', asyncRoute(async (req, res) => {
+router.get('/status', asyncRoute(async (_req, res) => {
   const result = await query('SELECT 1 AS ok');
   res.json({ ok: result.rows[0].ok === 1, provider: 'gigapub', projectId: GIGAPUB_PROJECT_ID, configured: Boolean(GIGAPUB_SECRET_KEY) });
 }));
