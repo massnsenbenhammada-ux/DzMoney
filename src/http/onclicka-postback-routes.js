@@ -1,25 +1,23 @@
 const express = require('express');
 const { query } = require('../db/pool');
 const { ONCLICKA_PROVIDER_ID } = require('../services/onclicka-adapter');
+const { verifyWithProvider } = require('../services/ad-provider-service');
 const { verifyDailyCheckinAd, finalizeDailyCheckin } = require('../services/daily-checkin-service');
 const { verifyTaskAdvertisement, finalizeTaskVerification } = require('../services/task-verification-service');
 const taskAdvertisementService = require('../services/task-advertisement-service');
 const gamingService = require('../services/gaming-service');
-const { assertProviderSecret } = require('./provider-auth');
 const { createRateLimit } = require('./rate-limit');
 
 const CONTEXTS = new Set(['task', 'daily_checkin', 'verification', 'gaming']);
 
-function createOnclickaPostbackRouter({ providerRegistry, secret }) {
+function createOnclickaPostbackRouter({ providerRegistry }) {
   if (!providerRegistry) throw new Error('Advertisement provider registry is required');
-  if (!secret) throw new Error('OnClickA confirmation secret is required');
   const router = express.Router();
   router.use(createRateLimit({ windowMs: 60_000, max: 60, key: req => `provider:${req.ip || 'unknown'}` }));
 
   const handlePostback = async (req, res, next) => {
     const userId = String(req.query.USERID || '');
     try {
-      assertProviderSecret(req, secret);
       if (!userId || !/^\d{1,20}$/.test(userId)) return res.status(400).json({ ok: false, error: 'USERID is invalid' });
 
       const eventResult = await query(
@@ -55,13 +53,19 @@ function createOnclickaPostbackRouter({ providerRegistry, secret }) {
         return res.json({ ok: true, context, verified: true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, progress: finalization.progress || null });
       }
       if (context === 'gaming') {
-        const verification = await gamingService.finalizeGamingAdvertisement({
+        const { verification } = await verifyWithProvider(providerRegistry, {
+          context: 'gaming',
+          providerId: ONCLICKA_PROVIDER_ID,
+          payload: providerPayload
+        });
+        if (!verification.verified) return res.status(202).json({ ok: true, context, verified: false });
+        const finalization = await gamingService.finalizeGamingAdvertisement({
           userId: event.user_id,
           adEventId: event.id,
-          providerReference: `onclicka:${userId}`,
-          verificationMetadata: { provider_id: ONCLICKA_PROVIDER_ID, confirmedByPostback: true }
+          providerReference: verification.reference,
+          verificationMetadata: { ...verification.metadata, confirmedByPostback: true }
         });
-        return res.json({ ok: true, context, verified: true, duplicate: verification.duplicate, rewarded: verification.rewarded, resourceGranted: verification.resourceGranted || null, progress: verification.progress || null });
+        return res.json({ ok: true, context, verified: true, duplicate: finalization.duplicate, rewarded: finalization.rewarded, resourceGranted: finalization.resourceGranted || null, progress: finalization.progress || null });
       }
       if (context === 'daily_checkin') {
         const verified = await verifyDailyCheckinAd({

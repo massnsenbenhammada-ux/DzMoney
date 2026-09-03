@@ -199,18 +199,11 @@
     setBusy(true);
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
-      const startPromise = api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
-      const adPromise = adapter.handler({ requestVar: 'gaming' });
-      const [response] = await Promise.all([startPromise, adPromise]);
+      const response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
+      await adapter.handler({ requestVar: 'gaming' });
       if (button) button.textContent = 'VERIFYING…';
-      const previousCount = state.gaming?.adCounts?.[game] || 0;
-      let credited = response.duplicate === true;
-      for (let i = 0; i < 10 && !credited; i += 1) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        await load();
-        if ((state.gaming.adCounts?.[game] || 0) > previousCount) credited = true;
-      }
-      toast(credited ? 'Ad verified — reward credited.' : 'Ad watched. Verification can take a little longer — check back shortly.');
+      await load();
+      toast(response.duplicate === true ? 'Ad already verified — reward credited.' : 'Ad watched. Reward is credited after the provider callback is accepted by the server.');
     } catch (error) {
       toast(`Gaming Ad failed: ${error.message || 'Unable to load the advertisement.'}`);
     } finally {
