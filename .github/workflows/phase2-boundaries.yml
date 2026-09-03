@@ -95,4 +95,6 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/health/db > /tmp/health-db.json
           test "$(node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync('/tmp/health-db.json','utf8')); process.stdout.write(String(data.ok))")" = "true"
       - name: Run full test suite
+        env:
+          GIGAPUB_ENABLED: "false"
         run: npm run test:all
