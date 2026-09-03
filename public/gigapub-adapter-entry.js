@@ -1,5 +1,5 @@
 (() => {
-  const config = window.__DzMoneyAdProviderConfig?.gaming;
+  const config = window.__DzMoneyAdProviderConfig?.providers?.gigapub;
   if (!config || config.id !== 'gigapub') return;
 
   const tg = window.Telegram?.WebApp;

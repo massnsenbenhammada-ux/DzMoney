@@ -29,9 +29,9 @@ function loadOnclickaSdk() {
   return window.__DzMoneyOnclickaSdkLoadPromise;
 }
 
-function preloadSelectedOnclicka() {
+function preloadOnclicka() {
   const config = window.__DzMoneyAdProviderConfig || {};
-  const provider = Object.values(config).find(candidate => candidate?.id === 'onclicka');
+  const provider = config.providers?.onclicka;
   if (!provider) return;
   if (typeof window.DzMoneyOnclicka?.prepare === 'function') {
     window.DzMoneyOnclicka.prepare({ spotId: provider.spotId }).catch(() => {});
@@ -45,4 +45,4 @@ document.addEventListener('click', event => {
 });
 
 window.DzMoneyLoadOnclickaSdk = loadOnclickaSdk;
-setTimeout(preloadSelectedOnclicka, 0);
+setTimeout(preloadOnclicka, 0);

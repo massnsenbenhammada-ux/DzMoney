@@ -189,9 +189,8 @@
 
   async function watchAd(game) {
     if (state.busy) return;
-    const adapter = window.DzMoneyGamingAd;
-    if (!adapter?.ready || typeof adapter.handler !== 'function') {
-      toast('No advertisement provider is configured for Gaming right now. Please try again later.');
+    if (typeof window.DzMoneyAdClient?.getProvider !== 'function') {
+      toast('Advertisement providers are not ready. Please try again later.');
       return;
     }
     const button = root.querySelector(`[data-gaming-ad="${game}"]`);
@@ -200,6 +199,9 @@
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
       const response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
+      const adapter = window.DzMoneyAdClient.getProvider(response.providerId);
+      if (!adapter?.ready || typeof adapter.handler !== 'function') throw new Error(`The selected advertisement provider (${response.providerId}) is not ready`);
+      await adapter.ready;
       const completion = await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId });
       if (button) button.textContent = 'CREDITING…';
       await load();

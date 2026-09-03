@@ -1,7 +1,7 @@
-const { randomInt, randomUUID } = require('crypto');
+const { randomInt } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { postEconomyTransactionOnClient } = require('./economy-service');
-const { selectProvider } = require('./ad-provider-service');
+const { startRotatedAdvertisementEventOnClient } = require('./ad-event-service');
 
 const GAME_KEYS = new Set(['spin', 'digging']);
 const gamingDaySql = "(NOW() AT TIME ZONE 'UTC' + INTERVAL '1 hour')::date";
@@ -149,9 +149,8 @@ async function startGamingAdvertisement({ userId, game, idempotencyKey, provider
     if (existing.rowCount) return { adEvent: existing.rows[0], providerId: existing.rows[0].metadata?.provider_id, duplicate: true };
     const count = await client.query(`SELECT COUNT(*)::int AS count FROM activity_ad_events WHERE user_id=$1 AND context='gaming' AND metadata->>'game'=$2 AND verified=TRUE AND (completed_at + INTERVAL '1 hour')::date=${gamingDaySql}`, [userId, game]);
     if (Number(count.rows[0].count) >= Number(config.dailyAdLimit)) throw new Error('Gaming daily ad limit reached');
-    const provider = selectProvider(providerRegistry, { context: 'gaming' }), externalAdId = randomUUID();
-    const event = await client.query("INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,metadata) VALUES($1,'gaming',$2,$3,NOW(),$4) RETURNING *", [userId, externalAdId, idempotencyKey, { game, provider_id: provider.id, config_version: configRow.version }]);
-    return { adEvent: event.rows[0], providerId: provider.id, duplicate: false, account };
+    const result = await startRotatedAdvertisementEventOnClient(client, { userId, context: 'gaming', idempotencyKey, metadata: { game, config_version: configRow.version }, providerRegistry });
+    return { ...result, account };
   });
 }
 

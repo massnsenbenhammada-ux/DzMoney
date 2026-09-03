@@ -1,10 +1,9 @@
-const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
 const { activateOnVerifiedActivity } = require('./squad-membership-service');
-const { markAdvertisementVerified } = require('./ad-event-service');
-const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
+const { startRotatedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
+const { verifyWithProvider } = require('./ad-provider-service');
 const { resolveVerificationConfig } = require('./task-verification-config');
 const { matchesUrlFormat } = require('./game-url-format-match');
 const { isTelegramChannelMember } = require('./telegram-channel-verifier');
@@ -63,19 +62,15 @@ async function startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId
   requiredId(attemptId, 'attemptId');
   requiredId(idempotencyKey, 'idempotencyKey');
   if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
-  const provider = selectProvider(providerRegistry, { context: 'verification', providerId });
   return withTransaction(async client => {
     const gateResult = await client.query(`SELECT g.*,a.user_id,a.status AS attempt_status FROM task_verification_gates g JOIN task_attempts a ON a.id=g.attempt_id WHERE g.attempt_id=$1 FOR UPDATE`, [attemptId]);
     if (!gateResult.rowCount) throw new Error('Verification gate not found');
     const gate = gateResult.rows[0];
     if (gate.attempt_status !== 'verification_pending') throw new Error('Task attempt is not awaiting verification');
-    const existing = await client.query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE', [idempotencyKey]);
-    if (existing.rowCount) return { gate, adEvent: existing.rows[0], providerId: existing.rows[0].metadata?.provider_id, duplicate: true };
-    const resolvedExternalAdId = externalAdId || randomUUID();
-    const metadata = { attempt_id: attemptId, required_seconds: gate.required_seconds, provider_id: provider.id };
-    const adEvent = await client.query(`INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,metadata) VALUES($1,'verification',$2,$3,NOW(),$4) RETURNING *`, [gate.user_id, resolvedExternalAdId, idempotencyKey, metadata]);
-    await client.query(`UPDATE task_verification_gates SET ad_event_id=$1,metadata=metadata||$2::jsonb WHERE id=$3`, [adEvent.rows[0].id, JSON.stringify({ verification_ad_id: adEvent.rows[0].id, provider_id: provider.id }), gate.id]);
-    return { gate: { ...gate, ad_event_id: adEvent.rows[0].id }, adEvent: adEvent.rows[0], providerId: provider.id, duplicate: false };
+    const result = await startRotatedAdvertisementEventOnClient(client, { userId: gate.user_id, context: 'verification', idempotencyKey, externalAdId, metadata: { attempt_id: attemptId, required_seconds: gate.required_seconds }, providerRegistry });
+    if (result.duplicate) return { gate, adEvent: result.adEvent, providerId: result.providerId, duplicate: true };
+    await client.query(`UPDATE task_verification_gates SET ad_event_id=$1,metadata=metadata||$2::jsonb WHERE id=$3`, [result.adEvent.id, JSON.stringify({ verification_ad_id: result.adEvent.id, provider_id: result.providerId }), gate.id]);
+    return { gate: { ...gate, ad_event_id: result.adEvent.id }, adEvent: result.adEvent, providerId: result.providerId, duplicate: false };
   });
 }
 

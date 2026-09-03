@@ -1,4 +1,6 @@
+const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
+const { selectNextProvider } = require('./ad-provider-service');
 
 const AD_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification'];
 
@@ -23,6 +25,31 @@ async function startAdvertisementEvent({ userId, context, idempotencyKey, extern
   return { adEvent: existing.rows[0], duplicate: true };
 }
 
+/** Start a rotated advertisement event while serializing provider allocation per context. */
+async function startRotatedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, externalAdId = null, metadata = {}, providerRegistry }) {
+  requiredId(userId, 'userId');
+  requiredId(idempotencyKey, 'idempotencyKey');
+  if (!AD_CONTEXTS.includes(context)) throw new Error('Invalid advertisement context');
+  if (!providerRegistry) throw new Error('Advertisement provider registry is required');
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:ad-provider-rotation:${context}`]);
+  const existing = await client.query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE', [idempotencyKey]);
+  if (existing.rowCount) return { adEvent: existing.rows[0], providerId: existing.rows[0].metadata?.provider_id, duplicate: true };
+  const previous = await client.query(
+    `SELECT metadata->>'provider_id' AS provider_id
+     FROM activity_ad_events
+     WHERE context=$1 AND metadata->>'provider_id' IS NOT NULL
+     ORDER BY id DESC LIMIT 1`,
+    [context]
+  );
+  const provider = selectNextProvider(providerRegistry, { context, previousProviderId: previous.rows[0]?.provider_id || null });
+  const event = await client.query(
+    `INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,metadata)
+     VALUES($1,$2,$3,$4,NOW(),$5) RETURNING *`,
+    [userId, context, externalAdId || randomUUID(), idempotencyKey, { ...metadata, provider_id: provider.id }]
+  );
+  return { adEvent: event.rows[0], providerId: provider.id, duplicate: false };
+}
+
 /** Mark a supported advertisement event as provider-verified exactly once. */
 async function markAdvertisementVerified({ adEventId, providerReference, verificationMetadata = {} }) {
   requiredId(adEventId, 'adEventId');
@@ -41,4 +68,4 @@ async function markAdvertisementVerified({ adEventId, providerReference, verific
   });
 }
 
-module.exports = { AD_CONTEXTS, startAdvertisementEvent, markAdvertisementVerified };
+module.exports = { AD_CONTEXTS, startAdvertisementEvent, startRotatedAdvertisementEventOnClient, markAdvertisementVerified };

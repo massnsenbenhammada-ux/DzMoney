@@ -8,7 +8,6 @@ function createMonetagProvider() {
     id: MONETAG_PROVIDER_ID,
     contexts: [MONETAG_CONTEXT, MONETAG_VERIFICATION_CONTEXT, MONETAG_TASK_CONTEXT, MONETAG_GAMING_CONTEXT],
     enabled: process.env.MONETAG_ENABLED === 'true',
-    priority: 100,
     async verifyCompletion(payload = {}) {
       const normalized = validateMonetagPostback({ ...payload, zone_id: payload.zone_id || MONETAG_ZONE_ID });
       return { verified: normalized.eligible, reference: normalized.ymid, metadata: normalized };

@@ -3,8 +3,8 @@ const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
 const { activateOnVerifiedActivity } = require('./squad-membership-service');
-const { markAdvertisementVerified } = require('./ad-event-service');
-const { selectProvider, verifyWithProvider } = require('./ad-provider-service');
+const { startRotatedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
+const { getProviderForVerification, verifyWithProvider } = require('./ad-provider-service');
 
 const DEFAULT_COOLDOWN_HOURS = 24;
 const DEFAULT_REWARD = { coin: 1000, dzx: 1, dzp: 1 };
@@ -55,7 +55,6 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry
   requiredId(userId, 'userId');
   requiredId(idempotencyKey, 'idempotencyKey');
   if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
-  const provider = selectProvider(providerRegistry, { context: 'daily_checkin', providerId });
   return withTransaction(async client => {
     const settings = await getDailyCheckinSettings(client);
     const state = await client.query('SELECT * FROM daily_checkins WHERE user_id=$1 FOR UPDATE', [userId]);
@@ -73,23 +72,21 @@ async function startDailyCheckinClaim({ userId, idempotencyKey, providerRegistry
       const event = await client.query('SELECT * FROM activity_ad_events WHERE id=$1', [existing.ad_event_id]);
       if (event.rowCount && !event.rows[0].verified) return { claimIdempotencyKey: existing.claim_idempotency_key, adEvent: event.rows[0], providerId: event.rows[0].metadata?.provider_id, duplicate: true };
     }
-    const externalAdId = randomUUID();
-    const adInsert = await client.query(
-      `INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,metadata)
-       VALUES($1,'daily_checkin',$2,$3,NOW(),$4)
-       ON CONFLICT(idempotency_key) DO NOTHING RETURNING *`,
-      [userId, externalAdId, `daily-ad:${idempotencyKey}`, { provider_id: provider.id, claim_idempotency_key: idempotencyKey }]
-    );
-    const adEvent = adInsert.rowCount
-      ? adInsert.rows[0]
-      : (await client.query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE', [`daily-ad:${idempotencyKey}`])).rows[0];
+    const result = await startRotatedAdvertisementEventOnClient(client, {
+      userId,
+      context: 'daily_checkin',
+      idempotencyKey: `daily-ad:${idempotencyKey}`,
+      metadata: { claim_idempotency_key: idempotencyKey },
+      providerRegistry
+    });
+    const adEvent = result.adEvent;
     await client.query(
       `INSERT INTO daily_checkins(user_id,ad_event_id,claim_idempotency_key,updated_at)
        VALUES($1,$2,$3,NOW())
        ON CONFLICT(user_id) DO UPDATE SET ad_event_id=EXCLUDED.ad_event_id,claim_idempotency_key=EXCLUDED.claim_idempotency_key,updated_at=NOW()`,
       [userId, adEvent.id, idempotencyKey]
     );
-    return { claimIdempotencyKey: idempotencyKey, adEvent, providerId: provider.id, duplicate: !adInsert.rowCount };
+    return { claimIdempotencyKey: idempotencyKey, ...result };
   });
 }
 
@@ -104,6 +101,7 @@ async function verifyDailyCheckinAd({ userId, adEventId, providerRegistry, provi
   const recordedProviderId = eventResult.rows[0].metadata?.provider_id;
   if (!recordedProviderId) throw new Error('Daily Check-in advertisement provider is not recorded');
   if (providerId && providerId !== recordedProviderId) throw new Error('Advertisement provider does not match the selected provider');
+  getProviderForVerification(providerRegistry, { context: 'daily_checkin', providerId: recordedProviderId });
   const result = await verifyWithProvider(providerRegistry, { context: 'daily_checkin', providerId: recordedProviderId, payload: providerPayload });
   if (!result.verification.verified) throw new Error('Advertisement provider verification failed');
   return markAdvertisementVerified({ adEventId, providerReference: result.verification.reference, verificationMetadata: { ...result.verification.metadata, provider_id: result.providerId } });

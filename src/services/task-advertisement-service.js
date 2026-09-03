@@ -1,9 +1,7 @@
-const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
-const { startAdvertisementEvent, markAdvertisementVerified } = require('./ad-event-service');
-const { selectProvider } = require('./ad-provider-service');
+const { startRotatedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
 const { activateOnVerifiedActivity } = require('./squad-membership-service');
 
 function requiredId(value, name) { if (value === undefined || value === null || value === '') throw new Error(`${name} is required`); return value; }
@@ -25,10 +23,14 @@ async function startTaskAdvertisement({ userId, taskId, idempotencyKey, provider
   const existing = await getExistingAdvertisement({ userId, idempotencyKey, taskId });
   if (existing) return { adEvent: existing, providerId: existing.metadata?.provider_id, duplicate: true };
   await getActiveTask(taskId);
-  const provider = selectProvider(providerRegistry, { context: 'task' });
-  const externalAdId = randomUUID();
-  const result = await startAdvertisementEvent({ userId, context: 'task', idempotencyKey, externalAdId, metadata: { task_id: taskId, provider_id: provider.id } });
-  return { ...result, providerId: provider.id };
+  const result = await withTransaction(client => startRotatedAdvertisementEventOnClient(client, {
+    userId,
+    context: 'task',
+    idempotencyKey,
+    metadata: { task_id: taskId },
+    providerRegistry
+  }));
+  return result;
 }
 function validateServerVerification(verification, providerId) {
   if (!verification || verification.verified !== true) throw new Error('Advertisement provider verification failed');

@@ -5,8 +5,12 @@ const app = fs.readFileSync('public/app.js', 'utf8');
 const index = fs.readFileSync('public/index.html', 'utf8');
 const creator = fs.readFileSync('public/creator-task.js', 'utf8');
 const server = fs.readFileSync('server.js', 'utf8');
+const gaming = fs.readFileSync('public/gaming.js', 'utf8');
+const adClient = fs.readFileSync('public/ad-provider-client.js', 'utf8');
 new vm.Script(app, { filename: 'public/app.js' });
 new vm.Script(creator, { filename: 'public/creator-task.js' });
+new vm.Script(gaming, { filename: 'public/gaming.js' });
+new vm.Script(adClient, { filename: 'public/ad-provider-client.js' });
 
 const dailyFlow = app.indexOf('async function startDailySystemTaskFlow(');
 const verificationAd = app.indexOf('async function showTaskVerificationAd(');
@@ -80,9 +84,12 @@ const taskUxChecks = {
   dailyRefreshOutsideRenderer: renderTaskCategoryBody.length > 0 && !renderTaskCategoryBody.includes('loadDailyTaskStatus()') && !renderTaskCategoryBody.includes('loadDailyAdProgress()'),
   dailyRefreshOnCategoryEntry: categoryDailyRefresh.includes('renderTaskCategory(category.dataset.taskCategory)') && categoryDailyRefresh.includes("category.dataset.taskCategory === 'daily'") && categoryDailyRefresh.includes('loadDailyTaskStatus()') && categoryDailyRefresh.includes('loadDailyAdProgress()'),
   dailyRefreshScopedToDailyPage: /state\.page === 'tasks' && state\.taskCategory === 'daily'/.test(app),
-  taskProviderContextServer: /\['task',\s*'gaming',\s*'daily_checkin',\s*'verification'\]/.test(server),
-  taskProviderConfigServer: /clientAdConfig\(\)[\s\S]*?listAvailable\(context\)/.test(server),
-  taskAdProviderSelection: /selectProvider\(providerRegistry, \{ context: 'task' \}\)/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8'))
+  taskProviderContextServer: /const contexts = \['task', 'gaming', 'daily_checkin', 'verification'\]/.test(server),
+  taskProviderConfigServer: /providers,[\s\S]*listAvailable\(context\)\.map/.test(server),
+  taskAdProviderSelection: /startRotatedAdvertisementEventOnClient\(client, \{[\s\S]*context: 'task'/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8')),
+  gamingProviderSelection: /getProvider\(response\.providerId\)/.test(gaming),
+  noClientPrioritySelection: !server.includes('listAvailable(context)[0]') && !adClient.includes('gamingProvider?.id ==='),
+  clientProviderRegistry: adClient.includes('providerAdapters') && adClient.includes('getProvider(providerId)')
 };
 const failedTaskUxChecks = Object.entries(taskUxChecks).filter(([, passed]) => !passed).map(([name]) => name);
 if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskUxChecks.join(', ')}`);
@@ -108,3 +115,4 @@ console.log('CREATOR_TABS_CATEGORY_SCOPE: PASS');
 console.log('CREATOR_TASKS_ONLY_ENTRY: PASS');
 console.log('TASKS_LANDING_DEFAULT: PASS');
 console.log('TASK_AD_PROVIDER_CONTEXT: PASS');
+console.log('AD_PROVIDER_ROTATION_CLIENT_CONTRACT: PASS');
