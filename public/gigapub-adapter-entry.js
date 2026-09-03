@@ -4,12 +4,32 @@
 
   const tg = window.Telegram?.WebApp;
   const script = document.createElement('script');
+  let fallbackTimer;
+  let settled = false;
+  const loaded = new Promise((resolve, reject) => {
+    const finish = callback => value => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(fallbackTimer);
+      callback(value);
+    };
+    script.onload = finish(resolve);
+    script.onerror = () => {
+      if (settled) return;
+      const fallback = document.createElement('script');
+      fallback.src = `https://ru-ad.gigapub.tech/script?id=${encodeURIComponent(config.projectId)}`;
+      fallback.async = true;
+      fallback.onload = finish(resolve);
+      fallback.onerror = finish(() => reject(new Error('GigaPub SDK failed to load')));
+      document.head.appendChild(fallback);
+    };
+    fallbackTimer = setTimeout(() => {
+      if (settled) return;
+      script.onerror();
+    }, 15000);
+  });
   script.src = `https://ad.gigapub.tech/script?id=${encodeURIComponent(config.projectId)}`;
   script.async = true;
-  const loaded = new Promise((resolve, reject) => {
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('GigaPub SDK failed to load'));
-  });
   document.head.appendChild(script);
 
   window.DzMoneyGamingAd = {
