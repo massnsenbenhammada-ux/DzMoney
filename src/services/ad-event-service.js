@@ -37,9 +37,9 @@ async function startRotatedAdvertisementEventOnClient(client, { userId, context,
   const previous = await client.query(
     `SELECT metadata->>'provider_id' AS provider_id
      FROM activity_ad_events
-     WHERE context=$1 AND metadata->>'provider_id' IS NOT NULL
+     WHERE user_id=$1 AND context=$2 AND metadata->>'provider_id' IS NOT NULL
      ORDER BY id DESC LIMIT 1`,
-    [context]
+    [userId, context]
   );
   const provider = selectNextProvider(providerRegistry, { context, previousProviderId: previous.rows[0]?.provider_id || null });
   const event = await client.query(
