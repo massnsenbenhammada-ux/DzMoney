@@ -68,6 +68,8 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Run migrations
         run: npm run migrate
+      - name: Run GigaPub OfferWall verification contract
+        run: node ./scripts/test-gigapub-offerwall.js
       - name: Run Gaming invariants and economic simulation
         run: node ./scripts/test-gaming.js
       - name: Run OnClickA Gaming callback integration
