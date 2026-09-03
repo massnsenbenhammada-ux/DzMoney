@@ -62,14 +62,19 @@ class AdProviderRegistry {
 }
 
 function selectNextProvider(registry, { context, previousProviderId = null }) {
-  if (!registry || typeof registry.listAvailable !== 'function') throw new Error('Advertisement provider registry is required');
-  const providers = registry.listAvailable(context);
-  if (!providers.length) throw new Error(`No advertisement provider available for ${context}`);
-  if (!previousProviderId) return providers[0];
-  const previousIndex = providers.findIndex(provider => provider.id === previousProviderId);
-  if (previousIndex < 0 && registry.get(previousProviderId)) throw new Error(`Previous advertisement provider ${previousProviderId} is not available for ${context}`);
+  if (!registry || typeof registry.listAvailable !== 'function' || typeof registry.listRegistered !== 'function') throw new Error('Advertisement provider registry is required');
+  const available = registry.listAvailable(context);
+  if (!available.length) throw new Error(`No advertisement provider available for ${context}`);
+  if (!previousProviderId) return available[0];
+  const registered = registry.listRegistered();
+  const previousIndex = registered.indexOf(previousProviderId);
   if (previousIndex < 0) throw new Error(`Unknown previous advertisement provider: ${previousProviderId}`);
-  return providers[(previousIndex + 1) % providers.length];
+  for (let offset = 1; offset <= registered.length; offset += 1) {
+    const providerId = registered[(previousIndex + offset) % registered.length];
+    const provider = available.find(candidate => candidate.id === providerId);
+    if (provider) return provider;
+  }
+  throw new Error(`No advertisement provider available for ${context}`);
 }
 
 function getProviderForVerification(registry, { context, providerId }) {
