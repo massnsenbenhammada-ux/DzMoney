@@ -6,12 +6,22 @@ const {
 const { startRotatedAdvertisementEventOnClient } = require('../src/services/ad-event-service');
 
 function provider(id, contexts = ['gaming']) {
-  return {
+  const result = {
     id,
     contexts,
     enabled: true,
     verifyCompletion: async () => ({ verified: true, reference: `${id}-ref` })
   };
+  if (contexts.includes('task')) {
+    result.verifyServerCompletion = async () => ({
+      verified: true,
+      reference: `${id}-ref`,
+      userId: 1,
+      providerId: id,
+      context: 'task'
+    });
+  }
+  return result;
 }
 
 const registry = new AdProviderRegistry([
