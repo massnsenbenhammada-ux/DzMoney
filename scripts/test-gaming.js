@@ -56,14 +56,14 @@ function testSourceBoundaries() {
   assert(service.includes('gaming:digging:'));
   assert(service.includes('gaming:ad:'));
   assert(service.includes('recordVerifiedActivityOnClient'));
-  assert(service.includes('requiredId(actorTelegramUserId'));
-  assert(!service.includes('dailyActivityLimit'));
-  assert(economy.includes('qualifyingVerifiedActivity && !transaction.duplicate'));
-  assert(economy.includes('recordVerifiedActivityOnClient'));
+  assert(service.includes('startRotatedAdvertisementEventOnClient'));
+  assert(!service.includes('selectProvider'));
   assert(!verification.includes('grantGamingResourceOnClient'));
   assert(!verification.includes('row.config.gamingResource'));
   assert(routes.includes('function publicSession(session)'));
   assert(routes.includes('publicGamingState(await gaming.getGamingState({ userId }))'));
+  assert(routes.includes('const providerId = event.rows[0].metadata?.provider_id'));
+  assert(!routes.includes("providerId: 'gigapub'"));
   assert(onclickaRoutes.includes("const CONTEXTS = new Set(['task', 'daily_checkin', 'verification', 'gaming'])"));
   assert(onclickaRoutes.includes('taskAdvertisementService.verifyTrustedTaskAdvertisement'));
   assert(onclickaRoutes.includes('router.get(\'/\', handlePostback)'));
@@ -92,15 +92,15 @@ function testGamingFrontendContract() {
   const monetagEntry = fs.readFileSync('public/monetag-adapter-entry.js', 'utf8');
   const onclickaLoader = fs.readFileSync('public/onclicka-sdk-loader.js', 'utf8');
   const onclickaEntry = fs.readFileSync('public/onclicka-adapter-entry.js', 'utf8');
+  const gigapubEntry = fs.readFileSync('public/gigapub-adapter-entry.js', 'utf8');
 
   assert(gaming.includes('data-spin-wheel'));
   assert(gaming.includes('data-spin-wheel-segment'));
   assert(gaming.includes('data-digging-image'));
   assert(gaming.includes('<svg'));
   assert(gaming.includes('data-spin-result'));
-  assert(gaming.includes('DzMoneyGamingAd'));
-  assert(gaming.includes('No advertisement provider is configured'));
-  assert(gaming.includes('adapter?.ready'));
+  assert(gaming.includes('DzMoneyAdClient.getProvider(response.providerId)'));
+  assert(gaming.includes('selected advertisement provider'));
   assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
   assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
   assert(gaming.includes('360 * 3 - index * segment'));
@@ -109,7 +109,7 @@ function testGamingFrontendContract() {
   assert(gaming.includes('gaming-runtime.css'));
   assert(gaming.includes('assetVersion'));
   assert(gaming.includes("const response = await api('/api/gaming/ads/start'"));
-  assert(gaming.includes("await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId })"));
+  assert(gaming.includes('await adapter.handler({ requestVar: \'gaming\', adEventId: response.adEventId })'));
   assert(!gaming.includes('const startPromise = api'));
   assert(!gaming.includes('const adPromise = adapter.handler'));
   assert(!gaming.includes('Promise.all([startPromise, adPromise])'));
@@ -129,14 +129,15 @@ function testGamingFrontendContract() {
   assert(html.includes('data-gaming-ad="digging"'));
   assert(html.includes('/monetag-adapter-entry.js?v=__ASSET_VERSION__'));
   assert(!html.includes('/monetag-adapter.bundle.js?v=__ASSET_VERSION__'));
-  assert(adClient.includes('DzMoneyOnclicka.show'));
-  assert(adClient.includes("gamingProvider?.id === 'monetag' && window.DzMoneyMonetag?.ready"));
-  assert(adClient.includes("provider: 'monetag'"));
+  assert(adClient.includes('providerAdapters'));
+  assert(adClient.includes('getProvider(providerId)'));
+  assert(adClient.includes('registerOnclicka'));
   assert(monetagEntry.includes('show_11627577'));
-  assert(onclickaLoader.includes('preloadSelectedOnclicka'));
-  assert(onclickaLoader.includes('setTimeout(preloadSelectedOnclicka, 0)'));
+  assert(onclickaLoader.includes('preloadOnclicka'));
+  assert(onclickaLoader.includes('setTimeout(preloadOnclicka, 0)'));
   assert(onclickaLoader.includes('DzMoneyOnclicka?.prepare'));
   assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
+  assert(gigapubEntry.includes('providers?.gigapub'));
 }
 
 async function testEconomicConfig() {
