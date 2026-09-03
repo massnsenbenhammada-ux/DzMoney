@@ -109,7 +109,8 @@ function testGamingFrontendContract() {
   assert(gaming.includes('gaming-runtime.css'));
   assert(gaming.includes('assetVersion'));
   assert(gaming.includes("const response = await api('/api/gaming/ads/start'"));
-  assert(gaming.includes('await adapter.handler({ requestVar: \'gaming\', adEventId: response.adEventId })'));
+  assert(gaming.includes("await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId })"));
+  assert(!gaming.includes('await adapter.handler({ requestVar: \'gaming\', adEventId: response.adEventId })'));
   assert(!gaming.includes('const startPromise = api'));
   assert(!gaming.includes('const adPromise = adapter.handler'));
   assert(!gaming.includes('Promise.all([startPromise, adPromise])'));
