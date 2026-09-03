@@ -3,7 +3,7 @@ const { createGigaPubProvider, GIGAPUB_PROVIDER_ID, GIGAPUB_PROJECT_ID } = requi
 
 const provider = createGigaPubProvider();
 assert.strictEqual(provider.id, GIGAPUB_PROVIDER_ID);
-assert.deepStrictEqual(provider.contexts, ['gaming']);
+assert.deepStrictEqual(provider.contexts, ['task', 'gaming', 'daily_checkin', 'verification']);
 assert.strictEqual(provider.clientConfig.projectId, GIGAPUB_PROJECT_ID);
 assert.strictEqual(provider.enabled, process.env.GIGAPUB_ENABLED === 'true');
 
