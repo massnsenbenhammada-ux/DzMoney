@@ -69,9 +69,10 @@ router.post('/ads/complete', asyncRoute(async (req, res) => {
   if (!adEventId) throw Object.assign(new Error('adEventId is required'), { statusCode: 400 });
   const event = await query("SELECT * FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context='gaming'", [adEventId, userId]);
   if (!event.rowCount) throw Object.assign(new Error('Gaming advertisement event not found'), { statusCode: 404 });
-  if (event.rows[0].metadata?.provider_id !== 'gigapub') throw Object.assign(new Error('Advertisement provider mismatch'), { statusCode: 400 });
+  const providerId = event.rows[0].metadata?.provider_id;
+  if (!providerId) throw Object.assign(new Error('Advertisement provider is not recorded'), { statusCode: 400 });
   const verification = await verifyWithProvider(req.app.locals.adProviderRegistry, {
-    context: 'gaming', providerId: 'gigapub', payload: { adEventId, userId }
+    context: 'gaming', providerId, payload: { adEventId, userId }
   });
   const result = await gaming.finalizeGamingAdvertisement({
     userId, adEventId, providerReference: verification.verification.reference,
