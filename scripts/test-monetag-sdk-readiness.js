@@ -14,7 +14,7 @@ if (!app.includes('adapter.ready')) throw new Error('Frontend must await adapter
 if (!index.includes('__MONETAG_SCRIPTS__')) throw new Error('Monetag scripts must be provider-gated');
 if (index.includes('libtl.com/sdk.js')) throw new Error('Monetag SDK must not be hard-coded into the HTML');
 if (!server.includes('monetagScriptsForClient')) throw new Error('Server must own Monetag script selection');
-if (!server.includes("provider?.id === 'monetag'")) throw new Error('Monetag script loading must depend on selected provider');
+if (!server.includes('selected.providers.monetag')) throw new Error('Monetag script loading must depend on the enabled provider registry');
 
 const runtimeEvidence = {
   resourceError: true,
