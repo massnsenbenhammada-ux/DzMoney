@@ -5,6 +5,7 @@
   const tg = window.Telegram?.WebApp;
   const script = document.createElement('script');
   let fallbackTimer;
+  let fallbackStarted = false;
   let settled = false;
   const loaded = new Promise((resolve, reject) => {
     const finish = callback => value => {
@@ -13,9 +14,9 @@
       clearTimeout(fallbackTimer);
       callback(value);
     };
-    script.onload = finish(resolve);
-    script.onerror = () => {
-      if (settled) return;
+    const startFallback = () => {
+      if (settled || fallbackStarted) return;
+      fallbackStarted = true;
       const fallback = document.createElement('script');
       fallback.src = `https://ru-ad.gigapub.tech/script?id=${encodeURIComponent(config.projectId)}`;
       fallback.async = true;
@@ -23,9 +24,11 @@
       fallback.onerror = finish(() => reject(new Error('GigaPub SDK failed to load')));
       document.head.appendChild(fallback);
     };
+    script.onload = finish(resolve);
+    script.onerror = startFallback;
     fallbackTimer = setTimeout(() => {
       if (settled) return;
-      script.onerror();
+      startFallback();
     }, 15000);
   });
   script.src = `https://ad.gigapub.tech/script?id=${encodeURIComponent(config.projectId)}`;
