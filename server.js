@@ -9,7 +9,6 @@ const { createDailyCheckinRouter } = require('./src/http/daily-checkin-routes');
 const { createDailySystemTaskRouter } = require('./src/http/daily-system-task-routes');
 const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-routes');
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
-const { createGigaPubOfferWallRouter } = require('./src/http/gigapub-offerwall-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
 const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-routes');
@@ -23,7 +22,6 @@ const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, 'public');
 const indexPath = path.join(publicDir, 'index.html');
 const monetagPostbackSecret = process.env.MONETAG_POSTBACK_SECRET;
-const gigapubProjectId = String(process.env.GIGAPUB_PROJECT_ID || '7958');
 const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || process.env.RAILWAY_DEPLOYMENT_ID || `runtime-${Date.now()}`;
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
@@ -54,19 +52,12 @@ app.use(express.json({ limit: '64kb' }));
 app.use(express.static(publicDir, {
   index: false,
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-store');
-      return;
-    }
-    if (/\.(js|css)$/.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    }
+    if (filePath.endsWith('.html')) { res.setHeader('Cache-Control', 'no-store'); return; }
+    if (/\.(js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   }
 }));
 
-app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'DzMoney', version: '2.0.0' });
-});
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'DzMoney', version: '2.0.0' }));
 
 app.get('/health/db', async (_req, res) => {
   try {
@@ -91,19 +82,14 @@ app.use('/api/tasks', createTaskRouter({ providerRegistry }));
 app.use('/api/creator/tasks', createCreatorTaskRouter());
 app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));
 app.use('/api/daily-checkin', createDailyCheckinRouter({ providerRegistry }));
-app.use('/api/ads/gigapub/offerwall', createGigaPubOfferWallRouter());
-if (monetagPostbackSecret) {
-  app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry, secret: monetagPostbackSecret }));
-}
-// OnClickA's callback contract is USERID-only; the route must exist without a provider secret.
+if (monetagPostbackSecret) app.use('/api/ads/monetag/postback', createMonetagPostbackRouter({ providerRegistry, secret: monetagPostbackSecret }));
 app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));
 
 app.get('/', (_req, res) => {
   const html = indexHtml
     .replaceAll('__ASSET_VERSION__', assetVersion)
     .replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion))
-    .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'))
-    .replace('</body>', `<script>window.__DzMoneyGigaPubOfferWall={projectId:${JSON.stringify(gigapubProjectId)}};</script><script src="/gigapub-offerwall.js?v=${assetVersion}"></script></body>`);
+    .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'));
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(html);
 });
@@ -117,6 +103,4 @@ app.use((error, _req, res, _next) => {
   res.status(status).json(payload);
 });
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`DzMoney 2.0 listening on ${port}`);
-});
+app.listen(port, '0.0.0.0', () => console.log(`DzMoney 2.0 listening on ${port}`));
