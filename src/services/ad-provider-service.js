@@ -27,7 +27,7 @@ class AdProviderRegistry {
   register(provider) {
     validateProvider(provider);
     if (this.providers.has(provider.id)) throw new Error(`Duplicate advertisement provider: ${provider.id}`);
-    this.providers.set(provider.id, { enabled: true, priority: 100, ...provider });
+    this.providers.set(provider.id, { enabled: true, ...provider });
     this.contextEnabled.set(provider.id, new Map(provider.contexts.map(context => [context, true])));
     return this.providers.get(provider.id);
   }
@@ -55,23 +55,30 @@ class AdProviderRegistry {
 
   listAvailable(context) {
     if (!AD_PROVIDER_CONTEXTS.includes(context)) throw new Error('Invalid advertisement context');
-    return [...this.providers.values()]
-      .filter(provider => provider.enabled && provider.contexts.includes(context) && this.isContextEnabled(provider.id, context))
-      .sort((left, right) => right.priority - left.priority);
+    return [...this.providers.values()].filter(provider => (
+      provider.enabled && provider.contexts.includes(context) && this.isContextEnabled(provider.id, context)
+    ));
   }
 }
 
-function selectProvider(registry, { context, providerId = null, excludedProviderIds = [] }) {
+function selectNextProvider(registry, { context, previousProviderId = null }) {
   if (!registry || typeof registry.listAvailable !== 'function') throw new Error('Advertisement provider registry is required');
-  if (providerId) {
-    const provider = registry.get(providerId);
-    if (!provider || !provider.enabled || !provider.contexts.includes(context) || !registry.isContextEnabled(providerId, context) || excludedProviderIds.includes(providerId)) {
-      throw new Error(`Advertisement provider ${providerId} is not available for ${context}`);
-    }
-    return provider;
+  const providers = registry.listAvailable(context);
+  if (!providers.length) throw new Error(`No advertisement provider available for ${context}`);
+  if (!previousProviderId) return providers[0];
+  const previousIndex = providers.findIndex(provider => provider.id === previousProviderId);
+  if (previousIndex < 0 && registry.get(previousProviderId)) throw new Error(`Previous advertisement provider ${previousProviderId} is not available for ${context}`);
+  if (previousIndex < 0) throw new Error(`Unknown previous advertisement provider: ${previousProviderId}`);
+  return providers[(previousIndex + 1) % providers.length];
+}
+
+function getProviderForVerification(registry, { context, providerId }) {
+  if (!registry || typeof registry.get !== 'function') throw new Error('Advertisement provider registry is required');
+  if (!providerId) throw new Error('Advertisement provider id is required');
+  const provider = registry.get(providerId);
+  if (!provider || !provider.enabled || !provider.contexts.includes(context) || !registry.isContextEnabled(providerId, context)) {
+    throw new Error(`Advertisement provider ${providerId} is not available for ${context}`);
   }
-  const provider = registry.listAvailable(context).find(candidate => !excludedProviderIds.includes(candidate.id));
-  if (!provider) throw new Error(`No advertisement provider available for ${context}`);
   return provider;
 }
 
@@ -94,27 +101,19 @@ async function verifyProviderWithTimeout(provider, payload, timeoutMs) {
   }
 }
 
-async function verifyWithProvider(registry, { context, providerId = null, payload, timeoutMs = 10000 }) {
+async function verifyWithProvider(registry, { context, providerId, payload, timeoutMs = 10000 }) {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Advertisement provider timeout must be positive');
-  const attempted = [];
-  while (true) {
-    const provider = selectProvider(registry, { context, providerId, excludedProviderIds: attempted });
-    attempted.push(provider.id);
-    try {
-      const verification = await verifyProviderWithTimeout(provider, payload, timeoutMs);
-      validateVerificationResult(verification);
-      return { providerId: provider.id, verification };
-    } catch (error) {
-      if (!(error instanceof ProviderUnavailableError)) throw error;
-      if (providerId || attempted.length >= registry.listAvailable(context).length) throw error;
-    }
-  }
+  const provider = getProviderForVerification(registry, { context, providerId });
+  const verification = await verifyProviderWithTimeout(provider, payload, timeoutMs);
+  validateVerificationResult(verification);
+  return { providerId: provider.id, verification };
 }
 
 module.exports = {
   AD_PROVIDER_CONTEXTS,
   AdProviderRegistry,
   ProviderUnavailableError,
-  selectProvider,
+  selectNextProvider,
+  getProviderForVerification,
   verifyWithProvider
 };
