@@ -72,6 +72,8 @@ jobs:
         run: node ./scripts/test-gigapub.js
       - name: Run Gaming invariants and economic simulation
         run: node ./scripts/test-gaming.js
+      - name: Run OnClickA preload contract
+        run: node ./scripts/test-onclicka-preload.js
       - name: Run OnClickA Gaming callback integration
         env:
           GIGAPUB_ENABLED: "false"
