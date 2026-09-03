@@ -68,9 +68,13 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
       - name: Run migrations
         run: npm run migrate
+      - name: Run GigaPub standard ad contract
+        run: node ./scripts/test-gigapub.js
       - name: Run Gaming invariants and economic simulation
         run: node ./scripts/test-gaming.js
       - name: Run OnClickA Gaming callback integration
+        env:
+          GIGAPUB_ENABLED: "false"
         run: node ./scripts/test-onclicka-gaming-callback.js
       - name: Run TON admin configuration boundary tests
         run: node --test ./tests/admin-ton-settings.test.js
@@ -91,4 +95,6 @@ jobs:
           curl --fail --silent http://127.0.0.1:3000/health/db > /tmp/health-db.json
           test "$(node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync('/tmp/health-db.json','utf8')); process.stdout.write(String(data.ok))")" = "true"
       - name: Run full test suite
+        env:
+          GIGAPUB_ENABLED: "false"
         run: npm run test:all

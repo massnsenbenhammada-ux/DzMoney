@@ -200,10 +200,10 @@
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
       const response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
-      await adapter.handler({ requestVar: 'gaming' });
-      if (button) button.textContent = 'VERIFYING…';
+      const completion = await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId });
+      if (button) button.textContent = 'CREDITING…';
       await load();
-      toast(response.duplicate === true ? 'Ad already verified — reward credited.' : 'Ad watched. Reward is credited after the provider callback is accepted by the server.');
+      toast(completion.duplicate ? 'Ad already credited.' : 'Ad watched — reward credited.');
     } catch (error) {
       toast(`Gaming Ad failed: ${error.message || 'Unable to load the advertisement.'}`);
     } finally {
