@@ -43,7 +43,7 @@
     if (!result.confirmationHash) throw new Error('GigaPub reward confirmation was not returned');
     const confirmed = await sdk.confirmReward(data.rewardId, result.confirmationHash);
     if (!confirmed) throw new Error('GigaPub reward confirmation failed');
-    window.dispatchEvent(new CustomEvent('dzmoney:balance-refresh'));
+    if (typeof window.loadMe === 'function') await window.loadMe();
   }
 
   async function init() {
