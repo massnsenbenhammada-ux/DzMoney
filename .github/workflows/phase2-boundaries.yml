@@ -73,6 +73,8 @@ jobs:
       - name: Run Gaming invariants and economic simulation
         run: node ./scripts/test-gaming.js
       - name: Run OnClickA Gaming callback integration
+        env:
+          GIGAPUB_ENABLED: "false"
         run: node ./scripts/test-onclicka-gaming-callback.js
       - name: Run TON admin configuration boundary tests
         run: node --test ./tests/admin-ton-settings.test.js
