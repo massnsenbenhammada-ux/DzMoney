@@ -202,7 +202,7 @@
       const adapter = window.DzMoneyAdClient.getProvider(response.providerId);
       if (!adapter?.ready || typeof adapter.handler !== 'function') throw new Error(`The selected advertisement provider (${response.providerId}) is not ready`);
       await adapter.ready;
-      const completion = await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId });
+      const completion = await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId });
       if (button) button.textContent = 'CREDITING…';
       await load();
       toast(completion.duplicate ? 'Ad already credited.' : 'Ad watched — reward credited.');
