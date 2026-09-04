@@ -1,8 +1,11 @@
 const express = require('express');
-const { query } = require('../db/pool');
+const { query, withTransaction } = require('../db/pool');
 const { telegramAuth } = require('./telegram-auth');
 const { createInvitation, acceptInvitation, getPaidMembershipTiers, purchasePaidMembership } = require('../services/squad-membership-service');
 const { getCurrentUserSquadState } = require('../services/squad-daily-state-service');
+const { startRotatedAdvertisementEventOnClient } = require('../services/ad-event-service');
+const { finalizeStandardAdvertisement } = require('../services/task-advertisement-service');
+const providerRegistry = require('../services/ad-provider-registry-runtime');
 
 const router = express.Router();
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -31,16 +34,7 @@ router.get('/', asyncRoute(async (req, res) => {
 
   if (!membership.rows[0]) return res.json({ ok: true, squad: null });
   const row = membership.rows[0];
-  res.json({
-    ok: true,
-    squad: {
-      id: String(row.squad_id),
-      ownerUserId: String(row.owner_user_id),
-      memberCount: Number(row.member_count),
-      membershipStatus: row.membership_status,
-      isOwner: Number(row.owner_user_id) === Number(userId)
-    }
-  });
+  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount: Number(row.member_count), membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId) } });
 }));
 
 router.get('/daily-state', asyncRoute(async (req, res) => {
@@ -48,6 +42,23 @@ router.get('/daily-state', asyncRoute(async (req, res) => {
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
   const state = await getCurrentUserSquadState({ userId });
   res.json({ ok: true, state });
+}));
+
+router.post('/ads/start', asyncRoute(async (req, res) => {
+  const userId = await currentUserId(req);
+  if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
+  const idempotencyKey = String(req.body?.idempotencyKey || '');
+  if (!idempotencyKey) return res.status(400).json({ ok: false, error: 'idempotencyKey is required' });
+  const membership = await query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status IN ('active','pending') LIMIT 1", [userId]);
+  if (!membership.rowCount) return res.status(409).json({ ok: false, error: 'Active Squad membership is required' });
+  const result = await withTransaction(client => startRotatedAdvertisementEventOnClient(client, {
+    userId,
+    context: 'squad',
+    idempotencyKey,
+    metadata: { squad_ad: true },
+    providerRegistry
+  }));
+  res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, adEventId: String(result.adEvent.id), providerId: result.providerId });
 }));
 
 router.get('/membership-tiers', asyncRoute(async (req, res) => {
@@ -70,19 +81,8 @@ router.post('/membership/purchase', asyncRoute(async (req, res) => {
 router.get('/invitations', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req);
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
-  const result = await query(`
-    SELECT i.id, i.squad_id, i.inviter_user_id, i.status, i.created_at
-    FROM squad_invitations i
-    WHERE i.invitee_user_id = $1 AND i.status = 'pending'
-    ORDER BY i.created_at DESC
-  `, [userId]);
-  res.json({ ok: true, invitations: result.rows.map(row => ({
-    id: String(row.id),
-    squadId: String(row.squad_id),
-    inviterUserId: String(row.inviter_user_id),
-    status: row.status,
-    createdAt: row.created_at
-  })) });
+  const result = await query(`SELECT i.id, i.squad_id, i.inviter_user_id, i.status, i.created_at FROM squad_invitations i WHERE i.invitee_user_id = $1 AND i.status = 'pending' ORDER BY i.created_at DESC`, [userId]);
+  res.json({ ok: true, invitations: result.rows.map(row => ({ id: String(row.id), squadId: String(row.squad_id), inviterUserId: String(row.inviter_user_id), status: row.status, createdAt: row.created_at })) });
 }));
 
 router.post('/invitations', asyncRoute(async (req, res) => {
