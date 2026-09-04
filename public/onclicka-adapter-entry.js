@@ -6,6 +6,12 @@ let initializedSpotId = null;
 let showPromise = null;
 let sdkLoadPromise = null;
 
+function traceOnclicka(event, value) {
+  if (typeof window.__DzMoneyOnclickaTrace === 'function') {
+    window.__DzMoneyOnclickaTrace(event, value);
+  }
+}
+
 function withTimeout(promise, message) {
   return Promise.race([
     promise,
@@ -40,7 +46,11 @@ function loadOnclickaSdkFallback() {
 
 async function ensureOnclickaReady(spotId) {
   if (!spotId) throw new Error('OnClickA Spot ID is missing');
-  if (initializedSpotId === String(spotId) && showPromise) return showPromise;
+  if (initializedSpotId === String(spotId) && showPromise) {
+    traceOnclicka('ensure reused cached showPromise', typeof showPromise);
+    return showPromise;
+  }
+  traceOnclicka('ensure initialization started', String(spotId));
   if (typeof window.initCdTma !== 'function') {
     try {
       if (typeof window.DzMoneyLoadOnclickaSdk === 'function') {
@@ -57,22 +67,32 @@ async function ensureOnclickaReady(spotId) {
     throw new Error('OnClickA SDK loaded, but initCdTma is still unavailable');
   }
   initializedSpotId = String(spotId);
+  traceOnclicka('initCdTma invoking', initializedSpotId);
   showPromise = withTimeout(
     Promise.resolve().then(() => window.initCdTma({ id: Number(spotId) })),
     'OnClickA initialization timed out'
   ).catch(error => {
     initializedSpotId = null;
     showPromise = null;
+    traceOnclicka('initCdTma failed', error?.message || error);
     throw error;
   });
+  showPromise.then(show => traceOnclicka('initCdTma stored result', typeof show), () => {});
   return showPromise;
 }
 
 window.DzMoneyOnclicka = {
   provider: ONCLICKA_PROVIDER,
-  prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId),
+  prepare: ({ spotId } = {}) => {
+    traceOnclicka('prepare called', String(spotId || 'missing'));
+    const result = ensureOnclickaReady(spotId);
+    result.then(value => traceOnclicka('prepare resolved', typeof value), error => traceOnclicka('prepare rejected', error?.message || error));
+    return result;
+  },
   show: async ({ spotId } = {}) => {
+    traceOnclicka('show called', String(spotId || 'missing'));
     const show = await ensureOnclickaReady(spotId);
+    traceOnclicka('show received result', typeof show);
     if (typeof show !== 'function') throw new Error('OnClickA show method is unavailable after initialization');
     return withTimeout(
       Promise.resolve().then(() => show()),
