@@ -1,6 +1,7 @@
 const assert = require('assert');
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
 
 async function run() {
   const poolPath = require.resolve('../src/db/pool');
@@ -9,12 +10,16 @@ async function run() {
   const adapterPath = require.resolve('../src/services/monetag-adapter');
   const dailyCheckinPath = require.resolve('../src/services/daily-checkin-service');
   const postbackPath = require.resolve('../src/services/monetag-postback-service');
+  const routeSource = fs.readFileSync(require.resolve('../src/http/monetag-postback-routes'), 'utf8');
   const originalPool = require(poolPath);
   const originalAdEvent = require(adEventPath);
   const originalProvider = require(providerPath);
   const originalAdapter = require(adapterPath);
   const originalDailyCheckin = require(dailyCheckinPath);
   const { validateMonetagPostback } = require(postbackPath);
+
+  assert(routeSource.includes("a.metadata->>'provider_id'=$2"));
+  assert(routeSource.includes('a.verified=FALSE'));
 
   const validPayload = {
     telegram_id: '123', zone_id: '11627577', event_type: 'impression',
