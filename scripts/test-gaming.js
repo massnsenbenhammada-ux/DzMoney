@@ -140,6 +140,21 @@ function testGamingFrontendContract() {
   assert(onclickaLoader.includes('DzMoneyOnclicka?.prepare'));
   assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
   assert(gigapubEntry.includes('providers?.gigapub'));
+
+  const configMarker = '<script>window.__DzMoneyAdProviderConfig=__AD_PROVIDER_CONFIG__;</script>';
+  const providerEntryMarkers = [
+    '<script src="/monetag-adapter-entry.js?v=__ASSET_VERSION__">',
+    '<script src="/onclicka-sdk-loader.js?v=__ASSET_VERSION__">',
+    '<script src="/onclicka-adapter-entry.js?v=__ASSET_VERSION__">',
+    '<script src="/gigapub-adapter-entry.js?v=__ASSET_VERSION__">'
+  ];
+  const configIndex = html.indexOf(configMarker);
+  assert(configIndex >= 0, 'Provider config bootstrap marker is missing');
+  for (const marker of providerEntryMarkers) {
+    const providerIndex = html.indexOf(marker);
+    assert(providerIndex >= 0, `Provider bootstrap marker is missing: ${marker}`);
+    assert(configIndex < providerIndex, `Provider config must load before ${marker}`);
+  }
 }
 
 async function testEconomicConfig() {
