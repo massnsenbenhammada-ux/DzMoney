@@ -96,6 +96,11 @@
     setTimeout(() => capture(provider, `${provider} after 2s`), 2000);
   };
 
+  window.__DzMoneyOnclickaTrace = (event, value) => {
+    traceState.onclicka = `${event}: ${String(value ?? 'none')}`;
+    refresh(`trace: ${event}`);
+  };
+
   let wrappedShowGiga = false;
   const wrapShowGiga = () => {
     if (wrappedShowGiga || typeof window.showGiga !== 'function') return;
@@ -156,10 +161,10 @@
       if (providerId === 'onclicka' && adapter?.handler && !adapter.__diagnosticWrapped) {
         const originalHandler = adapter.handler;
         adapter.handler = async function (...args) {
-          capture('onclicka', 'adapter.handler called');
+          capture('onclicka', `adapter.handler called: ${JSON.stringify(args)}`);
           try {
             const result = await originalHandler.apply(this, args);
-            capture('onclicka', 'adapter.handler resolved');
+            capture('onclicka', `adapter.handler resolved: ${typeof result}`);
             return result;
           } catch (error) {
             capture('onclicka', `adapter.handler rejected: ${error?.message || error}`);
