@@ -14,5 +14,9 @@ assert(diagnostics.includes('libtl.com/sdk.js'), 'Diagnostics must inspect Monet
 assert(diagnostics.includes('showGiga'), 'Diagnostics must inspect GigaPub handler state');
 assert(diagnostics.includes('clientProviders'), 'Diagnostics must expose client provider state');
 assert(diagnostics.includes('DzMoneyAdClient.getProvider'), 'Diagnostics must observe the selected client provider');
+assert(diagnostics.includes('showGiga called'), 'Diagnostics must trace GigaPub invocation');
+assert(diagnostics.includes('showGiga resolved'), 'Diagnostics must trace GigaPub resolution');
+assert(diagnostics.includes('showGiga rejected'), 'Diagnostics must trace GigaPub rejection');
+assert(diagnostics.includes('relevant resources'), 'Diagnostics must expose relevant runtime resources');
 
 console.log('Gaming ad runtime UI diagnostics contract: PASS');
