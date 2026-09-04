@@ -7,17 +7,29 @@ const migration = fs.readFileSync(path.join(root, 'migrations/044_squad_ads_task
 const squadRoutes = fs.readFileSync(path.join(root, 'src/http/squad-routes.js'), 'utf8');
 const squadFrontend = fs.readFileSync(path.join(root, 'public/squad.js'), 'utf8');
 const taskRoutes = fs.readFileSync(path.join(root, 'src/http/task-routes.js'), 'utf8');
+const advertisementService = fs.readFileSync(path.join(root, 'src/services/task-advertisement-service.js'), 'utf8');
+const monetagPostback = fs.readFileSync(path.join(root, 'src/http/monetag-postback-routes.js'), 'utf8');
+const onclickaPostback = fs.readFileSync(path.join(root, 'src/http/onclicka-postback-routes.js'), 'utf8');
 
 assert.match(migration, /systemKey":"squad_ads/);
 assert.match(migration, /advertisementTarget":10/);
 assert.match(migration, /advertisementContext":"squad/);
 assert.match(migration, /placement":"squad/);
+assert.doesNotMatch(migration, /"completion"/);
 assert.match(squadRoutes, /router\.get\('\/ads'/);
-assert.match(squadRoutes, /router\.post\('\/ads\/start'/);
-assert.match(squadRoutes, /context: 'squad'/);
-assert.match(squadRoutes, /metadata: \{ task_id: Number\(task\.id\) \}/);
-assert.match(squadFrontend, /\/api\/squad\/ads/);
-assert.doesNotMatch(squadFrontend, /verifiedAdTarget/);
+assert.doesNotMatch(squadRoutes, /router\.post\('\/ads\/start'/);
+assert.match(squadRoutes, /context='squad'/);
+assert.match(squadFrontend, /\/api\/tasks\/advertisement\/start/);
+assert.doesNotMatch(squadFrontend, /\/api\/squad\/ads\/start/);
+assert.match(squadFrontend, /requestVar: 'squad'/);
 assert.match(taskRoutes, /tasksList\.filter\(task => task\.systemKey !== 'squad_ads'\)/);
+assert.match(taskRoutes, /externalAdId: result\.adEvent\?\.external_ad_id/);
+assert.match(advertisementService, /config\.advertisementContext \|\| 'task'/);
+assert.match(advertisementService, /context IN \('task','squad'\)/);
+assert.match(advertisementService, /config\.systemKey.*squad_ads/);
+assert.match(monetagPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
+assert.match(onclickaPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
+assert.doesNotMatch(monetagPostback, /finalizeStandardAdvertisement/);
+assert.doesNotMatch(onclickaPostback, /finalizeStandardAdvertisement/);
 
 console.log('Squad Ads contract: PASS');
