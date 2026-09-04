@@ -76,6 +76,22 @@ app.get('/health/db', async (_req, res) => {
 
 const publicApiRateLimit = createRateLimit({ windowMs: 60_000, max: 300, key: req => `ip:${req.ip || 'unknown'}` });
 app.use('/api', publicApiRateLimit);
+
+app.get('/api/debug/ad-runtime', (_req, res) => {
+  if (process.env.AD_RUNTIME_DIAGNOSTICS !== 'true') return res.status(404).json({ ok: false, error: 'Not found' });
+  const providers = providerRegistry.listRegistered().map(id => {
+    const provider = providerRegistry.get(id);
+    return { id: provider.id, enabled: provider.enabled, contexts: [...provider.contexts] };
+  });
+  res.json({
+    ok: true,
+    assetVersion,
+    providers,
+    gamingAvailable: providerRegistry.listAvailable('gaming').map(provider => provider.id),
+    clientProviders: Object.keys(clientAdConfig().providers)
+  });
+});
+
 app.use('/api/me', meRoutes);
 app.use('/api/squad', squadRoutes);
 app.use('/api/conversion', conversionRoutes);
@@ -91,12 +107,15 @@ if (monetagPostbackSecret) app.use('/api/ads/monetag/postback', createMonetagPos
 app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));
 
 app.get('/', (_req, res) => {
+  const diagnosticsScript = process.env.AD_RUNTIME_DIAGNOSTICS === 'true'
+    ? `<script src="/ad-runtime-diagnostics.js?v=${assetVersion}"></script>`
+    : '';
   const html = indexHtml
     .replaceAll('__ASSET_VERSION__', assetVersion)
     .replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion))
     .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'))
     .replace('</head>', `<link rel="stylesheet" href="/premium-ui.css?v=${assetVersion}"></head>`)
-    .replace('</body>', `<script src="/premium-ui.js?v=${assetVersion}"></script></body>`);
+    .replace('</body>', `${diagnosticsScript}<script src="/premium-ui.js?v=${assetVersion}"></script></body>`);
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(html);
 });

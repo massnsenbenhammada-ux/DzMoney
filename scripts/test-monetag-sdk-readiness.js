@@ -9,6 +9,7 @@ const server = fs.readFileSync('server.js', 'utf8');
 if (!adapter.includes('ready')) throw new Error('Monetag adapter must expose readiness');
 if (!adapter.includes('sdkScriptLoad')) throw new Error('Monetag adapter must expose SDK script load diagnostics');
 if (!adapter.includes('runtimeEvidence')) throw new Error('Monetag adapter must expose runtime evidence');
+if (!adapter.includes('sdkScriptPresent ? waitForSdkReady() : Promise.resolve()')) throw new Error('Monetag readiness must stay lazy when the provider script is absent');
 if (!app.includes('adapter.ready')) throw new Error('Frontend must await adapter readiness');
 
 if (!index.includes('__MONETAG_SCRIPTS__')) throw new Error('Monetag scripts must be provider-gated');

@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 
 const gaming = fs.readFileSync('public/gaming.js', 'utf8');
+const server = fs.readFileSync('server.js', 'utf8');
 
 assert(gaming.includes('function formatGamingAdFailure(providerId, stage, error)'));
 assert(gaming.includes("const providerName = providerId || 'unknown';"));
@@ -19,4 +20,12 @@ assert(gaming.includes("stage = 'show';"));
 assert(gaming.includes("stage = 'complete';"));
 assert(gaming.includes('formatGamingAdFailure(providerId, stage, error)'));
 
-console.log('Gaming ad failure diagnostics contract: OK');
+assert(server.includes("app.get('/api/debug/ad-runtime'"), 'Runtime diagnostics endpoint must exist');
+assert(server.includes('AD_RUNTIME_DIAGNOSTICS'), 'Runtime diagnostics must be explicitly configurable');
+assert(server.includes("'true'"), 'Runtime diagnostics must use an explicit true value');
+assert(server.includes('providerRegistry.listRegistered()'), 'Diagnostics must use the canonical provider registry');
+assert(server.includes('provider.enabled'), 'Diagnostics must expose runtime provider enablement');
+assert(server.includes("providerRegistry.listAvailable('gaming')"), 'Diagnostics must report Gaming availability from the canonical registry');
+assert(server.includes('assetVersion'), 'Diagnostics must expose the running asset/runtime version');
+
+console.log('Gaming ad failure and runtime diagnostics contracts: OK');

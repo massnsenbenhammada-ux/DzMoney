@@ -141,9 +141,11 @@ function testGamingFrontendContract() {
   assert(monetagEntry.includes('show_11627577'));
   assert(onclickaLoader.includes('preloadOnclicka'));
   assert(onclickaLoader.includes('DOMContentLoaded'));
-  assert(!onclickaLoader.includes('setTimeout(preloadOnclicka, 0)'));
-  assert(onclickaLoader.includes('DzMoneyOnclicka?.prepare'));
+  assert(onclickaLoader.includes('loadOnclickaSdk().catch(() => {})'));
+  assert(!onclickaLoader.includes('DzMoneyOnclicka.prepare({ spotId: provider.spotId })'));
   assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
+  assert(onclickaEntry.includes('show result invalid; cache reset'));
+  assert(onclickaEntry.includes('initializedSpotId = null;'));
   assert(gigapubEntry.includes('providers?.gigapub'));
 
   const configMarker = '<script>window.__DzMoneyAdProviderConfig=__AD_PROVIDER_CONFIG__;</script>';

@@ -50,7 +50,9 @@ function callWithTimeout(handler, payload) {
   ]);
 }
 
-const sdkReady = waitForSdkReady();
+const sdkScriptPresent = typeof document !== 'undefined'
+  && document.querySelectorAll('script[data-sdk="show_11627577"]').length > 0;
+const sdkReady = sdkScriptPresent ? waitForSdkReady() : Promise.resolve();
 
 window.DzMoneyMonetag = {
   zoneId: MONETAG_ZONE_ID,
