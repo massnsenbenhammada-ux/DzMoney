@@ -42,7 +42,7 @@ assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousPro
 
 registry.get('onclicka').enabled = false;
 assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'gigapub' }).id, 'monetag');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'onclicka' }).id, 'monetag');
+assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'onclicka' }).id, 'gigapub');
 assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'monetag' }).id, 'gigapub');
 
 assert.throws(
