@@ -107,12 +107,15 @@ if (monetagPostbackSecret) app.use('/api/ads/monetag/postback', createMonetagPos
 app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));
 
 app.get('/', (_req, res) => {
+  const diagnosticsScript = process.env.AD_RUNTIME_DIAGNOSTICS === 'true'
+    ? `<script src="/ad-runtime-diagnostics.js?v=${assetVersion}"></script>`
+    : '';
   const html = indexHtml
     .replaceAll('__ASSET_VERSION__', assetVersion)
     .replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion))
     .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'))
     .replace('</head>', `<link rel="stylesheet" href="/premium-ui.css?v=${assetVersion}"></head>`)
-    .replace('</body>', `<script src="/premium-ui.js?v=${assetVersion}"></script></body>`);
+    .replace('</body>', `${diagnosticsScript}<script src="/premium-ui.js?v=${assetVersion}"></script></body>`);
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(html);
 });
