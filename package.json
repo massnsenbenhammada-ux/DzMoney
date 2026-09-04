@@ -60,7 +60,7 @@
     "test:task-verification-postback": "node ./scripts/test-task-verification-postback.js",
     "test:task-advertisement": "node ./scripts/test-task-advertisement-flow.js",
     "test:task-advertisement-concurrency": "node ./scripts/test-task-advertisement-flow-concurrency.js",
-    "test:task-advertisement-edge-hardening": "node ./scripts/test-task-advertisement-flow-edge-hardening.js",
+    "test:task-advertisement-edge-hardening": "node ./scripts/test-task-advertisement-edge-hardening.js",
     "test:task-advertisement-http": "node ./scripts/test-task-advertisement-http-boundary.js",
     "test:task-advertisement-trusted-ingress": "node ./scripts/test-task-advertisement-trusted-ingress.js",
     "test:creator-campaign-contract": "node ./scripts/test-creator-campaign-contract.js",
