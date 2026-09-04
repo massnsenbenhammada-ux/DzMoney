@@ -9,7 +9,6 @@ const providerRegistry = require('../services/ad-provider-registry-runtime');
 
 const router = express.Router();
 const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
-
 router.use(telegramAuth);
 
 async function currentUserId(req) {
@@ -20,18 +19,7 @@ async function currentUserId(req) {
 router.get('/', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req);
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
-
-  const membership = await query(`
-    SELECT s.id AS squad_id, s.owner_user_id,
-           COUNT(sm2.id) FILTER (WHERE sm2.status <> 'cancelled') AS member_count,
-           sm.status AS membership_status
-    FROM squad_memberships sm
-    JOIN squads s ON s.id = sm.squad_id
-    LEFT JOIN squad_memberships sm2 ON sm2.squad_id = s.id
-    WHERE sm.user_id = $1 AND sm.status <> 'cancelled'
-    GROUP BY s.id, s.owner_user_id, sm.status
-  `, [userId]);
-
+  const membership = await query(`SELECT s.id AS squad_id, s.owner_user_id, COUNT(sm2.id) FILTER (WHERE sm2.status <> 'cancelled') AS member_count, sm.status AS membership_status FROM squad_memberships sm JOIN squads s ON s.id = sm.squad_id LEFT JOIN squad_memberships sm2 ON sm2.squad_id = s.id WHERE sm.user_id = $1 AND sm.status <> 'cancelled' GROUP BY s.id, s.owner_user_id, sm.status`, [userId]);
   if (!membership.rows[0]) return res.json({ ok: true, squad: null });
   const row = membership.rows[0];
   res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount: Number(row.member_count), membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId) } });
@@ -51,14 +39,19 @@ router.post('/ads/start', asyncRoute(async (req, res) => {
   if (!idempotencyKey) return res.status(400).json({ ok: false, error: 'idempotencyKey is required' });
   const membership = await query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status IN ('active','pending') LIMIT 1", [userId]);
   if (!membership.rowCount) return res.status(409).json({ ok: false, error: 'Active Squad membership is required' });
-  const result = await withTransaction(client => startRotatedAdvertisementEventOnClient(client, {
-    userId,
-    context: 'squad',
-    idempotencyKey,
-    metadata: { squad_ad: true },
-    providerRegistry
-  }));
-  res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, adEventId: String(result.adEvent.id), providerId: result.providerId });
+  const result = await withTransaction(client => startRotatedAdvertisementEventOnClient(client, { userId, context: 'squad', idempotencyKey, metadata: { squad_ad: true }, providerRegistry }));
+  res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, adEventId: String(result.adEvent.id), externalAdId: String(result.adEvent.external_ad_id), providerId: result.providerId });
+}));
+
+router.get('/ads/status', asyncRoute(async (req, res) => {
+  const userId = await currentUserId(req);
+  if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
+  const adEventId = Number(req.query.adEventId);
+  if (!Number.isInteger(adEventId) || adEventId <= 0) return res.status(400).json({ ok: false, error: 'Invalid adEventId' });
+  const result = await query('SELECT id,verified,completed_at,metadata FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context=$3', [adEventId, userId, 'squad']);
+  if (!result.rowCount) return res.status(404).json({ ok: false, error: 'Squad advertisement event not found' });
+  const event = result.rows[0];
+  res.json({ ok: true, adEventId: String(event.id), verified: event.verified === true, completedAt: event.completed_at, rewarded: Boolean(event.metadata?.reward_transaction_id) });
 }));
 
 router.get('/membership-tiers', asyncRoute(async (req, res) => {
