@@ -26,15 +26,12 @@ const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMI
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 function clientAdConfig() {
-  const contexts = ['task', 'gaming', 'daily_checkin', 'verification'];
+  const contexts = ['task', 'gaming', 'daily_checkin', 'verification', 'squad'];
   const providers = Object.fromEntries(providerRegistry.listRegistered().map(id => {
     const provider = providerRegistry.get(id);
     return provider.enabled ? [id, { id: provider.id, ...(provider.clientConfig || {}) }] : null;
   }).filter(Boolean));
-  return {
-    providers,
-    ...Object.fromEntries(contexts.map(context => [context, providerRegistry.listAvailable(context).map(provider => providers[provider.id]).filter(Boolean)]))
-  };
+  return { providers, ...Object.fromEntries(contexts.map(context => [context, providerRegistry.listAvailable(context).map(provider => providers[provider.id]).filter(Boolean)])) };
 }
 
 function monetagScriptsForClient() {
@@ -54,24 +51,15 @@ app.use((req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '64kb' }));
-app.use(express.static(publicDir, {
-  index: false,
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) { res.setHeader('Cache-Control', 'no-store'); return; }
-    if (/\.(js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-  }
-}));
+app.use(express.static(publicDir, { index: false, setHeaders: (res, filePath) => {
+  if (filePath.endsWith('.html')) { res.setHeader('Cache-Control', 'no-store'); return; }
+  if (/\.(js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+} }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'DzMoney', version: '2.0.0' }));
-
 app.get('/health/db', async (_req, res) => {
-  try {
-    const result = await query('SELECT 1 AS ok');
-    res.json({ ok: result.rows[0].ok === 1, database: 'connected' });
-  } catch (error) {
-    console.error('Database health check failed:', error);
-    res.status(503).json({ ok: false, database: 'disconnected' });
-  }
+  try { const result = await query('SELECT 1 AS ok'); res.json({ ok: result.rows[0].ok === 1, database: 'connected' }); }
+  catch (error) { console.error('Database health check failed:', error); res.status(503).json({ ok: false, database: 'disconnected' }); }
 });
 
 const publicApiRateLimit = createRateLimit({ windowMs: 60_000, max: 300, key: req => `ip:${req.ip || 'unknown'}` });
@@ -91,12 +79,7 @@ if (monetagPostbackSecret) app.use('/api/ads/monetag/postback', createMonetagPos
 app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));
 
 app.get('/', (_req, res) => {
-  const html = indexHtml
-    .replaceAll('__ASSET_VERSION__', assetVersion)
-    .replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion))
-    .replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c'))
-    .replace('</head>', `<link rel="stylesheet" href="/premium-ui.css?v=${assetVersion}"></head>`)
-    .replace('</body>', `<script src="/premium-ui.js?v=${assetVersion}"></script></body>`);
+  const html = indexHtml.replaceAll('__ASSET_VERSION__', assetVersion).replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion)).replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c')).replace('</head>', `<link rel="stylesheet" href="/premium-ui.css?v=${assetVersion}"></head>`).replace('</body>', `<script src="/premium-ui.js?v=${assetVersion}"></script></body>`);
   res.setHeader('Cache-Control', 'no-store');
   res.type('html').send(html);
 });
