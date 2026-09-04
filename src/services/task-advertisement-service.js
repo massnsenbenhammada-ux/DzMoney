@@ -28,12 +28,12 @@ function getAdvertisementContext(task) {
 async function enforceSquadAdvertisementStart(client, { userId, task }) {
   if (getAdvertisementContext(task) !== 'squad') return;
   const membership = await client.query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status IN ('active','inactive') LIMIT 1", [userId]);
-  if (!membership.rowCount) throw new Error('Valid Squad membership is required');
+  if (!membership.rowCount) { const error = new Error('Valid Squad membership is required'); error.statusCode = 409; throw error; }
   const target = Number(task.config?.advertisementTarget);
   if (!Number.isInteger(target) || target <= 0) throw new Error('Invalid Squad Ads target');
   const dateFilter = task.config?.dailyMode === 'advertisement' ? " AND (completed_at + INTERVAL '1 hour')::date=(NOW() + INTERVAL '1 hour')::date" : '';
   const completed = await client.query(`SELECT COUNT(*)::int AS count FROM activity_ad_events WHERE user_id=$1 AND context='squad' AND verified=TRUE AND metadata->>'task_id'=$2${dateFilter}`, [userId, String(task.id)]);
-  if (Number(completed.rows[0]?.count || 0) >= target) throw new Error('Squad Ads target completed');
+  if (Number(completed.rows[0]?.count || 0) >= target) { const error = new Error('Squad Ads target completed'); error.statusCode = 409; throw error; }
 }
 async function startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry }) {
   requiredId(userId, 'userId'); requiredId(idempotencyKey, 'idempotencyKey');
