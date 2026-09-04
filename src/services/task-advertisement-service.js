@@ -25,13 +25,27 @@ function getAdvertisementContext(task) {
   if (!ADVERTISEMENT_CONTEXTS.has(context)) throw new Error('Unsupported task advertisement context');
   return context;
 }
+async function enforceSquadAdvertisementStart(client, { userId, task }) {
+  if (getAdvertisementContext(task) !== 'squad') return;
+  const membership = await client.query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status IN ('active','inactive') LIMIT 1", [userId]);
+  if (!membership.rowCount) throw new Error('Valid Squad membership is required');
+  const target = Number(task.config?.advertisementTarget);
+  if (!Number.isInteger(target) || target <= 0) throw new Error('Invalid Squad Ads target');
+  const dateFilter = task.config?.dailyMode === 'advertisement' ? " AND (completed_at + INTERVAL '1 hour')::date=(NOW() + INTERVAL '1 hour')::date" : '';
+  const completed = await client.query(`SELECT COUNT(*)::int AS count FROM activity_ad_events WHERE user_id=$1 AND context='squad' AND verified=TRUE AND metadata->>'task_id'=$2${dateFilter}`, [userId, String(task.id)]);
+  if (Number(completed.rows[0]?.count || 0) >= target) throw new Error('Squad Ads target completed');
+}
 async function startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry }) {
   requiredId(userId, 'userId'); requiredId(idempotencyKey, 'idempotencyKey');
   const task = await getActiveTask(taskId);
   const context = getAdvertisementContext(task);
   const existing = await getExistingAdvertisement({ userId, idempotencyKey, taskId, context });
   if (existing) return { adEvent: existing, providerId: existing.metadata?.provider_id, duplicate: true };
-  return withTransaction(client => startRotatedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId }, providerRegistry }));
+  return withTransaction(async client => {
+    if (context === 'squad') await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:squad-ads:${userId}:${taskId}`]);
+    await enforceSquadAdvertisementStart(client, { userId, task });
+    return startRotatedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId }, providerRegistry });
+  });
 }
 function validateServerVerification(verification, providerId, context = 'task') {
   if (!verification || verification.verified !== true) throw new Error('Advertisement provider verification failed');
@@ -73,7 +87,7 @@ async function getAdvertisementProgress(client, event) {
 async function finalizeTaskAdvertisement({ userId, adEventId }) {
   requiredId(userId, 'userId'); requiredId(adEventId, 'adEventId');
   return withTransaction(async client => {
-    const result = await client.query('SELECT * FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context IN (\'task\',\'squad\') FOR UPDATE', [adEventId, userId]);
+    const result = await client.query("SELECT * FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context IN ('task','squad') FOR UPDATE", [adEventId, userId]);
     if (!result.rowCount) throw new Error('Task advertisement event not found');
     const event = result.rows[0];
     if (!event.verified) throw new Error('Task advertisement must be verified first');
@@ -86,7 +100,7 @@ async function finalizeTaskAdvertisement({ userId, adEventId }) {
     const reward = { coin: progress ? 1000 : (values['activity.default_reward_coin'] ?? 1000), dzx: progress ? 1 : (values['activity.default_reward_dzx'] ?? 1), dzp: progress ? 1 : (values['activity.default_reward_dzp'] ?? 1) };
     const transaction = await creditActivityRewardOnClient(client, { idempotencyKey: rewardIdempotencyKey, userId, source: 'advertisement', activityContext: event.context, ...reward, modifiers: [], qualifyingVerifiedActivity: true });
     if (!transaction.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: userId, source: 'advertisement', sourceReferenceId: event.id, idempotencyKey: `referral-lifetime:advertisement:${event.id}`, baseReward: { coin: values['activity.default_reward_coin'] ?? 1000, dzx: values['activity.default_reward_dzx'] ?? 1 } });
-    await activateOnVerifiedActivity(client, userId);
+    if (event.context === 'task') await activateOnVerifiedActivity(client, userId);
     await client.query("UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1", [event.id, JSON.stringify({ reward_transaction_id: transaction.transaction.id, reward_idempotency_key: rewardIdempotencyKey, reward_coin: reward.coin, reward_dzx: reward.dzx, reward_dzp: reward.dzp })]);
     return { duplicate: transaction.duplicate, rewarded: true, rewardIdempotencyKey, reward, transaction: transaction.transaction, progress: progress ? { ...progress, rewarded: true } : undefined };
   });
