@@ -18,5 +18,9 @@ assert(diagnostics.includes('showGiga called'), 'Diagnostics must trace GigaPub 
 assert(diagnostics.includes('showGiga resolved'), 'Diagnostics must trace GigaPub resolution');
 assert(diagnostics.includes('showGiga rejected'), 'Diagnostics must trace GigaPub rejection');
 assert(diagnostics.includes('relevant resources'), 'Diagnostics must expose relevant runtime resources');
+assert(diagnostics.includes('showGiga after 500ms'), 'Diagnostics must capture post-show DOM state');
+assert(diagnostics.includes('showGiga after 2s'), 'Diagnostics must capture delayed post-show DOM state');
+assert(diagnostics.includes('iframes'), 'Diagnostics must expose iframe state');
+assert(diagnostics.includes('overlays'), 'Diagnostics must expose overlay state');
 
 console.log('Gaming ad runtime UI diagnostics contract: PASS');
