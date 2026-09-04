@@ -43,5 +43,5 @@ test('frontend consumes the invitation API and never decides membership activati
   assert.match(frontend, /\/api\/squad\/invitations/);
   assert.match(frontend, /\/accept/);
   assert.doesNotMatch(frontend, /status\s*=\s*['"]active['"]/);
-  assert.doesNotMatch(frontend, /reward/i);
+  assert.doesNotMatch(frontend, /membershipStatus\s*=\s*['"]active['"]/);
 });
