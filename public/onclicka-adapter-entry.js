@@ -17,21 +17,24 @@ function loadOnclickaSdkFallback() {
   if (typeof window.initCdTma === 'function') return Promise.resolve();
   if (sdkLoadPromise) return sdkLoadPromise;
   const existing = document.querySelector(`script[src="${ONCLICKA_SDK_SRC}"]`);
-  if (existing) {
-    sdkLoadPromise = withTimeout(new Promise((resolve, reject) => {
+  const promise = new Promise((resolve, reject) => {
+    const fail = message => reject(new Error(message));
+    if (existing) {
       existing.addEventListener('load', resolve, { once: true });
-      existing.addEventListener('error', () => reject(new Error('OnClickA TMA SDK script failed to load')), { once: true });
-    }), 'OnClickA TMA SDK load timed out');
-    return sdkLoadPromise;
-  }
-  sdkLoadPromise = withTimeout(new Promise((resolve, reject) => {
+      existing.addEventListener('error', () => fail('OnClickA TMA SDK script failed to load'), { once: true });
+      return;
+    }
     const script = document.createElement('script');
     script.src = ONCLICKA_SDK_SRC;
     script.async = true;
     script.onload = resolve;
-    script.onerror = () => reject(new Error('OnClickA TMA SDK script failed to load'));
+    script.onerror = () => fail('OnClickA TMA SDK script failed to load');
     document.head.appendChild(script);
-  }), 'OnClickA TMA SDK load timed out');
+  });
+  sdkLoadPromise = withTimeout(promise, 'OnClickA TMA SDK load timed out').catch(error => {
+    sdkLoadPromise = null;
+    throw error;
+  });
   return sdkLoadPromise;
 }
 
@@ -57,7 +60,11 @@ async function ensureOnclickaReady(spotId) {
   showPromise = withTimeout(
     Promise.resolve().then(() => window.initCdTma({ id: Number(spotId) })),
     'OnClickA initialization timed out'
-  );
+  ).catch(error => {
+    initializedSpotId = null;
+    showPromise = null;
+    throw error;
+  });
   return showPromise;
 }
 
