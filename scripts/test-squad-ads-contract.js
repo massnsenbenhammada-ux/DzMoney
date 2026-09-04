@@ -21,7 +21,7 @@ assert.doesNotMatch(squadRoutes, /router\.post\('\/ads\/start'/);
 assert.match(squadRoutes, /context='squad'/);
 assert.match(squadFrontend, /\/api\/tasks\/advertisement\/start/);
 assert.doesNotMatch(squadFrontend, /\/api\/squad\/ads\/start/);
-assert.match(squadFrontend, /requestVar: 'squad'/);
+assert.match(squadFrontend, /requestVar: ['"]squad['"]/);
 assert.match(taskRoutes, /tasksList\.filter\(task => task\.systemKey !== 'squad_ads'\)/);
 assert.match(taskRoutes, /externalAdId: result\.adEvent\?\.external_ad_id/);
 assert.match(advertisementService, /config\.advertisementContext \|\| 'task'/);
