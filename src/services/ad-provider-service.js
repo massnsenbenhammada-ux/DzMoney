@@ -1,4 +1,5 @@
 const AD_PROVIDER_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification'];
+const GAMING_PROVIDER_ORDER = ['gigapub', 'monetag', 'onclicka'];
 
 class ProviderUnavailableError extends Error {
   constructor(message) {
@@ -65,12 +66,12 @@ function selectNextProvider(registry, { context, previousProviderId = null }) {
   if (!registry || typeof registry.listAvailable !== 'function' || typeof registry.listRegistered !== 'function') throw new Error('Advertisement provider registry is required');
   const available = registry.listAvailable(context);
   if (!available.length) throw new Error(`No advertisement provider available for ${context}`);
-  if (!previousProviderId) return available[0];
-  const registered = registry.listRegistered();
-  const previousIndex = registered.indexOf(previousProviderId);
+  const order = context === 'gaming' ? GAMING_PROVIDER_ORDER : registry.listRegistered();
+  if (!previousProviderId) return order.map(id => available.find(provider => provider.id === id)).find(Boolean) || available[0];
+  const previousIndex = order.indexOf(previousProviderId);
   if (previousIndex < 0) throw new Error(`Unknown previous advertisement provider: ${previousProviderId}`);
-  for (let offset = 1; offset <= registered.length; offset += 1) {
-    const providerId = registered[(previousIndex + offset) % registered.length];
+  for (let offset = 1; offset <= order.length; offset += 1) {
+    const providerId = order[(previousIndex + offset) % order.length];
     const provider = available.find(candidate => candidate.id === providerId);
     if (provider) return provider;
   }
@@ -116,6 +117,7 @@ async function verifyWithProvider(registry, { context, providerId, payload, time
 
 module.exports = {
   AD_PROVIDER_CONTEXTS,
+  GAMING_PROVIDER_ORDER,
   AdProviderRegistry,
   ProviderUnavailableError,
   selectNextProvider,
