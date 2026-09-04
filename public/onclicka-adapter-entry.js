@@ -83,17 +83,17 @@ async function ensureOnclickaReady(spotId) {
 
 window.DzMoneyOnclicka = {
   provider: ONCLICKA_PROVIDER,
-  prepare: ({ spotId } = {}) => {
-    traceOnclicka('prepare called', String(spotId || 'missing'));
-    const result = ensureOnclickaReady(spotId);
-    result.then(value => traceOnclicka('prepare resolved', typeof value), error => traceOnclicka('prepare rejected', error?.message || error));
-    return result;
-  },
+  prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId),
   show: async ({ spotId } = {}) => {
     traceOnclicka('show called', String(spotId || 'missing'));
     const show = await ensureOnclickaReady(spotId);
     traceOnclicka('show received result', typeof show);
-    if (typeof show !== 'function') throw new Error('OnClickA show method is unavailable after initialization');
+    if (typeof show !== 'function') {
+      initializedSpotId = null;
+      showPromise = null;
+      traceOnclicka('show result invalid; cache reset', typeof show);
+      throw new Error('OnClickA show method is unavailable after initialization');
+    }
     return withTimeout(
       Promise.resolve().then(() => show()),
       'OnClickA advertisement display timed out'
