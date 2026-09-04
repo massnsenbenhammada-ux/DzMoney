@@ -7,6 +7,10 @@
   let fallbackTimer;
   let fallbackStarted = false;
   let settled = false;
+  const withTimeout = (promise, message) => Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), 15000))
+  ]);
   const loaded = new Promise((resolve, reject) => {
     const finish = callback => value => {
       if (settled) return;
@@ -42,7 +46,7 @@
       if (!payload?.adEventId) throw new Error('GigaPub ad event is required');
       await loaded;
       if (typeof window.showGiga !== 'function') throw new Error('GigaPub showGiga is unavailable');
-      await window.showGiga();
+      await withTimeout(Promise.resolve().then(() => window.showGiga()), 'GigaPub advertisement display timed out');
       const headers = { 'Content-Type': 'application/json' };
       if (tg?.initData) headers['X-Telegram-Init-Data'] = tg.initData;
       const response = await fetch('/api/gaming/ads/complete', {
