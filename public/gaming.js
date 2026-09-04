@@ -22,7 +22,7 @@
   };
   const toast = message => { if (typeof window.showToast === 'function') window.showToast(message); else console.info(message); };
   const setAll = (selector, value) => root.querySelectorAll(selector).forEach(el => { el.textContent = value; });
-  const formatGamingAdFailure = (providerId, stage, error) => {
+  function formatGamingAdFailure(providerId, stage, error) {
     const providerName = providerId || 'unknown';
     const detail = error?.message ? ` (${error.message})` : '';
     if (stage === 'start') return `${providerName}: could not start the ad session${detail}`;
@@ -30,7 +30,7 @@
     if (stage === 'show') return `${providerName}: the advertisement could not be displayed${detail}`;
     if (stage === 'complete') return `${providerName}: the advertisement was shown, but completion could not be confirmed${detail}`;
     return `${providerName}: the advertisement failed${detail}`;
-  };
+  }
 
   const wheelResults = ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'none'];
   const wheelLabels = { coin_100:'100 COIN', coin_1000:'1K COIN', dzx_1:'1 DZX', dzx_10:'10 DZX', dzp_1:'1 DZP', dzp_10:'10 DZP', extra_spin:'+1 SPIN', none:'NO REWARD' };
