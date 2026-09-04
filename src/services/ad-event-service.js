@@ -2,7 +2,7 @@ const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { selectNextProvider } = require('./ad-provider-service');
 
-const AD_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification'];
+const AD_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification', 'squad'];
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
