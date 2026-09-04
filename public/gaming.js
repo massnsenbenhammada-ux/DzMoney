@@ -22,6 +22,15 @@
   };
   const toast = message => { if (typeof window.showToast === 'function') window.showToast(message); else console.info(message); };
   const setAll = (selector, value) => root.querySelectorAll(selector).forEach(el => { el.textContent = value; });
+  function formatGamingAdFailure(providerId, stage, error) {
+    const providerName = providerId || 'unknown';
+    const detail = error?.message ? ` (${error.message})` : '';
+    if (stage === 'start') return `${providerName}: could not start the ad session${detail}`;
+    if (stage === 'ready') return `${providerName}: the ad SDK is not ready${detail}`;
+    if (stage === 'show') return `${providerName}: the advertisement could not be displayed${detail}`;
+    if (stage === 'complete') return `${providerName}: the advertisement was shown, but completion could not be confirmed${detail}`;
+    return `${providerName}: the advertisement failed${detail}`;
+  }
 
   const wheelResults = ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'none'];
   const wheelLabels = { coin_100:'100 COIN', coin_1000:'1K COIN', dzx_1:'1 DZX', dzx_10:'10 DZX', dzp_1:'1 DZP', dzp_10:'10 DZP', extra_spin:'+1 SPIN', none:'NO REWARD' };
@@ -195,19 +204,25 @@
     }
     const button = root.querySelector(`[data-gaming-ad="${game}"]`);
     const originalLabel = button?.textContent || 'WATCH AD';
+    let providerId = null;
+    let stage = 'start';
     setBusy(true);
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
       const response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
-      const adapter = window.DzMoneyAdClient.getProvider(response.providerId);
-      if (!adapter?.ready || typeof adapter.handler !== 'function') throw new Error(`The selected advertisement provider (${response.providerId}) is not ready`);
+      providerId = response.providerId;
+      const adapter = window.DzMoneyAdClient.getProvider(providerId);
+      stage = 'ready';
+      if (!adapter?.ready || typeof adapter.handler !== 'function') throw new Error('provider adapter is unavailable');
       await adapter.ready;
+      stage = 'show';
       const completion = await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId });
+      stage = 'complete';
       if (button) button.textContent = 'CREDITING…';
       await load();
       toast(completion.duplicate ? 'Ad already credited.' : 'Ad watched — reward credited.');
     } catch (error) {
-      toast(`Gaming Ad failed: ${error.message || 'Unable to load the advertisement.'}`);
+      toast(`Gaming Ad failed — ${formatGamingAdFailure(providerId, stage, error)}`);
     } finally {
       setBusy(false);
       if (button) { button.textContent = originalLabel; button.removeAttribute('aria-busy'); }
