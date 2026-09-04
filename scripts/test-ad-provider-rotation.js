@@ -36,9 +36,9 @@ assert.deepStrictEqual(
 );
 
 assert.strictEqual(selectNextProvider(registry, { context: 'gaming' }).id, 'gigapub');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'gigapub' }).id, 'onclicka');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'onclicka' }).id, 'monetag');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'monetag' }).id, 'gigapub');
+assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'gigapub' }).id, 'monetag');
+assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'monetag' }).id, 'onclicka');
+assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'onclicka' }).id, 'gigapub');
 
 registry.get('onclicka').enabled = false;
 assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'gigapub' }).id, 'monetag');
@@ -90,6 +90,7 @@ function fakeClient() {
 }
 
 (async () => {
+  registry.get('onclicka').enabled = true;
   const client = fakeClient();
   const first = await startRotatedAdvertisementEventOnClient(client, {
     userId: 1,
@@ -120,7 +121,6 @@ function fakeClient() {
   assert.strictEqual(duplicate.duplicate, true);
   assert.strictEqual(client.events.length, 2);
 
-  registry.get('onclicka').enabled = true;
   const second = await startRotatedAdvertisementEventOnClient(client, {
     userId: 1,
     context: 'gaming',
@@ -128,7 +128,7 @@ function fakeClient() {
     metadata: { game: 'digging' },
     providerRegistry: registry
   });
-  assert.strictEqual(second.providerId, 'onclicka');
+  assert.strictEqual(second.providerId, 'monetag');
 
   const third = await startRotatedAdvertisementEventOnClient(client, {
     userId: 1,
@@ -137,7 +137,7 @@ function fakeClient() {
     metadata: { game: 'spin' },
     providerRegistry: registry
   });
-  assert.strictEqual(third.providerId, 'monetag');
+  assert.strictEqual(third.providerId, 'onclicka');
 
   const fourth = await startRotatedAdvertisementEventOnClient(client, {
     userId: 1,
