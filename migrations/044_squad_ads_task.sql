@@ -10,10 +10,10 @@ SELECT
   'Watch verified advertisements to complete the Squad Ads target.',
   (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_coin'),
   (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzx'),
-  (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzp'),
+  (SELECT (value #>> '{}')::numeric FROM admin_settings WHERE key = 'activity.default_reward_dzx'),
   (SELECT (value #>> '{}')::integer FROM admin_settings WHERE key = 'activity.verification_ad_seconds'),
   'active',
-  '{"systemKey":"squad_ads","advertisementTarget":10,"advertisementContext":"squad","placement":"squad","dailyMode":"advertisement","completion":{"mode":"server_verified"}}'::jsonb
+  '{"systemKey":"squad_ads","advertisementTarget":10,"advertisementContext":"squad","placement":"squad","dailyMode":"advertisement"}'::jsonb
 WHERE NOT EXISTS (
   SELECT 1 FROM activity_tasks WHERE config->>'systemKey' = 'squad_ads'
 );
