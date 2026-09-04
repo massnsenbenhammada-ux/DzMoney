@@ -1,5 +1,5 @@
 const ONCLICKA_SPOT_ID = String(process.env.ONCLICKA_SPOT_ID || '6134799');
 const ONCLICKA_ENABLED = process.env.ONCLICKA_ENABLED === 'true';
-const ONCLICKA_CONTEXTS = ['task', 'daily_checkin', 'verification', 'gaming'];
+const ONCLICKA_CONTEXTS = ['task', 'daily_checkin', 'verification', 'gaming', 'squad'];
 
 module.exports = { ONCLICKA_SPOT_ID, ONCLICKA_ENABLED, ONCLICKA_CONTEXTS };
