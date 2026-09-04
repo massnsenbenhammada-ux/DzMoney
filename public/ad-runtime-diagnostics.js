@@ -22,13 +22,21 @@
     };
   };
 
+  const runtimeSnapshot = () => ({
+    scripts: [...document.scripts].map(script => script.src).filter(Boolean),
+    iframes: [...document.querySelectorAll('iframe')].map(frame => frame.src || frame.getAttribute('src') || 'about:blank'),
+    embeds: [...document.querySelectorAll('embed, object')].map(node => node.src || node.data || ''),
+    gigapubHandler: typeof window.showGiga,
+    gigapubHandlerSource: typeof window.showGiga === 'function' ? String(window.showGiga).slice(0, 300) : 'missing'
+  });
+
   const panel = document.createElement('details');
   panel.open = true;
   panel.style.cssText = 'margin:12px 0;padding:10px;border:1px dashed currentColor;border-radius:10px;font:12px/1.5 monospace;opacity:.9';
   panel.innerHTML = '<summary style="cursor:pointer;font-weight:700">AD RUNTIME DIAGNOSTICS</summary><div data-ad-runtime-state>Loading…</div>';
   root.prepend(panel);
 
-  const render = (serverState, clientState, lastEvent = '') => {
+  const render = (serverState, clientState, lastEvent = '', trace = '') => {
     const el = panel.querySelector('[data-ad-runtime-state]');
     if (!el) return;
     el.innerHTML = [
@@ -42,11 +50,13 @@
       status('Monetag SDK script', clientState.monetagSdkScript),
       status('GigaPub adapter', clientState.gigapubAdapter),
       status('GigaPub handler', clientState.gigapubHandler),
-      status('last event', lastEvent || 'none')
+      status('last event', lastEvent || 'none'),
+      status('GigaPub trace', trace || 'none')
     ].join('');
   };
 
   let serverState = null;
+  let traceState = '';
   const refresh = async event => {
     try {
       const response = await fetch('/api/debug/ad-runtime', { cache: 'no-store' });
@@ -54,7 +64,33 @@
     } catch (error) {
       serverState = { error: error.message };
     }
-    render(serverState, readClientState(), event);
+    render(serverState, readClientState(), event, traceState);
+  };
+
+  const capture = label => {
+    const snapshot = runtimeSnapshot();
+    const interesting = [...snapshot.scripts, ...snapshot.iframes, ...snapshot.embeds].filter(value => /gigapub|monetag|libtl|onclck|flerapr/i.test(value));
+    traceState = `${label}; relevant resources: ${interesting.join(' | ') || 'none'}; showGiga: ${snapshot.gigapubHandler}`;
+    refresh(`trace: ${label}`);
+  };
+
+  let wrappedShowGiga = false;
+  const wrapShowGiga = () => {
+    if (wrappedShowGiga || typeof window.showGiga !== 'function') return;
+    const original = window.showGiga;
+    window.showGiga = function (...args) {
+      capture('showGiga called');
+      const result = original.apply(this, args);
+      return Promise.resolve(result).then(value => {
+        capture('showGiga resolved');
+        return value;
+      }, error => {
+        capture(`showGiga rejected: ${error?.message || error}`);
+        throw error;
+      });
+    };
+    wrappedShowGiga = true;
+    capture('showGiga wrapped');
   };
 
   const originalGetProvider = window.DzMoneyAdClient?.getProvider;
@@ -66,5 +102,10 @@
     };
   }
 
+  wrapShowGiga();
+  const wrapTimer = setInterval(() => {
+    wrapShowGiga();
+    if (wrappedShowGiga) clearInterval(wrapTimer);
+  }, 250);
   refresh('diagnostics initialized');
 })();
