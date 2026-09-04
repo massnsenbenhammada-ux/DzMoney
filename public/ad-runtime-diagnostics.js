@@ -26,6 +26,10 @@
     scripts: [...document.scripts].map(script => script.src).filter(Boolean),
     iframes: [...document.querySelectorAll('iframe')].map(frame => frame.src || frame.getAttribute('src') || 'about:blank'),
     embeds: [...document.querySelectorAll('embed, object')].map(node => node.src || node.data || ''),
+    overlays: [...document.querySelectorAll('body *')].filter(node => {
+      const style = window.getComputedStyle(node);
+      return style.position === 'fixed' || style.position === 'absolute';
+    }).slice(-20).map(node => `${node.tagName}.${node.className || ''}`),
     gigapubHandler: typeof window.showGiga,
     gigapubHandlerSource: typeof window.showGiga === 'function' ? String(window.showGiga).slice(0, 300) : 'missing'
   });
@@ -67,11 +71,21 @@
     render(serverState, readClientState(), event, traceState);
   };
 
+  const describeResources = snapshot => {
+    const resources = [...snapshot.scripts, ...snapshot.iframes, ...snapshot.embeds];
+    const relevant = resources.filter(value => /gigapub|monetag|libtl|onclck|flerapr/i.test(value));
+    return relevant.join(' | ') || 'none';
+  };
+
   const capture = label => {
     const snapshot = runtimeSnapshot();
-    const interesting = [...snapshot.scripts, ...snapshot.iframes, ...snapshot.embeds].filter(value => /gigapub|monetag|libtl|onclck|flerapr/i.test(value));
-    traceState = `${label}; relevant resources: ${interesting.join(' | ') || 'none'}; showGiga: ${snapshot.gigapubHandler}`;
+    traceState = `${label}; relevant resources: ${describeResources(snapshot)}; iframes: ${snapshot.iframes.join(' | ') || 'none'}; overlays: ${snapshot.overlays.join(' | ') || 'none'}; showGiga: ${snapshot.gigapubHandler}`;
     refresh(`trace: ${label}`);
+  };
+
+  const captureLifecycle = () => {
+    capture('showGiga after 500ms');
+    setTimeout(() => capture('showGiga after 2s'), 1500);
   };
 
   let wrappedShowGiga = false;
@@ -81,6 +95,7 @@
     window.showGiga = function (...args) {
       capture('showGiga called');
       const result = original.apply(this, args);
+      captureLifecycle();
       return Promise.resolve(result).then(value => {
         capture('showGiga resolved');
         return value;
