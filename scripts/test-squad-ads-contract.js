@@ -26,7 +26,7 @@ assert.match(taskRoutes, /tasksList\.filter\(task => task\.systemKey !== 'squad_
 assert.match(taskRoutes, /externalAdId: result\.adEvent\?\.external_ad_id/);
 assert.match(advertisementService, /config\.advertisementContext \|\| 'task'/);
 assert.match(advertisementService, /context IN \('task','squad'\)/);
-assert.match(advertisementService, /config\.systemKey.*squad_ads/);
+assert.match(advertisementService, /squad_ads.*config\.systemKey/);
 assert.match(monetagPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
 assert.match(onclickaPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
 assert.doesNotMatch(monetagPostback, /finalizeStandardAdvertisement/);
