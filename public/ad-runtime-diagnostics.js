@@ -44,7 +44,8 @@
   panel.innerHTML = '<summary style="cursor:pointer;font-weight:700">AD RUNTIME DIAGNOSTICS</summary><div data-ad-runtime-state>Loading…</div>';
   root.prepend(panel);
 
-  const render = (serverState, clientState, lastEvent = '', trace = '') => {
+  const traceState = { gigapub: '', onclicka: '' };
+  const render = (serverState, clientState, lastEvent = '') => {
     const el = panel.querySelector('[data-ad-runtime-state]');
     if (!el) return;
     el.innerHTML = [
@@ -62,13 +63,12 @@
       status('GigaPub adapter', clientState.gigapubAdapter),
       status('GigaPub handler', clientState.gigapubHandler),
       status('last event', lastEvent || 'none'),
-      status('GigaPub trace', trace || 'none'),
+      status('GigaPub trace', traceState.gigapub || 'none'),
       status('OnClickA trace', traceState.onclicka || 'none')
     ].join('');
   };
 
   let serverState = null;
-  const traceState = { gigapub: '', onclicka: '' };
   const refresh = async event => {
     try {
       const response = await fetch('/api/debug/ad-runtime', { cache: 'no-store' });
@@ -76,7 +76,7 @@
     } catch (error) {
       serverState = { error: error.message };
     }
-    render(serverState, readClientState(), event, traceState.gigapub);
+    render(serverState, readClientState(), event);
   };
 
   const describeResources = snapshot => {
@@ -87,9 +87,8 @@
 
   const capture = (provider, label) => {
     const snapshot = runtimeSnapshot();
-    const value = `${label}; relevant resources: ${describeResources(snapshot)}; iframes: ${snapshot.iframes.join(' | ') || 'none'}; overlays: ${snapshot.overlays.join(' | ') || 'none'}`;
-    traceState[provider] = value;
-    refresh(`trace: ${value}`);
+    traceState[provider] = `${label}; relevant resources: ${describeResources(snapshot)}; iframes: ${snapshot.iframes.join(' | ') || 'none'}; overlays: ${snapshot.overlays.join(' | ') || 'none'}`;
+    refresh(`trace: ${label}`);
   };
 
   const captureLifecycle = provider => {
@@ -126,22 +125,20 @@
       const result = original.apply(this, args);
       return Promise.resolve(result).then(show => {
         capture('onclicka', `initCdTma resolved: ${typeof show}`);
-        if (typeof show === 'function') {
-          const wrappedShow = function (...showArgs) {
-            capture('onclicka', 'OnClickA show called');
-            const showResult = show.apply(this, showArgs);
-            captureLifecycle('onclicka');
-            return Promise.resolve(showResult).then(value => {
-              capture('onclicka', 'OnClickA show resolved');
-              return value;
-            }, error => {
-              capture('onclicka', `OnClickA show rejected: ${error?.message || error}`);
-              throw error;
-            });
-          };
-          return wrappedShow;
-        }
-        return show;
+        if (typeof show !== 'function') return show;
+        const wrappedShow = function (...showArgs) {
+          capture('onclicka', 'OnClickA show called');
+          const showResult = show.apply(this, showArgs);
+          captureLifecycle('onclicka');
+          return Promise.resolve(showResult).then(value => {
+            capture('onclicka', 'OnClickA show resolved');
+            return value;
+          }, error => {
+            capture('onclicka', `OnClickA show rejected: ${error?.message || error}`);
+            throw error;
+          });
+        };
+        return wrappedShow;
       }, error => {
         capture('onclicka', `initCdTma rejected: ${error?.message || error}`);
         throw error;
@@ -156,6 +153,21 @@
     window.DzMoneyAdClient.getProvider = providerId => {
       const adapter = originalGetProvider.call(window.DzMoneyAdClient, providerId);
       refresh(`getProvider(${providerId}) -> ${adapter ? 'present' : 'missing'}`);
+      if (providerId === 'onclicka' && adapter?.handler && !adapter.__diagnosticWrapped) {
+        const originalHandler = adapter.handler;
+        adapter.handler = async function (...args) {
+          capture('onclicka', 'adapter.handler called');
+          try {
+            const result = await originalHandler.apply(this, args);
+            capture('onclicka', 'adapter.handler resolved');
+            return result;
+          } catch (error) {
+            capture('onclicka', `adapter.handler rejected: ${error?.message || error}`);
+            throw error;
+          }
+        };
+        adapter.__diagnosticWrapped = true;
+      }
       return adapter;
     };
   }
