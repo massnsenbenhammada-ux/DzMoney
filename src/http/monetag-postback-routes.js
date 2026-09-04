@@ -37,8 +37,8 @@ function createMonetagPostbackRouter({ providerRegistry, secret }) {
         const result = await verifyWithProvider(providerRegistry, { context: 'squad', providerId: MONETAG_PROVIDER_ID, payload });
         if (!result.verification.verified) return res.status(202).json({ ok: true, verified: false });
         const verified = await markAdvertisementVerified({ adEventId: event.id, providerReference: result.verification.reference, verificationMetadata: { ...result.verification.metadata, provider_id: result.providerId, context: 'squad' } });
-        const finalization = await taskAdvertisementService.finalizeStandardAdvertisement({ userId: event.user_id, adEventId: event.id, context: 'squad' });
-        return res.json({ ok: true, context: event.context, verified: true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, reward: finalization.reward || null });
+        const finalization = await taskAdvertisementService.finalizeTaskAdvertisement({ userId: event.user_id, adEventId: event.id });
+        return res.json({ ok: true, context: event.context, verified: true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, reward: finalization.reward || null, progress: finalization.progress || null });
       }
       if (event.context === 'task') {
         const verified = await taskAdvertisementService.verifyTrustedTaskAdvertisement({ providerId: MONETAG_PROVIDER_ID, providerPayload: payload, providerRegistry });
