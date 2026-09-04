@@ -37,8 +37,8 @@ router.post('/ads/start', asyncRoute(async (req, res) => {
   if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
   const idempotencyKey = String(req.body?.idempotencyKey || '');
   if (!idempotencyKey) return res.status(400).json({ ok: false, error: 'idempotencyKey is required' });
-  const membership = await query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status IN ('active','pending') LIMIT 1", [userId]);
-  if (!membership.rowCount) return res.status(409).json({ ok: false, error: 'Active Squad membership is required' });
+  const membership = await query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status IN ('active','inactive') LIMIT 1", [userId]);
+  if (!membership.rowCount) return res.status(409).json({ ok: false, error: 'Valid Squad membership is required' });
   const result = await withTransaction(client => startRotatedAdvertisementEventOnClient(client, { userId, context: 'squad', idempotencyKey, metadata: { squad_ad: true }, providerRegistry }));
   res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, adEventId: String(result.adEvent.id), externalAdId: String(result.adEvent.external_ad_id), providerId: result.providerId });
 }));
