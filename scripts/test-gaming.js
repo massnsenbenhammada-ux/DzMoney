@@ -99,8 +99,13 @@ function testGamingFrontendContract() {
   assert(gaming.includes('data-digging-image'));
   assert(gaming.includes('<svg'));
   assert(gaming.includes('data-spin-result'));
-  assert(gaming.includes('DzMoneyAdClient.getProvider(response.providerId)'));
-  assert(gaming.includes('selected advertisement provider'));
+  assert(gaming.includes('DzMoneyAdClient.getProvider(providerId)'));
+  assert(gaming.includes('formatGamingAdFailure(providerId, stage, error)'));
+  assert(gaming.includes('let providerId = null;'));
+  assert(gaming.includes("let stage = 'start';"));
+  assert(gaming.includes("stage = 'ready';"));
+  assert(gaming.includes("stage = 'show';"));
+  assert(gaming.includes("stage = 'complete';"));
   assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
   assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
   assert(gaming.includes('360 * 3 - index * segment'));
