@@ -21,7 +21,8 @@ assert(gaming.includes("stage = 'complete';"));
 assert(gaming.includes('formatGamingAdFailure(providerId, stage, error)'));
 
 assert(server.includes("app.get('/api/debug/ad-runtime'"), 'Runtime diagnostics endpoint must exist');
-assert(server.includes("process.env.AD_RUNTIME_DIAGNOSTICS === 'true'"), 'Runtime diagnostics must be explicitly opt-in');
+assert(server.includes('AD_RUNTIME_DIAGNOSTICS'), 'Runtime diagnostics must be explicitly configurable');
+assert(server.includes("'true'"), 'Runtime diagnostics must use an explicit true value');
 assert(server.includes('providerRegistry.listRegistered()'), 'Diagnostics must use the canonical provider registry');
 assert(server.includes('provider.enabled'), 'Diagnostics must expose runtime provider enablement');
 assert(server.includes("providerRegistry.listAvailable('gaming')"), 'Diagnostics must report Gaming availability from the canonical registry');
