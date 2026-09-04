@@ -40,17 +40,17 @@
     const type = typeof value;
     if (type !== 'object') return type;
     let keys = [];
-    try { keys = Object.keys(value); } catch (_) {}
+    try { keys = Object.keys(value).slice(0, 20); } catch (_) {}
     let proto = 'none';
     try { proto = Object.getPrototypeOf(value)?.constructor?.name || 'object'; } catch (_) {}
-    return `object; constructor=${proto}; keys=${keys.join(',') || 'none'}; show=${typeof value.show}; open=${typeof value.open}; ad=${typeof value.ad}`;
+    return `object; constructor=${proto}; keys=${keys.join(',') || 'none'}; then=${typeof value.then}; show=${typeof value.show}; open=${typeof value.open}; ad=${typeof value.ad}; play=${typeof value.play}`;
   };
   const panel = document.createElement('details');
   panel.open = true;
   panel.style.cssText = 'margin:12px 0;padding:10px;border:1px dashed currentColor;border-radius:10px;font:12px/1.5 monospace;opacity:.9';
   panel.innerHTML = '<summary style="cursor:pointer;font-weight:700">AD RUNTIME DIAGNOSTICS</summary><div data-ad-runtime-state>Loading…</div>';
   root.prepend(panel);
-  const traceState = { gigapub: '', onclicka: '' };
+  const traceState = { gigapub: '', onclicka: '', onclickaInitResult: 'none' };
   const render = (serverState, clientState, lastEvent = '') => {
     const el = panel.querySelector('[data-ad-runtime-state]');
     if (!el) return;
@@ -66,6 +66,7 @@
       status('OnClickA adapter', clientState.onclickaAdapter),
       status('OnClickA initCdTma', clientState.onclickaHandler),
       status('OnClickA SDK script', clientState.onclickaSdkScript),
+      status('OnClickA init result', traceState.onclickaInitResult),
       status('GigaPub adapter', clientState.gigapubAdapter),
       status('GigaPub handler', clientState.gigapubHandler),
       status('last event', lastEvent || 'none'),
@@ -98,6 +99,7 @@
     setTimeout(() => capture(provider, `${provider} after 2s`), 2000);
   };
   window.__DzMoneyOnclickaTrace = (event, value) => {
+    if (event === 'initCdTma resolved') traceState.onclickaInitResult = String(value ?? 'none');
     traceState.onclicka = `${event}: ${String(value ?? 'none')}`;
     refresh(`trace: ${event}`);
   };
@@ -128,7 +130,9 @@
       capture('onclicka', `initCdTma called: ${JSON.stringify(args)}`);
       const result = original.apply(this, args);
       return Promise.resolve(result).then(show => {
-        capture('onclicka', `initCdTma resolved: ${describeInitResult(show)}`);
+        const shape = describeInitResult(show);
+        traceState.onclickaInitResult = shape;
+        capture('onclicka', `initCdTma resolved: ${shape}`);
         if (typeof show !== 'function') return show;
         const wrappedShow = function (...showArgs) {
           capture('onclicka', 'OnClickA show called');
