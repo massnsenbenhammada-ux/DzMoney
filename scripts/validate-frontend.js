@@ -92,7 +92,7 @@ const taskUxChecks = {
   clientProviderRegistry: adClient.includes('providerAdapters') && adClient.includes('getProvider(providerId)')
 };
 const failedTaskUxChecks = Object.entries(taskUxChecks).filter(([, passed]) => !passed).map(([name]) => name);
-if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskChecks.join(', ')}`);
+if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskUxChecks.join(', ')}`);
 
 console.log('FRONTEND_SYNTAX: PASS');
 console.log('DAILY_ACTION_BINDING: PASS');
