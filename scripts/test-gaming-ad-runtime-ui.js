@@ -12,15 +12,22 @@ assert(diagnostics.includes('DzMoneyMonetag'), 'Diagnostics must inspect Monetag
 assert(diagnostics.includes('show_11627577'), 'Diagnostics must inspect Monetag handler state');
 assert(diagnostics.includes('libtl.com/sdk.js'), 'Diagnostics must inspect Monetag SDK script state');
 assert(diagnostics.includes('showGiga'), 'Diagnostics must inspect GigaPub handler state');
-assert(diagnostics.includes('clientProviders'), 'Diagnostics must expose client provider state');
-assert(diagnostics.includes('DzMoneyAdClient.getProvider'), 'Diagnostics must observe the selected client provider');
+assert(diagnostics.includes('clientProviders'), 'Diagnostics must expose the selected client provider');
+assert(diagnostics.includes('DzMoneyAdClient.getProvider'), 'Diagnostics must observe provider selection');
 assert(diagnostics.includes('showGiga called'), 'Diagnostics must trace GigaPub invocation');
 assert(diagnostics.includes('showGiga resolved'), 'Diagnostics must trace GigaPub resolution');
 assert(diagnostics.includes('showGiga rejected'), 'Diagnostics must trace GigaPub rejection');
-assert(diagnostics.includes('relevant resources'), 'Diagnostics must expose relevant runtime resources');
+assert(diagnostics.includes('relevant resources'), 'Diagnostics must expose runtime resources');
 assert(diagnostics.includes('showGiga after 500ms'), 'Diagnostics must capture post-show DOM state');
 assert(diagnostics.includes('showGiga after 2s'), 'Diagnostics must capture delayed post-show DOM state');
 assert(diagnostics.includes('iframes'), 'Diagnostics must expose iframe state');
 assert(diagnostics.includes('overlays'), 'Diagnostics must expose overlay state');
+assert(diagnostics.includes('initCdTma called'), 'Diagnostics must trace OnClickA initialization');
+assert(diagnostics.includes('initCdTma resolved'), 'Diagnostics must trace OnClickA initialization resolution');
+assert(diagnostics.includes('initCdTma rejected'), 'Diagnostics must trace OnClickA initialization rejection');
+assert(diagnostics.includes('OnClickA show called'), 'Diagnostics must trace OnClickA display invocation');
+assert(diagnostics.includes('OnClickA show resolved'), 'Diagnostics must trace OnClickA display resolution');
+assert(diagnostics.includes('OnClickA show rejected'), 'Diagnostics must trace OnClickA display rejection');
+assert(diagnostics.includes('OnClickA SDK script'), 'Diagnostics must expose OnClickA SDK state');
 
 console.log('Gaming ad runtime UI diagnostics contract: PASS');
