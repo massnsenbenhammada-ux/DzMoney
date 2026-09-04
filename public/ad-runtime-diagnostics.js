@@ -9,6 +9,7 @@
   const status = (label, value) => `<div><b>${escape(label)}</b>: ${escape(value)}</div>`;
   const readClientState = () => {
     const scripts = [...document.scripts].map(script => script.src).filter(Boolean);
+    const onclickaScript = scripts.find(src => src.includes('onclckvd.com')) || null;
     const monetagScript = scripts.find(src => src.includes('libtl.com/sdk.js')) || null;
     return {
       assetVersion: new URL(document.currentScript?.src || '', window.location.href).searchParams.get('v') || 'unknown',
@@ -16,6 +17,9 @@
       monetagAdapter: typeof window.DzMoneyMonetag?.handler === 'function',
       monetagHandler: typeof window.show_11627577,
       monetagSdkScript: monetagScript || 'missing',
+      onclickaAdapter: typeof window.DzMoneyOnclicka?.show === 'function',
+      onclickaHandler: typeof window.initCdTma,
+      onclickaSdkScript: onclickaScript || 'missing',
       gigapubAdapter: typeof window.DzMoneyGamingAd?.handler === 'function',
       gigapubHandler: typeof window.showGiga,
       adClientProviders: window.DzMoneyAdClient?.providerConfig?.providers ? Object.keys(window.DzMoneyAdClient.providerConfig.providers) : []
@@ -31,7 +35,7 @@
       return style.position === 'fixed' || style.position === 'absolute';
     }).slice(-20).map(node => `${node.tagName}.${node.className || ''}`),
     gigapubHandler: typeof window.showGiga,
-    gigapubHandlerSource: typeof window.showGiga === 'function' ? String(window.showGiga).slice(0, 300) : 'missing'
+    onclickaHandler: typeof window.initCdTma
   });
 
   const panel = document.createElement('details');
@@ -52,15 +56,19 @@
       status('Monetag adapter', clientState.monetagAdapter),
       status('Monetag handler', clientState.monetagHandler),
       status('Monetag SDK script', clientState.monetagSdkScript),
+      status('OnClickA adapter', clientState.onclickaAdapter),
+      status('OnClickA initCdTma', clientState.onclickaHandler),
+      status('OnClickA SDK script', clientState.onclickaSdkScript),
       status('GigaPub adapter', clientState.gigapubAdapter),
       status('GigaPub handler', clientState.gigapubHandler),
       status('last event', lastEvent || 'none'),
-      status('GigaPub trace', trace || 'none')
+      status('GigaPub trace', trace || 'none'),
+      status('OnClickA trace', traceState.onclicka || 'none')
     ].join('');
   };
 
   let serverState = null;
-  let traceState = '';
+  const traceState = { gigapub: '', onclicka: '' };
   const refresh = async event => {
     try {
       const response = await fetch('/api/debug/ad-runtime', { cache: 'no-store' });
@@ -68,7 +76,7 @@
     } catch (error) {
       serverState = { error: error.message };
     }
-    render(serverState, readClientState(), event, traceState);
+    render(serverState, readClientState(), event, traceState.gigapub);
   };
 
   const describeResources = snapshot => {
@@ -77,15 +85,16 @@
     return relevant.join(' | ') || 'none';
   };
 
-  const capture = label => {
+  const capture = (provider, label) => {
     const snapshot = runtimeSnapshot();
-    traceState = `${label}; relevant resources: ${describeResources(snapshot)}; iframes: ${snapshot.iframes.join(' | ') || 'none'}; overlays: ${snapshot.overlays.join(' | ') || 'none'}; showGiga: ${snapshot.gigapubHandler}`;
-    refresh(`trace: ${label}`);
+    const value = `${label}; relevant resources: ${describeResources(snapshot)}; iframes: ${snapshot.iframes.join(' | ') || 'none'}; overlays: ${snapshot.overlays.join(' | ') || 'none'}`;
+    traceState[provider] = value;
+    refresh(`trace: ${value}`);
   };
 
-  const captureLifecycle = () => {
-    capture('showGiga after 500ms');
-    setTimeout(() => capture('showGiga after 2s'), 1500);
+  const captureLifecycle = provider => {
+    setTimeout(() => capture(provider, `${provider} after 500ms`), 500);
+    setTimeout(() => capture(provider, `${provider} after 2s`), 2000);
   };
 
   let wrappedShowGiga = false;
@@ -93,19 +102,53 @@
     if (wrappedShowGiga || typeof window.showGiga !== 'function') return;
     const original = window.showGiga;
     window.showGiga = function (...args) {
-      capture('showGiga called');
+      capture('gigapub', 'showGiga called');
       const result = original.apply(this, args);
-      captureLifecycle();
+      captureLifecycle('gigapub');
       return Promise.resolve(result).then(value => {
-        capture('showGiga resolved');
+        capture('gigapub', 'showGiga resolved');
         return value;
       }, error => {
-        capture(`showGiga rejected: ${error?.message || error}`);
+        capture('gigapub', `showGiga rejected: ${error?.message || error}`);
         throw error;
       });
     };
     wrappedShowGiga = true;
-    capture('showGiga wrapped');
+    capture('gigapub', 'showGiga wrapped');
+  };
+
+  let wrappedOnclicka = false;
+  const wrapOnclicka = () => {
+    if (wrappedOnclicka || typeof window.initCdTma !== 'function') return;
+    const original = window.initCdTma;
+    window.initCdTma = function (...args) {
+      capture('onclicka', `initCdTma called: ${JSON.stringify(args)}`);
+      const result = original.apply(this, args);
+      return Promise.resolve(result).then(show => {
+        capture('onclicka', `initCdTma resolved: ${typeof show}`);
+        if (typeof show === 'function') {
+          const wrappedShow = function (...showArgs) {
+            capture('onclicka', 'OnClickA show called');
+            const showResult = show.apply(this, showArgs);
+            captureLifecycle('onclicka');
+            return Promise.resolve(showResult).then(value => {
+              capture('onclicka', 'OnClickA show resolved');
+              return value;
+            }, error => {
+              capture('onclicka', `OnClickA show rejected: ${error?.message || error}`);
+              throw error;
+            });
+          };
+          return wrappedShow;
+        }
+        return show;
+      }, error => {
+        capture('onclicka', `initCdTma rejected: ${error?.message || error}`);
+        throw error;
+      });
+    };
+    wrappedOnclicka = true;
+    capture('onclicka', 'initCdTma wrapped');
   };
 
   const originalGetProvider = window.DzMoneyAdClient?.getProvider;
@@ -118,9 +161,11 @@
   }
 
   wrapShowGiga();
+  wrapOnclicka();
   const wrapTimer = setInterval(() => {
     wrapShowGiga();
-    if (wrappedShowGiga) clearInterval(wrapTimer);
+    wrapOnclicka();
+    if (wrappedShowGiga && wrappedOnclicka) clearInterval(wrapTimer);
   }, 250);
   refresh('diagnostics initialized');
 })();
