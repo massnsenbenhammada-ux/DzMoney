@@ -24,11 +24,12 @@
   const setAll = (selector, value) => root.querySelectorAll(selector).forEach(el => { el.textContent = value; });
   const formatGamingAdFailure = (providerId, stage, error) => {
     const providerName = providerId || 'unknown';
-    if (stage === 'start') return `${providerName}: the ad session could not be started.`;
-    if (stage === 'ready') return `${providerName}: the ad SDK is not ready.`;
-    if (stage === 'show') return `${providerName}: the advertisement could not be displayed.`;
-    if (stage === 'complete') return `${providerName}: the advertisement was shown, but completion could not be confirmed.`;
-    return `${providerName}: ${error?.message || 'the advertisement failed.'}`;
+    const detail = error?.message ? ` (${error.message})` : '';
+    if (stage === 'start') return `${providerName}: could not start the ad session${detail}`;
+    if (stage === 'ready') return `${providerName}: the ad SDK is not ready${detail}`;
+    if (stage === 'show') return `${providerName}: the advertisement could not be displayed${detail}`;
+    if (stage === 'complete') return `${providerName}: the advertisement was shown, but completion could not be confirmed${detail}`;
+    return `${providerName}: the advertisement failed${detail}`;
   };
 
   const wheelResults = ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'none'];
@@ -208,28 +209,14 @@
     setBusy(true);
     if (button) { button.textContent = 'LOADING AD…'; button.setAttribute('aria-busy', 'true'); }
     try {
-      let response;
-      try {
-        response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
-        providerId = response.providerId;
-      } catch (error) {
-        throw error;
-      }
+      const response = await api('/api/gaming/ads/start', { method: 'POST', body: JSON.stringify({ game, idempotencyKey: idempotencyKey(`gaming-ad:${game}`) }) });
+      providerId = response.providerId;
       const adapter = window.DzMoneyAdClient.getProvider(providerId);
       stage = 'ready';
       if (!adapter?.ready || typeof adapter.handler !== 'function') throw new Error('provider adapter is unavailable');
-      try {
-        await adapter.ready;
-      } catch (error) {
-        throw error;
-      }
+      await adapter.ready;
       stage = 'show';
-      let completion;
-      try {
-        completion = await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId });
-      } catch (error) {
-        throw error;
-      }
+      const completion = await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId });
       stage = 'complete';
       if (button) button.textContent = 'CREDITING…';
       await load();
