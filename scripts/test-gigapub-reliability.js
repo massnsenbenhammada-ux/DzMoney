@@ -8,6 +8,8 @@ assert(source.includes("https://ad.gigapub.tech/script?id="));
 assert(source.includes("https://ru-ad.gigapub.tech/script?id="));
 assert(source.includes('setTimeout'));
 assert(source.includes('15000'));
+assert(source.includes('withTimeout'));
+assert(source.includes('GigaPub advertisement display timed out'));
 assert(source.includes('showGiga'));
 assert(source.includes('DzMoneyGamingAd'));
 
@@ -36,10 +38,10 @@ function runLoader(trigger) {
   assert.strictEqual(scripts.length, 1, 'primary GigaPub script must be added once');
 
   trigger(scripts[0], timers);
-  return { scripts, timers };
+  return { context, scripts, timers };
 }
 
-const nativeError = runLoader((primary) => {
+const nativeError = runLoader(primary => {
   primary.onerror();
   primary.onerror();
 });
