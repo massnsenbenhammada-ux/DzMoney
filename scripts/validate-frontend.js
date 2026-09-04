@@ -84,7 +84,7 @@ const taskUxChecks = {
   dailyRefreshOutsideRenderer: renderTaskCategoryBody.length > 0 && !renderTaskCategoryBody.includes('loadDailyTaskStatus()') && !renderTaskCategoryBody.includes('loadDailyAdProgress()'),
   dailyRefreshOnCategoryEntry: categoryDailyRefresh.includes('renderTaskCategory(category.dataset.taskCategory)') && categoryDailyRefresh.includes("category.dataset.taskCategory === 'daily'") && categoryDailyRefresh.includes('loadDailyTaskStatus()') && categoryDailyRefresh.includes('loadDailyAdProgress()'),
   dailyRefreshScopedToDailyPage: /state\.page === 'tasks' && state\.taskCategory === 'daily'/.test(app),
-  taskProviderContextServer: /const contexts = \['task', 'gaming', 'daily_checkin', 'verification'\]/.test(server),
+  taskProviderContextServer: /const contexts = \['task', 'gaming', 'daily_checkin', 'verification'(?:, 'squad')?\]/.test(server),
   taskProviderConfigServer: /providers,[\s\S]*listAvailable\(context\)\.map/.test(server),
   taskAdProviderSelection: /startRotatedAdvertisementEventOnClient\(client, \{[\s\S]*context: 'task'/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8')),
   gamingProviderSelection: /providerId\s*=\s*response\.providerId;[\s\S]*getProvider\(providerId\)/.test(gaming),
@@ -92,7 +92,7 @@ const taskUxChecks = {
   clientProviderRegistry: adClient.includes('providerAdapters') && adClient.includes('getProvider(providerId)')
 };
 const failedTaskUxChecks = Object.entries(taskUxChecks).filter(([, passed]) => !passed).map(([name]) => name);
-if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskUxChecks.join(', ')}`);
+if (failedTaskUxChecks.length) throw new Error(`Task UX contract failed: ${failedTaskChecks.join(', ')}`);
 
 console.log('FRONTEND_SYNTAX: PASS');
 console.log('DAILY_ACTION_BINDING: PASS');
