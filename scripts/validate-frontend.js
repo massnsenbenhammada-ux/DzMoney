@@ -87,7 +87,7 @@ const taskUxChecks = {
   taskProviderContextServer: /const contexts = \['task', 'gaming', 'daily_checkin', 'verification'\]/.test(server),
   taskProviderConfigServer: /providers,[\s\S]*listAvailable\(context\)\.map/.test(server),
   taskAdProviderSelection: /startRotatedAdvertisementEventOnClient\(client, \{[\s\S]*context: 'task'/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8')),
-  gamingProviderSelection: /getProvider\(response\.providerId\)/.test(gaming),
+  gamingProviderSelection: /const providerId = response\.providerId;[\s\S]*getProvider\(providerId\)/.test(gaming),
   noClientPrioritySelection: !server.includes('listAvailable(context)[0]') && !adClient.includes('gamingProvider?.id ==='),
   clientProviderRegistry: adClient.includes('providerAdapters') && adClient.includes('getProvider(providerId)')
 };
