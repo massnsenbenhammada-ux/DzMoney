@@ -33,6 +33,10 @@ function preloadOnclicka() {
   const config = window.__DzMoneyAdProviderConfig || {};
   const provider = config.providers?.onclicka;
   if (!provider) return;
+  if (typeof window.DzMoneyOnclicka?.prepare === 'function') {
+    window.DzMoneyOnclicka.prepare({ spotId: provider.spotId }).catch(() => {});
+    return;
+  }
   loadOnclickaSdk().catch(() => {});
 }
 
