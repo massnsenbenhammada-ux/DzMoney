@@ -4,7 +4,7 @@ const GIGAPUB_PROJECT_ID = String(process.env.GIGAPUB_PROJECT_ID || '7958');
 function createGigaPubProvider() {
   return {
     id: GIGAPUB_PROVIDER_ID,
-    contexts: ['gaming', 'daily_checkin', 'verification'],
+    contexts: ['gaming'],
     enabled: process.env.GIGAPUB_ENABLED === 'true',
     clientConfig: { projectId: GIGAPUB_PROJECT_ID },
     async verifyCompletion(payload = {}) {
