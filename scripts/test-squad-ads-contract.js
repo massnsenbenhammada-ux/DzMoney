@@ -12,12 +12,12 @@ assert.match(migration, /systemKey":"squad_ads/);
 assert.match(migration, /advertisementTarget":10/);
 assert.match(migration, /advertisementContext":"squad/);
 assert.match(migration, /placement":"squad/);
-assert.match(squadRoutes, /GET|router\.get\('\/ads'/);
+assert.match(squadRoutes, /router\.get\('\/ads'/);
 assert.match(squadRoutes, /router\.post\('\/ads\/start'/);
 assert.match(squadRoutes, /context: 'squad'/);
 assert.match(squadRoutes, /metadata: \{ task_id: Number\(task\.id\) \}/);
 assert.match(squadFrontend, /\/api\/squad\/ads/);
 assert.doesNotMatch(squadFrontend, /verifiedAdTarget/);
-assert.doesNotMatch(taskRoutes, /systemKey !== 'squad_ads'/);
+assert.match(taskRoutes, /tasksList\.filter\(task => task\.systemKey !== 'squad_ads'\)/);
 
 console.log('Squad Ads contract: PASS');
