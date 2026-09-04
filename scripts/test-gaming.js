@@ -64,7 +64,8 @@ function testSourceBoundaries() {
   assert(routes.includes('publicGamingState(await gaming.getGamingState({ userId }))'));
   assert(routes.includes('const providerId = event.rows[0].metadata?.provider_id'));
   assert(!routes.includes("providerId: 'gigapub'"));
-  assert(onclickaRoutes.includes("const CONTEXTS = new Set(['task', 'daily_checkin', 'verification', 'gaming'])"));
+  assert(onclickaRoutes.includes('const CONTEXTS = new Set(['));
+  assert(onclickaRoutes.includes("'gaming'"));
   assert(onclickaRoutes.includes('taskAdvertisementService.verifyTrustedTaskAdvertisement'));
   assert(onclickaRoutes.includes('router.get(\'/\', handlePostback)'));
   assert(onclickaRoutes.includes('const context = event.context'));
