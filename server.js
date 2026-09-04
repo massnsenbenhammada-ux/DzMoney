@@ -76,6 +76,22 @@ app.get('/health/db', async (_req, res) => {
 
 const publicApiRateLimit = createRateLimit({ windowMs: 60_000, max: 300, key: req => `ip:${req.ip || 'unknown'}` });
 app.use('/api', publicApiRateLimit);
+
+app.get('/api/debug/ad-runtime', (_req, res) => {
+  if (process.env.AD_RUNTIME_DIAGNOSTICS !== 'true') return res.status(404).json({ ok: false, error: 'Not found' });
+  const providers = providerRegistry.listRegistered().map(id => {
+    const provider = providerRegistry.get(id);
+    return { id: provider.id, enabled: provider.enabled, contexts: [...provider.contexts] };
+  });
+  res.json({
+    ok: true,
+    assetVersion,
+    providers,
+    gamingAvailable: providerRegistry.listAvailable('gaming').map(provider => provider.id),
+    clientProviders: Object.keys(clientAdConfig().providers)
+  });
+});
+
 app.use('/api/me', meRoutes);
 app.use('/api/squad', squadRoutes);
 app.use('/api/conversion', conversionRoutes);
