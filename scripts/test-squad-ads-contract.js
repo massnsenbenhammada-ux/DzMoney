@@ -11,28 +11,37 @@ const advertisementService = fs.readFileSync(path.join(root, 'src/services/task-
 const monetagPostback = fs.readFileSync(path.join(root, 'src/http/monetag-postback-routes.js'), 'utf8');
 const onclickaPostback = fs.readFileSync(path.join(root, 'src/http/onclicka-postback-routes.js'), 'utf8');
 
+const squadAdsRoute = squadRoutes.slice(
+  squadRoutes.indexOf("router.get('/ads'"),
+  squadRoutes.indexOf("router.get('/membership-tiers'")
+);
+
 assert.match(migration, /systemKey":"squad_ads/);
 assert.match(migration, /advertisementTarget":10/);
 assert.match(migration, /advertisementContext":"squad/);
 assert.match(migration, /placement":"squad/);
 assert.doesNotMatch(migration, /"completion"/);
-assert.match(squadRoutes, /router\.get\('\/ads'/);
-assert.doesNotMatch(squadRoutes, /router\.post\('\/ads\/start'/);
-assert.match(squadRoutes, /context='squad'/);
-assert.doesNotMatch(squadRoutes, /Valid Squad membership is required/);
-assert.doesNotMatch(squadRoutes, /status <> 'cancelled'/);
-assert.doesNotMatch(squadRoutes, /status IN \('active','inactive'\)/);
+
+assert.match(squadAdsRoute, /router\.get\('\/ads'/);
+assert.doesNotMatch(squadAdsRoute, /router\.post\('\/ads\/start'/);
+assert.match(squadAdsRoute, /context='squad'/);
+assert.doesNotMatch(squadAdsRoute, /squad_memberships/);
+assert.doesNotMatch(squadAdsRoute, /membership/);
+assert.doesNotMatch(squadAdsRoute, /status\s*(?:<>|=|IN)/);
+
 assert.match(squadFrontend, /\/api\/tasks\/advertisement\/start/);
 assert.doesNotMatch(squadFrontend, /\/api\/squad\/ads\/start/);
 assert.match(squadFrontend, /requestVar: ['"]squad['"]/);
 assert.match(taskRoutes, /tasksList\.filter\(task => task\.systemKey !== 'squad_ads'\)/);
 assert.match(taskRoutes, /externalAdId: result\.adEvent\?\.external_ad_id/);
+
 assert.match(advertisementService, /config\.advertisementContext \|\| 'task'/);
 assert.match(advertisementService, /context IN \('task','squad'\)/);
 assert.match(advertisementService, /squad_ads.*config\.systemKey/);
+assert.doesNotMatch(advertisementService, /squad_memberships/);
 assert.doesNotMatch(advertisementService, /Valid Squad membership is required/);
-assert.doesNotMatch(advertisementService, /status <> 'cancelled'/);
-assert.doesNotMatch(advertisementService, /status IN \('active','inactive'\)/);
+assert.doesNotMatch(advertisementService, /status\s*(?:<>|=|IN)/);
+
 assert.match(monetagPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
 assert.match(onclickaPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
 assert.doesNotMatch(monetagPostback, /finalizeStandardAdvertisement/);
