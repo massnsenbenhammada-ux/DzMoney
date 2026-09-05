@@ -10,7 +10,6 @@ router.use(telegramAuth);
 
 async function currentUserId(req) { const result = await query('SELECT id FROM users WHERE telegram_user_id = $1', [String(req.telegramUser.id)]); return result.rows[0]?.id || null; }
 async function getSquadAdsTask() { const result = await query("SELECT id,title,description,config FROM activity_tasks WHERE status='active' AND creator_id IS NULL AND config->>'systemKey'='squad_ads' LIMIT 1"); return result.rows[0] || null; }
-async function requireSquadMember(userId) { const result = await query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status <> 'cancelled' LIMIT 1", [userId]); return result.rowCount > 0; }
 function dailyAdvertisementDateFilter() { return " AND (completed_at + INTERVAL '1 hour')::date=(NOW() + INTERVAL '1 hour')::date"; }
 
 router.get('/', asyncRoute(async (req, res) => {
@@ -24,7 +23,6 @@ router.get('/daily-state', asyncRoute(async (req, res) => { const userId = await
 
 router.get('/ads', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
-  if (!await requireSquadMember(userId)) return res.status(409).json({ ok: false, error: 'Valid Squad membership is required' });
   const task = await getSquadAdsTask(); if (!task) return res.status(404).json({ ok: false, error: 'Squad Ads task is not configured' });
   const target = Number(task.config?.advertisementTarget); if (!Number.isInteger(target) || target <= 0) return res.status(500).json({ ok: false, error: 'Invalid Squad Ads target' });
   const dateFilter = task.config?.dailyMode === 'advertisement' ? dailyAdvertisementDateFilter() : '';
@@ -36,7 +34,7 @@ router.get('/ads', asyncRoute(async (req, res) => {
     if (!event.rowCount) return res.status(404).json({ ok: false, error: 'Squad advertisement event not found' });
     return res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target }, event: { id: Number(event.rows[0].id), verified: event.rows[0].verified === true, rewarded: Boolean(event.rows[0].metadata?.reward_transaction_id), completedAt: event.rows[0].completed_at } });
   }
-  res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target, available: completed < target } });
+  res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target, available: completed < target });
 }));
 
 router.get('/membership-tiers', asyncRoute(async (req, res) => { const tiers = await getPaidMembershipTiers({ query: (...args) => query(...args) }); res.json({ ok: true, tiers }); }));
