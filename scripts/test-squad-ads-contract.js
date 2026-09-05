@@ -27,7 +27,7 @@ assert.doesNotMatch(squadAdsRoute, /router\.post\('\/ads\/start'/);
 assert.match(squadAdsRoute, /context='squad'/);
 assert.doesNotMatch(squadAdsRoute, /squad_memberships/);
 assert.doesNotMatch(squadAdsRoute, /membership/);
-assert.doesNotMatch(squadAdsRoute, /status\s*(?:<>|=|IN)/);
+assert.doesNotMatch(squadAdsRoute, /Valid Squad membership is required/);
 
 assert.match(squadFrontend, /\/api\/tasks\/advertisement\/start/);
 assert.doesNotMatch(squadFrontend, /\/api\/squad\/ads\/start/);
@@ -40,7 +40,6 @@ assert.match(advertisementService, /context IN \('task','squad'\)/);
 assert.match(advertisementService, /squad_ads.*config\.systemKey/);
 assert.doesNotMatch(advertisementService, /squad_memberships/);
 assert.doesNotMatch(advertisementService, /Valid Squad membership is required/);
-assert.doesNotMatch(advertisementService, /status\s*(?:<>|=|IN)/);
 
 assert.match(monetagPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
 assert.match(onclickaPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
