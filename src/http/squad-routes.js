@@ -34,7 +34,7 @@ router.get('/ads', asyncRoute(async (req, res) => {
     if (!event.rowCount) return res.status(404).json({ ok: false, error: 'Squad advertisement event not found' });
     return res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target }, event: { id: Number(event.rows[0].id), verified: event.rows[0].verified === true, rewarded: Boolean(event.rows[0].metadata?.reward_transaction_id), completedAt: event.rows[0].completed_at } });
   }
-  res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target, available: completed < target });
+  res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target, available: completed < target } });
 }));
 
 router.get('/membership-tiers', asyncRoute(async (req, res) => { const tiers = await getPaidMembershipTiers({ query: (...args) => query(...args) }); res.json({ ok: true, tiers }); }));
