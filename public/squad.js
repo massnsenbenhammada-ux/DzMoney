@@ -43,7 +43,7 @@ function renderSquad(squad, tiers = [], state = null, ads = null) {
   const card = squadCard();
   if (!card) return;
   if (!squad) {
-    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>No Squad yet</h2><p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p></div>${renderPaidMembership(tiers)}${renderInvitationsShell()}`;
+    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>No Squad yet</h2><p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p></div>${renderSquadAds(ads)}${renderPaidMembership(tiers)}${renderInvitationsShell()}`;
     loadInvitations();
     return;
   }
