@@ -4,6 +4,7 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const migration = fs.readFileSync(path.join(root, 'migrations/044_squad_ads_task.sql'), 'utf8');
+const contextMigration = fs.readFileSync(path.join(root, 'migrations/046_squad_ad_event_context.sql'), 'utf8');
 const squadRoutes = fs.readFileSync(path.join(root, 'src/http/squad-routes.js'), 'utf8');
 const squadFrontend = fs.readFileSync(path.join(root, 'public/squad.js'), 'utf8');
 const taskRoutes = fs.readFileSync(path.join(root, 'src/http/task-routes.js'), 'utf8');
@@ -21,6 +22,9 @@ assert.match(migration, /advertisementTarget":10/);
 assert.match(migration, /advertisementContext":"squad/);
 assert.match(migration, /placement":"squad/);
 assert.doesNotMatch(migration, /"completion"/);
+
+assert.match(contextMigration, /DROP CONSTRAINT IF EXISTS activity_ad_events_context_check/);
+assert.match(contextMigration, /context IN \('task', 'reward_pool', 'daily_checkin', 'verification', 'gaming', 'squad'\)/);
 
 assert.match(squadAdsRoute, /router\.get\('\/ads'/);
 assert.doesNotMatch(squadAdsRoute, /router\.post\('\/ads\/start'/);
