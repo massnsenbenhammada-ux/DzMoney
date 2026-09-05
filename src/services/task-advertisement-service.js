@@ -27,7 +27,7 @@ function getAdvertisementContext(task) {
 }
 async function enforceSquadAdvertisementStart(client, { userId, task }) {
   if (getAdvertisementContext(task) !== 'squad') return;
-  const membership = await client.query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status IN ('active','inactive') LIMIT 1", [userId]);
+  const membership = await client.query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status <> 'cancelled' LIMIT 1", [userId]);
   if (!membership.rowCount) { const error = new Error('Valid Squad membership is required'); error.statusCode = 409; throw error; }
   const target = Number(task.config?.advertisementTarget);
   if (!Number.isInteger(target) || target <= 0) throw new Error('Invalid Squad Ads target');
