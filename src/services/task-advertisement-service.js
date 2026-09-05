@@ -25,14 +25,11 @@ function getAdvertisementContext(task) {
   if (!ADVERTISEMENT_CONTEXTS.has(context)) throw new Error('Unsupported task advertisement context');
   return context;
 }
-async function enforceSquadAdvertisementStart(client, { userId, task }) {
-  if (getAdvertisementContext(task) !== 'squad') return;
-  const membership = await client.query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status <> 'cancelled' LIMIT 1", [userId]);
-  if (!membership.rowCount) { const error = new Error('Valid Squad membership is required'); error.statusCode = 409; throw error; }
+async function enforceSquadAdvertisementTarget(client, { task }) {
   const target = Number(task.config?.advertisementTarget);
   if (!Number.isInteger(target) || target <= 0) throw new Error('Invalid Squad Ads target');
   const dateFilter = task.config?.dailyMode === 'advertisement' ? " AND (completed_at + INTERVAL '1 hour')::date=(NOW() + INTERVAL '1 hour')::date" : '';
-  const completed = await client.query(`SELECT COUNT(*)::int AS count FROM activity_ad_events WHERE user_id=$1 AND context='squad' AND verified=TRUE AND metadata->>'task_id'=$2${dateFilter}`, [userId, String(task.id)]);
+  const completed = await client.query(`SELECT COUNT(*)::int AS count FROM activity_ad_events WHERE user_id=$1 AND context='squad' AND verified=TRUE AND metadata->>'task_id'=$2${dateFilter}`, [task._userId, String(task.id)]);
   if (Number(completed.rows[0]?.count || 0) >= target) { const error = new Error('Squad Ads target completed'); error.statusCode = 409; throw error; }
 }
 async function startTaskAdvertisement({ userId, taskId, idempotencyKey, providerRegistry }) {
@@ -42,8 +39,10 @@ async function startTaskAdvertisement({ userId, taskId, idempotencyKey, provider
   const existing = await getExistingAdvertisement({ userId, idempotencyKey, taskId, context });
   if (existing) return { adEvent: existing, providerId: existing.metadata?.provider_id, duplicate: true };
   return withTransaction(async client => {
-    if (context === 'squad') await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:squad-ads:${userId}:${taskId}`]);
-    await enforceSquadAdvertisementStart(client, { userId, task });
+    if (context === 'squad') {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:squad-ads:${userId}:${taskId}`]);
+      await enforceSquadAdvertisementTarget(client, { task: { ...task, _userId: userId } });
+    }
     return startRotatedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId }, providerRegistry });
   });
 }
