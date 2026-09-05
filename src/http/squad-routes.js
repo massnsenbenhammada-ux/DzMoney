@@ -10,7 +10,7 @@ router.use(telegramAuth);
 
 async function currentUserId(req) { const result = await query('SELECT id FROM users WHERE telegram_user_id = $1', [String(req.telegramUser.id)]); return result.rows[0]?.id || null; }
 async function getSquadAdsTask() { const result = await query("SELECT id,title,description,config FROM activity_tasks WHERE status='active' AND creator_id IS NULL AND config->>'systemKey'='squad_ads' LIMIT 1"); return result.rows[0] || null; }
-async function requireSquadMember(userId) { const result = await query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status IN ('active','inactive') LIMIT 1", [userId]); return result.rowCount > 0; }
+async function requireSquadMember(userId) { const result = await query("SELECT 1 FROM squad_memberships WHERE user_id=$1 AND status <> 'cancelled' LIMIT 1", [userId]); return result.rowCount > 0; }
 function dailyAdvertisementDateFilter() { return " AND (completed_at + INTERVAL '1 hour')::date=(NOW() + INTERVAL '1 hour')::date"; }
 
 router.get('/', asyncRoute(async (req, res) => {
