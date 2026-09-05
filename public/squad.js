@@ -1,6 +1,7 @@
 const squadCard = () => document.getElementById('squadCard');
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char]));
+const idempotencyKey = () => `squad-ad:${crypto.randomUUID()}`;
 
 function renderLoading() {
   return '<div class="squad-loading" aria-busy="true"><div class="squad-spin" aria-hidden="true"></div><div class="squad-skeleton short"></div><div class="squad-skeleton long"></div><div class="squad-skeleton long"></div></div>';
@@ -24,22 +25,32 @@ function renderDailyState(state) {
   return `<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">TODAY</span><h3>Daily Squad</h3><p class="squad-date">Effective ${escapeHtml(state.effectiveForDate)}</p></div><span class="squad-status ${status === 'active' ? 'active' : 'inactive'}">${escapeHtml(status || 'unknown')}</span></div><div class="squad-metric"><div class="squad-progress-meta"><span>Active members</span><strong>${active}/${eligible}</strong></div><div class="squad-progress" role="progressbar" aria-valuenow="${Math.round(memberPercent)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${memberPercent}%"></i></div></div><div class="squad-metric"><div class="squad-progress-meta"><span>DZP contribution</span><strong>${escapeHtml(state.dzpContribution)}/${escapeHtml(state.dailyTarget)}</strong></div><div class="squad-progress dzp" role="progressbar" aria-valuenow="${Math.round(dzpPercent)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${dzpPercent}%"></i></div></div><p>${escapeHtml(state.verifiedAdTarget)} verified Squad ads target${reason}</p></section>`;
 }
 
+function renderSquadAds(data) {
+  if (!data?.task) return '';
+  const task = data.task;
+  const completed = Math.max(0, Number(task.completed));
+  const target = Math.max(1, Number(task.target));
+  const percent = Math.min(100, (completed / target) * 100);
+  const available = task.available !== false;
+  return `<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">SQUAD TASK</span><h3>${escapeHtml(task.title || 'Squad Ads')}</h3></div></div><p>${escapeHtml(task.description || 'Watch verified advertisements to complete your Squad Ads target.')}</p><div class="squad-metric"><div class="squad-progress-meta"><span>Ads completed</span><strong>${completed}/${target}</strong></div><div class="squad-progress" role="progressbar" aria-valuenow="${Math.round(percent)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${percent}%"></i></div></div><div class="squad-ad-action"><button type="button" class="squad-btn primary" data-squad-ad ${available ? '' : 'disabled'}>${available ? 'WATCH AD' : 'COMPLETED'}</button><small data-squad-ad-status></small></div></section>`;
+}
+
 function renderInvitationsShell() {
   return '<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">INBOX</span><h3>Invitations</h3></div></div><div id="squadInvitations" class="squad-invitations"><div class="squad-skeleton short"></div><div class="squad-skeleton long"></div></div></section>';
 }
 
-function renderSquad(squad, tiers = [], state = null) {
+function renderSquad(squad, tiers = [], state = null, ads = null) {
   const card = squadCard();
   if (!card) return;
   if (!squad) {
-    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>No Squad yet</h2><p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p></div>${renderPaidMembership(tiers)}${renderInvitationsShell()}`;
+    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>No Squad yet</h2><p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p></div>${renderSquadAds(ads)}${renderPaidMembership(tiers)}${renderInvitationsShell()}`;
     loadInvitations();
     return;
   }
   const membership = String(squad.membershipStatus || 'active');
   const owner = Boolean(squad.isOwner);
   const purchase = membership === 'cancelled' ? renderPaidMembership(tiers) : '';
-  card.innerHTML = `<div class="squad-hero"><div class="squad-hero-top"><div><span class="squad-eyebrow">SQUAD</span><h2 class="squad-number">#${escapeHtml(squad.id)}</h2></div>${owner ? '<span class="squad-owner-badge">OWNER</span>' : `<span class="squad-status active">${escapeHtml(membership)}</span>`}</div><div class="squad-stats"><div class="squad-stat"><strong>${Number(squad.memberCount)}</strong><span>Members</span></div><div class="squad-stat"><strong>${owner ? 'Owner' : 'Member'}</strong><span>Your role</span></div></div></div>${renderDailyState(state)}${purchase}${renderInvitationsShell()}${owner ? '<section class="squad-section"><span class="squad-eyebrow">GROW YOUR SQUAD</span><h3>Invite a member</h3><p>Enter the member Telegram ID to send an invitation.</p><form id="squadInviteForm" class="squad-invite-form"><div class="squad-invite-row"><input class="squad-input" id="squadInviteTelegramId" inputmode="numeric" autocomplete="off" placeholder="Telegram user ID" aria-label="Invitee Telegram ID" required><button class="squad-btn primary" type="submit">Invite</button></div></form></section>' : ''}`;
+  card.innerHTML = `<div class="squad-hero"><div class="squad-hero-top"><div><span class="squad-eyebrow">SQUAD</span><h2 class="squad-number">#${escapeHtml(squad.id)}</h2></div>${owner ? '<span class="squad-owner-badge">OWNER</span>' : `<span class="squad-status active">${escapeHtml(membership)}</span>`}</div><div class="squad-stats"><div class="squad-stat"><strong>${Number(squad.memberCount)}</strong><span>Members</span></div><div class="squad-stat"><strong>${owner ? 'Owner' : 'Member'}</strong><span>Your role</span></div></div></div>${renderDailyState(state)}${renderSquadAds(ads)}${purchase}${renderInvitationsShell()}${owner ? '<section class="squad-section"><span class="squad-eyebrow">GROW YOUR SQUAD</span><h3>Invite a member</h3><p>Enter the member Telegram ID to send an invitation.</p><form id="squadInviteForm" class="squad-invite-form"><div class="squad-invite-row"><input class="squad-input" id="squadInviteTelegramId" inputmode="numeric" autocomplete="off" placeholder="Telegram user ID" aria-label="Invitee Telegram ID" required><button class="squad-btn primary" type="submit">Invite</button></div></form></section>' : ''}`;
   loadInvitations();
 }
 
@@ -57,6 +68,51 @@ async function loadInvitations() {
     container.innerHTML = invitations.length ? invitations.map(item => `<article class="squad-invitation"><div><strong>Squad #${escapeHtml(item.squadId)}</strong><small>Pending invitation</small></div><button class="squad-btn primary" type="button" data-accept-invitation="${escapeHtml(item.id)}">Accept</button></article>`).join('') : '<div class="squad-empty-inline">No pending invitations.</div>';
   } catch (error) {
     container.innerHTML = `<div class="squad-empty-inline">${escapeHtml(error.message || 'Invitations unavailable')}</div>`;
+  }
+}
+
+async function loadSquadAds() {
+  try {
+    return await api('/api/squad/ads');
+  } catch {
+    return null;
+  }
+}
+
+async function watchSquadAd() {
+  const button = document.querySelector('[data-squad-ad]');
+  const status = document.querySelector('[data-squad-ad-status]');
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  button.textContent = 'LOADING…';
+  if (status) status.textContent = '';
+  try {
+    if (typeof window.DzMoneyAdClient?.getProvider !== 'function') throw new Error('Advertisement providers are unavailable');
+    const squadAds = await loadSquadAds();
+    const taskId = Number(squadAds?.task?.id);
+    if (!Number.isInteger(taskId) || taskId <= 0) throw new Error('Squad Ads task is unavailable');
+    const response = await api('/api/tasks/advertisement/start', { method: 'POST', body: JSON.stringify({ taskId, idempotencyKey: idempotencyKey() }) });
+    const adapter = window.DzMoneyAdClient.getProvider(response.providerId);
+    if (!adapter?.handler || typeof adapter.handler !== 'function') throw new Error('Advertisement provider is unavailable');
+    button.textContent = 'WATCHING…';
+    await adapter.ready;
+    await adapter.handler({ requestVar: 'squad', adEventId: response.adEventId, ymid: response.externalAdId });
+    button.textContent = 'VERIFYING…';
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+      const state = await api(`/api/squad/ads?adEventId=${encodeURIComponent(response.adEventId)}`);
+      if (state.event?.verified && state.event?.rewarded) {
+        if (status) status.textContent = 'Verified.';
+        await loadSquad();
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    throw new Error('Advertisement verification is still pending');
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = 'WATCH AD';
+    if (status) status.textContent = String(error.message || 'Advertisement unavailable');
   }
 }
 
@@ -114,8 +170,8 @@ async function loadSquad() {
   if (!card) return;
   card.innerHTML = renderLoading();
   try {
-    const [data, tiers, stateData] = await Promise.all([api('/api/squad'), loadPaidTiers(), api('/api/squad/daily-state')]);
-    renderSquad(data.squad || null, tiers, stateData.state || null);
+    const [data, tiers, stateData, ads] = await Promise.all([api('/api/squad'), loadPaidTiers(), api('/api/squad/daily-state'), loadSquadAds()]);
+    renderSquad(data.squad || null, tiers, stateData.state || null, ads);
   } catch (error) {
     card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">!</div><span class="squad-eyebrow">TEMPORARILY UNAVAILABLE</span><h2>Squad unavailable</h2><p>${escapeHtml(error.message || 'Please try again later.')}</p></div>`;
   }
@@ -126,6 +182,7 @@ document.addEventListener('click', event => {
   if (nav) setTimeout(loadSquad, 0);
   const tier = event.target.closest('[data-squad-tier]');
   if (tier) purchaseMembership(Number(tier.dataset.squadTier));
+  if (event.target.closest('[data-squad-ad]')) watchSquadAd();
   acceptInvitation(event);
 });
 

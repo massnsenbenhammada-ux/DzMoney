@@ -1,6 +1,7 @@
 const assert = require('assert');
 const {
   AD_PROVIDER_CONTEXTS,
+  SQUAD_PROVIDER_ORDER,
   AdProviderRegistry,
   ProviderUnavailableError,
   selectNextProvider,
@@ -20,15 +21,27 @@ function provider(id, contexts, overrides = {}) {
 }
 
 function testContextSelection() {
-  const registry = new AdProviderRegistry([
-    provider('first', ['verification']),
-    provider('second', ['verification'])
-  ]);
+  const registry = new AdProviderRegistry([provider('first', ['verification']), provider('second', ['verification'])]);
   assert.strictEqual(selectNextProvider(registry, { context: 'verification' }).id, 'first');
   assert.strictEqual(selectNextProvider(registry, { context: 'verification', previousProviderId: 'first' }).id, 'second');
   assert.strictEqual(selectNextProvider(registry, { context: 'verification', previousProviderId: 'second' }).id, 'first');
   assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('gaming'), true);
+  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('squad'), true);
   assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('reward_pool'), false);
+}
+
+function testSquadRotationOrder() {
+  const registry = new AdProviderRegistry([
+    provider('gigapub', ['squad']),
+    provider('onclicka', ['squad']),
+    provider('monetag', ['squad'])
+  ]);
+  assert.deepStrictEqual(SQUAD_PROVIDER_ORDER, ['monetag', 'onclicka']);
+  assert.strictEqual(selectNextProvider(registry, { context: 'squad' }).id, 'monetag');
+  assert.strictEqual(selectNextProvider(registry, { context: 'squad', previousProviderId: 'monetag' }).id, 'onclicka');
+  assert.strictEqual(selectNextProvider(registry, { context: 'squad', previousProviderId: 'onclicka' }).id, 'monetag');
+  registry.setContextEnabled('monetag', 'squad', false);
+  assert.strictEqual(selectNextProvider(registry, { context: 'squad' }).id, 'onclicka');
 }
 
 function testProviderValidation() {
@@ -38,11 +51,7 @@ function testProviderValidation() {
 }
 
 function testDisabledProviderIsSkipped() {
-  const registry = new AdProviderRegistry([
-    provider('first', ['verification']),
-    provider('disabled', ['verification'], { enabled: false }),
-    provider('third', ['verification'])
-  ]);
+  const registry = new AdProviderRegistry([provider('first', ['verification']), provider('disabled', ['verification'], { enabled: false }), provider('third', ['verification'])]);
   assert.strictEqual(selectNextProvider(registry, { context: 'verification', previousProviderId: 'first' }).id, 'third');
   assert.strictEqual(selectNextProvider(registry, { context: 'verification', previousProviderId: 'third' }).id, 'first');
 }
@@ -52,10 +61,7 @@ async function testVerificationUsesRecordedProviderOnly() {
     provider('first', ['verification'], { verifyCompletion: async () => { throw new ProviderUnavailableError('first'); } }),
     provider('second', ['verification'])
   ]);
-  await assert.rejects(
-    () => verifyWithProvider(registry, { context: 'verification', providerId: 'first', payload: {} }),
-    /timed out|first/
-  );
+  await assert.rejects(() => verifyWithProvider(registry, { context: 'verification', providerId: 'first', payload: {} }), /timed out|first/);
   assert.strictEqual(getProviderForVerification(registry, { context: 'verification', providerId: 'second' }).id, 'second');
 }
 
@@ -70,18 +76,14 @@ async function testInvalidProviderResultFailsClosed() {
   await assert.rejects(() => verifyWithProvider(registry, { context: 'verification', providerId: 'malformed', payload: {} }), /requires a provider reference/);
 }
 
-async function testNoProviderFailsClosed() {
+function testNoProviderFailsClosed() {
   const registry = new AdProviderRegistry([]);
   assert.throws(() => selectNextProvider(registry, { context: 'verification' }), /No advertisement provider available/);
 }
 
 function testAdminCanDisableOneContextOnly() {
-  const registry = new AdProviderRegistry([
-    provider('multi', ['task', 'verification', 'daily_checkin', 'gaming'])
-  ]);
-
+  const registry = new AdProviderRegistry([provider('multi', ['task', 'verification', 'daily_checkin', 'gaming'])]);
   registry.setContextEnabled('multi', 'daily_checkin', false);
-
   assert.strictEqual(selectNextProvider(registry, { context: 'task' }).id, 'multi');
   assert.strictEqual(selectNextProvider(registry, { context: 'verification' }).id, 'multi');
   assert.throws(() => selectNextProvider(registry, { context: 'daily_checkin' }), /No advertisement provider available/);
@@ -96,6 +98,7 @@ function testContextEnablementRejectsUnknownContext() {
 (async () => {
   try {
     testContextSelection();
+    testSquadRotationOrder();
     testProviderValidation();
     testDisabledProviderIsSkipped();
     await testVerificationUsesRecordedProviderOnly();

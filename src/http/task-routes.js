@@ -43,7 +43,7 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
 
   router.get('/', asyncRoute(async (req, res) => {
     const tasksList = await tasks.listActiveTasks({ userId: req.telegramUser.id });
-    res.json({ success: true, tasks: tasksList });
+    res.json({ success: true, tasks: tasksList.filter(task => task.systemKey !== 'squad_ads') });
   }));
 
   router.post('/execute', sensitiveRateLimit, asyncRoute(async (req, res) => {
@@ -91,7 +91,7 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
       idempotencyKey,
       providerRegistry
     });
-    res.json({ ok: true, adEventId: result.adEvent?.id, providerId: result.providerId, duplicate: result.duplicate });
+    res.json({ ok: true, adEventId: result.adEvent?.id, externalAdId: result.adEvent?.external_ad_id || null, providerId: result.providerId, duplicate: result.duplicate });
   }));
 
   router.post('/advertisement/finalize', sensitiveRateLimit, asyncRoute(async (req, res) => {

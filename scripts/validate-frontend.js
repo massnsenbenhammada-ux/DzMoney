@@ -84,7 +84,7 @@ const taskUxChecks = {
   dailyRefreshOutsideRenderer: renderTaskCategoryBody.length > 0 && !renderTaskCategoryBody.includes('loadDailyTaskStatus()') && !renderTaskCategoryBody.includes('loadDailyAdProgress()'),
   dailyRefreshOnCategoryEntry: categoryDailyRefresh.includes('renderTaskCategory(category.dataset.taskCategory)') && categoryDailyRefresh.includes("category.dataset.taskCategory === 'daily'") && categoryDailyRefresh.includes('loadDailyTaskStatus()') && categoryDailyRefresh.includes('loadDailyAdProgress()'),
   dailyRefreshScopedToDailyPage: /state\.page === 'tasks' && state\.taskCategory === 'daily'/.test(app),
-  taskProviderContextServer: /const contexts = \['task', 'gaming', 'daily_checkin', 'verification'\]/.test(server),
+  taskProviderContextServer: /const contexts = \['task', 'gaming', 'daily_checkin', 'verification'(?:, 'squad')?\]/.test(server),
   taskProviderConfigServer: /providers,[\s\S]*listAvailable\(context\)\.map/.test(server),
   taskAdProviderSelection: /startRotatedAdvertisementEventOnClient\(client, \{[\s\S]*context: 'task'/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8')),
   gamingProviderSelection: /providerId\s*=\s*response\.providerId;[\s\S]*getProvider\(providerId\)/.test(gaming),
