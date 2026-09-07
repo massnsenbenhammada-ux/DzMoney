@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const { pool } = require('../src/db/pool');
 const walletService = require('../src/services/wallet-service');
 const { executeSystemTask } = require('../src/services/daily-system-task-service');
-const { finalizeTaskVerification, resolveTrustedTaskVerifier } = require('../src/services/task-verification-service');
+const { finalizeTaskVerification } = require('../src/services/task-verification-service');
 
 const SYSTEM_KEY = 'check_for_update';
 const CHANNEL = '@DzMoneyChecking';
@@ -31,7 +31,7 @@ async function walletBalances(userId) {
 }
 
 async function main() {
-  const botToken = requireEnv('BOT_TOKEN');
+  requireEnv('BOT_TOKEN');
   const telegramUserId = requireEnv('TEST_TELEGRAM_USER_ID');
   const user = await createTestUser(telegramUserId);
 
@@ -46,6 +46,7 @@ async function main() {
     assert.strictEqual(taskResult.rowCount, 1, 'Check for Update task must be active');
     const task = taskResult.rows[0];
     assert.strictEqual(task.config.dailyPolicy, 'utc_plus_one_calendar_day');
+    assert.strictEqual(task.config.achievementThreshold, null, 'Non-achievement task must persist a nullable threshold');
     assert.strictEqual(task.config.verification.provider, 'telegram_channel');
     assert.strictEqual(task.config.verification.providerConfigRef, 'telegram.dzmoney_updates');
 
@@ -66,21 +67,23 @@ async function main() {
     assert.strictEqual(execution.gate.status, 'pending');
     assert.strictEqual(execution.gate.ad_event_id, null);
 
-    const verifier = resolveTrustedTaskVerifier({
-      config: task.config,
-      telegramUserId,
-      botToken
-    });
+    const concurrentKey = `check-update-real-finalize-${crypto.randomUUID()}`;
+    const results = await Promise.all([
+      finalizeTaskVerification({
+        attemptId: execution.attempt.id,
+        idempotencyKey: concurrentKey
+      }),
+      finalizeTaskVerification({
+        attemptId: execution.attempt.id,
+        idempotencyKey: `${concurrentKey}-concurrent`
+      })
+    ]);
 
-    const result = await finalizeTaskVerification({
-      attemptId: execution.attempt.id,
-      idempotencyKey: `check-update-real-finalize-${crypto.randomUUID()}`,
-      verifyTaskCompletion: verifier
-    });
-
-    assert.strictEqual(result.status, 'verified', 'Real Telegram membership must verify the task');
-    assert.strictEqual(result.rewarded, true);
-    assert.deepStrictEqual(result.reward, {
+    const rewarded = results.filter(result => result.status === 'verified' && result.rewarded === true && result.duplicate !== true);
+    const duplicates = results.filter(result => result.duplicate === true);
+    assert.strictEqual(rewarded.length, 1, 'Concurrent real Telegram claims must create one reward');
+    assert.strictEqual(duplicates.length, 1, 'Concurrent real Telegram claim must produce one duplicate result');
+    assert.deepStrictEqual(rewarded[0].reward, {
       coin: expected.COIN,
       dzx: expected.DZX,
       dzp: expected.DZP
@@ -110,12 +113,20 @@ async function main() {
 
     const retry = await finalizeTaskVerification({
       attemptId: execution.attempt.id,
-      idempotencyKey: `check-update-real-retry-${crypto.randomUUID()}`,
-      verifyTaskCompletion: verifier
+      idempotencyKey: `check-update-real-retry-${crypto.randomUUID()}`
     });
     assert.strictEqual(retry.status, 'verified');
     assert.strictEqual(retry.duplicate, true);
     assert.deepStrictEqual(await walletBalances(user.id), after);
+
+    await assert.rejects(
+      executeSystemTask({
+        systemKey: SYSTEM_KEY,
+        userId: user.id,
+        idempotencyKey: `check-update-real-same-day-${crypto.randomUUID()}`
+      }),
+      /already completed for the current eligibility window/
+    );
 
     console.log(`Real Telegram Check for Update: PASS (${CHANNEL}, user ${telegramUserId})`);
   } finally {
