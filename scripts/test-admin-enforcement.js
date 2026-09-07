@@ -45,11 +45,13 @@ test('ban and suspend reuse existing Squad membership states', () => {
   assert.match(service, /UPDATE squad_memberships SET status/);
 });
 
-test('Admin enforcement route is protected and mounted', () => {
+test('Admin enforcement route is protected and rate-limited', () => {
   assert.match(routes, /router.use\(adminAuth\)/);
+  assert.match(routes, /createRateLimit/);
   assert.match(routes, /router.post\('\/:userId\/status'/);
   assert.match(server, /createAdminUserEnforcementRouter/);
   assert.match(server, /\/api\/admin\/users\/enforcement/);
+  assert.match(routes, /codeql\[js\/missing-rate-limiting\]/);
 });
 
 test('Admin UI exposes explicit status controls without automatic actions', () => {
