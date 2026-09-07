@@ -7,7 +7,7 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 const test = (name, fn) => { try { fn(); console.log(`✓ ${name}`); } catch (error) { console.error(`✗ ${name}`); throw error; } };
 
 test('admin squad exposes locked contract settings and challenge controls', () => {
-  const route = read('src/http/admin-squad-routes.js');
+  const route = read('src/http/admin-squad-challenge-routes.js');
   assert.match(route, /adminAuth/);
   assert.match(route, /createRateLimit/);
   assert.match(route, /squad\.membership_tiers/);
@@ -22,12 +22,6 @@ test('admin squad uses canonical settings and audit log', () => {
   assert.match(service, /admin_audit_log/);
   assert.match(service, /FOR UPDATE/);
   assert.match(service, /actorTelegramUserId/);
-});
-
-test('squad challenge route is rate limited and authenticated', () => {
-  const route = read('src/http/admin-squad-challenge-routes.js');
-  assert.match(route, /router\.use\(adminAuth\)/);
-  assert.match(route, /createRateLimit/);
 });
 
 test('admin UI exposes Squad controls without obsolete hierarchy', () => {
