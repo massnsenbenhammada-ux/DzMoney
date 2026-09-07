@@ -25,16 +25,6 @@ function createPromoCodeRouter({ wallet = walletService, promo = promoService, p
     res.json({ ok: true, ...result });
   }));
 
-  router.post('/finalize', asyncRoute(async (req, res) => {
-    const adEventId = Number(req.body?.adEventId);
-    const providerId = typeof req.body?.providerId === 'string' ? req.body.providerId : null;
-    const providerPayload = req.body?.providerPayload;
-    if (!Number.isInteger(adEventId) || adEventId <= 0) return res.status(400).json({ ok: false, error: 'adEventId must be a positive integer' });
-    const user = await currentUser(req);
-    const result = await promo.finalizePromoRedemption({ userId: user.id, adEventId, providerRegistry, providerId, providerPayload });
-    res.json({ ok: true, ...result });
-  }));
-
   router.get('/redemption/:id', asyncRoute(async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ ok: false, error: 'redemption id must be a positive integer' });
