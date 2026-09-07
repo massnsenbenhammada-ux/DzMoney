@@ -118,6 +118,7 @@ function resolveVerificationConfig({ taskType, config = {} }) {
   return {
     taskType,
     dailyMode: source.dailyMode || null,
+    achievementThreshold: source.achievementThreshold === undefined ? null : Number(source.achievementThreshold),
     campaignUrl: source.campaignUrl || null,
     verification: {
       provider: verification.provider || null,
