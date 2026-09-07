@@ -2,7 +2,7 @@ const assert = require('assert');
 const { pool, withTransaction } = require('../src/db/pool');
 const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const { startTaskAdvertisement, verifyTrustedTaskAdvertisement, finalizeTaskAdvertisement } = require('../src/services/task-advertisement-service');
-const { getSystemTask, getAdvertisementProgress } = require('../src/services/daily-system-task-service');
+const { getSystemTask, getAdvertisementProgress, executeSystemTask } = require('../src/services/daily-system-task-service');
 
 const provider = {
   id: 'phase14-view-ads-20-provider',
@@ -115,7 +115,10 @@ async function main() {
     }
 
     await assertFinalInvariants(userId, task.id);
-    await assert.rejects(() => startTaskAdvertisement({ userId, taskId: task.id, idempotencyKey: `phase14-view-ads-${userId}-21`, providerRegistry: registry }), /Task advertisement|Daily advertisement/);
+    await assert.rejects(
+      () => executeSystemTask({ systemKey: 'view_ads', userId, idempotencyKey: `phase14-view-ads-${userId}-21` }),
+      /Daily advertisement target is already complete/
+    );
     console.log('Phase 14 Daily View Ads 1-to-20 journey: PASS');
   } finally {
     await cleanup(userId);
