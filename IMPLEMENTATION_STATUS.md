@@ -4,13 +4,20 @@
 
 ## Current state
 
-- **Current phase:** Phase 5 — Gaming is **closed / complete** for the currently defined contract after exact-head CI, final diff review, and post-merge runtime verification.
+- **Current phase:** Phase 11 — User App UI is **closed / complete for the currently implemented UI contract** after PR #263 merge, CI validation, successful Railway deployment, and post-deployment HTTP/runtime verification.
 - **Reward Pool:** **REMOVED FROM PRODUCT SCOPE.** Historical Reward Pool PRs/commits remain Git history only. No Reward Pool runtime, roadmap phase, or replacement phase is authorized.
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
 - **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract.
 - **Phase 4:** 🟢 **CLOSED** for the locked Squad implementation currently authorized. The later Admin Panel owns the App-Ban warning/review/enforcement control surface.
 - **Phase 5:** 🟢 **CLOSED / COMPLETE** for the locked Gaming contract. Exact-head CI passed, the final diff was reviewed, and production runtime verification passed without upstream errors on the deployed application commit. The later CI-only security fix does not alter runtime code.
+- **Phase 6:** ⏸️ **DEFERRED**. Packages remain unopened; no package purchasing UI/backend activation is authorized.
+- **Phase 7:** 🟢 Existing conversion-flow implementation is present in `main`; full later-phase contract status remains governed by its own validation evidence.
+- **Phase 8:** 🟡 Audited implementation milestone exists; production acceptance remains separately gated.
+- **Phase 9:** 🟡 Not complete as a full product phase.
+- **Phase 10:** 🟢 Backend Promo Code implementation is merged; Admin operational UI remains owned by the later Admin Panel scope.
+- **Phase 11:** 🟢 **CLOSED / COMPLETE for the current UI contract.** PR #263 is merged at commit `6bbef07517992041ce894a90a3b1ed0e919ef3b8`.
+- **Phase 12:** 🔵 Not started; next active product target after Phase 11, subject to its own Constitution 54 pre-change audit.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #204.
 - **Latest Squad contract lock:** PR #190.
@@ -111,17 +118,76 @@ Validation evidence:
 
 No Gaming implementation gap remains inside the current Phase 5 contract.
 
-## Later phases
+## Phase 6 — Packages
 
-- Phase 6 — Packages: not started.
-- Phase 7 — Buying Points & Conversion UI: existing merged conversion-flow code is present in `main`; this does **not** imply the entire later-phase product contract is complete.
-- Phase 8 — Deposit: audited implementation milestone exists; production acceptance remains separately gated.
-- Phase 9 — Withdrawal: not started as a complete product phase.
-- Phase 10 — Promo Codes: not started as a complete product phase.
-- Phase 11 — User App UI: partial UI exists through merged milestones; full roadmap phase is not marked complete.
-- Phase 12 — Admin Panel: not started as a complete product phase; it will own the App-Ban warning/review/enforcement control surface.
-- Phase 13 — Ledger/Security hardening: baseline controls exist and the repository dependency/CodeQL baseline is now active; final hardening remains a later-phase concern.
-- Phase 14 — Testing/Release: not complete.
+⏸️ **DEFERRED / NOT STARTED.**
+
+Packages remain unopened by explicit product scope. No package purchasing UI, package pricing, package activation, or package backend behavior is authorized until the phase is deliberately reopened and audited.
+
+## Phase 7 — Buying Points & Conversion UI
+
+🟢 Existing merged conversion-flow code is present in `main`; the presence of that code does not imply every later-phase economic acceptance criterion is complete.
+
+## Phase 8 — Deposit
+
+🟡 Audited implementation milestone exists; production acceptance remains separately gated.
+
+## Phase 9 — Withdrawal
+
+🟡 Not started as a complete product phase.
+
+## Phase 10 — Promo Codes
+
+🟢 Backend Promo Code implementation is merged and validated. Admin operational UI remains part of the later Admin Panel scope.
+
+## Phase 11 — User App UI
+
+🟢 **CLOSED / COMPLETE for the currently defined UI contract.**
+
+Implemented in PR #263 (`feat(ui): complete Phase 11 user app surfaces), merged into `main` at commit `6bbef07517992041ce894a90a3b1ed0e919ef3b8`.
+
+Validated scope:
+- Home Squad/Gaming status surfaces and Daily Activity;
+- package placeholder only, with Packages still deferred;
+- Coming Soon surface without speculative backend behavior;
+- independent RTL right-side User Drawer;
+- existing `.profile-sheet` implementation preserved rather than rewritten;
+- conversion semantics warning that converted/purchased/transferred DZP is not earned activity;
+- Squad hierarchy / daily activity / next-day activation / anti-manipulation explanation;
+- existing Gaming order preserved as Game → Gaming Ads → Tasks;
+- non-ad task action copy aligned to Execute → Verify without changing the existing execution/verification flow;
+- Phase 11 static UI contract tests integrated into the frontend test command.
+
+Architecture validation:
+- no new Economy, Ledger, Task, Verification, Advertisement, Squad, Gaming, Promo, or backend source of truth;
+- no package purchasing behavior activated;
+- no unrelated backend business-rule changes;
+- no silent product/navigation decision on the existing five-item Bottom Nav conflict; the current Home / Tasks / Squad / Friends / Wallet navigation remains unchanged.
+
+CI/deployment evidence:
+- PR #263 merged with the existing repository CI gates passing.
+- Railway deployment `b15be93d-5757-48a2-aa6b-6645f930bd86` completed successfully from the merged `main` lineage.
+- Post-deployment logs show `DzMoney migrations: OK` and `DzMoney 2.0 listening on 8080`.
+- Production served `/`, `/health`, `/api/me`, `/api/squad`, `/api/gaming`, and all Phase 11 frontend assets successfully with HTTP 200/304 responses and no proxy upstream errors.
+- The two observed Monetag postback HTTP 404 responses were correlated with postback requests whose advertisement event was not found; the application logs show the postback boundary was reached and received provider payloads. This is the route's intentional `Advertisement event not found` response, not a deployment/startup failure.
+- The existing Railway build warning about the absent `package-lock.json` and npm's `--omit=dev` wording are non-blocking hygiene warnings; the deployment itself completed successfully and npm reported zero package vulnerabilities during install.
+
+Remaining limitation:
+- The visual UI has been runtime-served and HTTP-validated, but pixel-level/manual Telegram-client visual acceptance is not replaced by these server-side checks. Any later visual correction must remain within the existing Phase 11 contract and undergo the same pre-change audit.
+
+## Phase 12 — Admin Panel
+
+🔵 **Not started.**
+
+Phase 12 owns the administrative control surface, including the Squad App-Ban warning/review/enforcement workflow. No automatic ban boundary is authorized. Any implementation must first pass the Constitution 54 pre-change audit and reuse existing backend sources of truth.
+
+## Phase 13 — Ledger/Security hardening
+
+🟡 Baseline controls exist and the repository dependency/CodeQL baseline is active; final hardening remains a later-phase concern.
+
+## Phase 14 — Testing/Release
+
+🟡 Not complete.
 
 ## Issue / PR interpretation
 
@@ -132,13 +198,13 @@ No Gaming implementation gap remains inside the current Phase 5 contract.
 
 ## Next authorized work
 
-1. Phase 4 Squad implementation is closed; do not invent an early Admin/App-Ban runtime boundary.
-2. Phase 5 Gaming is closed for its current contract; do not reopen or refactor it without a proven regression, security defect, or explicit contract change.
-3. The next product implementation target is **Phase 6 — Packages**, but it must remain unopened until its contract and pre-change audit are explicitly reviewed.
+1. Phase 11 User App UI is closed for its current contract; do not reopen or redesign it without a proven regression, accessibility defect, security issue, or explicit contract change.
+2. **Phase 6 Packages remains explicitly deferred.** Do not open package purchasing behavior merely because it appears earlier in the historical implementation order.
+3. The next active product target is **Phase 12 — Admin Panel**, subject to its own Constitution 54 pre-change audit and reconciliation of any already-merged administrative code.
 4. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
 5. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
 6. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.
-7. Do not implement speculative provider integrations or a speculative Admin/App-Ban boundary.
+7. Do not implement speculative provider integrations or automatic App-Ban behavior.
 8. Finalize future economic behavior only through versioned configuration changes supported by repeatable simulation where the governing contract requires it.
 
 ## Update Rule
