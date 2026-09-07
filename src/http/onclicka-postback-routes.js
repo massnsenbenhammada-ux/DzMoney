@@ -7,9 +7,10 @@ const { verifyDailyCheckinAd, finalizeDailyCheckin } = require('../services/dail
 const { verifyTaskAdvertisement, finalizeTaskVerification } = require('../services/task-verification-service');
 const taskAdvertisementService = require('../services/task-advertisement-service');
 const gamingService = require('../services/gaming-service');
+const promoService = require('../services/promo-code-service');
 const { createRateLimit } = require('./rate-limit');
 
-const CONTEXTS = new Set(['task', 'daily_checkin', 'verification', 'gaming', 'squad']);
+const CONTEXTS = new Set(['task', 'daily_checkin', 'verification', 'gaming', 'squad', 'promo']);
 
 function createOnclickaPostbackRouter({ providerRegistry }) {
   if (!providerRegistry) throw new Error('Advertisement provider registry is required');
@@ -46,6 +47,10 @@ function createOnclickaPostbackRouter({ providerRegistry }) {
         const verified = await markAdvertisementVerified({ adEventId: event.id, providerReference: verification.reference, verificationMetadata: { ...verification.metadata, provider_id: ONCLICKA_PROVIDER_ID, context: 'squad' } });
         const finalization = await taskAdvertisementService.finalizeTaskAdvertisement({ userId: event.user_id, adEventId: event.id });
         return res.json({ ok: true, context, verified: true, duplicate: verified.duplicate || finalization.duplicate, rewarded: finalization.rewarded === true, reward: finalization.reward || null });
+      }
+      if (context === 'promo') {
+        const finalization = await promoService.finalizePromoRedemption({ userId: event.user_id, adEventId: event.id, providerRegistry, providerId: ONCLICKA_PROVIDER_ID, providerPayload });
+        return res.json({ ok: true, context, verified: finalization.status === 'verified', duplicate: finalization.duplicate, rewarded: finalization.rewarded === true, status: finalization.status });
       }
       if (context === 'daily_checkin') {
         const verified = await verifyDailyCheckinAd({ userId: event.user_id, adEventId: event.id, providerRegistry, providerId: ONCLICKA_PROVIDER_ID, providerPayload });

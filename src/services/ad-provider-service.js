@@ -1,4 +1,4 @@
-const AD_PROVIDER_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification', 'squad'];
+const AD_PROVIDER_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification', 'squad', 'promo'];
 const GAMING_PROVIDER_ORDER = ['gigapub', 'monetag', 'onclicka'];
 const SQUAD_PROVIDER_ORDER = ['monetag', 'onclicka'];
 
