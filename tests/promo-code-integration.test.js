@@ -32,8 +32,9 @@ async function cleanup() {
   if (createdUsers.length) await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [createdUsers]);
 }
 
-test('promo redemption credits COIN without an ad when campaign explicitly disables ad gating', async t => {
-  t.after(cleanup);
+test.after(cleanup);
+
+test('promo redemption credits COIN without an ad when campaign explicitly disables ad gating', async () => {
   const user = await createTestUser('coin');
   const campaign = await promoService.createPromoCampaign({ code: `COIN-${suffix}`, rewardCurrency: 'COIN', rewardAmount: '1234', maxRedemptions: 1, perUserLimit: 1, adGated: false, enabled: true });
   createdCampaigns.push(campaign.id);
@@ -45,7 +46,7 @@ test('promo redemption credits COIN without an ad when campaign explicitly disab
   await assert.rejects(() => promoService.redeemPromoCode({ userId: user.id, code: campaign.code, idempotencyKey: `promo-test:${suffix}:coin-2` }), /already used|usage limit/);
 });
 
-test('ad-gated promo finalization credits DZX exactly once and records promo source', async t => {
+test('ad-gated promo finalization credits DZX exactly once and records promo source', async () => {
   const user = await createTestUser('dzx');
   const campaign = await promoService.createPromoCampaign({ code: `DZX-${suffix}`, rewardCurrency: 'DZX', rewardAmount: '2', maxRedemptions: 5, perUserLimit: 1, adGated: true, enabled: true });
   createdCampaigns.push(campaign.id);
@@ -67,7 +68,7 @@ test('ad-gated promo finalization credits DZX exactly once and records promo sou
   assert.equal(Number(ledger.rows[0].amount), 2);
 });
 
-test('promo campaign max redemptions is serialized under concurrent claims', async t => {
+test('promo campaign max redemptions is serialized under concurrent claims', async () => {
   const users = await Promise.all([createTestUser('race-a'), createTestUser('race-b')]);
   const campaign = await promoService.createPromoCampaign({ code: `RACE-${suffix}`, rewardCurrency: 'COIN', rewardAmount: '5', maxRedemptions: 1, perUserLimit: 1, adGated: false, enabled: true });
   createdCampaigns.push(campaign.id);
