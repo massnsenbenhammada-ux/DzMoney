@@ -5,14 +5,13 @@ const provider = createGigaPubProvider();
 assert.strictEqual(provider.id, GIGAPUB_PROVIDER_ID);
 assert.deepStrictEqual(provider.contexts, ['gaming']);
 assert.strictEqual(provider.clientConfig.projectId, GIGAPUB_PROJECT_ID);
-assert.strictEqual(provider.enabled, process.env.GIGAPUB_ENABLED === 'true');
+assert.strictEqual(provider.enabled, false);
 assert.strictEqual(typeof provider.verifyServerCompletion, 'undefined');
 
 (async () => {
-  const result = await provider.verifyCompletion({ userId: '123', adEventId: '456' });
-  assert.strictEqual(result.verified, true);
-  assert.strictEqual(result.reference, `gigapub:${GIGAPUB_PROJECT_ID}:456`);
-  assert.strictEqual(result.metadata.provider_id, 'gigapub');
-  await assert.rejects(() => provider.verifyCompletion({ userId: '123' }), /ad event/);
-  console.log('GigaPub standard ad provider tests passed.');
+  await assert.rejects(
+    () => provider.verifyCompletion({ userId: '123', adEventId: '456' }),
+    /trusted provider verification/
+  );
+  console.log('GigaPub standard ad provider safety contract passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
