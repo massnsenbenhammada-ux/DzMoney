@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>DzMoney Admin</title>
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-header">
+      <div>
+        <span class="eyebrow">DZMoney CONTROL</span>
+        <h1>Admin Dashboard</h1>
+        <p>Operational metrics from the canonical backend sources.</p>
+      </div>
+      <div class="status-pill"><span></span>Live</div>
+    </header>
+
+    <section class="metric-grid" aria-label="Real-time metrics">
+      <article class="metric-card metric-members">
+        <span>Total Members</span>
+        <strong id="membersValue">—</strong>
+        <small>Registered accounts</small>
+      </article>
+      <article class="metric-card metric-ads">
+        <span>Advertisements Watched</span>
+        <strong id="adsValue">—</strong>
+        <small>Verified ad completions</small>
+      </article>
+      <article class="metric-card metric-tasks">
+        <span>Tasks Completed</span>
+        <strong id="tasksValue">—</strong>
+        <small>Verified task attempts</small>
+      </article>
+    </section>
+
+    <section class="chart-section" aria-labelledby="sevenDayTitle">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">LAST 7 DAYS</span>
+          <h2 id="sevenDayTitle">Activity Overview</h2>
+        </div>
+        <button id="refreshButton" type="button">Refresh</button>
+      </div>
+      <div class="charts-grid">
+        <article class="chart-card">
+          <header><h3>Total Members</h3><span class="legend members">Members</span></header>
+          <div id="membersChart" class="bar-chart" role="img" aria-label="Seven-day total members chart"></div>
+        </article>
+        <article class="chart-card">
+          <header><h3>Advertisements</h3><span class="legend ads">Verified ads</span></header>
+          <div id="adsChart" class="bar-chart" role="img" aria-label="Seven-day advertisements chart"></div>
+        </article>
+        <article class="chart-card">
+          <header><h3>Tasks</h3><span class="legend tasks">Verified tasks</span></header>
+          <div id="tasksChart" class="bar-chart" role="img" aria-label="Seven-day tasks chart"></div>
+        </article>
+      </div>
+    </section>
+
+    <p id="errorState" class="error-state" hidden></p>
+    <footer>DzMoney Admin · server-authoritative · no client-side economic authority</footer>
+  </main>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>
