@@ -11,7 +11,7 @@ test('Phase 10 migration defines canonical promo campaigns and redemptions', () 
   assert.match(migration, /CREATE TABLE IF NOT EXISTS promo_redemptions/);
   assert.match(migration, /reward_currency TEXT NOT NULL CHECK \(reward_currency IN \('COIN', 'DZX'\)\)/);
   assert.match(migration, /ad_event_id BIGINT UNIQUE REFERENCES activity_ad_events/);
-  assert.match(migration, /UNIQUE\(code\)/);
+  assert.match(migration, /code TEXT NOT NULL UNIQUE/);
 });
 
 test('Promo service exposes redeem and finalization boundaries', () => {
