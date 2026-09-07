@@ -124,8 +124,8 @@ test('Admin dashboard returns top active members and qualified referrers', { ski
     );
 
     const dashboard = await getAdminDashboardMetrics();
-    const activeRow = dashboard.topActiveMembers.find(row => row.telegramUserId === active.telegram_user_id);
-    const referrerRow = dashboard.topReferrers.find(row => row.telegramUserId === active.telegram_user_id);
+    const activeRow = dashboard.topActiveMembers.find(row => String(row.telegramUserId) === String(active.telegram_user_id));
+    const referrerRow = dashboard.topReferrers.find(row => String(row.telegramUserId) === String(active.telegram_user_id));
 
     assert.ok(activeRow);
     assert.equal(activeRow.activityCount, 3);
