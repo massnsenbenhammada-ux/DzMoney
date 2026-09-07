@@ -9,7 +9,7 @@ const SYSTEM_KEY = 'invite_1_friend';
 
 async function createTestUser(prefix) {
   return walletService.createUser({
-    telegramUserId: `${prefix}-${crypto.randomUUID()}`,
+    telegramUserId: String(Date.now() * 1000 + crypto.randomInt(0, 1000)),
     username: `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
     firstName: `Invite ${prefix}`
   });
@@ -27,7 +27,6 @@ async function main() {
   const referrer = await createTestUser('invite_referrer');
   const referred = await createTestUser('invite_referred');
   const userId = referrer.id;
-  let attemptId = null;
 
   try {
     await pool.query(
@@ -67,7 +66,7 @@ async function main() {
       userId,
       idempotencyKey: `invite-execute-${crypto.randomUUID()}`
     });
-    attemptId = execution.attempt.id;
+    const attemptId = execution.attempt.id;
     assert.strictEqual(execution.duplicate, false);
     assert.strictEqual(execution.attempt.status, 'verification_pending');
     assert.strictEqual(execution.gate.status, 'pending');
