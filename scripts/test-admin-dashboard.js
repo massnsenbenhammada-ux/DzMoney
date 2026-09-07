@@ -117,9 +117,9 @@ test('Admin dashboard returns top active members and qualified referrers', { ski
     await insertTaskAttempt(active.id, taskId, `${suffix}-rank-task`, 0);
     await query(
       `INSERT INTO referral_attributions(
-         referrer_user_id, referred_user_id, status, activation_at,
+         referrer_user_id, referred_user_id, status,
          qualified_at, qualification_source, qualification_reference_id
-       ) VALUES ($1, $2, 'qualified', NOW(), NOW(), 'advertisement', $3)`,
+       ) VALUES ($1, $2, 'qualified', NOW(), 'advertisement', $3)`,
       [active.id, referred.id, 1]
     );
 
