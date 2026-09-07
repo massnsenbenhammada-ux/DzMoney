@@ -54,6 +54,18 @@
       <p id="economyState" class="settings-state" aria-live="polite"></p>
     </section>
 
+    <section id="usersSection" class="settings-section" aria-labelledby="usersTitle">
+      <div class="section-heading">
+        <div><span class="eyebrow">USERS</span><h2 id="usersTitle">Member Management</h2></div>
+        <div class="users-toolbar"><input id="adminUserSearch" type="search" placeholder="Username, name or Telegram ID" autocomplete="off"><button id="adminUserSearchButton" type="button">Search</button></div>
+      </div>
+      <div class="users-grid">
+        <article class="users-card"><div class="section-heading"><div><span class="eyebrow">DIRECTORY</span><h2>Members</h2></div></div><ul id="adminUserList" class="users-list"></ul></article>
+        <article id="adminUserProfile" class="users-card"><div class="section-heading"><div><span class="eyebrow">PROFILE</span><h2>Select a member</h2></div></div><p class="user-meta">Search and select a member to inspect canonical balances and ledger activity.</p></article>
+      </div>
+      <p id="usersState" class="users-state" aria-live="polite"></p>
+    </section>
+
     <p id="errorState" class="error-state" hidden></p>
     <footer>DzMoney Admin · server-authoritative · no client-side economic authority</footer>
   </main>
