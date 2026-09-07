@@ -42,6 +42,7 @@ test('Promo routes are mounted and protected by Telegram/admin authentication bo
   assert.match(server, /require\('\.\/src\/http\/admin-promo-code-routes'\)/);
   assert.match(server, /app\.use\('\/api\/admin\/promo'/);
   assert.match(routes, /router\.use\(auth\)/);
+  assert.doesNotMatch(routes, /router\.post\('\/finalize'/);
   assert.match(adminRoutes, /router\.use\(adminAuth\)/);
 });
 
