@@ -15,8 +15,15 @@ function dailyAdvertisementDateFilter() { return " AND (completed_at + INTERVAL 
 router.get('/', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
   const membership = await query(`SELECT s.id AS squad_id, s.owner_user_id, COUNT(sm2.id) FILTER (WHERE sm2.status <> 'cancelled') AS member_count, sm.status AS membership_status FROM squad_memberships sm JOIN squads s ON s.id = sm.squad_id LEFT JOIN squad_memberships sm2 ON sm2.squad_id = s.id WHERE sm.user_id = $1 AND sm.status <> 'cancelled' GROUP BY s.id, s.owner_user_id, sm.status`, [userId]);
-  if (!membership.rows[0]) return res.json({ ok: true, squad: null }); const row = membership.rows[0];
-  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount: Number(row.member_count), membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId) } });
+  if (!membership.rows[0]) return res.json({ ok: true, squad: null });
+  const row = membership.rows[0];
+  const memberCount = Number(row.member_count);
+  const tiers = await getPaidMembershipTiers({ query: (...args) => query(...args) });
+  const tierIndex = tiers.findIndex(tier => memberCount >= tier.minMembers && memberCount <= tier.maxMembers);
+  const tier = tierIndex >= 0 ? tiers[tierIndex] : null;
+  const requiredMembers = tier ? tier.maxMembers : null;
+  const progressPercent = requiredMembers ? Math.min(100, Math.round((memberCount / requiredMembers) * 100)) : null;
+  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount, membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId), tierLevel: tierIndex >= 0 ? tierIndex : null, requiredMembers, progressPercent } });
 }));
 
 router.get('/daily-state', asyncRoute(async (req, res) => { const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' }); const state = await getCurrentUserSquadState({ userId }); res.json({ ok: true, state }); }));
