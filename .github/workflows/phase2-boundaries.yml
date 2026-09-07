@@ -84,6 +84,13 @@ jobs:
         run: node --test ./tests/admin-ton-settings.test.js
       - name: Run TON blockchain evidence verifier tests
         run: node --test ./tests/ton-blockchain-verifier.test.js
+      - name: Run Check for Update claim integration
+        run: node ./scripts/test-check-for-update-claim-integration.js
+      - name: Run real Telegram Check for Update integration
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
+        run: node ./scripts/test-check-for-update-real-telegram.js
       - name: Verify isolated runtime health
         run: |
           node server.js > /tmp/dzmoney-server.log 2>&1 &
