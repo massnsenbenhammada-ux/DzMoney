@@ -72,7 +72,7 @@ async function redeemPromoCode({ userId, code: rawCode, idempotencyKey, provider
   if (!idempotencyKey) throw new Error('idempotencyKey is required');
   const code = normalizePromoCode(rawCode);
   return withTransaction(async client => {
-    const existing = await client.query(`SELECT r.*,c.code,e.external_ad_id,e.metadata->>'provider_id' AS provider_id FROM promo_redemptions r JOIN promo_campaigns c ON c.id=r.campaign_id LEFT JOIN activity_ad_events e ON e.id=r.ad_event_id WHERE r.idempotency_key=$1 FOR SHARE`, [idempotencyKey]);
+    const existing = await client.query(`SELECT r.*,c.code,e.external_ad_id,e.metadata->>'provider_id' AS provider_id FROM promo_redemptions r JOIN promo_campaigns c ON c.id=r.campaign_id LEFT JOIN activity_ad_events e ON e.id=r.ad_event_id WHERE r.idempotency_key=$1 FOR UPDATE OF r`, [idempotencyKey]);
     if (existing.rowCount) {
       const row = existing.rows[0];
       if (String(row.user_id) !== String(userId) || row.code !== code) throw new Error('Idempotency key operation mismatch');
