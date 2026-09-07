@@ -58,6 +58,9 @@ function createDailySystemTaskRouter({ wallet = walletService, tasks = dailyTask
       return res.json({ ok: true, adEventId: result.adEvent.id, externalAdId: result.adEvent.external_ad_id, providerId: result.providerId, duplicate: result.duplicate, progress });
     }
     const result = await tasks.executeSystemTask({ systemKey, userId: user.id, idempotencyKey, metadata: body.metadata || {} });
+    if (systemKey === DAILY_SYSTEM_TASKS.CHECK_FOR_UPDATE) {
+      return res.json({ ok: true, attemptId: result.attempt.id, gateId: result.gate.id, verificationAdId: null, verificationProvider: null, verificationStatus: result.gate.status, actionUrl: 'https://t.me/DzMoneyChecking', duplicate: result.duplicate });
+    }
     const verificationAd = await verification.startTaskVerificationAd({ attemptId: result.attempt.id, idempotencyKey: result.gate.idempotency_key, providerRegistry });
     res.json({ ok: true, attemptId: result.attempt.id, gateId: result.gate.id, verificationAdId: verificationAd.adEvent?.external_ad_id || null, verificationProvider: verificationAd.providerId || null, verificationStatus: result.gate.status, duplicate: result.duplicate });
   }));
