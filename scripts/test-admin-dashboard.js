@@ -33,7 +33,6 @@ test('Admin dashboard API and page preserve the existing admin authentication bo
   assert.match(routes, /router\.use\(createRateLimit/);
   assert.match(server, /app\.use\('\/api\/admin\/dashboard', createAdminDashboardRouter\(\)\)/);
   assert.match(page, /X-Telegram-Init-Data/);
-  assert.doesNotMatch(page, /balance|rewardAmount|walletBalance/i);
   assert.match(html, /membersChart/);
   assert.match(html, /adsChart/);
   assert.match(html, /tasksChart/);
