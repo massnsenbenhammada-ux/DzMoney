@@ -15,6 +15,7 @@ const { createAdminDashboardRouter } = require('./src/http/admin-dashboard-route
 const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-routes');
 const { createAdminEconomyRouter } = require('./src/http/admin-economy-routes');
 const { createAdminUserRouter } = require('./src/http/admin-user-routes');
+const { createAdminUserEnforcementRouter } = require('./src/http/admin-user-enforcement-routes');
 const { createAdminReferralRouter } = require('./src/http/admin-referral-routes');
 const { createAdminSquadChallengeRouter } = require('./src/http/admin-squad-challenge-routes');
 const { createAdminGamingRouter } = require('./src/http/admin-gaming-routes');
@@ -78,6 +79,7 @@ app.use('/api/promo', createPromoCodeRouter({ providerRegistry }));
 app.use('/api/admin/dashboard', createAdminDashboardRouter());
 app.use('/api/admin/economy', createAdminEconomyRouter());
 app.use('/api/admin/users', createAdminUserRouter());
+app.use('/api/admin/users/enforcement', createAdminUserEnforcementRouter());
 app.use('/api/admin/referral', createAdminReferralRouter());
 app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/admin/squad', createAdminSquadChallengeRouter());
