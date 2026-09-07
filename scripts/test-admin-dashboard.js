@@ -1,10 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
 const { query, pool } = require('../src/db/pool');
 const walletService = require('../src/services/wallet-service');
 const { getAdminDashboardMetrics } = require('../src/services/admin-dashboard-service');
 
-const UTC_PLUS_ONE = 'Etc/GMT-1';
+const root = path.join(__dirname, '..');
 
 async function insertAd(userId, suffix, offsetDays) {
   await query(
@@ -21,6 +23,17 @@ async function insertTaskAttempt(userId, taskId, suffix, offsetDays) {
     [taskId, userId, `admin-dashboard-exec:${suffix}`, `admin-dashboard-verify:${suffix}`, offsetDays]
   );
 }
+
+test('Admin dashboard API and page preserve the existing admin authentication boundary', () => {
+  const routes = fs.readFileSync(path.join(root, 'src/http/admin-dashboard-routes.js'), 'utf8');
+  const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'public/admin.js'), 'utf8');
+  assert.match(routes, /router\.use\(adminAuth\)/);
+  assert.match(routes, /router\.use\(createRateLimit/);
+  assert.match(server, /app\.use\('\/api\/admin\/dashboard', createAdminDashboardRouter\(\)\)/);
+  assert.match(page, /X-Telegram-Init-Data/);
+  assert.doesNotMatch(page, /balance|rewardAmount|walletBalance/i);
+});
 
 test('Admin dashboard aggregates members, verified ads, verified tasks and seven UTC+1 days', { skip: !process.env.DATABASE_URL }, async () => {
   const suffix = `${Date.now()}`;
