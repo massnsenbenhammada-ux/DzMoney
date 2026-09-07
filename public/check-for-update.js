@@ -51,7 +51,6 @@
         pendingActionUrl = null;
         setButton(button, 'Done', true);
         notify('Check for Update verified. Reward added.');
-        setTimeout(() => window.location.reload(), 700);
         return true;
       }
       if (result.status === 'rejected') {
