@@ -116,9 +116,11 @@ test('Admin dashboard returns top active members and qualified referrers', { ski
     await insertAd(active.id, `${suffix}-rank-ad-2`, 0);
     await insertTaskAttempt(active.id, taskId, `${suffix}-rank-task`, 0);
     await query(
-      `INSERT INTO referral_attributions(referrer_user_id, referred_user_id, status, activation_at)
-       VALUES ($1, $2, 'qualified', NOW())`,
-      [active.id, referred.id]
+      `INSERT INTO referral_attributions(
+         referrer_user_id, referred_user_id, status, activation_at,
+         qualified_at, qualification_source, qualification_reference_id
+       ) VALUES ($1, $2, 'qualified', NOW(), NOW(), 'advertisement', $3)`,
+      [active.id, referred.id, 1]
     );
 
     const dashboard = await getAdminDashboardMetrics();
@@ -142,6 +144,6 @@ test('Admin dashboard returns top active members and qualified referrers', { ski
   }
 });
 
-test.after(async () => {
-  await pool.end();
-});
+if (require.main === module) {
+  process.on('exit', () => pool.end());
+}
