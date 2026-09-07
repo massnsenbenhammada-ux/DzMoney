@@ -50,7 +50,7 @@ function testChannelFlowBoundary() {
   assert.match(route, /systemKey === DAILY_SYSTEM_TASKS\.CHECK_FOR_UPDATE/);
   assert.match(route, /actionUrl: 'https:\/\/t\.me\/DzMoneyChecking'/);
   assert.match(route, /verificationAdId: null/);
-  assert.match(frontend, /CHANNEL_URL = 'https:\/\/t\.me\/DzMoneyChecking'/);
+  assert.match(frontend, /openChannel\(pendingActionUrl\)/);
   assert.match(frontend, /openTelegramLink/);
   assert.match(frontend, /verificationAdId !== null/);
   assert.doesNotMatch(frontend, /showTaskVerificationAd/);
