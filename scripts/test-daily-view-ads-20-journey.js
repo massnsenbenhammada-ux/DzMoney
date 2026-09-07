@@ -68,21 +68,49 @@ async function main() {
       assert.strictEqual(started.duplicate, false);
       assert.strictEqual(started.adEvent.context, 'task');
       assert.strictEqual(started.adEvent.verified, false);
+
+      if (index === 1) {
+        await assert.rejects(
+          () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: started.adEvent.external_ad_id, userId: `${telegramUserId}-wrong` }, providerRegistry: registry }),
+          /user does not match advertisement owner/
+        );
+      }
+      if (index === 2) {
+        await assert.rejects(
+          () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: false, reference: started.adEvent.external_ad_id, userId: telegramUserId }, providerRegistry: registry }),
+          /Advertisement provider verification failed/
+        );
+        await assert.rejects(() => finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id }), /Task advertisement must be verified first/);
+      }
+
       const verified = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: started.adEvent.external_ad_id, userId: telegramUserId }, providerRegistry: registry });
       assert.strictEqual(verified.adEvent.verified, true);
-      const rewarded = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
+
+      let rewarded;
+      if (index === 10) {
+        const results = await Promise.all([
+          finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id }),
+          finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id })
+        ]);
+        assert.strictEqual(results.filter(result => result.duplicate === false).length, 1);
+        assert.strictEqual(results.filter(result => result.duplicate === true).length, 1);
+        rewarded = results.find(result => result.duplicate === false);
+      } else {
+        rewarded = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
+      }
       assert.strictEqual(rewarded.rewarded, true);
-      assert.strictEqual(rewarded.duplicate, false);
       assert.strictEqual(rewarded.progress.completed, index);
       assert.strictEqual(rewarded.progress.target, 20);
       assert.strictEqual(await balance(userId, 'COIN'), index * 1000);
       assert.strictEqual(await balance(userId, 'DZX'), index);
       assert.strictEqual(await balance(userId, 'DZP'), index);
+
       const duplicateVerification = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: started.adEvent.external_ad_id, userId: telegramUserId }, providerRegistry: registry });
       assert.strictEqual(duplicateVerification.duplicate, true);
       const duplicateReward = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
       assert.strictEqual(duplicateReward.duplicate, true);
       assert.strictEqual(await balance(userId, 'COIN'), index * 1000);
+
       if (index < 20) assert.deepStrictEqual(await getAdvertisementProgress(task, userId), { completed: index, target: 20, available: true });
     }
 
