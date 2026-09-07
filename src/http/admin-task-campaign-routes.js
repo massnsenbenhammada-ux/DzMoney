@@ -7,6 +7,7 @@ const service = require('../services/admin-task-campaign-service');
 
 function createAdminTaskCampaignRouter({ tasks = service } = {}) {
   const router = express.Router();
+  // codeql[js/missing-rate-limiting] This router is protected by the existing per-router limiter and the global /api limiter; CodeQL does not model this project-local middleware.
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
   router.use(adminAuth);
   router.use(createRateLimit({ windowMs: 60_000, max: 60 }));
