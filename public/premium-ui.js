@@ -190,7 +190,6 @@
     observer.disconnect();
     try {
       injectSquadExplanation();
-      updateSquadPresentation();
       updateGaming();
       document.querySelectorAll('.task-open-action').forEach(button => {
         if (button.textContent.trim() === 'Open') button.textContent = 'Execute';
