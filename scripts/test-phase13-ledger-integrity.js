@@ -27,6 +27,14 @@ async function main() {
       dzx: 2,
       dzp: 1,
     });
+    await creditActivityReward({
+      idempotencyKey: `${marker}:reward-2`,
+      userId: user.id,
+      source: 'advertisement',
+      coin: 500,
+      dzx: 1,
+      dzp: 1,
+    });
 
     const derived = await query(`
       SELECT wa.currency, wa.balance, COALESCE(SUM(le.amount), 0) AS ledger_balance
@@ -40,9 +48,9 @@ async function main() {
     assert.deepEqual(
       derived.rows.map(row => [row.currency, row.balance, row.ledger_balance]),
       [
-        ['COIN', '1000', '1000'],
-        ['DZP', '1', '1'],
-        ['DZX', '2', '2'],
+        ['COIN', '1500.000000000', '1500.000000000'],
+        ['DZP', '2.000000000', '2.000000000'],
+        ['DZX', '3.000000000', '3.000000000'],
       ]
     );
 
