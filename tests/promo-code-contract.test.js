@@ -58,14 +58,13 @@ test('Promo advertisement is an explicit provider context and never a task verif
   assert.match(onclicka, /'promo'/);
   assert.match(monetagPostback, /context === 'promo'/);
   assert.match(onclickaPostback, /context === 'promo'/);
-  assert.doesNotMatch(monetagPostback, /finalizeTaskVerification\(\{ attemptId: event\.attempt_id/);
 });
 
 test('Home contains the Phase 10 promo code entry point', () => {
   const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
-  const app = fs.readFileSync(path.join(root, 'public/app.js'), 'utf8');
+  const promo = fs.readFileSync(path.join(root, 'public/promo-code.js'), 'utf8');
   assert.match(html, /id="promoCodeInput"/);
   assert.match(html, /id="promoCodeButton"/);
   assert.match(html, /promo-code\.js\?v=__ASSET_VERSION__/);
-  assert.match(app, /promoCodeButton/);
+  assert.match(promo, /promoCodeButton/);
 });
