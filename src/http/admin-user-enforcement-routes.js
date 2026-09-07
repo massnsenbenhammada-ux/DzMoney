@@ -5,6 +5,7 @@ const { getEnforcementState, setAccountStatus } = require('../services/admin-use
 
 function createAdminUserEnforcementRouter() {
   const router = express.Router();
+  // codeql[js/missing-rate-limiting] This router is protected by the existing per-router limiter and the global /api limiter; CodeQL does not model this project-local middleware.
   router.use(adminAuth);
   router.use(createRateLimit({ windowMs: 60_000, max: 30 }));
 
