@@ -38,8 +38,11 @@ assert.match(premiumCss, /prefers-reduced-motion/);
 assert.match(premiumCss, /phase11-conversion-notice/);
 assert.match(premiumCss, /phase11-anti-manipulation/);
 
-const gamingOrder = [index.indexOf('Gaming Ads'), index.indexOf('Tasks')];
+const gamingPage = index.slice(index.indexOf('data-page="gaming"'));
+const gamingOrder = [gamingPage.indexOf('Gaming Ads'), gamingPage.indexOf('Tasks')];
 assert.ok(gamingOrder[0] >= 0 && gamingOrder[1] >= 0 && gamingOrder[0] < gamingOrder[1]);
 assert.match(squadState, /activeMemberCount \* 2 >= state\.eligible_member_count/);
+assert.match(gaming, /setAll\('\[data-spin-balance\]'/);
+assert.match(gaming, /setAll\('\[data-axe-balance\]'/);
 
 console.log('Phase 11 UI contract checks passed.');
