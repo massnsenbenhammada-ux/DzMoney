@@ -38,15 +38,13 @@ async function setAccountStatus({ userId, action, reason, evidence = null, idemp
     const user = await client.query('SELECT id, account_status FROM users WHERE id = $1 FOR UPDATE', [userId]);
     if (!user.rowCount) throw new Error('User not found');
     const targetStatus = ACTION_STATUS[normalizedAction];
-    const existing = await client.query('SELECT id, metadata FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE', [`admin-account-status:${key}`]);
-    if (existing.rowCount) return { duplicate: true, accountStatus: targetStatus, userId: String(userId) };
+    const existing = await client.query('SELECT response FROM idempotency_records WHERE key = $1 FOR SHARE', [`admin-account-status:${key}`]);
+    if (existing.rowCount) return { ...(existing.rows[0].response || {}), duplicate: true };
 
     const membership = await client.query('SELECT id, status FROM squad_memberships WHERE user_id = $1 FOR UPDATE', [userId]);
     const membershipStatus = normalizedAction === 'ban' ? 'cancelled' : normalizedAction === 'suspend' ? 'suspended' : 'active';
     await client.query('UPDATE users SET account_status = $1, updated_at = NOW() WHERE id = $2', [targetStatus, userId]);
-    if (membership.rowCount) {
-      await client.query('UPDATE squad_memberships SET status = $1 WHERE id = $2', [membershipStatus, membership.rows[0].id]);
-    }
+    if (membership.rowCount) await client.query('UPDATE squad_memberships SET status = $1 WHERE id = $2', [membershipStatus, membership.rows[0].id]);
     const audit = {
       action: normalizedAction,
       reason: normalizedReason,
@@ -57,12 +55,14 @@ async function setAccountStatus({ userId, action, reason, evidence = null, idemp
       new_membership_status: membership.rowCount ? membershipStatus : null,
       idempotency_key: key,
     };
+    const response = { duplicate: false, accountStatus: targetStatus, membershipStatus: membership.rowCount ? membershipStatus : null, userId: String(userId) };
+    await client.query('INSERT INTO idempotency_records(key, response) VALUES ($1, $2::jsonb)', [`admin-account-status:${key}`, JSON.stringify(response)]);
     await client.query(
       `INSERT INTO admin_audit_log(setting_key, old_value, new_value, actor_telegram_user_id)
        VALUES ($1, $2::jsonb, $3::jsonb, $4)`,
       [`user.account_status:${userId}`, JSON.stringify({ accountStatus: user.rows[0].account_status, membershipStatus: membership.rows[0]?.status || null }), JSON.stringify(audit), actorTelegramUserId]
     );
-    return { duplicate: false, accountStatus: targetStatus, membershipStatus: membership.rowCount ? membershipStatus : null, userId: String(userId) };
+    return response;
   });
 }
 
