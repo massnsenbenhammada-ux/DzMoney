@@ -81,7 +81,7 @@
     "test:daily-checkin-monetag-contract": "node ./scripts/test-daily-checkin-monetag-contract.js",
     "test:monetag-sdk-readiness": "node ./scripts/test-monetag-sdk-readiness.js",
     "test:special-partner-completion-contract": "node ./scripts/test-special-partner-completion-contract.js",
-    "test:frontend": "node ./scripts/validate-frontend.js",
+    "test:frontend": "node ./scripts/validate-frontend.js && node ./scripts/test-phase11-ui.js",
     "test:gaming": "node ./scripts/test-gaming.js",
     "test:gaming-ad-failure-diagnostics": "node ./scripts/test-gaming-ad-failure-diagnostics.js",
     "test:security-hardening": "node --test ./tests/rate-limit.test.js ./tests/provider-auth.test.js",
