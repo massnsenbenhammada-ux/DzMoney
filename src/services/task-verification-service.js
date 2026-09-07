@@ -31,8 +31,14 @@ function isTelegramMembershipTask(row) {
   return verification.provider === 'telegram_channel' && (!verification.method || verification.method === 'bot_api') && (!verification.event || verification.event === 'channel_membership');
 }
 
-function resolveTrustedTaskVerifier({ config, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
+function resolveTrustedTaskVerifier({ config, userId, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
   const verification = config?.verification || {};
+  if (config?.achievementThreshold !== undefined) {
+    const threshold = Number(config.achievementThreshold);
+    if (!Number.isInteger(threshold) || threshold <= 0) throw new Error('Invalid referral achievement threshold');
+    requiredId(userId, 'userId');
+    return async () => Number(await referralService.getQualifiedReferralCount(userId)) >= threshold;
+  }
   if (config?.dailyMode === 'advertisement') {
     return async ({ attemptId }) => {
       const result = await query(`SELECT g.status AS gate_status, e.verified AS ad_verified, e.context AS ad_context, e.metadata->>'provider_id' AS provider_id FROM task_verification_gates g JOIN activity_ad_events e ON e.id=g.ad_event_id WHERE g.attempt_id=$1`, [requiredId(attemptId, 'attemptId')]);
@@ -132,7 +138,7 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
   const initialState = validateTaskVerificationState(initialRow);
   if (initialState) return initialState;
   const resolvedConfig = resolveVerificationConfig({ taskType: initialRow.task_type, config: initialRow.config });
-  const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, telegramUserId: initialRow.telegram_user_id, userSubmittedUrl });
+  const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, userId: initialRow.user_id, telegramUserId: initialRow.telegram_user_id, userSubmittedUrl });
   const verifiedByTaskRule = await verifier({ attemptId, userSubmittedUrl });
   if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
   return withTransaction(async client => {
