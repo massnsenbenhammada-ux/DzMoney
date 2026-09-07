@@ -80,12 +80,12 @@ test('Admin dashboard aggregates members, verified ads, verified tasks and seven
     assert.equal(afterYesterday.tasksCompleted, beforeYesterday.tasksCompleted + 1);
     assert.equal(afterYesterday.totalMembers, beforeYesterday.totalMembers);
   } finally {
-    if (taskId) await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
     if (userIds.length) {
       await query('DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])', [userIds]);
       await query('DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])', [userIds]);
       await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [userIds]);
     }
+    if (taskId) await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
   }
   await pool.end();
 });
