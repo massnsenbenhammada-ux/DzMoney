@@ -90,11 +90,13 @@ async function applyMovement(client, { userId, currency, amount, source, dzpBuck
   const delta = numericInput(amount, 'amount', { allowZero: false });
   const updates = ['balance = balance + $1::numeric', 'updated_at = NOW()'];
   const params = [delta, wallet.id];
-  if (currency === 'DZP' && !delta.startsWith('-') && !/^0+(?:\.0*)?$/.test(delta) && dzpBucket) {
+  let condition = 'balance + $1::numeric >= 0';
+  if (currency === 'DZP' && dzpBucket) {
     if (!['earned_dzp', 'converted_dzp', 'purchased_dzp'].includes(dzpBucket)) throw new Error('Invalid DZP source bucket');
     updates.push(`${dzpBucket} = ${dzpBucket} + $1::numeric`);
+    condition += ` AND ${dzpBucket} + $1::numeric >= 0`;
   }
-  const updated = await client.query(`UPDATE wallet_accounts SET ${updates.join(', ')} WHERE id = $2 AND balance + $1::numeric >= 0 RETURNING balance`, params);
+  const updated = await client.query(`UPDATE wallet_accounts SET ${updates.join(', ')} WHERE id = $2 AND ${condition} RETURNING balance`, params);
   if (!updated.rowCount) throw new Error(`Insufficient ${currency} balance`);
   return { walletId: wallet.id, currency, amount: delta, before: wallet.balance, after: updated.rows[0].balance, source };
 }
