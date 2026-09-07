@@ -19,7 +19,7 @@ async function run() {
   assert.strictEqual(await verifier(), true);
   assert.deepStrictEqual(calls, [{
     botToken: 'test-token',
-    channel: '@dzmoneycom',
+    channel: '@DzMoneyChecking',
     userId: 123
   }]);
 

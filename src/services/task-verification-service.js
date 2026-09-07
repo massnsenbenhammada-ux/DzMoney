@@ -8,7 +8,7 @@ const { resolveVerificationConfig } = require('./task-verification-config');
 const { matchesUrlFormat } = require('./game-url-format-match');
 const { isTelegramChannelMember } = require('./telegram-channel-verifier');
 
-const TELEGRAM_TASK_CHANNELS = { 'telegram.dzmoney_updates': '@dzmoneycom' };
+const TELEGRAM_TASK_CHANNELS = { 'telegram.dzmoney_updates': '@DzMoneyChecking' };
 
 function requiredId(value, name) {
   if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
@@ -24,6 +24,11 @@ function resolveTelegramTaskChannel(verification) {
   const channel = TELEGRAM_TASK_CHANNELS[verification?.providerConfigRef];
   if (!channel) throw new Error('Telegram task verifier channel is required');
   return channel;
+}
+
+function isTelegramMembershipTask(row) {
+  const verification = row?.config?.verification || {};
+  return verification.provider === 'telegram_channel' && (!verification.method || verification.method === 'bot_api') && (!verification.event || verification.event === 'channel_membership');
 }
 
 function resolveTrustedTaskVerifier({ config, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
@@ -106,7 +111,7 @@ function validateTaskVerificationState(row) {
   if (row.status === 'verified') return { duplicate: true, status: 'verified', rewarded: true, reward: rewardAmounts(row) };
   if (row.status === 'rejected' || row.status === 'expired') return { duplicate: false, status: row.status, rewarded: false };
   if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
-  if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
+  if (!isTelegramMembershipTask(row) && row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
   return null;
 }
 
