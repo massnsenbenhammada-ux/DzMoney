@@ -29,7 +29,11 @@ async function cleanup() {
     await query('DELETE FROM promo_redemptions WHERE campaign_id = ANY($1::bigint[])', [createdCampaigns]);
     await query('DELETE FROM promo_campaigns WHERE id = ANY($1::bigint[])', [createdCampaigns]);
   }
-  if (createdUsers.length) await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [createdUsers]);
+  if (createdUsers.length) {
+    await query(`DELETE FROM ledger_entries WHERE wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = ANY($1::bigint[]))`, [createdUsers]);
+    await query(`DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])`, [createdUsers]);
+    await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [createdUsers]);
+  }
 }
 
 test.after(cleanup);
