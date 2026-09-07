@@ -55,6 +55,27 @@ For threshold `N`:
 
 Referral activation and referral achievement rewards are separate business events and may both occur for the first qualified referral.
 
+### Invite Achievement integration validation
+
+PR #287 closed the integration-evidence gap without changing the approved business contract. The validated test now exercises the real Daily system-task execution and existing verification-gate lifecycle against the test PostgreSQL database.
+
+Coverage includes:
+
+- canonical qualified-referral eligibility and below-threshold rejection;
+- real `executeSystemTask` attempt/gate creation;
+- no reward while the verification advertisement gate is pending;
+- the existing `achievementThreshold` is preserved through `resolveVerificationConfig` into the existing Invite verifier boundary;
+- successful reward through the canonical Economy/Ledger path;
+- concurrent finalization produces exactly one rewarded claim and one duplicate result;
+- retries after successful verification produce no additional reward;
+- temporary database fixtures are cleaned without closing the shared test pool.
+
+Exact validated head: `92120e7dabca6e990b49e7a0be8a724acbd1e37e`.
+
+CI evidence: Test Governance, Security, Phase 10 Promo Codes, and Phase 2 boundaries/full `test:all` all passed for that exact head. The Phase 2 full suite completed successfully after the integration test was corrected to keep the shared PostgreSQL pool alive for subsequent tests.
+
+The corresponding production correction is intentionally minimal: no new service, table, migration, Economy/Ledger, Referral system, anti-fraud system, or UI was introduced.
+
 ## Architectural constraints
 
 Reuse the existing Task Catalog, Task Execution, Verification, Advertisement, Referral, Economy and Ledger components. Do not create a second Task Service, Referral counter, Reward system, Economy or Ledger.
