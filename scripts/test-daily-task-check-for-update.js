@@ -52,6 +52,8 @@ function testChannelFlowBoundary() {
   assert.match(route, /verificationAdId: null/);
   assert.match(frontend, /openChannel\(pendingActionUrl\)/);
   assert.match(frontend, /openTelegramLink/);
+  assert.match(frontend, /document\.addEventListener\('visibilitychange', verifyOnReturn\)/);
+  assert.match(frontend, /window\.addEventListener\('focus', verifyOnReturn\)/);
   assert.match(frontend, /verificationAdId !== null/);
   assert.doesNotMatch(frontend, /showTaskVerificationAd/);
 }
