@@ -28,11 +28,16 @@ test('Admin dashboard API and page preserve the existing admin authentication bo
   const routes = fs.readFileSync(path.join(root, 'src/http/admin-dashboard-routes.js'), 'utf8');
   const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   const page = fs.readFileSync(path.join(root, 'public/admin.js'), 'utf8');
+  const html = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
   assert.match(routes, /router\.use\(adminAuth\)/);
   assert.match(routes, /router\.use\(createRateLimit/);
   assert.match(server, /app\.use\('\/api\/admin\/dashboard', createAdminDashboardRouter\(\)\)/);
   assert.match(page, /X-Telegram-Init-Data/);
   assert.doesNotMatch(page, /balance|rewardAmount|walletBalance/i);
+  assert.match(html, /membersChart/);
+  assert.match(html, /adsChart/);
+  assert.match(html, /tasksChart/);
+  assert.match(html, /bar-chart/);
 });
 
 test('Admin dashboard aggregates members, verified ads, verified tasks and seven UTC+1 days', { skip: !process.env.DATABASE_URL }, async () => {
