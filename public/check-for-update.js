@@ -26,6 +26,10 @@
     button.disabled = disabled;
   }
 
+  function currentButton() {
+    return document.querySelector('[data-system-key="check_for_update"]');
+  }
+
   function notify(message) {
     const toast = document.getElementById('toast');
     if (toast) {
@@ -36,23 +40,37 @@
   }
 
   async function verify(attemptId, button) {
-    const result = await request('/api/daily-tasks/verify', { method: 'POST', body: JSON.stringify({ attemptId, idempotencyKey: `daily-system:${attemptId}` }) });
-    if (result.status === 'verified') {
-      pendingAttemptId = null;
-      pendingActionUrl = null;
-      setButton(button, 'Done', true);
-      notify('Check for Update verified. Reward added.');
-      setTimeout(() => window.location.reload(), 700);
-      return true;
-    }
-    if (result.status === 'rejected') {
-      pendingAttemptId = null;
-      pendingActionUrl = null;
-      setButton(button, 'Check for Update', false);
-      notify('Membership could not be verified. Join the channel and try again.');
+    if (busy) return false;
+    busy = true;
+    try {
+      const result = await request('/api/daily-tasks/verify', { method: 'POST', body: JSON.stringify({ attemptId, idempotencyKey: `daily-system:${attemptId}` }) });
+      if (result.status === 'verified') {
+        pendingAttemptId = null;
+        pendingActionUrl = null;
+        setButton(button, 'Done', true);
+        notify('Check for Update verified. Reward added.');
+        setTimeout(() => window.location.reload(), 700);
+        return true;
+      }
+      if (result.status === 'rejected') {
+        pendingAttemptId = null;
+        pendingActionUrl = null;
+        setButton(button, 'Check for Update', false);
+        notify('Membership could not be verified. Join the channel and try again.');
+      }
       return false;
+    } catch (error) {
+      setButton(button, 'Verify', false);
+      notify(error.message || 'Unable to verify membership.');
+      return false;
+    } finally {
+      busy = false;
     }
-    return false;
+  }
+
+  async function verifyOnReturn() {
+    if (!pendingAttemptId || document.visibilityState !== 'visible') return;
+    await verify(pendingAttemptId, currentButton());
   }
 
   async function start(button) {
@@ -60,15 +78,13 @@
     busy = true;
     setButton(button, 'Opening…', true);
     try {
-      if (!pendingAttemptId) {
-        const result = await request('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey: CHANNEL_TASK_KEY, idempotencyKey: `daily:${CHANNEL_TASK_KEY}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
-        if (typeof result.actionUrl !== 'string' || result.actionUrl === '' || result.verificationAdId !== null) throw new Error('Check for Update channel contract is invalid');
-        pendingAttemptId = result.attemptId;
-        pendingActionUrl = result.actionUrl;
-      }
+      const result = await request('/api/daily-tasks/execute', { method: 'POST', body: JSON.stringify({ systemKey: CHANNEL_TASK_KEY, idempotencyKey: `daily:${CHANNEL_TASK_KEY}:${crypto.randomUUID()}`, metadata: { source: 'tasks_ui' } }) });
+      if (typeof result.actionUrl !== 'string' || result.actionUrl === '' || result.verificationAdId !== null) throw new Error('Check for Update channel contract is invalid');
+      pendingAttemptId = result.attemptId;
+      pendingActionUrl = result.actionUrl;
       openChannel(pendingActionUrl);
-      setButton(button, 'Verify', false);
-      notify('Join the channel, return here, then tap Verify.');
+      setButton(button, 'Verifying…', false);
+      notify('Return to DzMoney after joining; membership will be verified automatically.');
     } catch (error) {
       notify(error.message || 'Unable to start Check for Update.');
       setButton(button, 'Check for Update', false);
@@ -82,9 +98,11 @@
     if (!button) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (pendingAttemptId) verify(pendingAttemptId, button).catch(error => notify(error.message || 'Unable to verify membership.'));
+    if (pendingAttemptId) verify(pendingAttemptId, button);
     else start(button);
   }
 
   document.addEventListener('click', intercept, true);
+  document.addEventListener('visibilitychange', verifyOnReturn);
+  window.addEventListener('focus', verifyOnReturn);
 })();
