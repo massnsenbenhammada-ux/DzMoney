@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { query } = require('../db/pool');
 
 const MAX_AGE_SECONDS = 24 * 60 * 60;
 
@@ -28,12 +29,22 @@ function verifyTelegramInitData(initData) {
   return parseVerifiedTelegramInitData(initData)?.user || null;
 }
 
-function telegramAuth(req, res, next) {
+async function telegramAuth(req, res, next) {
   const initData = req.get('X-Telegram-Init-Data') || req.body?.initData;
   const verified = parseVerifiedTelegramInitData(initData);
   if (!verified) return res.status(401).json({ error: 'Invalid Telegram authentication' });
   req.telegramUser = verified.user;
   req.telegramStartParam = verified.startParam;
+  if (!req.skipAccountStatusCheck) {
+    try {
+      const result = await query('SELECT account_status FROM users WHERE telegram_user_id = $1', [String(verified.user.id)]);
+      const status = result.rows[0]?.account_status || 'active';
+      if (status !== 'active') return res.status(403).json({ error: `Account is ${status}` });
+      req.accountStatus = status;
+    } catch (error) {
+      return next(error);
+    }
+  }
   next();
 }
 
