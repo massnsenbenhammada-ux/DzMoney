@@ -84,6 +84,8 @@ jobs:
         run: node --test ./tests/admin-ton-settings.test.js
       - name: Run TON blockchain evidence verifier tests
         run: node --test ./tests/ton-blockchain-verifier.test.js
+      - name: Run Check for Update claim integration
+        run: node ./scripts/test-check-for-update-claim-integration.js
       - name: Verify isolated runtime health
         run: |
           node server.js > /tmp/dzmoney-server.log 2>&1 &
