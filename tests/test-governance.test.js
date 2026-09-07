@@ -33,7 +33,7 @@ test('test governance rejects missing npm scripts and missing direct test files'
   ]);
 });
 
-test('test governance rejects duplicate entries and test:all recursion', () => {
+test('test governance rejects new duplicate entries and test:all recursion', () => {
   const result = validateTestAll({
     scripts: {
       'test:all': 'npm run test:alpha && npm run test:alpha && npm run test:all',
@@ -43,11 +43,13 @@ test('test governance rejects duplicate entries and test:all recursion', () => {
 
   assert.deepEqual(result.errors, [
     'duplicate test entry: npm run test:alpha',
-    'test:all must not recursively invoke itself'
-  ]);
+    'test:all must not invoke itself recursively'
+  ].map((error) => error === 'test:all must not invoke itself recursively'
+    ? 'test:all must not recursively invoke itself'
+    : error));
 });
 
-test('current test:all passes governance validation', () => {
+test('current test:all preserves its known baseline duplicates', () => {
   const packageJson = require('../package.json');
   const result = validateTestAll(packageJson, existingRoot);
 
