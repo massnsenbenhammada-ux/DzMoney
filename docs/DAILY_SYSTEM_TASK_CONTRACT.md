@@ -1,6 +1,6 @@
 # Daily System Task Contract
 
-Status: proposed contract for implementation
+Status: implemented for the currently validated Daily system-task contracts
 
 ## Daily categories
 
@@ -23,7 +23,19 @@ The supported Daily system tasks are:
 
 ## Check for Update
 
-The user must be a member of the configured Telegram updates channel. Opening the channel URL is not sufficient evidence. Verification must be performed server-side using the existing trusted Telegram verification boundary.
+The current production contract is:
+
+1. The user presses **Check for Update**.
+2. DzMoney opens the Telegram channel `@DzMoneyChecking` at `https://t.me/DzMoneyChecking`.
+3. The user joins/is a member of that channel.
+4. When the user returns to the Mini App, the existing authenticated verification endpoint checks membership server-side through the Telegram Bot API boundary.
+5. Only successful membership verification earns the task reward.
+6. The task can be rewarded once per UTC+1 calendar day.
+7. Opening the channel without membership is insufficient evidence.
+8. Advertisement verification is not part of this task.
+9. The reward continues through the existing Economy/Ledger path.
+
+The public channel reference remains server-owned. The client consumes the server-provided action URL and does not act as the reward authority.
 
 ## Share with Friends
 
@@ -47,4 +59,4 @@ Referral activation and referral achievement rewards are separate business event
 
 Reuse the existing Task Catalog, Task Execution, Verification, Advertisement, Referral, Economy and Ledger components. Do not create a second Task Service, Referral counter, Reward system, Economy or Ledger.
 
-No database migration is justified by this contract alone. A migration is allowed only if the existing schema cannot represent the required permanent achievement idempotency state.
+No database migration was introduced for the Check for Update contract because the existing task/gate/configuration model already represents the required state and idempotency boundary.
