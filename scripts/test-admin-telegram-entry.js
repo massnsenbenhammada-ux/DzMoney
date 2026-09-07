@@ -13,5 +13,5 @@ assert(server.includes('/admin-entry.js?v=${assetVersion}'), 'Admin entry script
 assert(entry.includes('X-Telegram-Init-Data'), 'Admin entry must send Telegram initData');
 assert(entry.includes('/api/admin/dashboard/access'), 'Admin entry must use the protected access endpoint');
 assert(entry.includes("window.location.href = '/admin.html'"), 'Authorized admin must open the existing Admin Panel');
-assert(entry.includes('hidden = false'), 'Admin button must stay hidden until authorization succeeds');
+assert(entry.includes('if (!isAdmin) return;'), 'Admin button must not be created before authorization succeeds');
 console.log('Admin Telegram entry contract: PASS');
