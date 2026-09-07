@@ -43,10 +43,8 @@ test('test governance rejects new duplicate entries and test:all recursion', () 
 
   assert.deepEqual(result.errors, [
     'duplicate test entry: npm run test:alpha',
-    'test:all must not invoke itself recursively'
-  ].map((error) => error === 'test:all must not invoke itself recursively'
-    ? 'test:all must not recursively invoke itself'
-    : error));
+    'test:all must not recursively invoke itself'
+  ]);
 });
 
 test('current test:all preserves its known baseline duplicates', () => {
