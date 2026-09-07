@@ -10,6 +10,7 @@ const server = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8');
 
 assert.match(route, /adminAuth/);
 assert.match(route, /createRateLimit/);
+assert.match(route, /js\/missing-rate-limiting/);
 assert.match(route, /router\.get\('\/'/);
 assert.match(route, /router\.post\('\/:taskId\/review'/);
 assert.match(route, /approve/);
