@@ -56,9 +56,10 @@ test('admin UI exposes search, profile and balance adjustment controls', () => {
   assert.match(html, /usersSection/);
   assert.match(html, /adminUserSearch/);
   assert.match(html, /adminUserProfile/);
-  assert.match(html, /adminBalanceAdjustment/);
+  assert.match(js, /id="adminBalanceAdjustment"/);
   assert.match(js, /\/api\/admin\/users/);
-  assert.match(js, /idempotency/);
+  assert.match(js, /idempotencyKey/);
+  assert.match(js, /Mandatory reason/);
 });
 
 test('test:all includes admin users contract', () => {
