@@ -4,18 +4,19 @@
 
 ## Current state
 
-- **Current phase:** Phase 5 — Gaming is the active implementation phase; the locked Phase 5 runtime contract is implemented on this branch pending final PR/CI/post-merge validation.
+- **Current phase:** Phase 5 — Gaming is **closed / complete** for the currently defined contract after exact-head CI, final diff review, and post-merge runtime verification.
 - **Reward Pool:** **REMOVED FROM PRODUCT SCOPE.** Historical Reward Pool PRs/commits remain Git history only. No Reward Pool runtime, roadmap phase, or replacement phase is authorized.
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
 - **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract.
 - **Phase 4:** 🟢 **CLOSED** for the locked Squad implementation currently authorized. The later Admin Panel owns the App-Ban warning/review/enforcement control surface.
-- **Phase 5:** 🟡 **IMPLEMENTED / VALIDATION GATED**. Runtime, tests, documentation and simulation are present in the Phase 5 branch; final status becomes complete only after exact-head CI, final diff review and post-merge runtime verification.
+- **Phase 5:** 🟢 **CLOSED / COMPLETE** for the locked Gaming contract. Exact-head CI passed, the final diff was reviewed, and production runtime verification passed without upstream errors on the deployed application commit. The later CI-only security fix does not alter runtime code.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #204.
 - **Latest Squad contract lock:** PR #190.
 - **Latest merged Squad implementation milestone:** PR #207.
 - **Latest merged main conversion-flow change:** PR #215. Its presence does not mean all later-phase product scope is complete; status follows validated phase contracts.
+- **Latest repository governance milestone:** PR #257, adding the dependency audit/CodeQL baseline with the npm-cache CI correction.
 
 ## Phase 0 — Specification Lock
 
@@ -74,7 +75,7 @@ The remaining App-Ban control surface is intentionally not a Phase 4 runtime bou
 
 ## Phase 5 — Gaming
 
-🟡 **IMPLEMENTED / VALIDATION GATED.**
+🟢 **CLOSED / COMPLETE.**
 
 The product decision is final for the current roadmap: **Phase 5 is Gaming. Reward Pool is removed from the product scope and is not assigned another phase.**
 
@@ -82,7 +83,7 @@ Canonical contract:
 - `docs/PHASE5_GAMING.md`
 - `PROJECT_ROADMAP.md` Phase 5 section
 
-Implemented in the current Phase 5 branch:
+Validated implementation:
 - persistent Spin and Digging resources;
 - server-side Spin rolls and idempotent results;
 - persistent server-generated Digging boards;
@@ -94,11 +95,21 @@ Implemented in the current Phase 5 branch:
 - existing Economy/Ledger for all economic rewards;
 - locking/idempotency for resource and reward mutations;
 - native mobile Gaming Home/Spin/Digging UI;
-- required 1,000-user × 30-day economic simulation and tuned version-1 Spin weights.
+- required 1,000-user × 30-day economic simulation and tuned version-1 Spin weights;
+- provider rotation hardening and provider-specific failure diagnostics;
+- bounded SDK settlement for GigaPub and OnClickA to prevent indefinite Gaming WATCH AD hangs;
+- Gaming hidden-outcome redaction and provider correlation protections.
 
 Simulation result: average 1,023.665 DZX-equivalent Gaming economic cost per user over 30 days, below the 1,200 DZX-equivalent guardrail. The deterministic 1,000-user run observed a 708.3–1,565.7 DZX-equivalent per-user range and jackpot frequency below 1%.
 
-Remaining validation gate: exact-head CI, final diff review, merge, and post-merge runtime verification. Do not mark Phase 5 complete before those gates pass.
+Validation evidence:
+- Phase 5 implementation and subsequent runtime corrections were merged through the existing PR workflow.
+- Exact-head Phase 2 boundary CI passed on the final Gaming implementation lineage, including migrations, Gaming invariants/economic simulation, provider contracts, TON boundaries, isolated runtime health and the full test suite.
+- Security CI passed after PR #257 corrected the repository's npm-cache mismatch; CodeQL and dependency audit are green.
+- Production deployment on Railway is healthy. The latest successful application deployment is running from `main`; the later PR #257 change is CI-only and correctly did not trigger a runtime redeploy.
+- Production runtime logs show successful migration startup and `DzMoney migrations: OK`, followed by HTTP 200/304 responses for `/`, `/health`, `/api/me`, `/api/gaming`, `/api/tasks`, `/api/squad`, `/api/squad/daily-state`, `/api/squad/ads`, `/api/daily-checkin/status`, and the Gaming frontend assets, with no upstream errors in the verified window.
+
+No Gaming implementation gap remains inside the current Phase 5 contract.
 
 ## Later phases
 
@@ -109,7 +120,7 @@ Remaining validation gate: exact-head CI, final diff review, merge, and post-mer
 - Phase 10 — Promo Codes: not started as a complete product phase.
 - Phase 11 — User App UI: partial UI exists through merged milestones; full roadmap phase is not marked complete.
 - Phase 12 — Admin Panel: not started as a complete product phase; it will own the App-Ban warning/review/enforcement control surface.
-- Phase 13 — Ledger/Security hardening: ongoing baseline controls exist; final hardening remains gated.
+- Phase 13 — Ledger/Security hardening: baseline controls exist and the repository dependency/CodeQL baseline is now active; final hardening remains a later-phase concern.
 - Phase 14 — Testing/Release: not complete.
 
 ## Issue / PR interpretation
@@ -122,12 +133,13 @@ Remaining validation gate: exact-head CI, final diff review, merge, and post-mer
 ## Next authorized work
 
 1. Phase 4 Squad implementation is closed; do not invent an early Admin/App-Ban runtime boundary.
-2. Phase 5 Gaming is implemented and remains gated only by its final CI, merge, final-diff and post-merge runtime gates.
-3. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
-4. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
-5. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.
-6. Do not implement speculative provider integrations or a speculative Admin/App-Ban boundary.
-7. Finalize Gaming reward weights only through versioned configuration changes supported by a repeatable economic simulation.
+2. Phase 5 Gaming is closed for its current contract; do not reopen or refactor it without a proven regression, security defect, or explicit contract change.
+3. The next product implementation target is **Phase 6 — Packages**, but it must remain unopened until its contract and pre-change audit are explicitly reviewed.
+4. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
+5. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
+6. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.
+7. Do not implement speculative provider integrations or a speculative Admin/App-Ban boundary.
+8. Finalize future economic behavior only through versioned configuration changes supported by repeatable simulation where the governing contract requires it.
 
 ## Update Rule
 
