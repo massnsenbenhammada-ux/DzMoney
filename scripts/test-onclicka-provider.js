@@ -3,12 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const { ONCLICKA_PROVIDER_ID } = require('../src/services/onclicka-adapter');
 const { createOnclickaProvider } = require('../src/services/onclicka-adapter');
+const { ONCLICKA_CONTEXTS } = require('../src/config/onclicka');
 const providerRegistry = require('../src/services/ad-provider-registry-runtime');
 
 async function testProviderContract() {
   const provider = createOnclickaProvider({ enabled: true, spotId: '6134799' });
   assert.strictEqual(provider.id, ONCLICKA_PROVIDER_ID);
-  assert.deepStrictEqual(provider.contexts, ['task', 'daily_checkin', 'verification', 'gaming', 'squad']);
+  assert.deepStrictEqual(provider.contexts, ONCLICKA_CONTEXTS);
   const result = await provider.verifyCompletion({ USERID: '12345', spot_id: '6134799', confirmedByPostback: true });
   assert.strictEqual(result.verified, true);
   assert.strictEqual(result.reference, 'onclicka:6134799:12345');
@@ -44,7 +45,7 @@ async function testRejectsMissingUser() {
 }
 
 function testOnclickaIsActiveAtRuntime() {
-  for (const context of ['task', 'daily_checkin', 'verification', 'gaming', 'squad']) {
+  for (const context of ONCLICKA_CONTEXTS) {
     assert.strictEqual(providerRegistry.listAvailable(context)[0].id, ONCLICKA_PROVIDER_ID);
   }
 }
