@@ -2,10 +2,10 @@ const express = require('express');
 const promoService = require('../services/promo-code-service');
 const { adminAuth } = require('./admin-auth');
 
-function createAdminPromoCodeRouter({ promo = promoService, auth = adminAuth } = {}) {
+function createAdminPromoCodeRouter({ promo = promoService } = {}) {
   const router = express.Router();
   const asyncRoute = handler => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
-  router.use(auth);
+  router.use(adminAuth);
 
   router.get('/', asyncRoute(async (_req, res) => {
     res.json({ ok: true, campaigns: await promo.listPromoCampaigns() });
