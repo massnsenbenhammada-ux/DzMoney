@@ -11,11 +11,12 @@
 - **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract.
 - **Phase 4:** 🟢 **CLOSED** for the locked Squad implementation currently authorized. The later Admin Panel owns the App-Ban warning/review/enforcement control surface.
 - **Phase 5:** 🟢 **CLOSED / COMPLETE** for the locked Gaming contract. Exact-head CI passed, the final diff was reviewed, and production runtime verification passed without upstream errors on the deployed application commit. The later CI-only security fix does not alter runtime code.
+- **Phase 7:** 🟢 **CLOSED / COMPLETE** for the currently defined Buying Points & Conversion contract. Merged PRs #213, #214 and #215 provide the authenticated conversion boundary, native conversion UI, live preview, idempotency, explicit success/failure lifecycle, balance refresh and reusable conversion flow. Exact conversion-boundary regression coverage is registered in `test:all`. TON buying reuses the canonical Phase 8 Deposit boundary rather than creating a second payment system.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #204.
 - **Latest Squad contract lock:** PR #190.
 - **Latest merged Squad implementation milestone:** PR #207.
-- **Latest merged main conversion-flow change:** PR #215. Its presence does not mean all later-phase product scope is complete; status follows validated phase contracts.
+- **Latest merged main conversion-flow change:** PR #215.
 - **Latest repository governance milestone:** PR #257, adding the dependency audit/CodeQL baseline with the npm-cache CI correction.
 
 ## Phase 0 — Specification Lock
@@ -111,10 +112,39 @@ Validation evidence:
 
 No Gaming implementation gap remains inside the current Phase 5 contract.
 
+## Phase 7 — Buying Points & Conversion UI
+
+🟢 **CLOSED / COMPLETE for the currently defined contract.**
+
+Implemented and merged through PRs #213, #214 and #215:
+- authenticated `COIN → DZP` conversion;
+- authenticated `DZX → DZP` conversion;
+- server-side conversion-rate exposure from `admin_settings`;
+- operation-scoped idempotency keys;
+- reuse of the existing Economy/Ledger conversion primitives and Wallet identity boundary;
+- converted DZP credited as `converted_dzp`, separate from earned activity;
+- existing Wallet/Home conversion UI;
+- native mobile conversion dialog;
+- live whole-DZP conversion preview using exact integer arithmetic;
+- explicit success and failure outcome states;
+- balance refresh before success display;
+- form reset for the next conversion.
+
+The TON buying requirement is satisfied by reuse of the canonical Phase 8 Deposit boundary. Phase 7 does not create a second payment or purchase system.
+
+Validation evidence:
+- `scripts/test-phase7-conversion-boundary.js` covers locked rates, allowed conversion directions, native dialog, live preview, integer-unit validation, success/failure states, balance refresh and idempotency.
+- `test:phase7-conversion` is registered in `test:all`.
+- PR #213 established the canonical Phase 7 API/UI boundary.
+- PR #214 completed the conversion UI refinement and preview contract.
+- PR #215 completed the success/failure result lifecycle and reusable conversion flow.
+- All three Phase 7 PRs were merged into `main`; the final Phase 7 lineage is represented by merge commit `fe8d992535a5c375727316dae90f8659218f48ab`.
+
+No concrete implementation gap remains inside the currently defined Phase 7 contract.
+
 ## Later phases
 
-- Phase 6 — Packages: not started.
-- Phase 7 — Buying Points & Conversion UI: existing merged conversion-flow code is present in `main`; this does **not** imply the entire later-phase product contract is complete.
+- Phase 6 — Packages: **DEFERRED by product decision; do not open or implement until explicitly authorized.**
 - Phase 8 — Deposit: audited implementation milestone exists; production acceptance remains separately gated.
 - Phase 9 — Withdrawal: not started as a complete product phase.
 - Phase 10 — Promo Codes: not started as a complete product phase.
@@ -129,17 +159,19 @@ No Gaming implementation gap remains inside the current Phase 5 contract.
 - Work already present in merged `main` must be reconciled rather than reimplemented.
 - Issue #134 remains the Phase 2 evidence/provider gate for future external-provider integrations; it is not a request to create placeholder verifiers.
 - Historical Reward Pool PRs/commits are evidence of prior work and revert history only; they are not current product scope.
+- Phase 7 is considered complete based on the merged implementation, contract-specific tests, and PR history; no new Phase 7 implementation should be created merely to make the status document say complete.
 
 ## Next authorized work
 
 1. Phase 4 Squad implementation is closed; do not invent an early Admin/App-Ban runtime boundary.
 2. Phase 5 Gaming is closed for its current contract; do not reopen or refactor it without a proven regression, security defect, or explicit contract change.
-3. The next product implementation target is **Phase 6 — Packages**, but it must remain unopened until its contract and pre-change audit are explicitly reviewed.
-4. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
-5. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
-6. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.
-7. Do not implement speculative provider integrations or a speculative Admin/App-Ban boundary.
-8. Finalize future economic behavior only through versioned configuration changes supported by repeatable simulation where the governing contract requires it.
+3. Phase 7 Buying Points & Conversion UI is closed for its current contract; do not reopen it without a proven regression, security defect, or explicit contract change.
+4. Phase 6 Packages remains **DEFERRED** and is not an authorized implementation target until explicitly reopened.
+5. Before every future change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
+6. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
+7. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.
+8. Do not implement speculative provider integrations or a speculative Admin/App-Ban boundary.
+9. Finalize future economic behavior only through versioned configuration changes supported by repeatable simulation where the governing contract requires it.
 
 ## Update Rule
 
