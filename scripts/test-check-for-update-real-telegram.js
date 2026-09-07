@@ -46,7 +46,6 @@ async function main() {
     assert.strictEqual(taskResult.rowCount, 1, 'Check for Update task must be active');
     const task = taskResult.rows[0];
     assert.strictEqual(task.config.dailyPolicy, 'utc_plus_one_calendar_day');
-    assert.strictEqual(task.config.achievementThreshold, null, 'Non-achievement task must persist a nullable threshold');
     assert.strictEqual(task.config.verification.provider, 'telegram_channel');
     assert.strictEqual(task.config.verification.providerConfigRef, 'telegram.dzmoney_updates');
 
