@@ -66,6 +66,21 @@
       <p id="usersState" class="users-state" aria-live="polite"></p>
     </section>
 
+    <section id="referralSection" class="settings-section" aria-labelledby="referralTitle">
+      <div class="section-heading">
+        <div><span class="eyebrow">REFERRAL</span><h2 id="referralTitle">Referral Controls</h2></div>
+        <span class="settings-note">Changes apply to future referral operations.</span>
+      </div>
+      <div class="settings-grid">
+        <article class="setting-card"><span>Qualification</span><small id="referralQualification">Verified task or advertisement</small></article>
+        <label class="setting-card"><span>Activation COIN</span><small>One-time reward to the referrer</small><input id="referralActivationCoin" inputmode="decimal" autocomplete="off"><button type="button" data-referral-key="referral.reward_coin">Save</button></label>
+        <label class="setting-card"><span>Activation DZX</span><small>One-time reward to the referrer</small><input id="referralActivationDzx" inputmode="decimal" autocomplete="off"><button type="button" data-referral-key="referral.reward_dzx">Save</button></label>
+        <label class="setting-card"><span>Activation DZP</span><small>One-time earned DZP reward</small><input id="referralActivationDzp" inputmode="decimal" autocomplete="off"><button type="button" data-referral-key="referral.reward_dzp">Save</button></label>
+        <label class="setting-card"><span>Lifetime %</span><small>Percentage of qualified base COIN/DZX activity</small><input id="referralLifetime" inputmode="decimal" autocomplete="off"><button type="button" data-referral-key="referral.lifetime_percent">Save</button></label>
+      </div>
+      <p id="referralState" class="settings-state" aria-live="polite"></p>
+    </section>
+
     <p id="errorState" class="error-state" hidden></p>
     <footer>DzMoney Admin · server-authoritative · no client-side economic authority</footer>
   </main>

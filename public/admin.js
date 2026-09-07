@@ -2,6 +2,7 @@ const telegram = window.Telegram?.WebApp;
 const errorState = document.getElementById('errorState');
 const economyState = document.getElementById('economyState');
 const usersState = document.getElementById('usersState');
+const referralState = document.getElementById('referralState');
 let selectedAdminUserId = null;
 
 function setError(message) {
@@ -10,6 +11,7 @@ function setError(message) {
 }
 function clearError() { errorState.hidden = true; errorState.textContent = ''; }
 function setUsersState(message, isError = false) { usersState.textContent = message; usersState.dataset.state = isError ? 'error' : 'ok'; }
+function setReferralState(message, isError = false) { referralState.textContent = message; referralState.dataset.state = isError ? 'error' : 'ok'; }
 function formatNumber(value) { return new Intl.NumberFormat('en-US').format(Number(value || 0)); }
 function escapeHtml(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
 
@@ -125,6 +127,37 @@ async function submitBalanceAdjustment(event) {
   finally { form.querySelector('button').disabled = false; }
 }
 
+function referralInputs() {
+  return {
+    'referral.reward_coin': document.getElementById('referralActivationCoin'),
+    'referral.reward_dzx': document.getElementById('referralActivationDzx'),
+    'referral.reward_dzp': document.getElementById('referralActivationDzp'),
+    'referral.lifetime_percent': document.getElementById('referralLifetime'),
+  };
+}
+async function loadReferralSettings() {
+  const response = await fetch('/api/admin/referral', { headers: { 'X-Telegram-Init-Data': telegram.initData }, cache: 'no-store' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Unable to load referral settings');
+  Object.entries(referralInputs()).forEach(([key, input]) => { input.value = data.settings?.[key] ?? ''; });
+  document.getElementById('referralQualification').textContent = data.qualification?.rule || 'Verified task or advertisement';
+}
+async function saveReferralSetting(key) {
+  const input = referralInputs()[key];
+  const value = input.value.trim();
+  if (!value || Number(value) < 0 || !Number.isFinite(Number(value))) { setReferralState('Enter a valid non-negative numeric value.', true); return; }
+  if (key === 'referral.lifetime_percent' && Number(value) > 100) { setReferralState('Lifetime percentage must be between 0 and 100.', true); return; }
+  input.disabled = true; setReferralState('Saving…');
+  try {
+    const response = await fetch(`/api/admin/referral/${encodeURIComponent(key)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': telegram.initData }, body: JSON.stringify({ value }) });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Unable to save referral setting');
+    input.value = data.value;
+    setReferralState(data.changed ? 'Saved and audited.' : 'No change required.');
+  } catch (error) { setReferralState(error.message || 'Unable to save referral setting.', true); }
+  finally { input.disabled = false; }
+}
+
 async function loadDashboard() {
   clearError();
   if (!telegram?.initData) { setError('Open the Admin Panel from the authenticated Telegram Mini App.'); return; }
@@ -132,7 +165,7 @@ async function loadDashboard() {
     const response = await fetch('/api/admin/dashboard', { headers: { 'X-Telegram-Init-Data': telegram.initData }, cache: 'no-store' });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Admin dashboard request failed');
-    renderDashboard(data); await loadEconomySettings(); await loadUsers();
+    renderDashboard(data); await loadEconomySettings(); await loadUsers(); await loadReferralSettings();
   } catch (error) { setError(error.message || 'Unable to load Admin dashboard.'); }
 }
 
@@ -140,6 +173,7 @@ telegram?.ready();
 telegram?.expand();
 document.getElementById('refreshButton').addEventListener('click', loadDashboard);
 document.querySelectorAll('[data-economy-key]').forEach(button => button.addEventListener('click', () => saveEconomySetting(button.dataset.economyKey)));
+document.querySelectorAll('[data-referral-key]').forEach(button => button.addEventListener('click', () => saveReferralSetting(button.dataset.referralKey)));
 document.getElementById('adminUserSearchButton').addEventListener('click', () => loadUsers().catch(error => setUsersState(error.message, true)));
 document.getElementById('adminUserSearch').addEventListener('keydown', event => { if (event.key === 'Enter') loadUsers().catch(error => setUsersState(error.message, true)); });
 loadDashboard();

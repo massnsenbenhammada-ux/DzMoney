@@ -1,8 +1,6 @@
 const { withTransaction, query } = require('../db/pool');
 const { postEconomyTransactionOnClient } = require('./economy-service');
 
-const REFERRAL_LIFETIME_RATE = 0.2;
-
 function positiveId(value, name) {
   const id = Number(value);
   if (!Number.isInteger(id) || id <= 0) throw new Error(`${name} must be a positive integer`);
@@ -14,10 +12,26 @@ function requiredId(value, name) {
   return positiveId(value, name);
 }
 
-function lifetimeAmount(value) {
+async function referralSettingNumber(client, key, fallback) {
+  const result = await client.query('SELECT value FROM admin_settings WHERE key = $1', [key]);
+  if (!result.rowCount) return fallback;
+  const value = Number(result.rows[0].value);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+async function referralRewardConfig(client) {
+  return {
+    coin: await referralSettingNumber(client, 'referral.reward_coin', 10000),
+    dzx: await referralSettingNumber(client, 'referral.reward_dzx', 10),
+    dzp: await referralSettingNumber(client, 'referral.reward_dzp', 10),
+    lifetimePercent: await referralSettingNumber(client, 'referral.lifetime_percent', 20),
+  };
+}
+
+function lifetimeAmount(value, percent) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount < 0) throw new Error('Lifetime reward amount must be a non-negative number');
-  return Number((amount * REFERRAL_LIFETIME_RATE).toFixed(8));
+  return Number((amount * percent / 100).toFixed(8));
 }
 
 async function findAttribution(client, referredUserId, lock = false) {
@@ -99,7 +113,7 @@ async function qualifyReferral({ referredUserId, source, referenceId, idempotenc
   });
 }
 
-/** Credits 20% of a qualified user's base COIN/DZX activity to the referrer. */
+/** Credits the configured percentage of a qualified user's base COIN/DZX activity to the referrer. */
 async function creditReferralLifetimeOnClient(client, { referredUserId, source, sourceReferenceId, idempotencyKey, baseReward }) {
   const referred = requiredId(referredUserId, 'referredUserId');
   if (!['task', 'advertisement'].includes(source)) throw new Error('Invalid lifetime referral source');
@@ -109,8 +123,9 @@ async function creditReferralLifetimeOnClient(client, { referredUserId, source, 
   if (idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === '') {
     throw new Error('idempotencyKey is required');
   }
-  const coin = lifetimeAmount(baseReward?.coin);
-  const dzx = lifetimeAmount(baseReward?.dzx);
+  const config = await referralRewardConfig(client);
+  const coin = lifetimeAmount(baseReward?.coin, config.lifetimePercent);
+  const dzx = lifetimeAmount(baseReward?.dzx, config.lifetimePercent);
   const attribution = await findAttribution(client, referred, true);
   if (!attribution) return { qualified: false, duplicate: false };
   if (attribution.status !== 'qualified') return { qualified: false, duplicate: false };
@@ -127,7 +142,7 @@ async function creditReferralLifetimeOnClient(client, { referredUserId, source, 
       referred_user_id: referred,
       source_type: source,
       source_reference_id: String(sourceReferenceId),
-      rate: REFERRAL_LIFETIME_RATE,
+      rate: config.lifetimePercent / 100,
       base_reward: { coin: Number(baseReward?.coin || 0), dzx: Number(baseReward?.dzx || 0) }
     },
     movements,
@@ -135,7 +150,7 @@ async function creditReferralLifetimeOnClient(client, { referredUserId, source, 
   return { qualified: true, duplicate: reward.duplicate, rewarded: true, reward };
 }
 
-/** Credits 20% of a qualified user's base activity through its own transaction. */
+/** Credits the configured percentage of a qualified user's base activity through its own transaction. */
 async function creditReferralLifetime(args) {
   return withTransaction(client => creditReferralLifetimeOnClient(client, args));
 }
@@ -150,7 +165,7 @@ async function assertActivationKeyAvailable(client, key, attributionId) {
   }
 }
 
-/** Credits the one-time referral activation through the existing Economy and Ledger. */
+/** Credits the configured one-time referral activation through the existing Economy and Ledger. */
 async function activateReferral({ referredUserId, idempotencyKey }) {
   const referred = requiredId(referredUserId, 'referredUserId');
   if (idempotencyKey === undefined || idempotencyKey === null || idempotencyKey === '') {
@@ -167,15 +182,16 @@ async function activateReferral({ referredUserId, idempotencyKey }) {
       }
       throw new Error('Referral is already activated');
     }
+    const config = await referralRewardConfig(client);
     await postEconomyTransactionOnClient(client, {
       idempotencyKey,
       userId: Number(attribution.referrer_user_id),
       type: 'REWARD',
       metadata: { source: 'referral_activation', referred_user_id: referred },
       movements: [
-        { currency: 'COIN', amount: 10000, source: 'referral' },
-        { currency: 'DZX', amount: 10, source: 'referral' },
-        { currency: 'DZP', amount: 10, source: 'referral', dzpBucket: 'earned_dzp' },
+        { currency: 'COIN', amount: config.coin, source: 'referral' },
+        { currency: 'DZX', amount: config.dzx, source: 'referral' },
+        { currency: 'DZP', amount: config.dzp, source: 'referral', dzpBucket: 'earned_dzp' },
       ],
     });
     const updated = await client.query(
