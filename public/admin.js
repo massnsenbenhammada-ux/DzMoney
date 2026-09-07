@@ -15,6 +15,15 @@ function formatNumber(value) {
   return new Intl.NumberFormat('en-US').format(Number(value || 0));
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
 function renderBars(elementId, rows, valueKey) {
   const root = document.getElementById(elementId);
   const values = rows.map(row => Number(row[valueKey] || 0));
@@ -28,6 +37,17 @@ function renderBars(elementId, rows, valueKey) {
   }).join('');
 }
 
+function memberLabel(row) {
+  return row.username ? `@${row.username}` : (row.firstName || `User ${row.telegramUserId}`);
+}
+
+function renderRankingList(elementId, rows, valueKey, valueLabel) {
+  const root = document.getElementById(elementId);
+  root.innerHTML = rows.length
+    ? rows.map((row, index) => `<li><span class="rank">${index + 1}</span><span class="member-name">${escapeHtml(memberLabel(row))}</span><strong>${formatNumber(row[valueKey])}<small>${valueLabel}</small></strong></li>`).join('')
+    : '<li class="empty-ranking">No qualifying activity yet.</li>';
+}
+
 function renderDashboard(data) {
   document.getElementById('membersValue').textContent = formatNumber(data.realtime.totalMembers);
   document.getElementById('adsValue').textContent = formatNumber(data.realtime.advertisementsWatched);
@@ -35,6 +55,8 @@ function renderDashboard(data) {
   renderBars('membersChart', data.sevenDay, 'totalMembers');
   renderBars('adsChart', data.sevenDay, 'advertisementsWatched');
   renderBars('tasksChart', data.sevenDay, 'tasksCompleted');
+  renderRankingList('activeMembersList', data.topActiveMembers || [], 'activityCount', 'activities');
+  renderRankingList('referrersList', data.topReferrers || [], 'referralCount', 'qualified referrals');
 }
 
 async function loadDashboard() {
