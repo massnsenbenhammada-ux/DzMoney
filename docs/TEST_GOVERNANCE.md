@@ -39,7 +39,7 @@ If an existing test already protects the invariant, extend that test instead of 
 
 ## `test:all` integrity
 
-The full suite is a curated execution list. Governance must detect broken references and accidental duplication without changing the suite's current order or coverage. A future automated checker may validate that every referenced npm test script exists, every referenced test file exists, and `test:all` does not recursively invoke itself.
+The full suite is a curated execution list. Governance must detect broken references and accidental duplication without changing the suite's current order or coverage. The automated governance guard validates referenced npm test scripts, direct test files, duplicate entries, and `test:all` recursion.
 
 ## Regression discipline
 
