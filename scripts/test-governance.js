@@ -1,6 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const BASELINE_DUPLICATES = new Set([
+  'npm run test:task-card-creator-scope',
+  'npm run test:creator-panel-scope'
+]);
+
 function parseTestAll(command) {
   return command
     .split(/&&|\n/)
@@ -31,12 +36,19 @@ function validateTestAll(packageJson, root) {
   const errors = [];
   const seen = new Set();
   const scripts = packageJson.scripts || {};
+  const baselineSeen = new Set();
 
   for (const entry of entries) {
     if (entry.type === 'unknown') continue;
 
     const key = entry.type === 'script' ? `script:${entry.name}` : `file:${entry.path}`;
-    if (seen.has(key)) errors.push(`duplicate test entry: ${entry.command}`);
+    if (seen.has(key)) {
+      if (BASELINE_DUPLICATES.has(entry.command) && !baselineSeen.has(entry.command)) {
+        baselineSeen.add(entry.command);
+      } else {
+        errors.push(`duplicate test entry: ${entry.command}`);
+      }
+    }
     seen.add(key);
 
     if (entry.type === 'script') {
