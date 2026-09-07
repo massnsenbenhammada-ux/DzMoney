@@ -110,6 +110,17 @@ function validateTaskVerificationState(row) {
   return null;
 }
 
+async function lockAndValidateCreatorCampaignTarget(client, row) {
+  const result = await client.query('SELECT id,status,target,creator_id FROM activity_tasks WHERE id=$1 FOR UPDATE', [row.task_id]);
+  if (!result.rowCount) throw new Error('Task not found');
+  const task = result.rows[0];
+  if (task.creator_id === null || task.target === null) return { task, verifiedCount: null };
+  const countResult = await client.query("SELECT COUNT(*)::int AS verified_count FROM task_attempts WHERE task_id=$1 AND status='verified'", [row.task_id]);
+  const verifiedCount = Number(countResult.rows[0].verified_count);
+  if (verifiedCount >= Number(task.target)) throw new Error('Creator campaign target reached');
+  return { task, verifiedCount };
+}
+
 async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmittedUrl, verifyTaskCompletion }) {
   requiredId(attemptId, 'attemptId');
   requiredId(idempotencyKey, 'idempotencyKey');
@@ -129,12 +140,16 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
       await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
       return { duplicate: false, status: 'rejected', rewarded: false };
     }
+    const campaign = await lockAndValidateCreatorCampaignTarget(client, row);
     const amounts = rewardAmounts(row);
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, activityType: row.task_type, activityContext: 'task', modifiers: [], qualifyingVerifiedActivity: true });
     if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
     await activateOnVerifiedActivity(client, row.user_id);
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
+    if (campaign.verifiedCount !== null && campaign.verifiedCount + 1 >= Number(campaign.task.target)) {
+      await client.query("UPDATE activity_tasks SET status='completed',updated_at=NOW() WHERE id=$1 AND status IN ('active','paused')", [row.task_id]);
+    }
     return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, transaction: reward.transaction };
   });
 }
