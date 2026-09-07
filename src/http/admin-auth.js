@@ -10,6 +10,7 @@ function adminTelegramIds() {
 }
 
 function adminAuth(req, res, next) {
+  req.skipAccountStatusCheck = true;
   return telegramAuth(req, res, () => {
     const id = String(req.telegramUser?.id || '');
     if (!id || !adminTelegramIds().has(id)) {
