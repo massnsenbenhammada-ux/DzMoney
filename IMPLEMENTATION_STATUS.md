@@ -4,7 +4,7 @@
 
 ## Current state
 
-- **Current phase:** Phase 11 — User App UI is **closed / complete for the currently implemented UI contract** after PR #263 merge, CI validation, successful Railway deployment, and post-deployment HTTP/runtime verification.
+- **Current phase:** Phase 12 — Admin Panel is **implemented / operational for the currently validated administrative contract** after the merged Phase 12 lineage through PR #278, exact-head CI validation, and successful Railway deployment.
 - **Reward Pool:** **REMOVED FROM PRODUCT SCOPE.** Historical Reward Pool PRs/commits remain Git history only. No Reward Pool runtime, roadmap phase, or replacement phase is authorized.
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
@@ -15,9 +15,9 @@
 - **Phase 7:** 🟢 Existing conversion-flow implementation is present in `main`; full later-phase contract status remains governed by its own validation evidence.
 - **Phase 8:** 🟡 Audited implementation milestone exists; production acceptance remains separately gated.
 - **Phase 9:** 🟡 Not complete as a full product phase.
-- **Phase 10:** 🟢 Backend Promo Code implementation is merged; Admin operational UI remains owned by the later Admin Panel scope.
+- **Phase 10:** 🟢 Backend Promo Code implementation is merged; Admin operational UI is now covered by the later Admin Panel lineage.
 - **Phase 11:** 🟢 **CLOSED / COMPLETE for the current UI contract.** PR #263 is merged at commit `6bbef07517992041ce894a90a3b1ed0e919ef3b8`.
-- **Phase 12:** 🔵 Not started; next active product target after Phase 11, subject to its own Constitution 54 pre-change audit.
+- **Phase 12:** 🟢 **IMPLEMENTED / OPERATIONAL for the currently validated administrative contract.** PR #278 is merged at `f35ab969e4e8f981080a192b2116f8edc379ac62`.
 - **Latest audited TON/Deposit milestone:** PR #148.
 - **Latest Tasks UI/scope milestone:** PR #204.
 - **Latest Squad contract lock:** PR #190.
@@ -138,7 +138,7 @@ Packages remain unopened by explicit product scope. No package purchasing UI, pa
 
 ## Phase 10 — Promo Codes
 
-🟢 Backend Promo Code implementation is merged and validated. Admin operational UI remains part of the later Admin Panel scope.
+🟢 Backend Promo Code implementation is merged and validated. Admin operational UI is now covered by the later Admin Panel scope.
 
 ## Phase 11 — User App UI
 
@@ -177,9 +177,31 @@ Remaining limitation:
 
 ## Phase 12 — Admin Panel
 
-🔵 **Not started.**
+🟢 **IMPLEMENTED / OPERATIONAL for the currently validated administrative contract.**
 
-Phase 12 owns the administrative control surface, including the Squad App-Ban warning/review/enforcement workflow. No automatic ban boundary is authorized. Any implementation must first pass the Constitution 54 pre-change audit and reuse existing backend sources of truth.
+Phase 12 owns the administrative control surface, including the Squad App-Ban warning/review/enforcement workflow. No automatic ban boundary is authorized.
+
+Validated administrative surfaces:
+- Dashboard foundation and rankings;
+- Telegram Admin entry;
+- Economy controls using the canonical `admin_settings` source;
+- Users search/profile and canonical Economy/Ledger balance adjustments;
+- Referral controls using the existing referral settings source;
+- Squad controls and challenge administration;
+- Gaming Admin controls;
+- Promo Admin controls;
+- explicit account suspend/ban/activate enforcement using the existing membership states plus Admin audit/idempotency primitives;
+- Creator Task/Campaign administration with protected listing and explicit `approve` / `reject` review actions;
+- existing TON/Deposit Admin configuration and blockchain evidence boundaries audited and retained without creating a second Wallet or TON control plane.
+
+Creator Task/Campaign review reuses the canonical `activity_tasks` + `task-service.js` lifecycle and existing Economy/Ledger refund/tax behavior. No new task engine, verification/reward service, campaign accounting table, pricing source, or lifecycle state was introduced.
+
+Validation evidence:
+- PR #278 merged at `f35ab969e4e8f981080a192b2116f8edc379ac62` after exact-head CI passed: Test Governance, Security/CodeQL, Phase 10 Promo Codes, and Phase 2 boundaries/full `test:all` all succeeded for the exact validated head.
+- The first exact-head full-suite attempt failed only because the new contract test asserted `approve`/`reject` literals in the HTTP route instead of the service boundary. The test was corrected; the subsequent exact-head full-suite run passed.
+- Railway deployment `b4febab1-3212-4b42-9f37-0e99a57df4a1` completed successfully from merge commit `f35ab969e4e8f981080a192b2116f8edc379ac62`.
+- Railway build completed, the container started, and `DzMoney migrations: OK` was emitted. No deployment crash was observed.
+- Railway HTTP logs were empty in the available verification window, so no claim of manual browser/Telegram visual acceptance is made.
 
 ## Phase 13 — Ledger/Security hardening
 
@@ -200,12 +222,13 @@ Phase 12 owns the administrative control surface, including the Squad App-Ban wa
 
 1. Phase 11 User App UI is closed for its current contract; do not reopen or redesign it without a proven regression, accessibility defect, security issue, or explicit contract change.
 2. **Phase 6 Packages remains explicitly deferred.** Do not open package purchasing behavior merely because it appears earlier in the historical implementation order.
-3. The next active product target is **Phase 12 — Admin Panel**, subject to its own Constitution 54 pre-change audit and reconciliation of any already-merged administrative code.
-4. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
-5. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
-6. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.
-7. Do not implement speculative provider integrations or automatic App-Ban behavior.
-8. Finalize future economic behavior only through versioned configuration changes supported by repeatable simulation where the governing contract requires it.
+3. Phase 9 Withdrawal remains incomplete as a product phase; do not create a second Wallet/TON subsystem merely to fill that gap.
+4. Phase 12 Admin Panel is operational for the current validated control contract. Any future Admin change must pass its own Constitution 54 pre-change audit.
+5. Before every change, run the Constitution 54 pre-change audit: Code → Git history → PRs → CI → Commits → Tracing → Tests → Documentation → Issues → Runtime failure history.
+6. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
+7. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.
+8. Do not implement speculative provider integrations or automatic App-Ban behavior.
+9. Finalize future economic behavior only through versioned configuration changes supported by repeatable simulation where the governing contract requires it.
 
 ## Update Rule
 
@@ -216,3 +239,9 @@ After every validated milestone, update this file with:
 4. Remaining limitations.
 
 Never mark unvalidated work as completed.
+
+## 2026-09-07 Phase 12 Reconciliation Addendum
+
+This addendum supersedes the earlier baseline statement that Phase 12 was "Not started". The historical statement predated the already-merged Phase 12 implementation lineage.
+
+The authoritative current state is the merged `main` lineage through PR #278, the exact-head CI evidence recorded above, and Railway deployment `b4febab1-3212-4b42-9f37-0e99a57df4a1`. No additional Phase 12 implementation gap was found during the final Dashboard → Admin controls → Task/Campaign → TON/Wallet audit.
