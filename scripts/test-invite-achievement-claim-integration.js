@@ -133,7 +133,6 @@ async function main() {
     await pool.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
     await pool.query('DELETE FROM wallet_accounts WHERE user_id=$1', [userId]);
     await pool.query('DELETE FROM users WHERE id IN ($1,$2)', [userId, referred.id]);
-    await pool.end();
   }
 }
 
