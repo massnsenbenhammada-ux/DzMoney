@@ -7,7 +7,7 @@ const index = read('index.html');
 const premium = read('premium-ui.js');
 const premiumCss = read('premium-ui.css');
 const gaming = read('gaming.js');
-const squad = read('squad.js');
+const squadState = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'squad-daily-state-service.js'), 'utf8');
 
 assert.match(index, /class="bottom-nav"/);
 assert.match(index, /data-go="home"/);
@@ -38,12 +38,8 @@ assert.match(premiumCss, /prefers-reduced-motion/);
 assert.match(premiumCss, /phase11-conversion-notice/);
 assert.match(premiumCss, /phase11-anti-manipulation/);
 
-const gamingOrder = [
-  gaming.indexOf('Gaming Ads'),
-  gaming.indexOf('Tasks')
-];
-assert.ok(gamingOrder[0] >= 0 && gamingOrder[1] >= 0);
-assert.match(squad, /renderDailyState/);
-assert.match(squad, /50%/);
+const gamingOrder = [index.indexOf('Gaming Ads'), index.indexOf('Tasks')];
+assert.ok(gamingOrder[0] >= 0 && gamingOrder[1] >= 0 && gamingOrder[0] < gamingOrder[1]);
+assert.match(squadState, /activeMemberCount \* 2 >= state\.eligible_member_count/);
 
 console.log('Phase 11 UI contract checks passed.');
