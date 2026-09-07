@@ -162,10 +162,18 @@
   loadHomeStatus();
   updateGaming();
   injectSquadExplanation();
+
   const observer = new MutationObserver(() => {
-    injectSquadExplanation();
-    updateGaming();
-    document.querySelectorAll('.task-open-action').forEach(button => { if (button.textContent.trim() === 'Open') button.textContent = 'Execute'; });
+    observer.disconnect();
+    try {
+      injectSquadExplanation();
+      updateGaming();
+      document.querySelectorAll('.task-open-action').forEach(button => {
+        if (button.textContent.trim() === 'Open') button.textContent = 'Execute';
+      });
+    } finally {
+      observer.observe(root, { childList: true, subtree: true });
+    }
   });
   observer.observe(root, { childList: true, subtree: true });
 })();
