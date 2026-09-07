@@ -94,7 +94,6 @@ test('Admin dashboard aggregates members, verified ads, verified tasks and seven
     }
     if (taskId) await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
   }
-  await pool.end();
 });
 
 test('Admin dashboard returns top active members and qualified referrers', { skip: !process.env.DATABASE_URL }, async () => {
@@ -141,5 +140,8 @@ test('Admin dashboard returns top active members and qualified referrers', { ski
     }
     if (taskId) await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
   }
+});
+
+test.after(async () => {
   await pool.end();
 });
