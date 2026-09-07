@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const { query, withTransaction, pool } = require('../src/db/pool');
 const { createUser } = require('../src/services/wallet-service');
@@ -13,7 +14,7 @@ function runReconciliation() {
 }
 
 async function main() {
-  const marker = `phase13-ledger-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const marker = `phase13-ledger-${Date.now()}-${randomUUID()}`;
   const telegramUserId = -Date.now();
   let user;
 
