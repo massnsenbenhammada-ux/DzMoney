@@ -32,9 +32,12 @@ assert.match(premiumUi, /phase11-anti-manipulation/);
 assert.match(premiumUi, /textContent = 'Execute'/);
 assert.match(premiumUi, /phase11-squad-nav/);
 
-const observerBlock = premiumUi.slice(premiumUi.indexOf('const observer = new MutationObserver'));
+const observerStart = premiumUi.indexOf('const observer = new MutationObserver');
+assert.ok(observerStart >= 0, 'Phase 11 MutationObserver must exist');
+const observerBlock = premiumUi.slice(observerStart);
 assert.match(observerBlock, /observer\.disconnect\(\)/);
 assert.match(observerBlock, /finally \{[\s\S]*observer\.observe\(root, \{ childList: true, subtree: true \}\)/);
+assert.equal((observerBlock.match(/updateSquadPresentation\(\)/g) || []).length, 0, 'MutationObserver must not invoke async Squad API synchronization');
 
 assert.match(premiumCss, /width:min\(85vw,440px\)/);
 assert.match(premiumCss, /transform:translateX\(100%\)/);
