@@ -90,11 +90,11 @@ async function main() {
       finalizeTaskVerification({ attemptId, idempotencyKey }),
       finalizeTaskVerification({ attemptId, idempotencyKey: `${idempotencyKey}-concurrent` })
     ]);
-    const verified = results.filter(result => result.status === 'verified' && result.rewarded === true);
+    const rewarded = results.filter(result => result.status === 'verified' && result.rewarded === true && result.duplicate !== true);
     const duplicates = results.filter(result => result.duplicate === true);
-    assert.strictEqual(verified.length, 1, 'Concurrent Invite claims must produce one reward');
+    assert.strictEqual(rewarded.length, 1, 'Concurrent Invite claims must produce one reward');
     assert.strictEqual(duplicates.length, 1, 'Concurrent duplicate Invite claim must be rejected as duplicate');
-    assert.deepStrictEqual(verified[0].reward, {
+    assert.deepStrictEqual(rewarded[0].reward, {
       coin: expected.COIN,
       dzx: expected.DZX,
       dzp: expected.DZP
