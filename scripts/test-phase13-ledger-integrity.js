@@ -71,11 +71,16 @@ async function main() {
           AND candidate.id > current_entry.id
       )
     `, [user.id]);
-    const entryCount = await query(
-      'SELECT COUNT(*)::int AS count FROM ledger_entries WHERE wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = $1)',
-      [user.id]
-    );
-    assert.equal(Number(continuity.rows[0].count), Math.max(0, Number(entryCount.rows[0].count) - 1));
+    const expectedContinuity = await query(`
+      SELECT COALESCE(SUM(entry_count - 1), 0)::int AS count
+      FROM (
+        SELECT wallet_account_id, COUNT(*)::int AS entry_count
+        FROM ledger_entries
+        WHERE wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = $1)
+        GROUP BY wallet_account_id
+      ) grouped_entries
+    `, [user.id]);
+    assert.equal(Number(continuity.rows[0].count), Number(expectedContinuity.rows[0].count));
 
     const clean = runReconciliation();
     assert.equal(clean.status, 0, clean.stderr || clean.stdout);
