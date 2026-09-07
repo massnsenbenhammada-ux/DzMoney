@@ -10,6 +10,12 @@ const TON_TAGS = {
   testnet: new Set([0x91, 0xd1]),
 };
 
+const ECONOMY_SETTING_KEYS = new Set([
+  'economy.dzx_per_ton',
+  'economy.coin_per_dzp',
+  'economy.dzx_per_dzp',
+]);
+
 function crc16Ccitt(data) {
   let crc = 0;
   for (const byte of data) {
@@ -89,10 +95,55 @@ async function setTonDepositAddress({ key, address, actorTelegramUserId, reason 
   });
 }
 
+async function getEconomySettings() {
+  const result = await query(
+    `SELECT key, value FROM admin_settings
+     WHERE key IN ('economy.dzx_per_ton', 'economy.coin_per_dzp', 'economy.dzx_per_dzp')
+     ORDER BY key`
+  );
+  return Object.fromEntries(result.rows.map(row => [row.key, row.value]));
+}
+
+function normalizePositiveEconomyValue(value) {
+  if (typeof value === 'boolean' || value === null || value === undefined) throw new Error('Economy value must be a positive number');
+  const text = String(value).trim();
+  if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(text) || Number(text) <= 0 || !Number.isFinite(Number(text))) {
+    throw new Error('Economy value must be a positive number');
+  }
+  if (text.replace(/^0+/, '').replace('.', '').length > 21) throw new Error('Economy value exceeds supported precision');
+  return text;
+}
+
+async function setEconomySetting({ key, value, actorTelegramUserId }) {
+  if (!ECONOMY_SETTING_KEYS.has(key)) throw new Error('Unsupported economy setting');
+  if (!actorTelegramUserId) throw new Error('Admin actor is required');
+  const normalized = normalizePositiveEconomyValue(value);
+
+  return withTransaction(async client => {
+    const current = await client.query('SELECT value FROM admin_settings WHERE key = $1 FOR UPDATE', [key]);
+    if (!current.rowCount) throw new Error('Economy setting is not initialized');
+    const oldValue = current.rows[0].value;
+    const newValue = Number(normalized);
+    if (String(oldValue) === normalized) return { key, value: oldValue, changed: false };
+    await client.query(
+      `UPDATE admin_settings SET value = $1::jsonb, updated_at = NOW() WHERE key = $2`,
+      [JSON.stringify(newValue), key]
+    );
+    await client.query(
+      `INSERT INTO admin_audit_log(setting_key, old_value, new_value, actor_telegram_user_id)
+       VALUES ($1, $2::jsonb, $3::jsonb, $4)`,
+      [key, JSON.stringify(oldValue), JSON.stringify(newValue), actorTelegramUserId]
+    );
+    return { key, value: newValue, changed: true };
+  });
+}
+
 module.exports = {
   getTonDepositAddresses,
   setTonDepositAddress,
   normalizeTonAddress,
   assertAddressNetwork,
   decodeTonAddress,
+  getEconomySettings,
+  setEconomySetting,
 };

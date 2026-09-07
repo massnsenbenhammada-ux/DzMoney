@@ -1,5 +1,6 @@
 const telegram = window.Telegram?.WebApp;
 const errorState = document.getElementById('errorState');
+const economyState = document.getElementById('economyState');
 
 function setError(message) {
   errorState.textContent = message;
@@ -59,6 +60,56 @@ function renderDashboard(data) {
   renderRankingList('referrersList', data.topReferrers || [], 'referralCount', 'qualified referrals');
 }
 
+function setEconomyState(message, isError = false) {
+  economyState.textContent = message;
+  economyState.dataset.state = isError ? 'error' : 'ok';
+}
+
+function economyInputs() {
+  return {
+    'economy.dzx_per_ton': document.getElementById('economyDZXPerTon'),
+    'economy.coin_per_dzp': document.getElementById('economyCoinPerDZP'),
+    'economy.dzx_per_dzp': document.getElementById('economyDZXPerDZP'),
+  };
+}
+
+async function loadEconomySettings() {
+  const response = await fetch('/api/admin/economy', {
+    headers: { 'X-Telegram-Init-Data': telegram.initData },
+    cache: 'no-store'
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Unable to load economy settings');
+  const inputs = economyInputs();
+  Object.entries(inputs).forEach(([key, input]) => { input.value = data.settings?.[key] ?? ''; });
+}
+
+async function saveEconomySetting(key) {
+  const input = economyInputs()[key];
+  const value = input.value.trim();
+  if (!value || Number(value) <= 0 || !Number.isFinite(Number(value))) {
+    setEconomyState('Enter a positive numeric value.', true);
+    return;
+  }
+  input.disabled = true;
+  setEconomyState('Saving…');
+  try {
+    const response = await fetch(`/api/admin/economy/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': telegram.initData },
+      body: JSON.stringify({ value }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Unable to save economy setting');
+    input.value = data.setting.value;
+    setEconomyState(data.setting.changed ? 'Saved and audited.' : 'No change required.');
+  } catch (error) {
+    setEconomyState(error.message || 'Unable to save economy setting.', true);
+  } finally {
+    input.disabled = false;
+  }
+}
+
 async function loadDashboard() {
   clearError();
   if (!telegram?.initData) {
@@ -73,6 +124,7 @@ async function loadDashboard() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || 'Admin dashboard request failed');
     renderDashboard(data);
+    await loadEconomySettings();
   } catch (error) {
     setError(error.message || 'Unable to load Admin dashboard.');
   }
@@ -81,4 +133,5 @@ async function loadDashboard() {
 telegram?.ready();
 telegram?.expand();
 document.getElementById('refreshButton').addEventListener('click', loadDashboard);
+document.querySelectorAll('[data-economy-key]').forEach(button => button.addEventListener('click', () => saveEconomySetting(button.dataset.economyKey)));
 loadDashboard();
