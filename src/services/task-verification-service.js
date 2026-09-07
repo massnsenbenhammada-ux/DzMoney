@@ -93,7 +93,7 @@ async function verifyTaskAdvertisement({ adEventId, providerRegistry, providerId
 async function loadTaskVerificationAttempt(attemptId, lock = false, client = null) {
   const runner = client || { query };
   const suffix = lock ? ' FOR UPDATE' : '';
-  const result = await runner.query(`SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1${suffix}`, [attemptId]);
+  const result = await runner.query(`SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,t.creator_id,t.target,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1${suffix}`, [attemptId]);
   if (!result.rowCount) throw new Error('Task attempt not found');
   return result.rows[0];
 }
@@ -108,6 +108,16 @@ function validateTaskVerificationState(row) {
   if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
   if (row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
   return null;
+}
+
+async function lockAndValidateCreatorCampaignTarget(client, row) {
+  if (row.creator_id === null || row.creator_id === undefined || row.target === null || row.target === undefined) return { task: row, verifiedCount: null, targetReached: false };
+  const result = await client.query('SELECT id,status,target,creator_id FROM activity_tasks WHERE id=$1 FOR UPDATE', [row.task_id]);
+  if (!result.rowCount) throw new Error('Task not found');
+  const task = result.rows[0];
+  const countResult = await client.query("SELECT COUNT(*)::int AS verified_count FROM task_attempts WHERE task_id=$1 AND status='verified'", [row.task_id]);
+  const verifiedCount = Number(countResult.rows[0].verified_count);
+  return { task, verifiedCount, targetReached: verifiedCount >= Number(task.target) };
 }
 
 async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmittedUrl, verifyTaskCompletion }) {
@@ -129,12 +139,21 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
       await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
       return { duplicate: false, status: 'rejected', rewarded: false };
     }
+    const campaign = await lockAndValidateCreatorCampaignTarget(client, row);
+    if (campaign.targetReached) {
+      await client.query(`UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`, [attemptId]);
+      await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
+      return { duplicate: false, status: 'rejected', rewarded: false };
+    }
     const amounts = rewardAmounts(row);
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, activityType: row.task_type, activityContext: 'task', modifiers: [], qualifyingVerifiedActivity: true });
     if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
     await activateOnVerifiedActivity(client, row.user_id);
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
+    if (campaign.verifiedCount !== null && campaign.verifiedCount + 1 >= Number(campaign.task.target)) {
+      await client.query("UPDATE activity_tasks SET status='completed',updated_at=NOW() WHERE id=$1 AND status IN ('active','paused')", [row.task_id]);
+    }
     return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, transaction: reward.transaction };
   });
 }
