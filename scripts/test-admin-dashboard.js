@@ -38,6 +38,8 @@ test('Admin dashboard API and page preserve the existing admin authentication bo
   assert.match(html, /adsChart/);
   assert.match(html, /tasksChart/);
   assert.match(html, /bar-chart/);
+  assert.match(html, /Top Active Members/);
+  assert.match(html, /Top Referrers/);
 });
 
 test('Admin dashboard aggregates members, verified ads, verified tasks and seven UTC+1 days', { skip: !process.env.DATABASE_URL }, async () => {
@@ -92,5 +94,56 @@ test('Admin dashboard aggregates members, verified ads, verified tasks and seven
     }
     if (taskId) await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
   }
-  await pool.end();
 });
+
+test('Admin dashboard returns top active members and qualified referrers', { skip: !process.env.DATABASE_URL }, async () => {
+  const suffix = `${Date.now()}`;
+  const userIds = [];
+  let taskId;
+  try {
+    const active = await walletService.createUser({ telegramUserId: `8${suffix}1`, username: `dashboard_active_${suffix}` });
+    const referred = await walletService.createUser({ telegramUserId: `8${suffix}2`, username: `dashboard_referred_${suffix}` });
+    userIds.push(active.id, referred.id);
+
+    const task = await query(
+      `INSERT INTO activity_tasks(task_type, title, reward_coin, reward_dzx, reward_dzp, status)
+       VALUES ('web', $1, 1, 1, 1, 'active') RETURNING id`,
+      [`Admin dashboard ranking task ${suffix}`]
+    );
+    taskId = task.rows[0].id;
+
+    await insertAd(active.id, `${suffix}-rank-ad-1`, 0);
+    await insertAd(active.id, `${suffix}-rank-ad-2`, 0);
+    await insertTaskAttempt(active.id, taskId, `${suffix}-rank-task`, 0);
+    await query(
+      `INSERT INTO referral_attributions(
+         referrer_user_id, referred_user_id, status,
+         qualified_at, qualification_source, qualification_reference_id
+       ) VALUES ($1, $2, 'qualified', NOW(), 'advertisement', $3)`,
+      [active.id, referred.id, 1]
+    );
+
+    const dashboard = await getAdminDashboardMetrics();
+    const activeRow = dashboard.topActiveMembers.find(row => String(row.telegramUserId) === String(active.telegram_user_id));
+    const referrerRow = dashboard.topReferrers.find(row => String(row.telegramUserId) === String(active.telegram_user_id));
+
+    assert.ok(activeRow);
+    assert.equal(activeRow.activityCount, 3);
+    assert.ok(referrerRow);
+    assert.equal(referrerRow.referralCount, 1);
+    assert.ok(dashboard.topActiveMembers.length <= 10);
+    assert.ok(dashboard.topReferrers.length <= 10);
+  } finally {
+    if (userIds.length) {
+      await query('DELETE FROM referral_attributions WHERE referrer_user_id = ANY($1::bigint[]) OR referred_user_id = ANY($1::bigint[])', [userIds]);
+      await query('DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])', [userIds]);
+      await query('DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])', [userIds]);
+      await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [userIds]);
+    }
+    if (taskId) await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+  }
+});
+
+if (require.main === module) {
+  process.on('exit', () => pool.end());
+}
