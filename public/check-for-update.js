@@ -1,8 +1,10 @@
 (() => {
   const CHANNEL_TASK_KEY = 'check_for_update';
+  const RETURN_VERIFY_COOLDOWN_MS = 10000;
   let busy = false;
   let pendingAttemptId = null;
   let pendingActionUrl = null;
+  let lastReturnVerifyAt = 0;
 
   function apiHeaders() {
     return { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || '' };
@@ -70,6 +72,9 @@
 
   async function verifyOnReturn() {
     if (!pendingAttemptId || document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if (now - lastReturnVerifyAt < RETURN_VERIFY_COOLDOWN_MS) return;
+    lastReturnVerifyAt = now;
     await verify(pendingAttemptId, currentButton());
   }
 
