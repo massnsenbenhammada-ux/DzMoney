@@ -90,11 +90,18 @@
       <p id="enforcementState" class="settings-state" aria-live="polite"></p>
     </section>
 
+    <section id="adminTaskCampaignSection" class="settings-section" aria-labelledby="adminTaskCampaignTitle">
+      <div class="section-heading"><div><span class="eyebrow">TASKS / CAMPAIGNS</span><h2 id="adminTaskCampaignTitle">Creator Campaign Review</h2></div><button id="adminTaskCampaignRefresh" type="button">Refresh</button></div>
+      <p id="adminTaskCampaignState" class="settings-state" aria-live="polite">Loading…</p>
+      <ul id="adminTaskCampaignList" class="users-list"></ul>
+    </section>
+
     <p id="errorState" class="error-state" hidden></p>
     <footer>DzMoney Admin · server-authoritative · no client-side economic authority</footer>
   </main>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="/admin.js"></script>
   <script src="/admin-enforcement.js"></script>
+  <script src="/admin-task-campaign.js"></script>
 </body>
 </html>
