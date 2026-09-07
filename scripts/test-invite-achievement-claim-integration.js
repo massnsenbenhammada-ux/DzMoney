@@ -8,8 +8,9 @@ const { finalizeTaskVerification } = require('../src/services/task-verification-
 const SYSTEM_KEY = 'invite_1_friend';
 
 async function createTestUser(prefix) {
+  const telegramUserId = (BigInt(Date.now()) * 1000000n + BigInt(crypto.randomInt(0, 1000000))).toString();
   return walletService.createUser({
-    telegramUserId: String(Date.now() * 1000 + crypto.randomInt(0, 1000)),
+    telegramUserId,
     username: `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
     firstName: `Invite ${prefix}`
   });
