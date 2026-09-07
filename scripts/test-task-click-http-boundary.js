@@ -21,12 +21,20 @@ async function run() {
     createUser: async args => ({ id: 42, ...args })
   };
   const tasks = {
+    executeTask: async args => {
+      calls.push({ execute: args });
+      return { attempt: { id: 2 }, gate: { id: 3, idempotency_key: 'gate:2' }, duplicate: false };
+    },
     recordTaskClick: async args => {
       calls.push(args);
       return { clicked: true, duplicate: false };
     }
   };
   const verification = {
+    startTaskVerificationAd: async args => {
+      calls.push({ startVerificationAd: args });
+      return { adEvent: { external_ad_id: 'ad-2' }, providerId: 'test-ads' };
+    },
     finalizeTaskVerification: async args => {
       calls.push({ finalize: args });
       return { status: 'verified', rewarded: true, duplicate: false };
@@ -60,13 +68,21 @@ async function run() {
   assert.strictEqual((await request('POST', '/api/tasks/click', { attemptId: 1 })).status, 401);
 
   const auth = buildInitData(123);
+  const forged = await request('POST', '/api/tasks/execute', {
+    taskId: 7,
+    idempotencyKey: 'execute:7',
+    metadata: { link_clicked: true, client_marker: 'kept' }
+  }, auth);
+  assert.strictEqual(forged.status, 200);
+  assert.strictEqual(calls[0].execute.metadata.link_clicked, undefined);
+  assert.strictEqual(calls[0].execute.metadata.client_marker, 'kept');
+
   const click = await request('POST', '/api/tasks/click', { attemptId: 1 }, auth);
   assert.strictEqual(click.status, 200);
   assert.deepStrictEqual(click.body, { ok: true, clicked: true, duplicate: false, status: 'verified', rewarded: true, reason: null });
-  assert.strictEqual(calls.length, 2);
-  assert.strictEqual(calls[0].attemptId, 1);
-  assert.strictEqual(calls[0].userId, 42);
-  assert.deepStrictEqual(calls[1], { finalize: { attemptId: 1, idempotencyKey: 'task:1' } });
+  assert.strictEqual(calls[2].attemptId, 1);
+  assert.strictEqual(calls[2].userId, 42);
+  assert.deepStrictEqual(calls[3], { finalize: { attemptId: 1, idempotencyKey: 'task:1' } });
 
   const missingAttempt = await request('POST', '/api/tasks/click', {}, auth);
   assert.strictEqual(missingAttempt.status, 400);
