@@ -1,4 +1,5 @@
 const assert = require('assert');
+const crypto = require('crypto');
 const { pool } = require('../src/db/pool');
 const walletService = require('../src/services/wallet-service');
 const { executeSystemTask } = require('../src/services/daily-system-task-service');
@@ -8,8 +9,8 @@ const SYSTEM_KEY = 'invite_1_friend';
 
 async function createTestUser(prefix) {
   return walletService.createUser({
-    telegramUserId: `${Date.now()}-${prefix}-${Math.random()}`,
-    username: `${prefix}_${Date.now()}`,
+    telegramUserId: `${prefix}-${crypto.randomUUID()}`,
+    username: `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
     firstName: `Invite ${prefix}`
   });
 }
@@ -38,7 +39,7 @@ async function main() {
     );
 
     const task = await pool.query(
-      `SELECT id, reward_coin, reward_dzx, reward_dzp, config
+      `SELECT id, reward_coin, reward_dzx, reward_dzp
        FROM activity_tasks
        WHERE task_type='daily' AND config->>'systemKey'=$1 AND status='active'
        LIMIT 1`,
@@ -55,7 +56,7 @@ async function main() {
       executeSystemTask({
         systemKey: 'invite_10_friends',
         userId,
-        idempotencyKey: `invite-negative-${Date.now()}`
+        idempotencyKey: `invite-negative-${crypto.randomUUID()}`
       }),
       /Referral achievement is not claimable/
     );
@@ -64,12 +65,18 @@ async function main() {
     const execution = await executeSystemTask({
       systemKey: SYSTEM_KEY,
       userId,
-      idempotencyKey: `invite-execute-${Date.now()}`
+      idempotencyKey: `invite-execute-${crypto.randomUUID()}`
     });
     attemptId = execution.attempt.id;
     assert.strictEqual(execution.duplicate, false);
     assert.strictEqual(execution.attempt.status, 'verification_pending');
     assert.strictEqual(execution.gate.status, 'pending');
+
+    await assert.rejects(
+      finalizeTaskVerification({ attemptId, idempotencyKey: `invite-failed-${crypto.randomUUID()}` }),
+      /Verification advertisement must be verified first/
+    );
+    assert.deepStrictEqual(await walletBalances(userId), before);
 
     await pool.query(
       `UPDATE task_verification_gates
@@ -78,11 +85,16 @@ async function main() {
       [execution.gate.id]
     );
 
-    const idempotencyKey = `invite-finalize-${Date.now()}`;
-    const first = await finalizeTaskVerification({ attemptId, idempotencyKey });
-    assert.strictEqual(first.status, 'verified');
-    assert.strictEqual(first.rewarded, true);
-    assert.deepStrictEqual(first.reward, {
+    const idempotencyKey = `invite-finalize-${crypto.randomUUID()}`;
+    const results = await Promise.all([
+      finalizeTaskVerification({ attemptId, idempotencyKey }),
+      finalizeTaskVerification({ attemptId, idempotencyKey: `${idempotencyKey}-concurrent` })
+    ]);
+    const verified = results.filter(result => result.status === 'verified' && result.rewarded === true);
+    const duplicates = results.filter(result => result.duplicate === true);
+    assert.strictEqual(verified.length, 1, 'Concurrent Invite claims must produce one reward');
+    assert.strictEqual(duplicates.length, 1, 'Concurrent duplicate Invite claim must be rejected as duplicate');
+    assert.deepStrictEqual(verified[0].reward, {
       coin: expected.COIN,
       dzx: expected.DZX,
       dzp: expected.DZP
@@ -93,15 +105,15 @@ async function main() {
     assert.strictEqual(after.DZX - before.DZX, expected.DZX);
     assert.strictEqual(after.DZP - before.DZP, expected.DZP);
 
-    const transaction = await pool.query(
+    const transactions = await pool.query(
       `SELECT id, transaction_type, metadata
        FROM ledger_transactions
-       WHERE idempotency_key=$1`,
-      [idempotencyKey]
+       WHERE user_id=$1 AND metadata->>'source'='task'
+       ORDER BY id`,
+      [userId]
     );
-    assert.strictEqual(transaction.rowCount, 1);
-    assert.strictEqual(transaction.rows[0].transaction_type, 'REWARD');
-    assert.strictEqual(transaction.rows[0].metadata.source, 'task');
+    assert.strictEqual(transactions.rowCount, 1, 'Invite claim must create exactly one task reward transaction');
+    assert.strictEqual(transactions.rows[0].transaction_type, 'REWARD');
 
     const duplicate = await finalizeTaskVerification({
       attemptId,
@@ -109,8 +121,7 @@ async function main() {
     });
     assert.strictEqual(duplicate.status, 'verified');
     assert.strictEqual(duplicate.duplicate, true);
-    const afterRetry = await walletBalances(userId);
-    assert.deepStrictEqual(afterRetry, after);
+    assert.deepStrictEqual(await walletBalances(userId), after);
 
     console.log('Invite achievement claim integration: PASS');
   } finally {
