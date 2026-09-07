@@ -99,17 +99,23 @@ async function main() {
     console.error(error);
     process.exitCode = 1;
   } finally {
-    if (taskId) {
-      await pool.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
-    }
-    if (users.length) {
-      await withTransaction(async client => {
+    await withTransaction(async client => {
+      if (taskId) {
+        await client.query(
+          'DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE task_id=$1)',
+          [taskId]
+        );
+        await client.query('DELETE FROM task_attempts WHERE task_id=$1', [taskId]);
+        await client.query('DELETE FROM activity_ad_events WHERE metadata->>\'task_id\'=$1', [String(taskId)]);
+        await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+      }
+      if (users.length) {
         const ids = users.map(user => user.id);
         await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[]))', [ids]);
         await client.query('DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])', [ids]);
         await client.query('DELETE FROM users WHERE id = ANY($1::bigint[])', [ids]);
-      });
-    }
+      }
+    });
     await pool.end();
   }
 }
