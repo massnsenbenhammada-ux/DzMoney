@@ -300,6 +300,50 @@ Do not change production code merely to make a stale test pass. First establish 
 
 Existing baseline gates must not be weakened. New subsystems must add focused invariants.
 
+### 18.1 Mandatory integration-test completeness
+
+Every new or materially changed integration test MUST exercise the feature's real production path to the maximum extent supported by the repository. A passing unit test, mocked service path, or fixture-only integration test is not sufficient evidence for a production integration boundary.
+
+At minimum, the integration evidence MUST cover the applicable layers below:
+
+```text
+Real DB / migrations
+        ↓
+Canonical persisted configuration
+        ↓
+HTTP/authentication/validation boundary
+        ↓
+Business rules / eligibility
+        ↓
+Existing verification boundary
+        ↓
+External integration where applicable
+        ↓
+Idempotency
+        ↓
+Concurrency / duplicate requests
+        ↓
+Failure / rejection path
+        ↓
+Canonical Economy/Ledger
+        ↓
+Exact persisted reward/state
+        ↓
+Retry / replay behavior
+        ↓
+Final database invariants
+```
+
+The test MUST also exercise nullable, optional, default, and boundary configuration values that can alter control flow. Fixtures MUST represent the canonical persisted production shape rather than a simplified substitute that bypasses real configuration resolution.
+
+For reward-bearing flows, integration evidence MUST prove both the positive and negative paths: successful verification grants exactly the canonical reward once; rejected/failed verification grants no reward; retries and concurrent requests cannot create a second reward or ledger transaction.
+
+Where a browser/client boundary is part of the diagnosed behavior, the integration evidence MUST also cover the relevant client-to-HTTP contract, including duplicate return/focus/visibility events when applicable. Client-only assertions MUST NOT replace server-side integration evidence.
+
+An integration test may use controlled test doubles only at an external boundary that cannot safely or deterministically be exercised in the test environment. Such a double MUST preserve the same contract, inputs, outputs, and failure semantics of the real boundary, and a separate real-provider test is required when the provider is a critical production dependency.
+
+A test that bypasses the canonical resolver, verifier, Economy/Ledger path, or persisted configuration MUST NOT be described as full end-to-end integration coverage.
+
 ## 19. CI and merge gate
 
 `mergeable`, `Ready to merge`, or a green-looking GitHub button is NOT equivalent to CI proof.
