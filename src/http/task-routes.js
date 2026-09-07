@@ -50,6 +50,8 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
     const validationError = validateExecuteBody(req.body);
     if (validationError) return res.status(400).json({ ok: false, error: validationError });
     const { taskId, idempotencyKey, metadata = {} } = req.body;
+    const executionMetadata = { ...metadata };
+    delete executionMetadata.link_clicked;
 
     const user = await wallet.createUser({
       telegramUserId: String(req.telegramUser.id),
@@ -58,7 +60,7 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
       photoUrl: req.telegramUser.photo_url || null
     });
 
-    const result = await tasks.executeTask({ taskId, userId: user.id, idempotencyKey, metadata });
+    const result = await tasks.executeTask({ taskId, userId: user.id, idempotencyKey, metadata: executionMetadata });
     const verificationAd = await verification.startTaskVerificationAd({
       attemptId: result.attempt?.id,
       idempotencyKey: result.gate?.idempotency_key || `verification:${result.attempt?.id}`,
