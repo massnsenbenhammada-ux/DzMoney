@@ -20,9 +20,9 @@ test('economy route reuses adminAuth', () => {
   assert.match(route, /router\.use\(adminAuth\)/);
 });
 
-test('economy route exposes only canonical Phase 12 rates', () => {
-  for (const key of ['economy.dzx_per_ton', 'economy.coin_per_dzp', 'economy.dzx_per_dzp']) assert.match(route, new RegExp(key.replaceAll('.', '\\.')));
-  assert.doesNotMatch(route, /reward_pool\./);
+test('economy service exposes only canonical Phase 12 rates', () => {
+  for (const key of ['economy.dzx_per_ton', 'economy.coin_per_dzp', 'economy.dzx_per_dzp']) assert.match(service, new RegExp(key.replaceAll('.', '\\.')));
+  assert.doesNotMatch(service, /reward_pool\./);
 });
 
 test('economy writes require the authenticated admin actor and audit log', () => {
