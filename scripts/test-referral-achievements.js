@@ -1,5 +1,7 @@
 const assert = require('assert');
 const { query } = require('../src/db/pool');
+const referralService = require('../src/services/referral-service');
+const { resolveTrustedTaskVerifier } = require('../src/services/task-verification-service');
 const {
   DAILY_SYSTEM_TASKS,
   REFERRAL_ACHIEVEMENT_THRESHOLDS,
@@ -42,11 +44,29 @@ async function testConfiguredInviteRewards() {
   }
 }
 
+async function testTrustedInviteVerifier() {
+  const original = referralService.getQualifiedReferralCount;
+  try {
+    for (const threshold of Object.values(REFERRAL_ACHIEVEMENT_THRESHOLDS)) {
+      referralService.getQualifiedReferralCount = async () => threshold;
+      const verifier = resolveTrustedTaskVerifier({ config: { achievementThreshold: threshold }, telegramUserId: 123 });
+      assert.strictEqual(await verifier({}), true, `Invite ${threshold} must verify at its threshold`);
+
+      referralService.getQualifiedReferralCount = async () => threshold - 1;
+      const belowVerifier = resolveTrustedTaskVerifier({ config: { achievementThreshold: threshold }, telegramUserId: 123 });
+      assert.strictEqual(await belowVerifier({}), false, `Invite ${threshold} must fail below the threshold`);
+    }
+  } finally {
+    referralService.getQualifiedReferralCount = original;
+  }
+}
+
 (async () => {
   try {
     testThresholds();
     testEligibilityAndPermanentCompletion();
     await testConfiguredInviteRewards();
+    await testTrustedInviteVerifier();
     console.log('Referral achievement invariants: PASS');
   } catch (error) {
     console.error('Referral achievement invariants: FAIL');
