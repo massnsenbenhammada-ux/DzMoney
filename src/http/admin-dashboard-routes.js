@@ -10,6 +10,10 @@ function createAdminDashboardRouter({ dashboard = { getAdminDashboardMetrics } }
   router.use(adminAuth);
   router.use(createRateLimit({ windowMs: 60_000, max: 60 }));
 
+  router.get('/access', (_req, res) => {
+    res.json({ ok: true, admin: true });
+  });
+
   router.get('/', asyncRoute(async (_req, res) => {
     const metrics = await dashboard.getAdminDashboardMetrics();
     res.json({ ok: true, ...metrics });
