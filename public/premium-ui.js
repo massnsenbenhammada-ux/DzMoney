@@ -48,6 +48,9 @@
     return data;
   };
 
+  const squadNav = document.querySelector('.bottom-nav [data-go="squad"]');
+  if (squadNav) squadNav.classList.add('phase11-squad-nav');
+
   const promoCard = document.getElementById('promoCodeCard');
   const home = document.querySelector('[data-page="home"]');
   if (home && promoCard && !home.querySelector('.phase11-home-overview')) {
@@ -57,7 +60,7 @@
       <div class="phase11-status-grid">
         <button class="phase11-status-card" type="button" data-go="squad">
           <span class="phase11-status-icon" aria-hidden="true">◆</span>
-          <span class="phase11-status-copy"><small>SQUAD</small><strong>My Squad</strong><em><b data-home-squad-members>—</b> members · Level <b data-home-squad-level>—</b></em></span>
+          <span class="phase11-status-copy"><small>SQUAD</small><strong data-home-squad-summary>Squad #— • Level — • — Members</strong></span>
           <span class="phase11-status-arrow" aria-hidden="true">›</span>
         </button>
         <button class="phase11-status-card" type="button" data-go="gaming">
@@ -89,9 +92,27 @@
     if (!card || card.querySelector('.phase11-squad-rules')) return;
     const section = document.createElement('section');
     section.className = 'squad-section phase11-squad-rules';
-    section.innerHTML = `<div class="squad-daily-head"><div><span class="squad-eyebrow">HOW SQUAD WORKS</span><h3>Level & activation</h3></div></div><div class="phase11-rule-list"><article><span>◆</span><div><strong>Hierarchy</strong><p>Squad level follows the configured membership requirements.</p></div></article><article><span>50%</span><div><strong>Daily activity</strong><p>At least 50% of eligible members must complete verified activity.</p></div></article><article><span>D+1</span><div><strong>Next-day activation</strong><p>When the daily activation conditions pass, the modifier applies to the following day.</p></div></article></div><div class="phase11-anti-manipulation"><span aria-hidden="true">⚠</span><div><strong>Anti-manipulation</strong><p>Only verified activity qualifies. Artificial or duplicate activity does not.</p></div></div>`;
+    section.innerHTML = `<div class="squad-daily-head"><div><span class="squad-eyebrow">HOW SQUAD WORKS</span><h3>Level & activation</h3></div></div><div class="phase11-rule-list"><article><span>◆</span><div><strong>Hierarchy</strong><p>Squad level follows the configured membership requirements.</p></div></article><article><span>50%</span><div><strong>Daily activity</strong><p>At least 50% of eligible members must complete verified activity.</p></div></article><article><span>D+1</span><div><strong>Next-day activation</strong><p>When the daily activation conditions pass, the modifier applies to the following day.</p></div></article></div><div class="phase11-squad-progress"><div><span>Current Level</span><strong data-phase11-current-level>—</strong></div><div><span>Current Members</span><strong data-phase11-current-members>—</strong></div><div><span>Required</span><strong data-phase11-required-members>—</strong></div><div><span>Progress</span><strong data-phase11-progress>—</strong></div></div><div class="phase11-anti-manipulation"><span aria-hidden="true">⚠</span><div><strong>Anti-manipulation</strong><p>Only verified activity qualifies. Artificial or duplicate activity does not.</p></div></div>`;
     const hero = card.querySelector('.squad-hero');
     if (hero) hero.insertAdjacentElement('afterend', section); else card.prepend(section);
+  };
+
+  const updateSquadPresentation = async () => {
+    const card = document.getElementById('squadCard');
+    const data = await api('/api/squad').catch(() => null);
+    const squad = data?.squad;
+    const homeSummary = document.querySelector('[data-home-squad-summary]');
+    if (homeSummary) homeSummary.textContent = squad ? `Squad #${squad.id} • Level ${squad.tierLevel ?? '—'} • ${squad.memberCount} Members` : 'Squad #— • Level — • — Members';
+    if (!card || card.dataset.phase11SquadSynced === '1') return;
+    card.dataset.phase11SquadSynced = '1';
+    const level = card.querySelector('[data-phase11-current-level]');
+    const members = card.querySelector('[data-phase11-current-members]');
+    const required = card.querySelector('[data-phase11-required-members]');
+    const progress = card.querySelector('[data-phase11-progress]');
+    if (level) level.textContent = squad?.tierLevel != null ? `Level ${squad.tierLevel}` : '—';
+    if (members) members.textContent = squad ? String(squad.memberCount) : '—';
+    if (required) required.textContent = squad?.requiredMembers != null ? String(squad.requiredMembers) : '—';
+    if (progress) progress.textContent = squad?.progressPercent != null ? `${squad.progressPercent}%` : '—';
   };
 
   const updateGaming = () => {
@@ -107,8 +128,8 @@
     try {
       const data = await api('/api/squad');
       const squad = data.squad;
-      const members = document.querySelector('[data-home-squad-members]');
-      if (members) members.textContent = squad ? String(squad.memberCount) : '0';
+      const summary = document.querySelector('[data-home-squad-summary]');
+      if (summary) summary.textContent = squad ? `Squad #${squad.id} • Level ${squad.tierLevel ?? '—'} • ${squad.memberCount} Members` : 'Squad #— • Level — • — Members';
     } catch {}
     try {
       const data = await api('/api/daily-checkin/status');
@@ -148,6 +169,7 @@
       const [squad, daily] = await Promise.all([api('/api/squad'), api('/api/daily-checkin/status')]);
       document.getElementById('phase11DrawerSquad').textContent = squad.squad ? (squad.squad.membershipStatus || 'Active') : 'No Squad';
       document.getElementById('phase11DrawerMembers').textContent = squad.squad ? String(squad.squad.memberCount) : '0';
+      document.getElementById('phase11DrawerLevel').textContent = squad.squad?.tierLevel != null ? String(squad.squad.tierLevel) : '—';
       document.getElementById('phase11DrawerDaily').textContent = daily.status === 'cooldown' ? 'Cooldown' : daily.status === 'pending' ? 'Verifying' : 'Ready';
       document.getElementById('phase11DrawerDailyDetail').textContent = daily.status === 'cooldown' ? 'Next check-in is locked by the server cooldown.' : 'Daily check-in is available through the verified flow.';
     } catch {}
@@ -162,11 +184,13 @@
   loadHomeStatus();
   updateGaming();
   injectSquadExplanation();
+  updateSquadPresentation();
 
   const observer = new MutationObserver(() => {
     observer.disconnect();
     try {
       injectSquadExplanation();
+      updateSquadPresentation();
       updateGaming();
       document.querySelectorAll('.task-open-action').forEach(button => {
         if (button.textContent.trim() === 'Open') button.textContent = 'Execute';
