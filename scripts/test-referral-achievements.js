@@ -49,11 +49,11 @@ async function testTrustedInviteVerifier() {
   try {
     for (const threshold of Object.values(REFERRAL_ACHIEVEMENT_THRESHOLDS)) {
       referralService.getQualifiedReferralCount = async () => threshold;
-      const verifier = resolveTrustedTaskVerifier({ config: { achievementThreshold: threshold }, telegramUserId: 123 });
+      const verifier = resolveTrustedTaskVerifier({ config: { achievementThreshold: threshold }, userId: 123, telegramUserId: 456 });
       assert.strictEqual(await verifier({}), true, `Invite ${threshold} must verify at its threshold`);
 
       referralService.getQualifiedReferralCount = async () => threshold - 1;
-      const belowVerifier = resolveTrustedTaskVerifier({ config: { achievementThreshold: threshold }, telegramUserId: 123 });
+      const belowVerifier = resolveTrustedTaskVerifier({ config: { achievementThreshold: threshold }, userId: 123, telegramUserId: 456 });
       assert.strictEqual(await belowVerifier({}), false, `Invite ${threshold} must fail below the threshold`);
     }
   } finally {
