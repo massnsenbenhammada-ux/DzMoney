@@ -1,4 +1,6 @@
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { isTelegramChannelMember } = require('../src/services/telegram-channel-verifier');
 
 async function testAcceptedMembershipStatuses() {
@@ -6,7 +8,7 @@ async function testAcceptedMembershipStatuses() {
   for (const status of accepted) {
     const result = await isTelegramChannelMember({
       botToken: 'test-token',
-      channel: '@dzmoneycom',
+      channel: '@DzMoneyChecking',
       userId: 123,
       request: async () => ({ ok: true, result: { status, is_member: status !== 'left' } })
     });
@@ -18,7 +20,7 @@ async function testRejectedStatuses() {
   for (const status of ['left', 'kicked']) {
     const result = await isTelegramChannelMember({
       botToken: 'test-token',
-      channel: '@dzmoneycom',
+      channel: '@DzMoneyChecking',
       userId: 123,
       request: async () => ({ ok: true, result: { status, is_member: false } })
     });
@@ -29,7 +31,7 @@ async function testRejectedStatuses() {
 async function testTelegramFailureRejects() {
   const result = await isTelegramChannelMember({
     botToken: 'test-token',
-    channel: '@dzmoneycom',
+    channel: '@DzMoneyChecking',
     userId: 123,
     request: async () => ({ ok: false, description: 'Forbidden' })
   });
@@ -37,9 +39,21 @@ async function testTelegramFailureRejects() {
 }
 
 async function testRequiredArguments() {
-  await assert.rejects(() => isTelegramChannelMember({ channel: '@dzmoneycom', userId: 123 }));
+  await assert.rejects(() => isTelegramChannelMember({ channel: '@DzMoneyChecking', userId: 123 }));
   await assert.rejects(() => isTelegramChannelMember({ botToken: 'test-token', userId: 123 }));
-  await assert.rejects(() => isTelegramChannelMember({ botToken: 'test-token', channel: '@dzmoneycom' }));
+  await assert.rejects(() => isTelegramChannelMember({ botToken: 'test-token', channel: '@DzMoneyChecking' }));
+}
+
+function testChannelFlowBoundary() {
+  const route = fs.readFileSync(path.join(__dirname, '../src/http/daily-system-task-routes.js'), 'utf8');
+  const frontend = fs.readFileSync(path.join(__dirname, '../public/check-for-update.js'), 'utf8');
+  assert.match(route, /systemKey === DAILY_SYSTEM_TASKS\.CHECK_FOR_UPDATE/);
+  assert.match(route, /actionUrl: 'https:\/\/t\.me\/DzMoneyChecking'/);
+  assert.match(route, /verificationAdId: null/);
+  assert.match(frontend, /CHANNEL_URL = 'https:\/\/t\.me\/DzMoneyChecking'/);
+  assert.match(frontend, /openTelegramLink/);
+  assert.match(frontend, /verificationAdId !== null/);
+  assert.doesNotMatch(frontend, /showTaskVerificationAd/);
 }
 
 (async () => {
@@ -47,6 +61,7 @@ async function testRequiredArguments() {
   await testRejectedStatuses();
   await testTelegramFailureRejects();
   await testRequiredArguments();
+  testChannelFlowBoundary();
   console.log('Daily Check for Update verification invariants: PASS');
 })().catch(error => {
   console.error('Daily Check for Update verification invariants: FAIL');
