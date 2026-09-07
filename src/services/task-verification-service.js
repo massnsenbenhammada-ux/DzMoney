@@ -17,7 +17,7 @@ function requiredId(value, name) {
 
 function resolveTelegramTaskChannel(verification) {
   const configuredChannel = verification?.requirements?.channel || verification?.channel;
-  if (configuredChannel !== undefined) {
+  if (configuredChannel !== undefined && configuredChannel !== null) {
     if (typeof configuredChannel !== 'string' || !/^@[A-Za-z0-9_]{5,32}$/.test(configuredChannel.trim())) throw new Error('Invalid Telegram task verifier channel');
     return configuredChannel.trim();
   }
@@ -33,7 +33,7 @@ function isTelegramMembershipTask(row) {
 
 function resolveTrustedTaskVerifier({ config, userId, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
   const verification = config?.verification || {};
-  if (config?.achievementThreshold !== undefined) {
+  if (config?.achievementThreshold !== undefined && config?.achievementThreshold !== null) {
     const threshold = Number(config.achievementThreshold);
     if (!Number.isInteger(threshold) || threshold <= 0) throw new Error('Invalid referral achievement threshold');
     requiredId(userId, 'userId');
