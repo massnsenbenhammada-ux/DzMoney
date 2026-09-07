@@ -52,6 +52,29 @@ async function getAdminDashboardMetrics({ now = new Date() } = {}) {
          (SELECT COUNT(*)::int FROM users) AS total_members,
          (SELECT COUNT(*)::int FROM activity_ad_events WHERE verified = TRUE) AS advertisements_watched,
          (SELECT COUNT(*)::int FROM task_attempts WHERE status = 'verified') AS tasks_completed
+     ),
+     active_members AS (
+       SELECT u.id, u.telegram_user_id, u.username, u.first_name,
+              COUNT(*)::int AS activity_count
+       FROM users u
+       LEFT JOIN activity_ad_events a
+         ON a.user_id = u.id AND a.verified = TRUE
+       LEFT JOIN task_attempts t
+         ON t.user_id = u.id AND t.status = 'verified'
+       GROUP BY u.id, u.telegram_user_id, u.username, u.first_name
+       ORDER BY activity_count DESC, u.id ASC
+       LIMIT 10
+     ),
+     top_referrers AS (
+       SELECT u.id, u.telegram_user_id, u.username, u.first_name,
+              COUNT(r.id)::int AS referral_count
+       FROM users u
+       JOIN referral_attributions r
+         ON r.referrer_user_id = u.id
+        AND r.status = 'qualified'
+       GROUP BY u.id, u.telegram_user_id, u.username, u.first_name
+       ORDER BY referral_count DESC, u.id ASC
+       LIMIT 10
      )
      SELECT
        (SELECT json_build_object(
@@ -64,7 +87,19 @@ async function getAdminDashboardMetrics({ now = new Date() } = {}) {
          'totalMembers', total_members,
          'advertisementsWatched', advertisements_watched,
          'tasksCompleted', tasks_completed
-       ) ORDER BY day) FROM series) AS seven_day`,
+       ) ORDER BY day) FROM series) AS seven_day,
+       (SELECT COALESCE(json_agg(json_build_object(
+         'telegramUserId', telegram_user_id,
+         'username', username,
+         'firstName', first_name,
+         'activityCount', activity_count
+       ) ORDER BY activity_count DESC, id ASC), '[]'::json) FROM active_members) AS top_active_members,
+       (SELECT COALESCE(json_agg(json_build_object(
+         'telegramUserId', telegram_user_id,
+         'username', username,
+         'firstName', first_name,
+         'referralCount', referral_count
+       ) ORDER BY referral_count DESC, id ASC), '[]'::json) FROM top_referrers) AS top_referrers`,
     [new Date(now)]
   );
 
@@ -72,6 +107,8 @@ async function getAdminDashboardMetrics({ now = new Date() } = {}) {
   return {
     realtime: row.realtime,
     sevenDay: row.seven_day,
+    topActiveMembers: row.top_active_members,
+    topReferrers: row.top_referrers,
   };
 }
 
