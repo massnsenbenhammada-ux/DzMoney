@@ -14,6 +14,8 @@ const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
 const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-routes');
 const { createAdminSquadChallengeRouter } = require('./src/http/admin-squad-challenge-routes');
 const { createAdminGamingRouter } = require('./src/http/admin-gaming-routes');
+const { createPromoCodeRouter } = require('./src/http/promo-code-routes');
+const { createAdminPromoCodeRouter } = require('./src/http/admin-promo-code-routes');
 const { createRateLimit } = require('./src/http/rate-limit');
 const providerRegistry = require('./src/services/ad-provider-registry-runtime');
 
@@ -26,7 +28,7 @@ const assetVersion = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMI
 const indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 function clientAdConfig() {
-  const contexts = ['task', 'gaming', 'daily_checkin', 'verification', 'squad'];
+  const contexts = ['task', 'gaming', 'daily_checkin', 'verification', 'squad', 'promo'];
   const providers = Object.fromEntries(providerRegistry.listRegistered().map(id => {
     const provider = providerRegistry.get(id);
     return provider.enabled ? [id, { id: provider.id, ...(provider.clientConfig || {}) }] : null;
@@ -68,9 +70,11 @@ app.use('/api/me', meRoutes);
 app.use('/api/squad', squadRoutes);
 app.use('/api/conversion', conversionRoutes);
 app.use('/api/gaming', require('./src/http/gaming-routes'));
+app.use('/api/promo', createPromoCodeRouter({ providerRegistry }));
 app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/admin/squad', createAdminSquadChallengeRouter());
 app.use('/api/admin/gaming', createAdminGamingRouter());
+app.use('/api/admin/promo', createAdminPromoCodeRouter());
 app.use('/api/tasks', createTaskRouter({ providerRegistry }));
 app.use('/api/creator/tasks', createCreatorTaskRouter());
 app.use('/api/daily-tasks', createDailySystemTaskRouter({ providerRegistry }));
