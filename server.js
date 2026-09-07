@@ -11,6 +11,7 @@ const { createMonetagPostbackRouter } = require('./src/http/monetag-postback-rou
 const { createOnclickaPostbackRouter } = require('./src/http/onclicka-postback-routes');
 const { createTaskRouter } = require('./src/http/task-routes');
 const { createCreatorTaskRouter } = require('./src/http/creator-task-routes');
+const { createAdminDashboardRouter } = require('./src/http/admin-dashboard-routes');
 const { createAdminTonSettingsRouter } = require('./src/http/admin-ton-settings-routes');
 const { createAdminSquadChallengeRouter } = require('./src/http/admin-squad-challenge-routes');
 const { createAdminGamingRouter } = require('./src/http/admin-gaming-routes');
@@ -71,6 +72,7 @@ app.use('/api/squad', squadRoutes);
 app.use('/api/conversion', conversionRoutes);
 app.use('/api/gaming', require('./src/http/gaming-routes'));
 app.use('/api/promo', createPromoCodeRouter({ providerRegistry }));
+app.use('/api/admin/dashboard', createAdminDashboardRouter());
 app.use('/api/admin/ton', createAdminTonSettingsRouter());
 app.use('/api/admin/squad', createAdminSquadChallengeRouter());
 app.use('/api/admin/gaming', createAdminGamingRouter());
