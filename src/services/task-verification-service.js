@@ -114,11 +114,10 @@ async function lockAndValidateCreatorCampaignTarget(client, row) {
   const result = await client.query('SELECT id,status,target,creator_id FROM activity_tasks WHERE id=$1 FOR UPDATE', [row.task_id]);
   if (!result.rowCount) throw new Error('Task not found');
   const task = result.rows[0];
-  if (task.creator_id === null || task.target === null) return { task, verifiedCount: null };
+  if (task.creator_id === null || task.target === null) return { task, verifiedCount: null, targetReached: false };
   const countResult = await client.query("SELECT COUNT(*)::int AS verified_count FROM task_attempts WHERE task_id=$1 AND status='verified'", [row.task_id]);
   const verifiedCount = Number(countResult.rows[0].verified_count);
-  if (verifiedCount >= Number(task.target)) throw new Error('Creator campaign target reached');
-  return { task, verifiedCount };
+  return { task, verifiedCount, targetReached: verifiedCount >= Number(task.target) };
 }
 
 async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmittedUrl, verifyTaskCompletion }) {
@@ -141,6 +140,11 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
       return { duplicate: false, status: 'rejected', rewarded: false };
     }
     const campaign = await lockAndValidateCreatorCampaignTarget(client, row);
+    if (campaign.targetReached) {
+      await client.query(`UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`, [attemptId]);
+      await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
+      return { duplicate: false, status: 'rejected', rewarded: false };
+    }
     const amounts = rewardAmounts(row);
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, activityType: row.task_type, activityContext: 'task', modifiers: [], qualifyingVerifiedActivity: true });
     if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
