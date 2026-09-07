@@ -25,6 +25,10 @@ assert.match(premiumUi, /phase11-conversion-notice/);
 assert.match(premiumUi, /phase11-anti-manipulation/);
 assert.match(premiumUi, /textContent = 'Execute'/);
 
+const observerBlock = premiumUi.slice(premiumUi.indexOf('const observer = new MutationObserver'));
+assert.match(observerBlock, /observer\.disconnect\(\)/);
+assert.match(observerBlock, /finally \{[\s\S]*observer\.observe\(root, \{ childList: true, subtree: true \}\)/);
+
 assert.match(premiumCss, /width:min\(85vw,440px\)/);
 assert.match(premiumCss, /transform:translateX\(100%\)/);
 assert.match(premiumCss, /phase11-drawer-panel/);
