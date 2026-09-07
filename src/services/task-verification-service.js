@@ -33,7 +33,7 @@ function isTelegramMembershipTask(row) {
 
 function resolveTrustedTaskVerifier({ config, userId, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
   const verification = config?.verification || {};
-  if (config?.achievementThreshold !== undefined) {
+  if (config?.achievementThreshold !== undefined && config?.achievementThreshold !== null) {
     const threshold = Number(config.achievementThreshold);
     if (!Number.isInteger(threshold) || threshold <= 0) throw new Error('Invalid referral achievement threshold');
     requiredId(userId, 'userId');
