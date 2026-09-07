@@ -141,7 +141,9 @@ function normalizeCampaignInput(input, partial = false) {
   const startsAt = input.startsAt === undefined && partial ? undefined : normalizeDate(input.startsAt, 'startsAt');
   const expiresAt = input.expiresAt === undefined && partial ? undefined : normalizeDate(input.expiresAt, 'expiresAt');
   if (startsAt && expiresAt && new Date(expiresAt) <= new Date(startsAt)) throw new Error('expiresAt must be after startsAt');
-  return { code, reward, maxRedemptions, perUserLimit, startsAt, expiresAt, eligibility: input.eligibility === undefined && partial ? undefined : normalizeEligibility(input.eligibility), adGated: input.adGated === undefined && partial ? undefined : Boolean(input.adGated), enabled: input.enabled === undefined && partial ? undefined : Boolean(input.enabled) };
+  const adGated = input.adGated === undefined && partial ? undefined : input.adGated === undefined ? true : Boolean(input.adGated);
+  const enabled = input.enabled === undefined && partial ? undefined : input.enabled === undefined ? true : Boolean(input.enabled);
+  return { code, reward, maxRedemptions, perUserLimit, startsAt, expiresAt, eligibility: input.eligibility === undefined && partial ? undefined : normalizeEligibility(input.eligibility), adGated, enabled };
 }
 
 async function createPromoCampaign(input) {
