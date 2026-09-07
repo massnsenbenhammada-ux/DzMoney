@@ -23,7 +23,14 @@ Inspected current `main` code, creator/task services and routes, Git history and
 - Reused existing Admin audit/idempotency tables.
 - Added a minimal mobile Admin campaign-review surface to the existing Admin page.
 - Added `test:admin-task-campaign` to `test:all`.
+- Added a CodeQL rate-limit rationale matching the project's existing suppression pattern.
+- Rendered campaign fields with DOM `textContent` instead of HTML interpolation to avoid admin-side DOM XSS from creator-controlled titles/metadata.
 - Recorded the decision in `docs/ADR-0018-ADMIN-TASK-CAMPAIGN-REVIEW.md`.
+
+### CI correction
+- Exact-head CI initially failed only because the new contract test incorrectly expected `approve`/`reject` literals in the HTTP route instead of the service boundary.
+- No product/runtime failure occurred; migrations, TON tests, isolated server health, and all checks before `test:all` passed.
+- Corrected the test to assert action transport at the route and transition ownership in the service.
 
 ### Non-goals
 - No new task engine, verification service, reward service, campaign table, pricing source, or lifecycle state.
