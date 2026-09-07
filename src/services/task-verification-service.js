@@ -93,7 +93,7 @@ async function verifyTaskAdvertisement({ adEventId, providerRegistry, providerId
 async function loadTaskVerificationAttempt(attemptId, lock = false, client = null) {
   const runner = client || { query };
   const suffix = lock ? ' FOR UPDATE' : '';
-  const result = await runner.query(`SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1${suffix}`, [attemptId]);
+  const result = await runner.query(`SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,t.creator_id,t.target,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1${suffix}`, [attemptId]);
   if (!result.rowCount) throw new Error('Task attempt not found');
   return result.rows[0];
 }
@@ -111,10 +111,10 @@ function validateTaskVerificationState(row) {
 }
 
 async function lockAndValidateCreatorCampaignTarget(client, row) {
+  if (row.creator_id === null || row.creator_id === undefined || row.target === null || row.target === undefined) return { task: row, verifiedCount: null, targetReached: false };
   const result = await client.query('SELECT id,status,target,creator_id FROM activity_tasks WHERE id=$1 FOR UPDATE', [row.task_id]);
   if (!result.rowCount) throw new Error('Task not found');
   const task = result.rows[0];
-  if (task.creator_id === null || task.target === null) return { task, verifiedCount: null, targetReached: false };
   const countResult = await client.query("SELECT COUNT(*)::int AS verified_count FROM task_attempts WHERE task_id=$1 AND status='verified'", [row.task_id]);
   const verifiedCount = Number(countResult.rows[0].verified_count);
   return { task, verifiedCount, targetReached: verifiedCount >= Number(task.target) };
