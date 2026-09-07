@@ -8,12 +8,13 @@ const test = (name, fn) => { try { fn(); console.log(`✓ ${name}`); } catch (er
 
 test('admin squad exposes locked contract settings and challenge controls', () => {
   const route = read('src/http/admin-squad-challenge-routes.js');
+  const service = read('src/services/admin-squad-service.js');
   assert.match(route, /adminAuth/);
   assert.match(route, /createRateLimit/);
-  assert.match(route, /squad\.membership_tiers/);
-  assert.match(route, /squad\.daily_target_dzp_per_member/);
-  assert.match(route, /squad\.daily_verified_ad_target/);
   assert.match(route, /challenges/);
+  assert.match(service, /squad\.membership_tiers/);
+  assert.match(service, /squad\.daily_target_dzp_per_member/);
+  assert.match(service, /squad\.daily_verified_ad_target/);
 });
 
 test('admin squad uses canonical settings and audit log', () => {
