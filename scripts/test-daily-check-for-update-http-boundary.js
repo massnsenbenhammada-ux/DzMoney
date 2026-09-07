@@ -1,6 +1,8 @@
 const assert = require('assert');
 const crypto = require('crypto');
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 
 process.env.BOT_TOKEN = 'test-bot-token';
 
@@ -72,6 +74,13 @@ async function run() {
   assert.strictEqual(calls.length, 1);
   assert.strictEqual(calls[0].systemKey, 'check_for_update');
   assert.strictEqual(verificationAdCalls, 0);
+
+  const frontend = fs.readFileSync(path.join(__dirname, '../public/check-for-update.js'), 'utf8');
+  assert.match(frontend, /RETURN_VERIFY_COOLDOWN_MS = 10000/);
+  assert.match(frontend, /now - lastReturnVerifyAt < RETURN_VERIFY_COOLDOWN_MS/);
+  assert.match(frontend, /lastReturnVerifyAt = now/);
+  assert.match(frontend, /document\.addEventListener\('visibilitychange', verifyOnReturn\)/);
+  assert.match(frontend, /window\.addEventListener\('focus', verifyOnReturn\)/);
 
   await new Promise(resolve => server.close(resolve));
   require.cache[dailyTasksPath].exports = originalDailyTasks;
