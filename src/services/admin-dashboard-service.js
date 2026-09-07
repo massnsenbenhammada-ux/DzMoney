@@ -53,14 +53,22 @@ async function getAdminDashboardMetrics({ now = new Date() } = {}) {
          (SELECT COUNT(*)::int FROM activity_ad_events WHERE verified = TRUE) AS advertisements_watched,
          (SELECT COUNT(*)::int FROM task_attempts WHERE status = 'verified') AS tasks_completed
      ),
+     member_activity AS (
+       SELECT a.user_id, COUNT(*)::int AS activity_count
+       FROM activity_ad_events a
+       WHERE a.verified = TRUE
+       GROUP BY a.user_id
+       UNION ALL
+       SELECT t.user_id, COUNT(*)::int AS activity_count
+       FROM task_attempts t
+       WHERE t.status = 'verified'
+       GROUP BY t.user_id
+     ),
      active_members AS (
        SELECT u.id, u.telegram_user_id, u.username, u.first_name,
-              COUNT(*)::int AS activity_count
+              COALESCE(SUM(ma.activity_count), 0)::int AS activity_count
        FROM users u
-       LEFT JOIN activity_ad_events a
-         ON a.user_id = u.id AND a.verified = TRUE
-       LEFT JOIN task_attempts t
-         ON t.user_id = u.id AND t.status = 'verified'
+       LEFT JOIN member_activity ma ON ma.user_id = u.id
        GROUP BY u.id, u.telegram_user_id, u.username, u.first_name
        ORDER BY activity_count DESC, u.id ASC
        LIMIT 10
