@@ -18,13 +18,23 @@ function renderAdminTasks(tasks) {
   tasks.forEach(task => {
     const item = document.createElement('li');
     item.className = 'admin-task-row';
-    item.innerHTML = `<div><strong>#${task.id} · ${task.title}</strong><small>${task.task_type} · creator #${task.creator_id} · target ${task.target} · ${task.status}</small></div>`;
+    const details = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = `#${task.id} · ${task.title}`;
+    const meta = document.createElement('small');
+    meta.textContent = `${task.task_type} · creator #${task.creator_id} · target ${task.target} · ${task.status}`;
+    details.append(title, meta);
+    item.appendChild(details);
     if (task.status === 'pending_review') {
       const actions = document.createElement('div');
       actions.className = 'users-toolbar';
-      actions.innerHTML = `<button type="button" data-task-action="approve">Approve</button><button type="button" data-task-action="reject">Reject</button>`;
-      actions.querySelector('[data-task-action="approve"]').addEventListener('click', () => reviewTask(task.id, 'approve'));
-      actions.querySelector('[data-task-action="reject"]').addEventListener('click', () => reviewTask(task.id, 'reject'));
+      const approve = document.createElement('button');
+      approve.type = 'button'; approve.textContent = 'Approve';
+      const reject = document.createElement('button');
+      reject.type = 'button'; reject.textContent = 'Reject';
+      approve.addEventListener('click', () => reviewTask(task.id, 'approve'));
+      reject.addEventListener('click', () => reviewTask(task.id, 'reject'));
+      actions.append(approve, reject);
       item.appendChild(actions);
     }
     taskAdminList.appendChild(item);
