@@ -1,7 +1,6 @@
 const assert = require('assert');
 process.env.ADSGRAM_ENABLED = 'true';
 process.env.ADSGRAM_BLOCK_ID = '44442';
-process.env.ADSGRAM_REWARD_TOKEN = 'test-secret';
 const { createAdsgramProvider } = require('../src/services/adsgram-adapter');
 const { AdProviderRegistry, selectNextProvider } = require('../src/services/ad-provider-service');
 
