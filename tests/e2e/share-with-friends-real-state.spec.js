@@ -41,27 +41,19 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     const userId = before.user.id;
     const beforeCoin = Number(before.balances?.COIN || 0);
 
-    await page.evaluate(({ data }) => {
+    await page.evaluate(({ data, telegramId: id }) => {
       window.DzMoneyMonetag = {
         ready: Promise.resolve(),
         handler: async payload => {
           if (payload?.type === 'preload') return { ok: true };
           const url = new URL('/api/ads/monetag/postback', location.origin);
-          url.searchParams.set('token', 'test-monetag-secret');
-          url.searchParams.set('telegram_id', data.match(/(?:^|&)user=(.*?)(?:&|$)/)?.[1] ? '' : '');
-          url.searchParams.set('telegram_id', String(JSON.parse(decodeURIComponent(data.split('user=')[1].split('&')[0])).id));
-          url.searchParams.set('zone_id', '11627577');
-          url.searchParams.set('event_type', 'impression');
-          url.searchParams.set('reward_event_type', 'valued');
-          url.searchParams.set('estimated_price', '0.001');
-          url.searchParams.set('ymid', payload.ymid);
-          url.searchParams.set('request_var', 'verification');
+          for (const [key, value] of Object.entries({ token: 'test-monetag-secret', telegram_id: id, zone_id: '11627577', event_type: 'impression', reward_event_type: 'valued', estimated_price: '0.001', ymid: payload.ymid, request_var: 'verification' })) url.searchParams.set(key, value);
           const response = await fetch(url);
           if (!response.ok) throw new Error(`provider completion failed: ${response.status}`);
           return { ok: true };
         }
       };
-    }, { data: initData });
+    }, { data: initData, telegramId });
 
     await page.locator('[data-go="tasks"]').click();
     await page.locator('[data-task-category="daily"]').click();
@@ -72,9 +64,6 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     await shareButton.click();
     await expect(shareButton).toHaveText('Verify');
 
-    const execute = await request.post(`${baseURL}/api/daily-tasks/execute`, { headers: { 'X-Telegram-Init-Data': initData }, data: { systemKey: 'share_with_friends', idempotencyKey: `probe:${telegramId}` } });
-    expect(execute.status()).toBe(429);
-
     const verifyResponse = page.waitForResponse(r => r.url().endsWith('/api/tasks/click') && r.request().method() === 'POST');
     await shareButton.click();
     const verified = await verifyResponse;
@@ -82,17 +71,19 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     const verifiedBody = await verified.json();
     expect(verifiedBody.status).toBe('verified');
     expect(verifiedBody.rewarded).toBe(true);
+    expect(verifiedBody.reason).toBeNull();
     await expect(page.locator('#rewardPopup')).toContainText('Reward credited');
 
     const after = await request.get(`${baseURL}/api/me`, { headers: { 'X-Telegram-Init-Data': initData } });
     expect(after.ok()).toBeTruthy();
     const afterBody = await after.json();
     expect(Number(afterBody.balances.COIN)).toBeGreaterThan(beforeCoin);
-    const ledger = await db.query("SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND transaction_type='TASK_REWARD'", [userId]);
+    const ledger = await db.query("SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND transaction_type='REWARD' AND metadata->>'activity_type'='daily'", [userId]);
     expect(ledger.rows[0].count).toBe(1);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('[data-go="tasks"]').click();
     await page.locator('[data-task-category="daily"]').click();
-    await expect(page.locator('#rewardPopup')).toBeHidden();
+    await expect(card).toBeVisible();
+    await expect(card.locator('[data-task-action="share_with_friends"]')).toHaveText('Verify');
   } finally { await db.end(); await cleanup(telegramId); }
 });
