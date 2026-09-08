@@ -10,6 +10,7 @@ const squadFrontend = fs.readFileSync(path.join(root, 'public/squad.js'), 'utf8'
 const adClient = fs.readFileSync(path.join(root, 'public/ad-provider-client.js'), 'utf8');
 const taskRoutes = fs.readFileSync(path.join(root, 'src/http/task-routes.js'), 'utf8');
 const advertisementService = fs.readFileSync(path.join(root, 'src/services/task-advertisement-service.js'), 'utf8');
+const correlation = fs.readFileSync(path.join(root, 'src/services/adsgram-correlation-service.js'), 'utf8');
 const monetagPostback = fs.readFileSync(path.join(root, 'src/http/monetag-postback-routes.js'), 'utf8');
 const onclickaPostback = fs.readFileSync(path.join(root, 'src/http/onclicka-postback-routes.js'), 'utf8');
 const dailyRoutes = fs.readFileSync(path.join(root, 'src/http/daily-system-task-routes.js'), 'utf8');
@@ -39,11 +40,15 @@ assert.match(squadFrontend, /\/api\/tasks\/advertisement\/start/);
 assert.doesNotMatch(squadFrontend, /\/api\/squad\/ads\/start/);
 assert.match(squadFrontend, /requestVar: ['"]squad['"]/);
 assert.match(squadFrontend, /response\.providerId === 'adsgram'/);
+assert.match(squadFrontend, /\/api\/daily-tasks\/advertisement\/client-started/);
 assert.match(squadFrontend, /\/api\/daily-tasks\/advertisement\/client-complete/);
+assert.match(squadFrontend, /onStart/);
 assert.match(adClient, /registerAdsgram/);
 assert.match(adClient, /providerAdapters\.adsgram/);
 assert.match(adClient, /window\.Adsgram\.init/);
+assert.match(adClient, /addEventListener\('onStart'/);
 assert.match(adClient, /44442/);
+assert.match(dailyRoutes, /adsgramCorrelation\.markClientStarted/);
 assert.match(dailyRoutes, /adsgramCorrelation\.markClientCompleted/);
 
 assert.match(taskRoutes, /tasksList\.filter\(task => task\.systemKey !== 'squad_ads'\)/);
@@ -52,8 +57,14 @@ assert.match(taskRoutes, /externalAdId: result\.adEvent\?\.external_ad_id/);
 assert.match(advertisementService, /config\.advertisementContext \|\| 'task'/);
 assert.match(advertisementService, /context IN \('task','squad'\)/);
 assert.match(advertisementService, /squad_ads.*config\.systemKey/);
+assert.match(advertisementService, /client_started/);
 assert.doesNotMatch(advertisementService, /squad_memberships/);
 assert.doesNotMatch(advertisementService, /Valid Squad membership is required/);
+
+assert.match(correlation, /markClientStarted/);
+assert.match(correlation, /client_started === true/);
+assert.match(correlation, /AdsGram advertisement has not started/);
+assert.match(correlation, /client_started === true && state\.client_completed === true && state\.provider_confirmed === true/);
 
 assert.match(monetagPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
 assert.match(onclickaPostback, /taskAdvertisementService\.finalizeTaskAdvertisement/);
