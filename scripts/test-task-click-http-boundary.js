@@ -23,7 +23,7 @@ async function run() {
   const tasks = {
     executeTask: async args => {
       calls.push({ execute: args });
-      return { attempt: { id: 2 }, gate: { id: 3, idempotency_key: 'gate:2' }, duplicate: false };
+      return { attempt: { id: '2' }, gate: { id: 3, idempotency_key: 'gate:2' }, duplicate: false };
     },
     recordTaskClick: async args => {
       calls.push(args);
@@ -37,7 +37,7 @@ async function run() {
     },
     finalizeTaskVerification: async args => {
       calls.push({ finalize: args });
-      return { status: 'verified', rewarded: true, duplicate: false };
+      return { status: 'verified', rewarded: true, duplicate: false, reward: { coin: 1000, dzx: 1, dzp: 1 } };
     }
   };
 
@@ -74,21 +74,26 @@ async function run() {
     metadata: { link_clicked: true, client_marker: 'kept' }
   }, auth);
   assert.strictEqual(forged.status, 200);
+  assert.strictEqual(forged.body.attemptId, '2');
   assert.strictEqual(calls[0].execute.metadata.link_clicked, undefined);
   assert.strictEqual(calls[0].execute.metadata.client_marker, 'kept');
 
-  const click = await request('POST', '/api/tasks/click', { attemptId: 1 }, auth);
+  // PostgreSQL BIGINT/BIGSERIAL identifiers can arrive as strings. The HTTP
+  // boundary must normalize them before the existing Task Verification/Economy
+  // path, otherwise Share with Friends can create an attempt but never reward.
+  const click = await request('POST', '/api/tasks/click', { attemptId: '2' }, auth);
   assert.strictEqual(click.status, 200);
   assert.deepStrictEqual(click.body, { ok: true, clicked: true, duplicate: false, status: 'verified', rewarded: true, reason: null });
-  assert.strictEqual(calls[2].attemptId, 1);
+  assert.strictEqual(calls[2].attemptId, 2);
+  assert.strictEqual(typeof calls[2].attemptId, 'number');
   assert.strictEqual(calls[2].userId, 42);
-  assert.deepStrictEqual(calls[3], { finalize: { attemptId: 1, idempotencyKey: 'task:1' } });
+  assert.deepStrictEqual(calls[3], { finalize: { attemptId: 2, idempotencyKey: 'task:2' } });
 
   const missingAttempt = await request('POST', '/api/tasks/click', {}, auth);
   assert.strictEqual(missingAttempt.status, 400);
 
   await new Promise(resolve => server.close(resolve));
-  console.log('task-click HTTP boundary tests passed');
+  console.log('task-click HTTP boundary tests passed: auth, BIGINT/string attemptId normalization, verification result, reward result, idempotency boundary');
 }
 
 run().catch(error => { console.error(error); process.exit(1); });
