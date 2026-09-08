@@ -78,16 +78,20 @@ async function startShareWithFriends() {
       body: JSON.stringify({ attemptId: result.attemptId })
     });
     if (click.status === 'verified') {
+      const status = await shareApi(`/api/tasks/attempt/${encodeURIComponent(result.attemptId)}`);
+      await loadMe();
+      showRewardOutcome(status);
       shareToast('Share action recorded and reward credited.');
-      window.location.reload();
       return;
     }
     shareToast('Share action recorded. Waiting for server verification…');
     const status = await waitForShareVerification(result.attemptId);
     if (status.status === 'verified') {
+      await loadMe();
+      showRewardOutcome(status);
       shareToast('Share action verified and reward credited.');
-      window.location.reload();
     } else if (status.status === 'rejected') {
+      showRewardOutcome(status);
       shareToast('Share action verification was rejected.');
     } else {
       shareToast('Share verification is still pending.');
