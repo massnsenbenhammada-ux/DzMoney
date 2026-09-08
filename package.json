@@ -12,6 +12,7 @@
     "reconcile:economy": "node ./scripts/reconcile-economy.js",
     "test:e2e:daily-view-ads": "playwright test tests/e2e/daily-view-ads.spec.js",
     "test:e2e:daily-view-ads:real-monetag": "REAL_MONETAG_E2E=1 playwright test tests/e2e/daily-view-ads-real-monetag.spec.js",
+    "test:e2e:daily-view-ads:real-rotation": "REAL_AD_PROVIDER_ROTATION_E2E=1 playwright test tests/e2e/daily-view-ads-real-rotation.spec.js",
     "test:load:daily-view-ads": "node ./scripts/test-daily-view-ads-load.js",
     "test:phase13-ledger-integrity": "node ./scripts/test-phase13-ledger-integrity.js",
     "test:admin-dashboard": "node ./scripts/test-admin-dashboard.js",
