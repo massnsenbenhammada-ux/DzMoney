@@ -17,5 +17,8 @@ assert.match(correlation, /client_completed/);
 assert.match(correlation, /provider_confirmed/);
 assert.match(correlation, /client_completed === true && state\.provider_confirmed === true/);
 assert.match(task, /adsgram-pending/);
+assert.match(task, /hasPendingAdsGramEvent/);
+assert.match(task, /Pending AdsGram event requires an available Monetag provider/);
+assert.match(task, /AdsGram advertisement is already pending for this user/);
 assert.match(task, /adsgram_block_id/);
 console.log('AdsGram correlation contract: PASS');
