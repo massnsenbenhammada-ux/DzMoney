@@ -45,7 +45,7 @@ test('Daily View Ads runs through the real UI and canonical HTTP reward path', a
   try {
     await page.goto(baseURL);
     await expect(page.locator('.status')).toContainText('Online');
-    await page.locator('[data-go="tasks"]').click();
+    await page.locator('.nav-item[data-go="tasks"]').click();
     await expect(page.locator('[data-task-category="daily"]')).toBeVisible();
     await page.locator('[data-task-category="daily"]').click();
     const dailyView = page.locator('.task-card--daily').filter({ has: page.locator('[data-system-key="view_ads"]') });
