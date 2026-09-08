@@ -85,13 +85,19 @@ jobs:
             curl -fsSL https://telegram.org/dl/android/apk -o /tmp/telegram.apk
             test -s /tmp/telegram.apk
             adb install -r /tmp/telegram.apk
-            adb shell pm list packages | grep -E '^package:org.telegram.messenger$'
+
+            echo 'Discovering the installed Telegram package from the APK itself...'
+            TELEGRAM_PACKAGE="$(aapt2 dump badging /tmp/telegram.apk | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -n 1)"
+            test -n "$TELEGRAM_PACKAGE"
+            echo "Telegram package: $TELEGRAM_PACKAGE"
+            adb shell pm path "$TELEGRAM_PACKAGE"
+            adb shell pm list packages | grep -F "package:$TELEGRAM_PACKAGE"
 
             echo 'Launching Telegram Android...'
-            adb shell monkey -p org.telegram.messenger 1
+            adb shell monkey -p "$TELEGRAM_PACKAGE" 1
             sleep 8
-            adb shell pidof org.telegram.messenger
-            adb shell dumpsys package org.telegram.messenger | head -n 40
+            adb shell pidof "$TELEGRAM_PACKAGE"
+            adb shell dumpsys package "$TELEGRAM_PACKAGE" | head -n 40
 
             echo 'Capturing Telegram runtime evidence...'
             adb exec-out screencap -p > telegram-runtime.png
