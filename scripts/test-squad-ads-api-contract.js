@@ -1,0 +1,63 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const express = require('express');
+const { createDailySystemTaskRouter } = require('../src/http/daily-system-task-routes');
+
+function request(server, method, path, body) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(server, { method, path, headers: { 'content-type': 'application/json' } }, res => {
+      let text = '';
+      res.on('data', chunk => { text += chunk; });
+      res.on('end', () => resolve({ status: res.statusCode, body: text ? JSON.parse(text) : {} }));
+    });
+    req.on('error', reject);
+    req.end(body === undefined ? undefined : JSON.stringify(body));
+  });
+}
+
+async function main() {
+  const calls = [];
+  const app = express();
+  app.use(express.json());
+  const auth = (req, _res, next) => { req.telegramUser = { id: 987654321, username: 'api-test' }; next(); };
+  const wallet = { createUser: async () => ({ id: 77 }) };
+  const correlation = {
+    markClientStarted: async input => { calls.push(['started', input]); return { started: true, duplicate: false }; },
+    markClientCompleted: async input => { calls.push(['completed', input]); return { ready: false, rewarded: false }; }
+  };
+  const router = createDailySystemTaskRouter({ auth, wallet, tasks: {}, verification: {}, advertisement: {}, providerRegistry: {}, referralService: {}, });
+  router.stack = router.stack.filter(layer => layer.route?.path === '/advertisement/client-started' || layer.route?.path === '/advertisement/client-complete' || !layer.route);
+  const originalRequire = require('../src/services/adsgram-correlation-service');
+  originalRequire.markClientStarted = correlation.markClientStarted;
+  originalRequire.markClientCompleted = correlation.markClientCompleted;
+  app.use('/api/daily-tasks', router);
+  const server = app.listen(0);
+  try {
+    const port = server.address().port;
+    const base = { hostname: '127.0.0.1', port };
+    const invalid = await new Promise((resolve, reject) => {
+      const req = http.request({ ...base, method: 'POST', path: '/api/daily-tasks/advertisement/client-started', headers: { 'content-type': 'application/json' } }, res => { let text = ''; res.on('data', c => { text += c; }); res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(text) })); });
+      req.on('error', reject); req.end(JSON.stringify({ adEventId: 0 }));
+    });
+    assert.equal(invalid.status, 400);
+
+    const unknown = await request(server, 'POST', '/api/daily-tasks/advertisement/client-started', { adEventId: 9, unexpected: true });
+    assert.equal(unknown.status, 400);
+
+    const started = await request(server, 'POST', '/api/daily-tasks/advertisement/client-started', { adEventId: 9 });
+    assert.equal(started.status, 200);
+    assert.equal(started.body.started, true);
+
+    const completed = await request(server, 'POST', '/api/daily-tasks/advertisement/client-complete', { adEventId: 9 });
+    assert.equal(completed.status, 200);
+    assert.deepEqual(calls, [['started', { userId: 77, adEventId: 9 }], ['completed', { userId: 77, adEventId: 9 }]]);
+
+    console.log('Squad Ads API contract: PASS');
+  } finally {
+    server.close();
+  }
+}
+
+main().catch(error => { console.error('Squad Ads API contract: FAIL'); console.error(error); process.exit(1); });
