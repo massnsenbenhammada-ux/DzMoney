@@ -7,7 +7,8 @@ const { createDailySystemTaskRouter } = require('../src/http/daily-system-task-r
 
 function request(server, method, path, body) {
   return new Promise((resolve, reject) => {
-    const req = http.request(server, { method, path, headers: { 'content-type': 'application/json' } }, res => {
+    const address = server.address();
+    const req = http.request({ hostname: '127.0.0.1', port: address.port, method, path, headers: { 'content-type': 'application/json' } }, res => {
       let text = '';
       res.on('data', chunk => { text += chunk; });
       res.on('end', () => resolve({ status: res.statusCode, body: text ? JSON.parse(text) : {} }));
