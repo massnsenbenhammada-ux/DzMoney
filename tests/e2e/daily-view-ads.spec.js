@@ -43,7 +43,7 @@ test('Daily View Ads runs through the real UI and canonical HTTP reward path', a
   await page.route('**://libtl.com/sdk.js**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: "window.show_11627577 = async function(){ return { ok: true }; }; window.__DzMoneyMonetagSdkLoad='loaded';" }));
 
   try {
-    await page.goto(baseURL);
+    await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.status')).toContainText('Online');
     await page.locator('.nav-item[data-go="tasks"]').click();
     await expect(page.locator('[data-task-category="daily"]')).toBeVisible();

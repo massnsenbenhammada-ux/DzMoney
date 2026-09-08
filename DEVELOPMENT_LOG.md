@@ -38,3 +38,34 @@ Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client
 - No production provider rotation change.
 - No real Monetag network claim from the deterministic browser stub.
 - No real TON transaction was created merely to close an unrelated Daily View gate.
+
+## 2026-09-08 — AdsGram Test Reward serialized correlation
+
+### Pre-change audit
+- Kept PR #294 as the parent change and stacked AdsGram work on top of its exact head rather than mixing the two feature diffs.
+- Rechecked the canonical advertisement registry, `activity_ad_events`, Tasks-page advertisement flow, existing Economy/Ledger finalization, Telegram authentication boundary, and current Daily View client flow.
+- Verified from the official AdsGram documentation that Reward URL callbacks expose the Telegram user ID but do not document a per-impression event ID or signed webhook payload.
+
+### Implementation
+- Added server configuration for AdsGram Test Reward Block `44442`; the provider remains disabled unless `ADSGRAM_ENABLED=true` and the server-side reward token is configured.
+- Registered AdsGram only for the existing `task` advertisement context.
+- Added strict task provider rotation: `monetag → adsgram → monetag → adsgram`.
+- Added an application-owned Reward URL token boundary at `/api/ads/adsgram/reward` and bound callback resolution to Telegram user ID + Block ID + the single pending AdsGram event.
+- Added authenticated `/api/daily-tasks/advertisement/client-complete` for the client half of the dual-confirmation protocol.
+- Added provider state in the existing `activity_ad_events.metadata`: `client_completed` and `provider_confirmed`.
+- AdsGram events become `verified` only after both confirmations are present; the existing `finalizeTaskAdvertisement()` then performs the existing Economy/Ledger reward exactly once.
+- Added a per-user PostgreSQL advisory lock and pending-event invariant so a delayed AdsGram callback cannot be reassigned to a later AdsGram event.
+- Added a provider-aware client boundary that preserves the Monetag lane and runs AdsGram through the real AdsGram SDK when the server-selected provider is AdsGram.
+- No new Economy, Ledger, Task, Verification or reward store was introduced. No database migration was required.
+
+### Tests
+- Added `test:adsgram-provider` for Block ID validation, trusted verification contract and strict rotation.
+- Added `test:adsgram-correlation` for client/provider dual-confirmation and route/source-of-truth contracts.
+- Added an opt-in real provider-rotation Playwright acceptance test covering 20 alternating real Monetag/AdsGram attempts; it is not part of deterministic CI.
+- Deterministic tests do not claim real AdsGram reachability or provider revenue evidence.
+
+### Acceptance boundary
+- AdsGram Test Platform configuration still requires its Reward URL to point at the deployed callback and include the application-owned reward token.
+- No AdsGram production verification claim is made because the documented AdsGram callback is not cryptographically signed per impression.
+- Phase 14 remains **OPEN** until the required real provider acceptance evidence is obtained; synthetic tests cannot close the gate.
+- No Railway deployment was triggered by this feature branch.
