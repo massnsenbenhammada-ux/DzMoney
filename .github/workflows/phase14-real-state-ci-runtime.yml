@@ -54,7 +54,7 @@ jobs:
       PORT: 3000
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
       DATABASE_SSL: 'false'
-      BOT_TOKEN: test-bot-token
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
       TEST_TELEGRAM_USER_ID: '900000000'
       ADSGRAM_ENABLED: 'false'
       GIGAPUB_ENABLED: 'true'
@@ -71,7 +71,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Install dependencies
         run: npm install
