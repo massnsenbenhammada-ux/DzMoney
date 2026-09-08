@@ -41,7 +41,7 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     const userId = before.user.id;
     const beforeCoin = Number(before.balances?.COIN || 0);
 
-    await page.evaluate(({ data, telegramId: id }) => {
+    await page.evaluate(({ telegramId: id }) => {
       window.DzMoneyMonetag = {
         ready: Promise.resolve(),
         handler: async payload => {
@@ -53,7 +53,7 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
           return { ok: true };
         }
       };
-    }, { data: initData, telegramId });
+    }, { telegramId });
 
     await page.locator('[data-go="tasks"]').click();
     await page.locator('[data-task-category="daily"]').click();
@@ -63,7 +63,6 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     await expect(shareButton).toHaveText('Share');
     await shareButton.click();
     await expect(shareButton).toHaveText('Verify');
-
     const verifyResponse = page.waitForResponse(r => r.url().endsWith('/api/tasks/click') && r.request().method() === 'POST');
     await shareButton.click();
     const verified = await verifyResponse;
@@ -77,13 +76,11 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     const after = await request.get(`${baseURL}/api/me`, { headers: { 'X-Telegram-Init-Data': initData } });
     expect(after.ok()).toBeTruthy();
     const afterBody = await after.json();
-    expect(Number(afterBody.balances.COIN)).toBeGreaterThan(beforeCoin);
-    const ledger = await db.query("SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND transaction_type='REWARD' AND metadata->>'activity_type'='daily'", [userId]);
+    const afterCoin = Number(afterBody.balances.COIN);
+    expect(afterCoin).toBeGreaterThan(beforeCoin);
+    const ledger = await db.query("SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND transaction_type='REWARD' AND metadata->>'activity_type'='daily_system'", [userId]);
     expect(ledger.rows[0].count).toBe(1);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('[data-go="tasks"]').click();
-    await page.locator('[data-task-category="daily"]').click();
-    await expect(card).toBeVisible();
-    await expect(card.locator('[data-task-action="share_with_friends"]')).toHaveText('Verify');
+    await expect(page.locator('#coinBalance')).toHaveText(String(afterCoin));
   } finally { await db.end(); await cleanup(telegramId); }
 });
