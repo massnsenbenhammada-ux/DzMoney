@@ -1,0 +1,167 @@
+name: Phase 14 Squad Ads Release Gates
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'public/squad.js'
+      - 'public/ad-provider-client.js'
+      - 'src/services/adsgram-correlation-service.js'
+      - 'src/services/task-advertisement-service.js'
+      - 'src/http/daily-system-task-routes.js'
+      - 'scripts/test-squad-ads-*.js'
+      - 'scripts/test-ton-testnet-financial.js'
+      - 'tests/e2e/squad-ads-real.spec.js'
+      - '.github/workflows/phase14-squad-release-gates.yml'
+      - 'package.json'
+      - 'migrations/**'
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: 1 Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: node --test ./scripts/test-squad-ads-unit.js
+
+  integration:
+    name: 2 Integration Tests
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
+      DATABASE_SSL: 'false'
+      ADSGRAM_ENABLED: 'true'
+      ADSGRAM_BLOCK_ID: '44442'
+      MONETAG_ENABLED: 'true'
+      ONCLICKA_ENABLED: 'true'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dzmoney_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dzmoney_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run migrate
+      - run: node ./scripts/test-squad-ads-integration.js
+
+  api-contract:
+    name: 3 API Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: node ./scripts/test-squad-ads-api-contract.js
+      - run: node ./scripts/test-squad-ads-contract.js
+
+  security:
+    name: 4 Security and Dependency Scans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npm audit --omit=dev --audit-level=high
+      - run: node ./scripts/test-squad-ads-security.js
+
+  e2e:
+    name: 5 Real Playwright E2E
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      REAL_SQUAD_ADS_E2E: '1'
+      REAL_SQUAD_ADS_BASE_URL: https://dzmoney-production.up.railway.app
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
+      MONETAG_POSTBACK_SECRET: ${{ secrets.MONETAG_POSTBACK_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test tests/e2e/squad-ads-real.spec.js
+
+  load:
+    name: 6 Load and Performance
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
+      DATABASE_SSL: 'false'
+      ADSGRAM_ENABLED: 'true'
+      ADSGRAM_BLOCK_ID: '44442'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dzmoney_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dzmoney_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run migrate
+      - run: node ./scripts/test-squad-ads-load.js
+
+  financial-ton:
+    name: 7 Financial and TON Testnet
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
+      DATABASE_SSL: 'false'
+      TONCENTER_API_KEY: ${{ secrets.TONCENTER_API_KEY }}
+      TON_TESTNET_TX_HASH: ${{ secrets.TON_TESTNET_TX_HASH }}
+      TON_TESTNET_AMOUNT: ${{ secrets.TON_TESTNET_AMOUNT }}
+      TON_TESTNET_DEPOSIT_ADDRESS: ${{ secrets.TON_TESTNET_DEPOSIT_ADDRESS }}
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dzmoney_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dzmoney_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run migrate
+      - name: Require real TON testnet evidence
+        run: |
+          test -n "$TONCENTER_API_KEY"
+          test -n "$TON_TESTNET_TX_HASH"
+          test -n "$TON_TESTNET_AMOUNT"
+          test -n "$TON_TESTNET_DEPOSIT_ADDRESS"
+      - run: node ./scripts/test-ton-testnet-financial.js
