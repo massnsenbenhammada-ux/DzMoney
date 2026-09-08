@@ -20,6 +20,16 @@ Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client
 - Added both gates to the Phase 2 CI workflow, including Chromium installation and the existing repository secrets without exposing them.
 - Extended workflow path matching to include `tests/**`.
 
+### Real Monetag acceptance correction
+- Added `tests/e2e/daily-view-ads-real-monetag.spec.js` as an explicit opt-in acceptance test. It does not stub `libtl.com/sdk.js`; it requires the real Monetag SDK to load, executes the real Daily View flow, and waits for the server-side verified progress before accepting `1/20 watched`.
+- Added `test:e2e:daily-view-ads:real-monetag` as a manual/non-deterministic command; it is intentionally excluded from deterministic CI because external ad availability and provider timing are not CI-stable.
+- The real acceptance test still uses synthetic, valid Telegram initData for an isolated test account; it never fabricates a Monetag postback and never sends a manual reward callback.
+
+### External-provider evidence
+- Current official Monetag documentation confirms that Rewarded Interstitial supports server-side postbacks, `ymid`, `request_var`, `telegram_id`, `reward_event_type`, and real postback confirmation; Monetag explicitly recommends testing the integration inside Telegram and configuring the postback URL on the SDK zone.
+- Therefore the repository can now test the real provider path, but a PASS requires an actual Monetag-served ad and an actual Monetag server-side postback reaching the deployed DzMoney endpoint.
+- The current Railway production service tracks `main` at commit `4b948b30937929679c6db9215bea379f1bb9645f`; PR #294 is not deployed there yet. No production deployment was triggered by this change.
+
 ### Non-goals
 - No new Economy, Ledger, Task, Verification, Reward, or Provider system.
 - No production provider rotation change.
