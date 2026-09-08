@@ -30,8 +30,17 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
   const telegramId = String(BigInt(process.env.TEST_TELEGRAM_USER_ID || '900000000') + BigInt(Date.now() % 1000000));
   const initData = buildInitData(telegramId);
   const db = new Pool({ connectionString: process.env.DATABASE_URL, ssl: false });
+  let verificationAdId = null;
   await page.addInitScript(({ data }) => { window.Telegram = { WebApp: { initData: data, ready() {}, expand() {}, openTelegramLink() {} } }; }, { data: initData });
   await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
+  await page.route('**/api/tasks/click', async route => {
+    if (!verificationAdId) return route.continue();
+    const postback = new URL('/api/ads/monetag/postback', baseURL);
+    for (const [key, value] of Object.entries({ token: 'test-monetag-secret', telegram_id: telegramId, zone_id: '11627577', event_type: 'impression', reward_event_type: 'valued', estimated_price: '0.001', ymid: verificationAdId, request_var: 'verification' })) postback.searchParams.set(key, value);
+    const callback = await request.get(postback.toString());
+    expect(callback.ok()).toBeTruthy();
+    await route.continue();
+  });
   try {
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.status')).toContainText('Online');
@@ -41,28 +50,22 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     const userId = before.user.id;
     const beforeCoin = Number(before.balances?.COIN || 0);
 
-    await page.evaluate(({ telegramId: id }) => {
-      window.DzMoneyMonetag = {
-        ready: Promise.resolve(),
-        handler: async payload => {
-          if (payload?.type === 'preload') return { ok: true };
-          const url = new URL('/api/ads/monetag/postback', location.origin);
-          for (const [key, value] of Object.entries({ token: 'test-monetag-secret', telegram_id: id, zone_id: '11627577', event_type: 'impression', reward_event_type: 'valued', estimated_price: '0.001', ymid: payload.ymid, request_var: 'verification' })) url.searchParams.set(key, value);
-          const response = await fetch(url);
-          if (!response.ok) throw new Error(`provider completion failed: ${response.status}`);
-          return { ok: true };
-        }
-      };
-    }, { telegramId });
-
+    await page.evaluate(() => { window.DzMoneyMonetag = { ready: Promise.resolve(), handler: async () => ({ ok: true }) }; });
     await page.locator('[data-go="tasks"]').click();
     await page.locator('[data-task-category="daily"]').click();
     const card = page.locator('.task-card--daily').filter({ has: page.locator('[data-system-key="share_with_friends"]') });
     await expect(card).toBeVisible();
     const shareButton = card.locator('[data-task-action="share_with_friends"]');
     await expect(shareButton).toHaveText('Share');
+    const executeWait = page.waitForResponse(r => r.url().endsWith('/api/daily-tasks/execute') && r.request().method() === 'POST');
     await shareButton.click();
+    const executed = await executeWait;
+    expect(executed.ok()).toBeTruthy();
+    const executeBody = await executed.json();
+    verificationAdId = executeBody.verificationAdId;
+    expect(verificationAdId).toBeTruthy();
     await expect(shareButton).toHaveText('Verify');
+
     const verifyResponse = page.waitForResponse(r => r.url().endsWith('/api/tasks/click') && r.request().method() === 'POST');
     await shareButton.click();
     const verified = await verifyResponse;
