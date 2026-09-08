@@ -1,8 +1,10 @@
 const assert = require('assert');
 const crypto = require('crypto');
+process.env.MONETAG_ENABLED = 'true';
 const { pool } = require('../src/db/pool');
 const walletService = require('../src/services/wallet-service');
 const { AdProviderRegistry } = require('../src/services/ad-provider-service');
+const { createMonetagProvider } = require('../src/services/monetag-adapter');
 const { startTaskAdvertisement, verifyTrustedTaskAdvertisement, finalizeTaskAdvertisement } = require('../src/services/task-advertisement-service');
 const { getSystemTask, getAdvertisementProgress, executeSystemTask } = require('../src/services/daily-system-task-service');
 
@@ -12,16 +14,20 @@ function requireEnv(name) {
   return value;
 }
 
-const provider = {
-  id: 'phase14-view-ads-20-provider',
-  contexts: ['task'],
-  async verifyCompletion() { throw new Error('client verification must never be used for task advertisements'); },
-  async verifyServerCompletion(payload) {
-    if (payload?.accepted !== true) return { verified: false, reference: payload?.reference || 'rejected' };
-    return { verified: true, reference: payload.reference, userId: payload.userId, providerId: provider.id, context: 'task' };
-  }
-};
+const provider = createMonetagProvider();
 const registry = new AdProviderRegistry([provider]);
+
+function monetagPayload({ ymid, telegramId, eventType = 'impression', rewardEventType = 'valued' }) {
+  return {
+    ymid,
+    telegram_id: telegramId,
+    zone_id: '11627577',
+    event_type: eventType,
+    reward_event_type: rewardEventType,
+    request_var: 'task',
+    estimated_price: '0.001'
+  };
+}
 
 async function createUser() {
   const telegramUserId = requireEnv('TEST_TELEGRAM_USER_ID');
@@ -53,9 +59,11 @@ async function assertFinalInvariants(userId, taskId) {
     FROM ledger_entries le
     JOIN ledger_transactions lt ON lt.id=le.transaction_id
     WHERE lt.user_id=$1 AND le.source='advertisement'`, [userId]);
+  const providerIds = await pool.query("SELECT ARRAY_AGG(DISTINCT metadata->>'provider_id') AS ids FROM activity_ad_events WHERE user_id=$1 AND context='task' AND metadata->>'task_id'=$2", [userId, String(taskId)]);
   assert.strictEqual(events.rows[0].count, 20);
   assert.strictEqual(rewarded.rows[0].count, 20);
   assert.strictEqual(transactions.rows[0].count, 20);
+  assert.deepStrictEqual(providerIds.rows[0].ids, ['monetag']);
   assert.strictEqual(await balance(userId, 'COIN'), 20000);
   assert.strictEqual(await balance(userId, 'DZX'), 20);
   assert.strictEqual(await balance(userId, 'DZP'), 20);
@@ -68,6 +76,7 @@ async function main() {
     const task = await getSystemTask('view_ads');
     assert.strictEqual(task.status, 'active');
     assert.strictEqual(task.config?.systemKey, 'view_ads');
+    assert.strictEqual(task.config?.advertisementProvider, 'monetag');
     assert.strictEqual(Number(task.config?.advertisementTarget), 20);
     assert.deepStrictEqual([Number(task.reward_coin), Number(task.reward_dzx), Number(task.reward_dzp)], [1000, 1, 1]);
 
@@ -75,24 +84,26 @@ async function main() {
       const key = `phase14-view-ads-${userId}-${index}`;
       const started = await startTaskAdvertisement({ userId, taskId: task.id, idempotencyKey: key, providerRegistry: registry });
       assert.strictEqual(started.duplicate, false);
+      assert.strictEqual(started.providerId, 'monetag');
       assert.strictEqual(started.adEvent.context, 'task');
+      assert.strictEqual(started.adEvent.metadata?.provider_id, 'monetag');
       assert.strictEqual(started.adEvent.verified, false);
 
       if (index === 1) {
         await assert.rejects(
-          () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: started.adEvent.external_ad_id, userId: `${telegramUserId}-wrong` }, providerRegistry: registry }),
+          () => verifyTrustedTaskAdvertisement({ providerId: 'monetag', providerPayload: monetagPayload({ ymid: started.adEvent.external_ad_id, telegramId: `${telegramUserId}-wrong` }), providerRegistry: registry }),
           /user does not match advertisement owner/
         );
       }
       if (index === 2) {
         await assert.rejects(
-          () => verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: false, reference: started.adEvent.external_ad_id, userId: telegramUserId }, providerRegistry: registry }),
+          () => verifyTrustedTaskAdvertisement({ providerId: 'monetag', providerPayload: monetagPayload({ ymid: started.adEvent.external_ad_id, telegramId: telegramUserId, rewardEventType: 'non_valued' }), providerRegistry: registry }),
           /Advertisement provider verification failed/
         );
         await assert.rejects(() => finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id }), /Task advertisement must be verified first/);
       }
 
-      const verified = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: started.adEvent.external_ad_id, userId: telegramUserId }, providerRegistry: registry });
+      const verified = await verifyTrustedTaskAdvertisement({ providerId: 'monetag', providerPayload: monetagPayload({ ymid: started.adEvent.external_ad_id, telegramId: telegramUserId }), providerRegistry: registry });
       assert.strictEqual(verified.adEvent.verified, true);
 
       let rewarded;
@@ -114,7 +125,7 @@ async function main() {
       assert.strictEqual(await balance(userId, 'DZX'), index);
       assert.strictEqual(await balance(userId, 'DZP'), index);
 
-      const duplicateVerification = await verifyTrustedTaskAdvertisement({ providerId: provider.id, providerPayload: { accepted: true, reference: started.adEvent.external_ad_id, userId: telegramUserId }, providerRegistry: registry });
+      const duplicateVerification = await verifyTrustedTaskAdvertisement({ providerId: 'monetag', providerPayload: monetagPayload({ ymid: started.adEvent.external_ad_id, telegramId: telegramUserId }), providerRegistry: registry });
       assert.strictEqual(duplicateVerification.duplicate, true);
       const duplicateReward = await finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id });
       assert.strictEqual(duplicateReward.duplicate, true);
