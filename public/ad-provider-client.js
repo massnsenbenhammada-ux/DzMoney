@@ -41,8 +41,15 @@ function registerAdsgram(config) {
       if (typeof window.Adsgram?.init !== 'function') throw new Error('AdsGram SDK is unavailable');
       const controller = window.Adsgram.init({ blockId });
       if (!controller || typeof controller.show !== 'function') throw new Error('AdsGram Reward controller is unavailable');
-      if (typeof payload?.onStart === 'function' && typeof controller.addEventListener === 'function') controller.addEventListener('onStart', payload.onStart);
-      return controller.show(payload?.config || undefined);
+      let startedPromise = Promise.resolve();
+      if (typeof payload?.onStart === 'function' && typeof controller.addEventListener === 'function') {
+        startedPromise = new Promise((resolve, reject) => {
+          controller.addEventListener('onStart', () => Promise.resolve(payload.onStart()).then(resolve, reject));
+        });
+      }
+      const result = await controller.show(payload?.config || undefined);
+      await startedPromise;
+      return result;
     }
   };
 }
