@@ -5,7 +5,8 @@ const client = fs.readFileSync(path.join(__dirname, '..', 'public', 'adsgram-ada
 const route = fs.readFileSync(path.join(__dirname, '..', 'src', 'http', 'adsgram-reward-routes.js'), 'utf8');
 const correlation = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'adsgram-correlation-service.js'), 'utf8');
 const task = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'task-advertisement-service.js'), 'utf8');
-assert.match(client, /providerId !== 'adsgram'/);
+assert.match(client, /result\.providerId === 'adsgram'/);
+assert.match(client, /providerId === 'monetag'/);
 assert.match(client, /client-complete/);
 assert.match(client, /controller\.show\(\)/);
 assert.match(client, /event\.stopImmediatePropagation\(\)/);
