@@ -95,7 +95,7 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
   router.get('/attempt/:attemptId', asyncRoute(async (req, res) => {
     const attemptId = Number(req.params.attemptId);
     if (!Number.isInteger(attemptId) || attemptId <= 0) return res.status(400).json({ ok: false, error: 'attemptId must be a positive integer' });
-    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: telegramUser.photo_url || null });
+    const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null });
     const status = await verification.getTaskVerificationStatus({ attemptId, userId: user.id });
     res.json({ ok: true, ...status });
   }));
