@@ -98,7 +98,7 @@ async function main() {
       if (index === 2) {
         await assert.rejects(
           () => verifyTrustedTaskAdvertisement({ providerId: 'monetag', providerPayload: monetagPayload({ ymid: started.adEvent.external_ad_id, telegramId: telegramUserId, rewardEventType: 'non_valued' }), providerRegistry: registry }),
-          /Advertisement provider verification failed/
+          /Monetag event is not a rewarded event/
         );
         await assert.rejects(() => finalizeTaskAdvertisement({ userId, adEventId: started.adEvent.id }), /Task advertisement must be verified first/);
       }
