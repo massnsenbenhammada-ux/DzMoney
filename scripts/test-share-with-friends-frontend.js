@@ -31,7 +31,8 @@ assert.match(taskRoutes, /rewarded: finalization\.rewarded === true/);
 assert.match(taskService, /recordTaskClick/);
 assert.match(verificationService, /rewarded/);
 assert.match(verificationService, /economy/);
-assert.match(economyService, /source: 'task'/);
+assert.match(economyService, /ACTIVITY_REWARD_SOURCES = \['advertisement', 'task'/);
+assert.match(economyService, /creditActivityRewardOnClient/);
 assert.match(economyService, /ledger/);
 
 // The frontend must consume the server outcome, refresh the canonical balance,
