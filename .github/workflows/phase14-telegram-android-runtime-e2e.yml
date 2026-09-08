@@ -1,0 +1,85 @@
+name: Phase 14 Telegram Android Runtime E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_real_provider:
+        description: 'Run the real-provider Telegram Mini App flow (requires authenticated test account secrets)'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  android-runtime:
+    name: Android Emulator + Telegram runtime harness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      ANDROID_API_LEVEL: 35
+      ANDROID_TARGET: google_apis
+      ANDROID_ARCH: x86_64
+      AVD_NAME: dzmoney-api35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Enable KVM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-kvm
+          sudo usermod -aG kvm "$USER"
+          ls -l /dev/kvm
+
+      - name: Start Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: true
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: |
+            adb wait-for-device
+            adb shell getprop ro.build.version.sdk
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+            curl -fsSL https://telegram.org/dl/android/apk -o /tmp/telegram.apk
+            adb install -r /tmp/telegram.apk
+            adb shell pm list packages | grep -E '^package:org.telegram.messenger$'
+            adb shell monkey -p org.telegram.messenger 1
+            sleep 8
+            adb shell pidof org.telegram.messenger
+            adb exec-out screencap -p > telegram-runtime.png
+
+      - name: Upload Android runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-android-runtime-evidence
+          path: telegram-runtime.png
+          if-no-files-found: ignore
+
+      - name: Real provider gate status
+        if: ${{ inputs.run_real_provider }}
+        run: |
+          echo 'Real-provider execution was requested.'
+          echo 'This workflow intentionally does not fabricate Telegram authentication or ad callbacks.'
+          echo 'A real authenticated Telegram test account and provider credentials are required before this becomes a release gate.'
+          test -n "${{ secrets.TELEGRAM_TEST_USER_ID }}"
+          test -n "${{ secrets.BOT_TOKEN }}"
+          test -n "${{ secrets.REAL_AD_PROVIDER_TEST_CONFIG }}"
