@@ -1,8 +1,16 @@
 const assert = require('assert');
-const { pool, withTransaction } = require('../src/db/pool');
+const crypto = require('crypto');
+const { pool } = require('../src/db/pool');
+const walletService = require('../src/services/wallet-service');
 const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const { startTaskAdvertisement, verifyTrustedTaskAdvertisement, finalizeTaskAdvertisement } = require('../src/services/task-advertisement-service');
 const { getSystemTask, getAdvertisementProgress, executeSystemTask } = require('../src/services/daily-system-task-service');
+
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is required for the Phase 14 Daily View Ads integration test`);
+  return value;
+}
 
 const provider = {
   id: 'phase14-view-ads-20-provider',
@@ -16,13 +24,13 @@ const provider = {
 const registry = new AdProviderRegistry([provider]);
 
 async function createUser() {
-  const marker = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-  const result = await pool.query('INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id, telegram_user_id', [marker, `phase14_ads_${Date.now()}`, 'Phase 14 Ads']);
-  const userId = result.rows[0].id;
-  await withTransaction(async client => {
-    for (const currency of ['COIN', 'DZX', 'DZP']) await client.query('INSERT INTO wallet_accounts (user_id, currency) VALUES ($1,$2) ON CONFLICT (user_id,currency) DO NOTHING', [userId, currency]);
+  const telegramUserId = requireEnv('TEST_TELEGRAM_USER_ID');
+  const user = await walletService.createUser({
+    telegramUserId,
+    username: `phase14_ads_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
+    firstName: 'Phase 14 Daily View Ads'
   });
-  return { userId, telegramUserId: result.rows[0].telegram_user_id };
+  return { userId: user.id, telegramUserId: String(user.telegram_user_id) };
 }
 
 async function balance(userId, currency) {
@@ -31,13 +39,11 @@ async function balance(userId, currency) {
 }
 
 async function cleanup(userId) {
-  await withTransaction(async client => {
-    await client.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)', [userId]);
-    await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
-    await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
-    await client.query('DELETE FROM wallet_accounts WHERE user_id=$1', [userId]);
-    await client.query('DELETE FROM users WHERE id=$1', [userId]);
-  });
+  await pool.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)', [userId]);
+  await pool.query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
+  await pool.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
+  await pool.query('DELETE FROM wallet_accounts WHERE user_id=$1', [userId]);
+  await pool.query('DELETE FROM users WHERE id=$1', [userId]);
 }
 
 async function assertFinalInvariants(userId, taskId) {
