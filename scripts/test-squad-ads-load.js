@@ -14,7 +14,8 @@ async function main() {
   let userId;
   let taskId;
   try {
-    const user = await pool.query('INSERT INTO users (telegram_user_id,username,first_name) VALUES ($1,$2,$3) RETURNING id', [`squad_load_${marker}`, `squad_load_${marker}`, 'Squad Load']);
+    const telegramUserId = String(BigInt(Date.now()) * 10n + 9n);
+    const user = await pool.query('INSERT INTO users (telegram_user_id,username,first_name) VALUES ($1,$2,$3) RETURNING id', [telegramUserId, `squad_load_${marker}`, 'Squad Load']);
     userId = user.rows[0].id;
     const task = await pool.query(`INSERT INTO activity_tasks (task_type,title,reward_coin,reward_dzx,reward_dzp,status,config) VALUES ('daily','Squad Ads load',1000,1,1,'active',$1) RETURNING id`, [{ systemKey: 'squad_ads', advertisementTarget: 1000, advertisementContext: 'squad' }]);
     taskId = task.rows[0].id;
