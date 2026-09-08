@@ -20,10 +20,25 @@ function buildInitData(userId) {
 }
 
 test('real Squad WATCH AD completes Monetag then AdsGram rotation', async ({ page, request }) => {
+  test.setTimeout(150000);
   if (process.env.REAL_SQUAD_ADS_E2E !== '1') test.skip(true, 'Explicit real-provider release gate');
   const baseUrl = process.env.REAL_SQUAD_ADS_BASE_URL || 'https://dzmoney-production.up.railway.app';
   const telegramUserId = required('TEST_TELEGRAM_USER_ID');
   const initData = buildInitData(telegramUserId);
+  const diagnostics = [];
+
+  page.on('console', message => diagnostics.push(`[console:${message.type()}] ${message.text()}`));
+  page.on('pageerror', error => diagnostics.push(`[pageerror] ${error.message}`));
+  page.on('requestfailed', requestEvent => diagnostics.push(`[requestfailed] ${requestEvent.method()} ${requestEvent.url()} :: ${requestEvent.failure()?.errorText || 'unknown'}`));
+  page.on('response', async response => {
+    if (!response.url().includes('/api/tasks/advertisement/') && !response.url().includes('/api/squad/ads')) return;
+    try {
+      diagnostics.push(`[api:${response.status()}] ${response.request().method()} ${response.url()} :: ${await response.text()}`);
+    } catch (error) {
+      diagnostics.push(`[api:${response.status()}] ${response.request().method()} ${response.url()} :: body-unavailable (${error.message})`);
+    }
+  });
+
   await page.addInitScript(({ telegramInitData }) => {
     window.Telegram = { WebApp: { initData: telegramInitData, ready() {}, expand() {} } };
   }, { telegramInitData: initData });
@@ -44,7 +59,14 @@ test('real Squad WATCH AD completes Monetag then AdsGram rotation', async ({ pag
     expect(body.adEventId).toBeTruthy();
     expect(body.externalAdId).toBeTruthy();
     providers.push(body.providerId);
-    await expect.poll(async () => page.locator('[data-squad-ad-status]').textContent(), { timeout: 120000 }).toContain('Verified.');
+    diagnostics.push(`[allocation] attempt=${attempt + 1} provider=${body.providerId} adEventId=${body.adEventId} externalAdId=${body.externalAdId}`);
+    try {
+      await expect.poll(async () => page.locator('[data-squad-ad-status]').textContent(), { timeout: 120000 }).toContain('Verified.');
+    } catch (error) {
+      diagnostics.push(`[squad-status-final] ${await page.locator('[data-squad-ad-status]').textContent()}`);
+      console.log(diagnostics.join('\n'));
+      throw error;
+    }
     if (attempt === 0) await page.waitForTimeout(1000);
   }
 
