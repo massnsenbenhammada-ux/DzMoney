@@ -4,6 +4,7 @@ const { query } = require('../src/db/pool');
 const { validateGamingConfig } = require('../src/services/gaming-service');
 const { AD_PROVIDER_CONTEXTS } = require('../src/services/ad-provider-service');
 const { run: simulateGamingEconomy } = require('./simulate-gaming-economy');
+const { spawnSync } = require('child_process');
 
 function testProviderContext() {
   assert(AD_PROVIDER_CONTEXTS.includes('gaming'));
@@ -78,8 +79,6 @@ function testSourceBoundaries() {
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
   assert(server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"));
   assert(server.includes("app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));"));
-
-  // Gaming ad rewards must use the canonical Economy transaction path.
   assert(service.includes('postEconomyTransactionOnClient'));
   assert(service.includes("type: 'GAMING_REWARD'"));
   assert(economy.includes('postEconomyTransactionOnClient'));
@@ -105,7 +104,6 @@ function testGamingFrontendContract() {
   const onclickaLoader = fs.readFileSync('public/onclicka-sdk-loader.js', 'utf8');
   const onclickaEntry = fs.readFileSync('public/onclicka-adapter-entry.js', 'utf8');
   const gigapubEntry = fs.readFileSync('public/gigapub-adapter-entry.js', 'utf8');
-
   assert(gaming.includes('data-spin-wheel'));
   assert(gaming.includes('data-spin-wheel-segment'));
   assert(gaming.includes('data-digging-image'));
@@ -132,9 +130,6 @@ function testGamingFrontendContract() {
   assert(!gaming.includes('const adPromise = adapter.handler'));
   assert(!gaming.includes('Promise.all([startPromise, adPromise])'));
   assert(!gaming.includes('setTimeout(resolve, 1500)'));
-
-  // Gaming must display the canonical server reward outcome. A toast alone is
-  // not an economic UX assertion because it can pass while the balance is stale.
   assert(gaming.includes('showRewardOutcome'));
   assert(/showRewardOutcome\(completion\)/.test(gaming));
   assert(gaming.includes('await load();'));
@@ -143,7 +138,6 @@ function testGamingFrontendContract() {
   assert(app.includes('result?.reward'));
   assert(app.includes('Reward credited'));
   assert(app.includes('Reward not credited'));
-
   assert(css.includes('conic-gradient'));
   assert(css.includes('45deg'));
   assert(css.includes('@container'));
@@ -169,7 +163,6 @@ function testGamingFrontendContract() {
   assert(onclickaLoader.includes('DzMoneyOnclicka?.prepare'));
   assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
   assert(gigapubEntry.includes('providers?.gigapub'));
-
   const configMarker = '<script>window.__DzMoneyAdProviderConfig=__AD_PROVIDER_CONFIG__;</script>';
   const providerEntryMarkers = [
     '<script src="/monetag-adapter-entry.js?v=__ASSET_VERSION__">',
@@ -212,6 +205,10 @@ async function run() {
   console.log('Gaming canonical Economy/Ledger reward contract: PASS');
   console.log('Gaming reward popup + balance synchronization contract: PASS');
   console.log('Gaming economic configuration simulation: PASS');
+
+  const integration = spawnSync(process.execPath, [require.resolve('./test-onclicka-gaming-callback.js')], { stdio: 'inherit', env: process.env });
+  assert.strictEqual(integration.status, 0, 'Gaming provider/economic integration test must pass');
+  console.log('Gaming provider/economic integration: PASS');
 }
 
 run().catch(error => {
