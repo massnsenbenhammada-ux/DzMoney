@@ -1,0 +1,41 @@
+const { withTransaction } = require('../db/pool');
+const { markAdvertisementVerified } = require('./ad-event-service');
+const { ADSGRAM_BLOCK_ID } = require('../config/adsgram');
+
+async function getPendingEvent(client, { userId, adEventId }) {
+  const result = await client.query("SELECT * FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context='task' AND verified=FALSE AND metadata->>'provider_id'='adsgram' FOR UPDATE", [adEventId, userId]);
+  if (!result.rowCount) throw new Error('AdsGram advertisement event not found');
+  return result.rows[0];
+}
+
+function nextState(event, field) {
+  return { ...(event.metadata?.provider_state || {}), [field]: true };
+}
+
+async function markClientCompleted({ userId, adEventId }) {
+  return withTransaction(async client => {
+    const event = await getPendingEvent(client, { userId, adEventId });
+    const state = nextState(event, 'client_completed');
+    const updated = await client.query('UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1 RETURNING *', [adEventId, JSON.stringify({ provider_state: state })]);
+    return finalizeIfReady({ event: updated.rows[0], state });
+  });
+}
+
+async function markProviderConfirmed({ userTelegramId, providerReference }) {
+  return withTransaction(async client => {
+    const result = await client.query(`SELECT a.* FROM activity_ad_events a JOIN users u ON u.id=a.user_id WHERE a.context='task' AND a.verified=FALSE AND a.metadata->>'provider_id'='adsgram' AND a.metadata->>'adsgram_block_id'=$2 AND u.telegram_user_id=$1 ORDER BY a.id DESC LIMIT 1 FOR UPDATE`, [String(userTelegramId), ADSGRAM_BLOCK_ID]);
+    if (!result.rowCount) throw new Error('No pending AdsGram advertisement matches the provider callback');
+    const event = result.rows[0];
+    const state = nextState(event, 'provider_confirmed');
+    const updated = await client.query('UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1 RETURNING *', [event.id, JSON.stringify({ provider_reference: String(providerReference), provider_state: state })]);
+    return finalizeIfReady({ event: updated.rows[0], state });
+  });
+}
+
+async function finalizeIfReady({ event, state }) {
+  if (!(state.client_completed === true && state.provider_confirmed === true)) return { ready: false, rewarded: false, adEvent: event };
+  const verified = await markAdvertisementVerified({ adEventId: event.id, providerReference: event.metadata?.provider_reference || `adsgram:${event.id}`, verificationMetadata: { provider_id: 'adsgram', block_id: ADSGRAM_BLOCK_ID, client_completed: true, provider_confirmed: true, source: 'adsgram_dual_confirmation' } });
+  return { ready: true, rewarded: false, adEvent: verified.adEvent };
+}
+
+module.exports = { markClientCompleted, markProviderConfirmed, ADSGRAM_BLOCK_ID };
