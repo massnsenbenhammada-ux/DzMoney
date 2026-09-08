@@ -1,39 +1,27 @@
 # DzMoney Development Log
 
-## 2026-09-07 — Phase 12 Admin Task/Campaign Review
+## 2026-09-08 — Phase 14 Daily View Ads E2E / Load Gates
 
 ### Pre-change audit
-Inspected current `main` code, creator/task services and routes, Git history and recent Phase 12 PRs, CI/test coverage, request-to-Economy/Ledger tracing, roadmap/contracts/ADRs, repository issues, and recent runtime/deployment failure history before implementation.
+Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client/server flow, canonical `activity_tasks` configuration, `activity_ad_events` provider identity, Monetag `ymid` mapping, postback boundary, existing 1→20 integration journey, security/dependency workflow, and runtime/deployment state before adding release gates.
 
-### Findings
-- Creator campaigns already use the canonical `activity_tasks` table and `task-service.js`.
-- Existing lifecycle is `draft → pending_review → active → paused → completed/expired → closed/refunded`; no new state is required.
-- Creator campaign creation debits DZX through the existing Economy/Ledger path and snapshots the Admin-controlled campaign price.
-- Existing `approveCreatorCampaign` and `rejectCreatorCampaign` already enforce the lifecycle and rejection refund/tax economics.
-- No protected Admin task/campaign review route existed.
-- Existing `adminAuth`, rate limiting, `admin_audit_log`, and `idempotency_records` are the canonical Admin primitives.
-- No GitHub issue authorized a separate task-review engine or alternative campaign accounting source.
+### Evidence before this change
+- Unit, integration, API-contract, and security/dependency gates were already green on the previous exact-head CI.
+- Existing `test:daily-view-ads-20-journey` already proves 1→20 reward/idempotency/concurrency/Economy/Ledger invariants against real PostgreSQL/migrations.
+- No Playwright dependency or E2E runner existed.
+- No dedicated Daily View performance/load gate existed.
+- Daily View does not perform a TON payout; TON testnet transaction execution is therefore outside the Daily View reward path and is not fabricated as an acceptance proof.
 
 ### Implementation
-- Added `src/services/admin-task-campaign-service.js` as a thin Admin orchestration boundary.
-- Added protected `GET /api/admin/tasks` with existing status filtering.
-- Added protected `POST /api/admin/tasks/:taskId/review` for only `approve` or `reject`.
-- Reused existing Task Service lifecycle/economics rather than duplicating them.
-- Required Admin actor, reason, and idempotency key for review mutations.
-- Reused existing Admin audit/idempotency tables.
-- Added a minimal mobile Admin campaign-review surface to the existing Admin page.
-- Added `test:admin-task-campaign` to `test:all`.
-- Added a CodeQL rate-limit rationale matching the project's existing suppression pattern.
-- Rendered campaign fields with DOM `textContent` instead of HTML interpolation to avoid admin-side DOM XSS from creator-controlled titles/metadata.
-- Recorded the decision in `docs/ADR-0018-ADMIN-TASK-CAMPAIGN-REVIEW.md`.
-
-### CI correction
-- Exact-head CI initially failed only because the new contract test incorrectly expected `approve`/`reject` literals in the HTTP route instead of the service boundary.
-- No product/runtime failure occurred; migrations, TON tests, isolated server health, and all checks before `test:all` passed.
-- Corrected the test to assert action transport at the route and transition ownership in the service.
+- Added `@playwright/test` as a dev-only test dependency, pinned to the current stable 1.63 line.
+- Added `playwright.config.js` with a real local server and Chromium test target.
+- Added `tests/e2e/daily-view-ads.spec.js` covering the real browser UI → authenticated Daily View execution → Monetag provider identity → `ymid` → HTTP postback → canonical reward/progress path. The external Monetag SDK is stubbed only at the browser boundary; this test is not claimed as proof of Monetag network reachability.
+- Added `scripts/test-daily-view-ads-load.js` with 50 concurrent canonical advertisement-start operations and a measured p95 threshold.
+- Added both gates to the Phase 2 CI workflow, including Chromium installation and the existing repository secrets without exposing them.
+- Extended workflow path matching to include `tests/**`.
 
 ### Non-goals
-- No new task engine, verification service, reward service, campaign table, pricing source, or lifecycle state.
-- No manual balance mutation.
-- No automatic review.
-- No Reward Pool revival.
+- No new Economy, Ledger, Task, Verification, Reward, or Provider system.
+- No production provider rotation change.
+- No real Monetag network claim from the browser stub.
+- No real TON transaction was created merely to close an unrelated Daily View gate.
