@@ -52,6 +52,15 @@ async function getAccount(userId) {
   return result.rows[0] || null;
 }
 
+async function getGamingRewardLedger(userId) {
+  return query(`
+    SELECT lt.id,lt.transaction_type,le.currency,le.amount,le.source
+    FROM ledger_transactions lt
+    JOIN ledger_entries le ON le.transaction_id=lt.id
+    WHERE lt.user_id=$1 AND lt.transaction_type='GAMING_REWARD'
+    ORDER BY lt.id DESC`, [userId]);
+}
+
 async function cleanupUser(userId) {
   await query('DELETE FROM ledger_entries WHERE wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)', [userId]);
   await query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
@@ -72,6 +81,8 @@ async function testHappyPathAndDuplicate(app) {
     assert.strictEqual(started.providerId, ONCLICKA_PROVIDER_ID);
     const before = await getAccount(user.id);
     assert(before);
+    const ledgerBefore = await getGamingRewardLedger(user.id);
+    assert.strictEqual(ledgerBefore.rowCount, 0);
 
     const response = await request(app, `/api/ads/onclicka?USERID=${marker}`);
     assert.strictEqual(response.status, 200);
@@ -86,10 +97,24 @@ async function testHappyPathAndDuplicate(app) {
     assert.strictEqual(after.spins, before.spins + 1);
     assert.strictEqual(after.spin_ad_progress, before.spin_ad_progress + 1);
 
+    // Economic outcome must exist in the canonical Ledger, with exactly one
+    // GAMING_REWARD transaction and an amount matching the persisted event reward.
+    const event = await query("SELECT metadata FROM activity_ad_events WHERE id=$1", [started.adEvent.id]);
+    const metadata = event.rows[0].metadata;
+    assert(metadata.gaming_reward_transaction_id, 'gaming reward transaction id must be persisted');
+    assert(metadata.ad_bonus && (metadata.ad_bonus.coin === 100 || metadata.ad_bonus.dzx === 1), 'persisted gaming ad bonus is invalid');
+    const ledgerAfter = await getGamingRewardLedger(user.id);
+    assert.strictEqual(ledgerAfter.rowCount, 1);
+    assert.strictEqual(String(ledgerAfter.rows[0].id), String(metadata.gaming_reward_transaction_id));
+    assert.strictEqual(ledgerAfter.rows[0].source, 'gaming');
+    assert.strictEqual(Number(ledgerAfter.rows[0].amount), Number(Object.values(metadata.ad_bonus)[0]));
+
     const duplicate = await request(app, `/api/ads/onclicka?USERID=${marker}`);
     assert.strictEqual(duplicate.status, 404);
     const afterDuplicate = await getAccount(user.id);
     assert.deepStrictEqual(afterDuplicate, after);
+    const ledgerAfterDuplicate = await getGamingRewardLedger(user.id);
+    assert.strictEqual(ledgerAfterDuplicate.rowCount, 1, 'duplicate callback must not create another economic credit');
 
     const directDuplicate = await gamingService.finalizeGamingAdvertisement({
       userId: user.id,
@@ -183,7 +208,7 @@ async function main() {
     await testWrongProvider(app);
     await testWrongContext(app);
     await testLateCallback(app);
-    console.log('OnClickA Gaming callback integration: PASS (valid, missing USERID, unknown user, no pending, multiple pending, duplicate, late, idempotency, wrong provider, wrong context)');
+    console.log('OnClickA Gaming callback integration: PASS (provider verification, resource grant, Economy/Ledger reward, persisted reward metadata, duplicate protection, idempotency, invalid user/context/provider, late callback)');
   } catch (error) {
     console.error('OnClickA Gaming callback integration: FAIL');
     console.error(error);
