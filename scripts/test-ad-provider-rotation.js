@@ -51,12 +51,16 @@ assert.throws(
 );
 
 const taskRegistry = new AdProviderRegistry([
-  provider('onclicka', ['task']),
-  provider('monetag', ['task'])
+  provider('monetag', ['task']),
+  provider('adsgram', ['task'])
 ]);
-assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task' }).id, 'onclicka');
-assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'onclicka' }).id, 'monetag');
-assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'monetag' }).id, 'onclicka');
+assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task' }).id, 'monetag');
+assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'monetag' }).id, 'adsgram');
+assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'adsgram' }).id, 'monetag');
+
+taskRegistry.get('adsgram').enabled = false;
+assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'monetag' }).id, 'monetag');
+taskRegistry.get('adsgram').enabled = true;
 
 function fakeClient() {
   const events = [];
