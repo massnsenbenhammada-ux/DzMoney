@@ -47,7 +47,7 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
       window.DzMoneyAdClient = { getProvider(id) { if (id !== 'gigapub') return null; return { ready: Promise.resolve(), handler: async payload => { const r = await fetch('/api/gaming/ads/complete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': data }, body: JSON.stringify({ adEventId: payload.adEventId }) }); const b = await r.json(); if (!r.ok) throw new Error(b.error || 'completion failed'); return b; } }; } };
     }, { data: initData });
 
-    await page.locator('[data-go="gaming"]').click();
+    await page.getByRole('button', { name: /🎮 Gaming Spin & Digging/ }).click();
     const button = page.locator('[data-gaming-ad="spin"]');
     await expect(button).toBeVisible();
     const startWait = page.waitForResponse(r => r.url().endsWith('/api/gaming/ads/start') && r.request().method() === 'POST');
@@ -72,7 +72,7 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     expect(duplicate.ok()).toBeTruthy();
     expect((await duplicate.json()).duplicate).toBe(true);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await page.locator('[data-go="gaming"]').click();
+    await page.getByRole('button', { name: /🎮 Gaming Spin & Digging/ }).click();
     await expect(page.locator('[data-spin-balance]')).toHaveText(String(beforeSpins + 1));
   } finally { await db.end(); await cleanup(telegramId); }
 });
