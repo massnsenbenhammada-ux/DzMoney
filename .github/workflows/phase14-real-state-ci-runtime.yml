@@ -14,6 +14,7 @@ on:
       - 'tests/**'
       - 'server.js'
       - 'package.json'
+      - 'playwright.config.js'
 
 permissions:
   contents: read
@@ -41,9 +42,14 @@ jobs:
       PORT: 3000
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
       DATABASE_SSL: 'false'
+      BOT_TOKEN: test-bot-token
+      TEST_TELEGRAM_USER_ID: '900000000'
+      DATABASE_SSL: 'false'
       ADSGRAM_ENABLED: 'false'
-      GIGAPUB_ENABLED: 'false'
-      MONETAG_ENABLED: 'false'
+      GIGAPUB_ENABLED: 'true'
+      GIGAPUB_PROJECT_ID: '7958'
+      MONETAG_ENABLED: 'true'
+      MONETAG_POSTBACK_SECRET: test-monetag-secret
       ONCLICKA_ENABLED: 'false'
       TON_PAYOUT_ENABLED: 'false'
     steps:
@@ -59,28 +65,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Run migrations
         run: npm run migrate
-
-      - name: Start isolated DzMoney runtime
-        run: |
-          npm start > /tmp/dzmoney-runtime.log 2>&1 &
-          echo $! > /tmp/dzmoney.pid
-
-      - name: Wait for runtime health
-        run: |
-          for i in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:3000/health > /tmp/health.json; then
-              cat /tmp/health.json
-              exit 0
-            fi
-            sleep 1
-          done
-          cat /tmp/dzmoney-runtime.log
-          exit 1
-
-      - name: Verify database health
-        run: curl --fail --silent http://127.0.0.1:3000/health/db
 
       - name: Run real-state registry guard
         run: |
@@ -95,6 +84,5 @@ jobs:
       - name: Runtime diagnostics
         if: always()
         run: |
-          cat /tmp/dzmoney-runtime.log || true
           curl --silent http://127.0.0.1:3000/health || true
           curl --silent http://127.0.0.1:3000/health/db || true
