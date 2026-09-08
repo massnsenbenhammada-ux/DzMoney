@@ -4,7 +4,7 @@
 
 This gate exists to test the runtime layer that headless Chromium cannot reproduce: Android + Telegram Android + Telegram Mini App WebView + the real advertisement SDK.
 
-GitHub-hosted Linux runners support hardware acceleration for Android SDK tools, so the workflow boots an x86_64 Android API 35 emulator. The official Telegram Android APK is installed from telegram.org.
+GitHub-hosted Linux runners support hardware acceleration for Android SDK tools. The current workflow intentionally uses an Android API 30 `google_apis` x86 emulator because that exact configuration has been boot-validated by the repository's latest runtime evidence. The official Telegram Android APK is installed from telegram.org.
 
 ## Evidence boundary
 
@@ -30,4 +30,4 @@ The `run_real_provider` workflow input is intentionally separate. Before enablin
 
 ## Relationship to PR #305
 
-This workflow does not replace the real-state Playwright governance required by PR #305. It adds the missing Android/Telegram runtime layer. PR #305 must remain unmerged until its release-critical real-state journeys have executable evidence.
+This workflow does not replace the real-state Playwright governance required by PR #305. It adds the missing Android/Telegram runtime layer. PR #305 must remain unmerged until its release-critical journeys have executable real-state evidence.
