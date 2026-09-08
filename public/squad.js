@@ -104,7 +104,7 @@ async function watchSquadAd() {
     if (!adapter?.handler || typeof adapter.handler !== 'function') throw new Error('Advertisement provider is unavailable');
     button.textContent = 'WATCHING…';
     await adapter.ready;
-    const onStart = response.providerId === 'adsgram' ? () => markAdsgramSquadAdStarted(response.adEventId).catch(() => {}) : undefined;
+    const onStart = response.providerId === 'adsgram' ? () => markAdsgramSquadAdStarted(response.adEventId) : undefined;
     await adapter.handler({ requestVar: 'squad', adEventId: response.adEventId, ymid: response.externalAdId, onStart });
     if (response.providerId === 'adsgram') await completeAdsgramSquadAd(response.adEventId);
     button.textContent = 'VERIFYING…';
