@@ -11,6 +11,7 @@ on:
       - 'src/services/task-advertisement-service.js'
       - 'src/http/daily-system-task-routes.js'
       - 'scripts/test-squad-ads-*.js'
+      - 'scripts/test-adsgram-correlation-contract.js'
       - 'tests/e2e/squad-ads-real.spec.js'
       - '.github/workflows/phase14-squad-release-gates.yml'
       - 'package.json'
