@@ -27,12 +27,12 @@ jobs:
   android-runtime:
     name: Android Emulator + Telegram runtime harness
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     env:
-      ANDROID_API_LEVEL: 35
+      ANDROID_API_LEVEL: 30
       ANDROID_TARGET: google_apis
-      ANDROID_ARCH: x86_64
-      AVD_NAME: dzmoney-api35
+      ANDROID_ARCH: x86
+      AVD_NAME: dzmoney-api30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,18 +49,25 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-kvm
-          sudo usermod -aG kvm "$USER"
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-dzmoney-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo chmod 666 /dev/kvm
           ls -l /dev/kvm
 
       - name: Start Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 30
           target: google_apis
-          arch: x86_64
-          profile: pixel_6
-          force-avd-creation: true
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+          arch: x86
+          profile: pixel_2
+          cores: 2
+          ram-size: 1536M
+          heap-size: 256M
+          force-avd-creation: false
+          emulator-boot-timeout: 240
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save
           disable-animations: true
           script: |
             set -eu
@@ -82,7 +89,7 @@ jobs:
 
             echo 'Launching Telegram Android...'
             adb shell monkey -p org.telegram.messenger 1
-            sleep 10
+            sleep 8
             adb shell pidof org.telegram.messenger
             adb shell dumpsys package org.telegram.messenger | head -n 40
 
