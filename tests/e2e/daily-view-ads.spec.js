@@ -37,10 +37,17 @@ test('Daily View Ads runs through the real UI and canonical HTTP reward path', a
 
   await page.addInitScript(({ initData: telegramInitData }) => {
     window.Telegram = { WebApp: { initData: telegramInitData, ready() {}, expand() {} } };
-    window.show_11627577 = async () => ({ ok: true });
   }, { initData });
   await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
-  await page.route('**://libtl.com/sdk.js**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: "window.show_11627577 = async function(){ return { ok: true }; }; window.__DzMoneyMonetagSdkLoad='loaded';" }));
+  await page.route('**://libtl.com/sdk.js**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: `window.show_11627577 = async function(payload) {
+      if (payload && payload.type === 'preload') return { ok: true };
+      return new Promise(resolve => { window.__resolveMonetagShow = () => resolve({ ok: true }); });
+    };
+    window.__DzMoneyMonetagSdkLoad = 'loaded';`
+  }));
 
   try {
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
@@ -71,6 +78,7 @@ test('Daily View Ads runs through the real UI and canonical HTTP reward path', a
     const postbackResponse = await request.get(postback.toString());
     expect(postbackResponse.ok()).toBeTruthy();
 
+    await page.evaluate(() => window.__resolveMonetagShow?.());
     await expect(dailyView).toContainText('1/20 watched', { timeout: 10000 });
   } finally {
     await cleanup();
