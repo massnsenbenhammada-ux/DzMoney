@@ -15,26 +15,13 @@ async function createUser(marker, role, roleCode) {
 async function createTask(userId, marker) {
   return withTransaction(async client => {
     for (const currency of ['COIN', 'DZX', 'DZP']) await client.query('INSERT INTO wallet_accounts (user_id, currency) VALUES ($1,$2)', [userId, currency]);
-    const result = await client.query(
-      `INSERT INTO activity_tasks (task_type,title,reward_coin,reward_dzx,reward_dzp,status,config)
-       VALUES ('daily','Squad Ads integration test',1000,1,1,'active',$1) RETURNING id`,
-      [{ systemKey: 'squad_ads', advertisementTarget: 10, advertisementContext: 'squad', dailyMode: 'advertisement' }]
-    );
+    const result = await client.query(`INSERT INTO activity_tasks (task_type,title,reward_coin,reward_dzx,reward_dzp,status,config) VALUES ('daily','Squad Ads integration test',1000,1,1,'active',$1) RETURNING id`, [{ systemKey: 'squad_ads', advertisementTarget: 10, advertisementContext: 'squad', dailyMode: 'advertisement' }]);
     return result.rows[0].id;
   });
 }
 
 async function createEvent(userId, taskId, marker, blockId = ADSGRAM_BLOCK_ID) {
-  const result = await pool.query(
-    `INSERT INTO activity_ad_events (user_id,context,external_ad_id,idempotency_key,metadata)
-     VALUES ($1,'squad',$2,$3,$4) RETURNING id`,
-    [userId, `adsgram-integration-${marker}`, `squad-ads-integration:${marker}`, {
-      task_id: taskId,
-      provider_id: 'adsgram',
-      adsgram_block_id: blockId,
-      provider_state: { client_started: false, client_completed: false, provider_confirmed: false }
-    }]
-  );
+  const result = await pool.query(`INSERT INTO activity_ad_events (user_id,context,external_ad_id,idempotency_key,metadata) VALUES ($1,'squad',$2,$3,$4) RETURNING id`, [userId, `adsgram-integration-${marker}`, `squad-ads-integration:${marker}`, { task_id: taskId, provider_id: 'adsgram', adsgram_block_id: blockId, provider_state: { client_started: false, client_completed: false, provider_confirmed: false } }]);
   return result.rows[0].id;
 }
 
@@ -58,7 +45,6 @@ async function main() {
 
     await assert.rejects(() => markClientCompleted({ userId: owner.id, adEventId }), /AdsGram advertisement has not started/);
     await assert.rejects(() => markProviderConfirmed({ userTelegramId: owner.telegramUserId, providerReference: `provider:${marker}:prestart` }), /No started AdsGram advertisement matches/);
-
     await markClientStarted({ userId: other.id, adEventId: otherEventId });
     const ownerStart = await markClientStarted({ userId: owner.id, adEventId });
     assert.equal(ownerStart.started, true);
@@ -88,7 +74,7 @@ async function main() {
 
     const duplicateReward = await finalizeTaskAdvertisement({ userId: owner.id, adEventId });
     assert.equal(duplicateReward.duplicate, true);
-    const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND transaction_type='ACTIVITY_REWARD'`, [owner.id]);
+    const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND transaction_type='REWARD' AND metadata->>'source'='advertisement'`, [owner.id]);
     assert.equal(ledger.rows[0].count, 1);
 
     const otherState = await pool.query('SELECT verified,metadata->\'provider_state\' AS provider_state FROM activity_ad_events WHERE id=$1', [otherEventId]);
