@@ -49,7 +49,10 @@ async function cleanup(userId) {
 async function assertFinalInvariants(userId, taskId) {
   const events = await pool.query("SELECT COUNT(*)::int AS count FROM activity_ad_events WHERE user_id=$1 AND context='task' AND metadata->>'task_id'=$2 AND verified=TRUE", [userId, String(taskId)]);
   const rewarded = await pool.query("SELECT COUNT(*)::int AS count FROM activity_ad_events WHERE user_id=$1 AND context='task' AND metadata->>'task_id'=$2 AND metadata ? 'reward_transaction_id'", [userId, String(taskId)]);
-  const transactions = await pool.query("SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND source='advertisement'", [userId]);
+  const transactions = await pool.query(`SELECT COUNT(DISTINCT le.transaction_id)::int AS count
+    FROM ledger_entries le
+    JOIN ledger_transactions lt ON lt.id=le.transaction_id
+    WHERE lt.user_id=$1 AND le.source='advertisement'`, [userId]);
   assert.strictEqual(events.rows[0].count, 20);
   assert.strictEqual(rewarded.rows[0].count, 20);
   assert.strictEqual(transactions.rows[0].count, 20);
