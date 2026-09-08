@@ -17,7 +17,11 @@ function buildInitData(userId) {
   return params.toString();
 }
 
-test('Daily View Ads reaches the real Monetag SDK and waits for real server confirmation', async ({ page, request }) => {
+async function readDailyViewText(page) {
+  return page.locator('.task-card--daily').filter({ has: page.locator('[data-system-key="view_ads"]') }).textContent();
+}
+
+test('Daily View Ads credits 20 consecutive real Monetag ads', async ({ page, request }) => {
   test.skip(process.env.REAL_MONETAG_E2E !== '1', 'Explicit opt-in: REAL_MONETAG_E2E=1');
 
   const baseUrl = process.env.REAL_MONETAG_BASE_URL || 'https://dzmoney-production.up.railway.app';
@@ -25,9 +29,11 @@ test('Daily View Ads reaches the real Monetag SDK and waits for real server conf
   const telegramUserId = String(baseUserId + BigInt(Date.now() % 1000000));
   const initData = buildInitData(telegramUserId);
   const seenMonetagRequests = [];
+  const executeEvents = [];
+  const finalizedEvents = [];
 
   const cleanup = async () => {
-    const me = await request.get('/api/me', { headers: { 'X-Telegram-Init-Data': initData } });
+    const me = await request.get(`${baseUrl}/api/me`, { headers: { 'X-Telegram-Init-Data': initData } });
     if (!me.ok()) return;
     const data = await me.json();
     const userId = data.user?.id;
@@ -52,28 +58,58 @@ test('Daily View Ads reaches the real Monetag SDK and waits for real server conf
   page.on('request', requestEvent => {
     if (requestEvent.url().includes('libtl.com/sdk.js')) seenMonetagRequests.push(requestEvent.url());
   });
+  page.on('response', async response => {
+    if (response.url().endsWith('/api/daily-tasks/execute') && response.request().method() === 'POST') {
+      try {
+        const body = await response.json();
+        if (body.adEventId || body.externalAdId) executeEvents.push(body);
+      } catch {}
+    }
+    if (response.url().endsWith('/api/daily-tasks/advertisement/finalize') && response.request().method() === 'POST') {
+      try {
+        const body = await response.json();
+        finalizedEvents.push(body);
+      } catch {}
+    }
+  });
 
   try {
     await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.status')).toContainText('Online', { timeout: 15000 });
     await expect.poll(async () => page.evaluate(() => typeof window.show_11627577)).toBe('function', { timeout: 20000 });
-    await expect.poll(async () => page.evaluate(() => window.__DzMoneyMonetagSdkLoad || null)).toBe('loaded', { timeout: 20000 });
 
     await page.locator('[data-go="tasks"]').click();
     await page.locator('[data-task-category="daily"]').click();
     const dailyView = page.locator('.task-card--daily').filter({ has: page.locator('[data-system-key="view_ads"]') });
     await expect(dailyView).toBeVisible();
 
-    const executeResponsePromise = page.waitForResponse(response => response.url().endsWith('/api/daily-tasks/execute') && response.request().method() === 'POST');
-    await page.locator('[data-task-action="view_ads"]').click();
-    const executeResponse = await executeResponsePromise;
-    expect(executeResponse.ok()).toBeTruthy();
-    const executeBody = await executeResponse.json();
-    expect(executeBody.providerId).toBe('monetag');
-    expect(executeBody.externalAdId).toBeTruthy();
+    const externalAdIds = new Set();
+    for (let expected = 1; expected <= 20; expected += 1) {
+      const executeResponsePromise = page.waitForResponse(response => response.url().endsWith('/api/daily-tasks/execute') && response.request().method() === 'POST');
+      await page.locator('[data-task-action="view_ads"]').click();
+      const executeResponse = await executeResponsePromise;
+      expect(executeResponse.ok()).toBeTruthy();
+      const executeBody = await executeResponse.json();
+      expect(executeBody.providerId).toBe('monetag');
+      expect(executeBody.adEventId).toBeTruthy();
+      expect(executeBody.externalAdId).toBeTruthy();
+      expect(externalAdIds.has(executeBody.externalAdId)).toBeFalsy();
+      externalAdIds.add(executeBody.externalAdId);
 
-    await expect.poll(async () => page.locator('.task-card--daily').filter({ has: page.locator('[data-system-key="view_ads"]') }).textContent(), { timeout: 60000 }).toContain('1/20 watched');
-    expect(seenMonetagRequests.length).toBeGreaterThan(0);
+      await expect.poll(() => readDailyViewText(page), { timeout: 75000 }).toContain(`${expected}/20 watched`);
+      expect(finalizedEvents.some(item => item.rewarded === true && item.progress?.completed >= expected)).toBeTruthy();
+      expect(externalAdIds.size).toBe(expected);
+
+      if (expected < 20) {
+        await expect(page.locator('[data-task-action="view_ads"]')).toBeEnabled({ timeout: 10000 });
+      }
+    }
+
+    expect(externalAdIds.size).toBe(20);
+    expect(executeEvents.length).toBeGreaterThanOrEqual(20);
+    expect(finalizedEvents.filter(item => item.rewarded === true).length).toBeGreaterThanOrEqual(20);
+    expect(seenMonetagRequests.length).toBeGreaterThanOrEqual(20);
+    await expect.poll(() => readDailyViewText(page), { timeout: 10000 }).toContain('20/20 watched');
   } finally {
     await cleanup();
   }
