@@ -33,6 +33,7 @@ jobs:
       ANDROID_TARGET: google_apis
       ANDROID_ARCH: x86
       AVD_NAME: dzmoney-api30
+      DZ_MONEY_MINI_APP_URL: https://t.me/DzaMoneybot/DzMoney
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,9 +107,15 @@ jobs:
             adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
             adb shell dumpsys package "$(cat /tmp/dzmoney-telegram-package)" | head -n 40
 
-            echo 'Capturing Telegram runtime evidence...'
-            adb exec-out screencap -p > telegram-runtime.png
-            adb logcat -d -t 250 > telegram-logcat.txt
+            echo 'Opening the canonical DzMoney Direct Mini App link...'
+            adb shell am start -a android.intent.action.VIEW -d "$DZ_MONEY_MINI_APP_URL"
+            sleep 8
+            adb shell dumpsys activity activities | grep -E 'mResumedActivity|mCurrentFocus' | head -n 5
+            adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
+
+            echo 'Capturing Telegram + Mini App launch evidence...'
+            adb exec-out screencap -p > telegram-mini-app-runtime.png
+            adb logcat -d -t 500 > telegram-mini-app-logcat.txt
 
       - name: Upload Android runtime evidence
         if: always()
@@ -116,15 +123,15 @@ jobs:
         with:
           name: telegram-android-runtime-evidence
           path: |
-            telegram-runtime.png
-            telegram-logcat.txt
+            telegram-mini-app-runtime.png
+            telegram-mini-app-logcat.txt
           if-no-files-found: ignore
 
-      - name: Real provider gate status
+      - name: Real provider gate preflight
         if: ${{ inputs.run_real_provider }}
         run: |
           echo 'Real-provider execution was requested.'
-          echo 'This workflow intentionally does not fabricate Telegram authentication or ad callbacks.'
+          echo 'This preflight intentionally does not fabricate Telegram authentication or ad callbacks.'
           echo 'A real authenticated Telegram test account and provider credentials are required before this becomes a release gate.'
           test -n "${{ secrets.TELEGRAM_TEST_USER_ID }}"
           test -n "${{ secrets.BOT_TOKEN }}"
