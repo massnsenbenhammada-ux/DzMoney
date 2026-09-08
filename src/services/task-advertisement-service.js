@@ -4,7 +4,7 @@ const referralService = require('./referral-service');
 const { startRotatedAdvertisementEventOnClient, startPinnedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
 const { activateOnVerifiedActivity } = require('./squad-membership-service');
 const { ADSGRAM_BLOCK_ID } = require('../config/adsgram');
-const { AD_PROVIDER_ID: ADSGRAM_PROVIDER_ID } = require('./adsgram-adapter');
+const { ADSGRAM_PROVIDER_ID } = require('./adsgram-adapter');
 const ADVERTISEMENT_CONTEXTS = new Set(['task', 'squad']);
 function requiredId(value, name) { if (value === undefined || value === null || value === '') throw new Error(`${name} is required`); return value; }
 async function getExistingAdvertisement({ userId, idempotencyKey, taskId, context }) { const result = await query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1', [idempotencyKey]); if (!result.rowCount) return null; const event = result.rows[0]; if (event.user_id !== userId) throw new Error('Advertisement idempotency key belongs to another user'); if (event.context !== context || event.metadata?.task_id !== taskId) throw new Error('Advertisement idempotency key is bound to another task'); return event; }
@@ -17,8 +17,9 @@ async function startTaskAdvertisement({ userId, taskId, idempotencyKey, provider
     if (context === 'squad') { await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:squad-ads:${userId}:${taskId}`]); await enforceSquadAdvertisementTarget(client, { userId, task }); }
     if (context === 'task') await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:adsgram-pending:${userId}`]);
     const providerId = task.config?.advertisementProvider || null;
-    if (providerId) return startPinnedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId, ...(providerId === ADSGRAM_PROVIDER_ID ? { adsgram_block_id: ADSGRAM_BLOCK_ID } : {}) }, providerRegistry, providerId });
-    return startRotatedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId, ...(context === 'task' ? { adsgram_block_id: ADSGRAM_BLOCK_ID } : {}) }, providerRegistry });
+    const result = providerId ? await startPinnedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId }, providerRegistry, providerId }) : await startRotatedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId }, providerRegistry });
+    if (result.providerId === ADSGRAM_PROVIDER_ID && !result.duplicate) await client.query('UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1', [result.adEvent.id, JSON.stringify({ adsgram_block_id: ADSGRAM_BLOCK_ID, provider_state: { client_completed: false, provider_confirmed: false } })]);
+    return result;
   });
 }
 function validateServerVerification(verification, providerId, context = 'task') { if (!verification || verification.verified !== true) throw new Error('Advertisement provider verification failed'); if (typeof verification.reference !== 'string' || !verification.reference.trim()) throw new Error('Trusted task provider reference is required'); if (verification.userId === undefined || verification.userId === null || verification.userId === '') throw new Error('Trusted task provider user is required'); if (verification.providerId !== providerId) throw new Error('Trusted task provider identity does not match'); if (verification.context !== context) throw new Error(`Trusted task provider context must be ${context}`); }
