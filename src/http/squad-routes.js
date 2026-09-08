@@ -39,7 +39,10 @@ router.get('/ads', asyncRoute(async (req, res) => {
     const eventId = Number(req.query.adEventId); if (!Number.isInteger(eventId) || eventId <= 0) return res.status(400).json({ ok: false, error: 'Invalid adEventId' });
     const event = await query('SELECT id,verified,completed_at,metadata FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context=$3', [eventId, userId, 'squad']);
     if (!event.rowCount) return res.status(404).json({ ok: false, error: 'Squad advertisement event not found' });
-    return res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target }, event: { id: Number(event.rows[0].id), verified: event.rows[0].verified === true, rewarded: Boolean(event.rows[0].metadata?.reward_transaction_id), completedAt: event.rows[0].completed_at } });
+    const metadata = event.rows[0].metadata || {};
+    const rewarded = Boolean(metadata.reward_transaction_id);
+    const reward = rewarded ? { coin: Number(metadata.reward_coin || 0), dzx: Number(metadata.reward_dzx || 0), dzp: Number(metadata.reward_dzp || 0) } : null;
+    return res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target }, event: { id: Number(event.rows[0].id), verified: event.rows[0].verified === true, rewarded, reward, completedAt: event.rows[0].completed_at } });
   }
   res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target, available: completed < target } });
 }));
