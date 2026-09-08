@@ -31,7 +31,25 @@ function registerGigaPub() {
   providerAdapters.gigapub = window.DzMoneyGamingAd;
 }
 
-for (const config of Object.values(providerConfig.providers || {})) registerOnclicka(config);
+function registerAdsgram(config) {
+  if (!config || config.id !== 'adsgram') return;
+  const blockId = String(config.blockId || config.block_id || '44442');
+  providerAdapters.adsgram = {
+    provider: 'adsgram',
+    ready: Promise.resolve(),
+    handler: async payload => {
+      if (typeof window.Adsgram?.init !== 'function') throw new Error('AdsGram SDK is unavailable');
+      const controller = window.Adsgram.init({ blockId });
+      if (!controller || typeof controller.show !== 'function') throw new Error('AdsGram Reward controller is unavailable');
+      return controller.show(payload?.config || undefined);
+    }
+  };
+}
+
+for (const config of Object.values(providerConfig.providers || {})) {
+  registerOnclicka(config);
+  registerAdsgram(config);
+}
 registerMonetag();
 registerGigaPub();
 
