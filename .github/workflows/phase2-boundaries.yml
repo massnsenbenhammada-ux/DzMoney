@@ -13,6 +13,7 @@ on:
       - '*.md'
       - 'docs/**'
       - '.github/workflows/**'
+      - 'tests/**'
   push:
     branches: [main]
     paths:
@@ -25,6 +26,7 @@ on:
       - '*.md'
       - 'docs/**'
       - '.github/workflows/**'
+      - 'tests/**'
   workflow_dispatch:
 
 permissions:
@@ -91,6 +93,20 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
         run: node ./scripts/test-check-for-update-real-telegram.js
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run Daily View Ads Playwright E2E
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
+          MONETAG_POSTBACK_SECRET: ${{ secrets.MONETAG_POSTBACK_SECRET }}
+          MONETAG_ENABLED: "true"
+        run: npm run test:e2e:daily-view-ads
+      - name: Run Daily View Ads load/performance gate
+        env:
+          TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
+          MONETAG_ENABLED: "true"
+        run: npm run test:load:daily-view-ads
       - name: Verify isolated runtime health
         run: |
           node server.js > /tmp/dzmoney-server.log 2>&1 &
