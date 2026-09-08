@@ -38,7 +38,7 @@ assert.match(economyService, /ledger/);
 // The frontend must consume the server outcome, refresh the canonical balance,
 // and render the actual credited amount rather than a client-calculated value.
 assert.match(appJs, /if \(status\.status === 'verified'\) \{ await loadMe\(\); showRewardOutcome\(status, task\);/);
-assert.match(appJs, /function showRewardOutcome\(result, fallbackTask\)/);
+assert.match(appJs, /function showRewardOutcome\(result, fallbackTask/);
 assert.match(appJs, /Reward credited/);
 assert.match(appJs, /result\.reward/);
 assert.match(appJs, /loadMe\(\)/);
