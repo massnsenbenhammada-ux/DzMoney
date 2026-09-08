@@ -79,6 +79,10 @@ async function loadSquadAds() {
   }
 }
 
+async function completeAdsgramSquadAd(adEventId) {
+  return api('/api/daily-tasks/advertisement/client-complete', { method: 'POST', body: JSON.stringify({ adEventId }) });
+}
+
 async function watchSquadAd() {
   const button = document.querySelector('[data-squad-ad]');
   const status = document.querySelector('[data-squad-ad-status]');
@@ -97,6 +101,7 @@ async function watchSquadAd() {
     button.textContent = 'WATCHING…';
     await adapter.ready;
     await adapter.handler({ requestVar: 'squad', adEventId: response.adEventId, ymid: response.externalAdId });
+    if (response.providerId === 'adsgram') await completeAdsgramSquadAd(response.adEventId);
     button.textContent = 'VERIFYING…';
     const deadline = Date.now() + 30000;
     while (Date.now() < deadline) {
