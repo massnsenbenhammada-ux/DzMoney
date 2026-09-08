@@ -31,7 +31,7 @@ test('real Squad WATCH AD completes Monetag then AdsGram rotation', async ({ pag
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('.status')).toContainText('Online', { timeout: 15000 });
-  await page.locator('[data-go="squad"]').click();
+  await page.locator('.nav-item.phase11-squad-nav').click();
   await expect(page.locator('[data-squad-ad]')).toBeVisible({ timeout: 15000 });
 
   const providers = [];
