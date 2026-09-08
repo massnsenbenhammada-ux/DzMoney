@@ -8,6 +8,17 @@ on:
         required: true
         default: false
         type: boolean
+  push:
+    branches:
+      - feat/phase14-telegram-android-runtime-e2e
+    paths:
+      - '.github/workflows/phase14-telegram-android-runtime-e2e.yml'
+      - 'tests/e2e/**'
+      - 'public/**'
+      - 'src/**'
+      - 'server.js'
+      - 'package.json'
+      - 'package-lock.json'
 
 permissions:
   contents: read
