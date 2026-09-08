@@ -82,8 +82,7 @@ jobs:
             adb shell ping -c 1 telegram.org || true
 
             echo 'Installing official Telegram Android APK...'
-            curl -fL --retry 8 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 600 \
-              https://telegram.org/dl/android/apk -o /tmp/telegram.apk
+            curl -fL --retry 8 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 600 -o /tmp/telegram.apk https://telegram.org/dl/android/apk
             test -s /tmp/telegram.apk
             adb install -r /tmp/telegram.apk
 
