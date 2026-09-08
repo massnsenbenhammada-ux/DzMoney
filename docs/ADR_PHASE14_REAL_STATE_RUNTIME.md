@@ -10,6 +10,8 @@ Release-critical real-state E2E must execute against an isolated PostgreSQL data
 
 The GitHub Actions runtime uses the same application entrypoint, migrations, HTTP routes, provider registry, and canonical Economy/Ledger code as the application. PostgreSQL is ephemeral and scoped to the CI job.
 
+For deterministic CI, the existing provider adapters are used through the production HTTP boundaries. Gaming uses the existing GigaPub adapter's deterministic completion contract; Share with Friends uses the existing Monetag trusted postback boundary. The browser performs the real application UI action and the reward is finalized by the same server/database path used by the application. No SDK-only reward mock is used.
+
 This runtime is an automated backend/application gate. It does not claim to authenticate a Telegram Android session or to prove a real AdsGram network advertisement. Those remain separate gates.
 
 ## Constraints
