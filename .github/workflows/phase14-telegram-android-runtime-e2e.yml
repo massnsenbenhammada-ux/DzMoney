@@ -87,7 +87,9 @@ jobs:
             adb install -r /tmp/telegram.apk
 
             echo 'Locating Android SDK build-tools aapt2...'
-            AAPT2="$(find "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/build-tools" -type f -name aapt2 -print -quit 2>/dev/null || true)"
+            SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+            AAPT2="$(find "$SDK_ROOT/build-tools" -type f -name aapt2 -print -quit 2>/dev/null || true)"
+            echo "Android SDK root: $SDK_ROOT"
             echo "Using aapt2 candidate: ${AAPT2:-<not found>}"
             test -n "$AAPT2"
             test -x "$AAPT2"
