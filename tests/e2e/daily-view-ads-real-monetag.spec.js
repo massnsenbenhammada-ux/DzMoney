@@ -21,6 +21,10 @@ async function readDailyViewText(page) {
   return page.locator('.task-card--daily').filter({ has: page.locator('[data-system-key="view_ads"]') }).textContent();
 }
 
+function assertReward(reward) {
+  expect(reward).toEqual({ coin: 1000, dzx: 1, dzp: 1 });
+}
+
 test('Daily View Ads credits 20 consecutive real Monetag ads', async ({ page, request }) => {
   test.skip(process.env.REAL_MONETAG_E2E !== '1', 'Explicit opt-in: REAL_MONETAG_E2E=1');
 
@@ -68,7 +72,7 @@ test('Daily View Ads credits 20 consecutive real Monetag ads', async ({ page, re
     if (response.url().endsWith('/api/daily-tasks/advertisement/finalize') && response.request().method() === 'POST') {
       try {
         const body = await response.json();
-        finalizedEvents.push(body);
+        if (body.rewarded === true) finalizedEvents.push(body);
       } catch {}
     }
   });
@@ -84,6 +88,7 @@ test('Daily View Ads credits 20 consecutive real Monetag ads', async ({ page, re
     await expect(dailyView).toBeVisible();
 
     const externalAdIds = new Set();
+    const rewardedAdEventIds = new Set();
     for (let expected = 1; expected <= 20; expected += 1) {
       const executeResponsePromise = page.waitForResponse(response => response.url().endsWith('/api/daily-tasks/execute') && response.request().method() === 'POST');
       await page.locator('[data-task-action="view_ads"]').click();
@@ -97,7 +102,13 @@ test('Daily View Ads credits 20 consecutive real Monetag ads', async ({ page, re
       externalAdIds.add(executeBody.externalAdId);
 
       await expect.poll(() => readDailyViewText(page), { timeout: 75000 }).toContain(`${expected}/20 watched`);
-      expect(finalizedEvents.some(item => item.rewarded === true && item.progress?.completed >= expected)).toBeTruthy();
+      await expect.poll(() => finalizedEvents.filter(item => item.progress?.completed === expected).length, { timeout: 10000 }).toBe(1);
+      const rewardResponse = finalizedEvents.find(item => item.progress?.completed === expected);
+      expect(rewardResponse).toBeTruthy();
+      expect(rewardResponse.rewarded).toBe(true);
+      assertReward(rewardResponse.reward);
+      rewardedAdEventIds.add(executeBody.adEventId);
+      expect(rewardedAdEventIds.size).toBe(expected);
       expect(externalAdIds.size).toBe(expected);
 
       if (expected < 20) {
@@ -106,8 +117,11 @@ test('Daily View Ads credits 20 consecutive real Monetag ads', async ({ page, re
     }
 
     expect(externalAdIds.size).toBe(20);
+    expect(rewardedAdEventIds.size).toBe(20);
     expect(executeEvents.length).toBeGreaterThanOrEqual(20);
-    expect(finalizedEvents.filter(item => item.rewarded === true).length).toBeGreaterThanOrEqual(20);
+    expect(finalizedEvents.length).toBe(20);
+    expect(finalizedEvents.every(item => item.rewarded === true)).toBeTruthy();
+    expect(finalizedEvents.every(item => item.reward && item.reward.coin === 1000 && item.reward.dzx === 1 && item.reward.dzp === 1)).toBeTruthy();
     expect(seenMonetagRequests.length).toBeGreaterThanOrEqual(20);
     await expect.poll(() => readDailyViewText(page), { timeout: 10000 }).toContain('20/20 watched');
   } finally {
