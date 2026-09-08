@@ -1,0 +1,100 @@
+name: Phase 14 Real-State CI Runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/phase14-real-state-ci-runtime
+    paths:
+      - '.github/workflows/phase14-real-state-ci-runtime.yml'
+      - 'src/**'
+      - 'public/**'
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'server.js'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  real-state-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: dzmoney_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dzmoney_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
+      DATABASE_SSL: 'false'
+      ADSGRAM_ENABLED: 'false'
+      GIGAPUB_ENABLED: 'false'
+      MONETAG_ENABLED: 'false'
+      ONCLICKA_ENABLED: 'false'
+      TON_PAYOUT_ENABLED: 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run migrations
+        run: npm run migrate
+
+      - name: Start isolated DzMoney runtime
+        run: |
+          npm start > /tmp/dzmoney-runtime.log 2>&1 &
+          echo $! > /tmp/dzmoney.pid
+
+      - name: Wait for runtime health
+        run: |
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3000/health > /tmp/health.json; then
+              cat /tmp/health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/dzmoney-runtime.log
+          exit 1
+
+      - name: Verify database health
+        run: curl --fail --silent http://127.0.0.1:3000/health/db
+
+      - name: Run real-state registry guard
+        run: |
+          test -f tests/e2e/gaming-real-state.spec.js
+          test -f tests/e2e/share-with-friends-real-state.spec.js
+
+      - name: Run real-state Playwright gates
+        run: |
+          npm run test:e2e:real-state-gaming
+          npm run test:e2e:real-state-share-with-friends
+
+      - name: Runtime diagnostics
+        if: always()
+        run: |
+          cat /tmp/dzmoney-runtime.log || true
+          curl --silent http://127.0.0.1:3000/health || true
+          curl --silent http://127.0.0.1:3000/health/db || true
