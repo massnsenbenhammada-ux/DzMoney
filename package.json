@@ -83,7 +83,7 @@
     "test:creator-campaign-review": "node ./scripts/test-creator-campaign-review.js",
     "test:creator-campaign-tax-refund": "node ./scripts/test-creator-campaign-tax-refund.js",
     "test:creator-campaign-target": "node ./scripts/test-creator-campaign-target-enforcement.js",
-    "test:creator-task-http": "node ./scripts/test-creator-task-http.js",
+    "test:creator-task-http": "node ./scripts/test-creator-task-http-boundary.js",
     "test:creator-campaign-pricing-config": "node ./scripts/test-creator-campaign-pricing-config.js",
     "test:creator-panel-scope": "node ./scripts/test-creator-panel-scope.js",
     "test:daily-task-check-for-update": "node ./scripts/test-daily-task-check-for-update.js",
