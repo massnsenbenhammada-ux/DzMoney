@@ -47,10 +47,10 @@ Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client
 - Verified from the official AdsGram documentation that Reward URL callbacks expose the Telegram user ID but do not document a per-impression event ID or signed webhook payload.
 
 ### Implementation
-- Added server configuration for AdsGram Test Reward Block `44442`; the provider remains disabled unless `ADSGRAM_ENABLED=true` and the server-side reward token is configured.
+- Added server configuration for AdsGram Test Reward Block `44442`; the provider remains disabled unless `ADSGRAM_ENABLED=true`.
 - Registered AdsGram only for the existing `task` advertisement context.
 - Added strict task provider rotation: `monetag → adsgram → monetag → adsgram`.
-- Added an application-owned Reward URL token boundary at `/api/ads/adsgram/reward` and bound callback resolution to Telegram user ID + Block ID + the single pending AdsGram event.
+- Bound the documented Reward URL callback at `/api/ads/adsgram/reward` to Telegram user ID + Block ID + the single pending AdsGram event. No undocumented AdsGram account/API token is required by the callback contract.
 - Added authenticated `/api/daily-tasks/advertisement/client-complete` for the client half of the dual-confirmation protocol.
 - Added provider state in the existing `activity_ad_events.metadata`: `client_completed` and `provider_confirmed`.
 - AdsGram events become `verified` only after both confirmations are present; the existing `finalizeTaskAdvertisement()` then performs the existing Economy/Ledger reward exactly once.
@@ -58,14 +58,21 @@ Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client
 - Added a provider-aware client boundary that preserves the Monetag lane and runs AdsGram through the real AdsGram SDK when the server-selected provider is AdsGram.
 - No new Economy, Ledger, Task, Verification or reward store was introduced. No database migration was required.
 
+### Contract correction before activation
+- Official AdsGram Publisher documentation was rechecked before Test Platform activation.
+- The documented Reward URL contract requires HTTPS/GET and a `[userId]` placeholder; AdsGram replaces it with the Telegram user ID. The documentation does not specify an `ADSGRAM_REWARD_TOKEN` query parameter for this Publisher callback.
+- Removed the unsupported `ADSGRAM_REWARD_TOKEN` configuration and callback requirement before any Railway activation.
+- Updated the deterministic contract tests so they reject reintroduction of the undocumented token dependency.
+- The AdsGram account/API `token` documented for advertiser conversion tracking is a different contract and is not used as the Mini App Reward URL credential.
+
 ### Tests
-- Added `test:adsgram-provider` for Block ID validation, trusted verification contract and strict rotation.
-- Added `test:adsgram-correlation` for client/provider dual-confirmation and route/source-of-truth contracts.
+- `test:adsgram-provider` validates Block ID, trusted verification contract and strict rotation without an unsupported reward-token dependency.
+- `test:adsgram-correlation` validates client/provider dual-confirmation and rejects the undocumented Reward URL token dependency.
 - Added an opt-in real provider-rotation Playwright acceptance test covering 20 alternating real Monetag/AdsGram attempts; it is not part of deterministic CI.
 - Deterministic tests do not claim real AdsGram reachability or provider revenue evidence.
 
 ### Acceptance boundary
-- AdsGram Test Platform configuration still requires its Reward URL to point at the deployed callback and include the application-owned reward token.
+- AdsGram Test Platform configuration still requires its Reward URL to point at the deployed callback and use the documented `[userId]` placeholder.
 - No AdsGram production verification claim is made because the documented AdsGram callback is not cryptographically signed per impression.
 - Phase 14 remains **OPEN** until the required real provider acceptance evidence is obtained; synthetic tests cannot close the gate.
-- No Railway deployment was triggered by this feature branch.
+- No Railway variable is to be added until the Test Platform URL is configured and the callback contract is observed in a real test view.
