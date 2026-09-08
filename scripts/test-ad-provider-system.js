@@ -34,14 +34,16 @@ function testSquadRotationOrder() {
   const registry = new AdProviderRegistry([
     provider('gigapub', ['squad']),
     provider('onclicka', ['squad']),
-    provider('monetag', ['squad'])
+    provider('monetag', ['squad']),
+    provider('adsgram', ['squad'])
   ]);
-  assert.deepStrictEqual(SQUAD_PROVIDER_ORDER, ['monetag', 'onclicka']);
+  assert.deepStrictEqual(SQUAD_PROVIDER_ORDER, ['monetag', 'adsgram', 'onclicka']);
   assert.strictEqual(selectNextProvider(registry, { context: 'squad' }).id, 'monetag');
-  assert.strictEqual(selectNextProvider(registry, { context: 'squad', previousProviderId: 'monetag' }).id, 'onclicka');
+  assert.strictEqual(selectNextProvider(registry, { context: 'squad', previousProviderId: 'monetag' }).id, 'adsgram');
+  assert.strictEqual(selectNextProvider(registry, { context: 'squad', previousProviderId: 'adsgram' }).id, 'onclicka');
   assert.strictEqual(selectNextProvider(registry, { context: 'squad', previousProviderId: 'onclicka' }).id, 'monetag');
   registry.setContextEnabled('monetag', 'squad', false);
-  assert.strictEqual(selectNextProvider(registry, { context: 'squad' }).id, 'onclicka');
+  assert.strictEqual(selectNextProvider(registry, { context: 'squad' }).id, 'adsgram');
 }
 
 function testProviderValidation() {

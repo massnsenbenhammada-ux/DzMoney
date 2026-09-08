@@ -1,0 +1,131 @@
+name: Phase 14 Squad Ads Release Gates
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/adsgram-squad-isolation]
+    paths:
+      - 'public/squad.js'
+      - 'public/ad-provider-client.js'
+      - 'src/services/adsgram-correlation-service.js'
+      - 'src/services/task-advertisement-service.js'
+      - 'src/http/daily-system-task-routes.js'
+      - 'scripts/test-squad-ads-*.js'
+      - 'scripts/test-adsgram-correlation-contract.js'
+      - 'tests/e2e/squad-ads-real.spec.js'
+      - 'docs/PHASE14_ADSGRAM_TELEGRAM_E2E.md'
+      - '.github/workflows/phase14-squad-release-gates.yml'
+      - 'package.json'
+      - 'migrations/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'public/squad.js'
+      - 'public/ad-provider-client.js'
+      - 'src/services/adsgram-correlation-service.js'
+      - 'src/services/task-advertisement-service.js'
+      - 'scripts/test-squad-ads-*.js'
+      - 'tests/e2e/squad-ads-real.spec.js'
+      - 'docs/PHASE14_ADSGRAM_TELEGRAM_E2E.md'
+      - '.github/workflows/phase14-squad-release-gates.yml'
+      - 'package.json'
+      - 'migrations/**'
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: 1 Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: node --test ./scripts/test-squad-ads-unit.js
+
+  integration:
+    name: 2 Integration Tests
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
+      DATABASE_SSL: 'false'
+      ADSGRAM_ENABLED: 'true'
+      ADSGRAM_BLOCK_ID: '44442'
+      MONETAG_ENABLED: 'true'
+      ONCLICKA_ENABLED: 'true'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dzmoney_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dzmoney_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run migrate
+      - run: node ./scripts/test-squad-ads-integration.js
+
+  api-contract:
+    name: 3 API Contract Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: node ./scripts/test-squad-ads-api-contract.js
+      - run: node ./scripts/test-squad-ads-contract.js
+
+  security:
+    name: 4 Security and Dependency Scans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npm audit --omit=dev --audit-level=high
+      - run: node ./scripts/test-squad-ads-security.js
+
+  load:
+    name: 5 Load and Performance
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
+      DATABASE_SSL: 'false'
+      ADSGRAM_ENABLED: 'true'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: dzmoney_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dzmoney_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npm run migrate
+      - run: node ./scripts/test-squad-ads-load.js
+
+  # AdsGram cannot be certified as a real-provider browser E2E from headless
+  # Chromium because the SDK requires a genuine Telegram Mini App launch.
+  # The release gate is therefore the manual Telegram procedure documented in
+  # docs/PHASE14_ADSGRAM_TELEGRAM_E2E.md. The Playwright test remains available
+  # for future Telegram-capable automation but is not a release check.

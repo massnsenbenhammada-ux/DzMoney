@@ -1,7 +1,7 @@
 const AD_PROVIDER_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification', 'squad', 'promo'];
 const TASK_PROVIDER_ORDER = ['monetag', 'adsgram'];
 const GAMING_PROVIDER_ORDER = ['gigapub', 'monetag', 'onclicka'];
-const SQUAD_PROVIDER_ORDER = ['monetag', 'onclicka'];
+const SQUAD_PROVIDER_ORDER = ['monetag', 'adsgram', 'onclicka'];
 
 class ProviderUnavailableError extends Error {
   constructor(message) { super(message); this.name = 'ProviderUnavailableError'; }

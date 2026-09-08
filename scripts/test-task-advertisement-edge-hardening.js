@@ -11,6 +11,7 @@ function makeProvider(id, contexts = ['task'], { reportedProviderId = id } = {})
   return {
     id,
     contexts,
+    enabled: true,
     async verifyCompletion() {
       throw new Error('client verification must never be used for task advertisements');
     },
