@@ -6,8 +6,8 @@ const { markClientStarted, markClientCompleted, markProviderConfirmed } = requir
 const { finalizeTaskAdvertisement } = require('../src/services/task-advertisement-service');
 const { ADSGRAM_BLOCK_ID } = require('../src/config/adsgram');
 
-async function createUser(marker, role) {
-  const telegramUserId = `squad_ads_${role}_${marker}`;
+async function createUser(marker, role, roleCode) {
+  const telegramUserId = String(BigInt(Date.now()) * 10n + BigInt(roleCode));
   const result = await pool.query('INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id', [telegramUserId, `squad_${role}_${marker}`, `Squad Ads ${role}`]);
   return { id: result.rows[0].id, telegramUserId };
 }
@@ -43,9 +43,9 @@ async function main() {
   const users = [];
   const taskIds = [];
   try {
-    const owner = await createUser(marker, 'owner');
-    const other = await createUser(marker, 'other');
-    const wrongBlock = await createUser(marker, 'wrongblock');
+    const owner = await createUser(marker, 'owner', 1);
+    const other = await createUser(marker, 'other', 2);
+    const wrongBlock = await createUser(marker, 'wrongblock', 3);
     users.push(owner, other, wrongBlock);
     const taskId = await createTask(owner.id, marker);
     const otherTaskId = await createTask(other.id, `${marker}-other`);
@@ -59,7 +59,6 @@ async function main() {
     await assert.rejects(() => markClientCompleted({ userId: owner.id, adEventId }), /AdsGram advertisement has not started/);
     await assert.rejects(() => markProviderConfirmed({ userTelegramId: owner.telegramUserId, providerReference: `provider:${marker}:prestart` }), /No started AdsGram advertisement matches/);
 
-    // A callback for one Telegram user must never capture another user's started event.
     await markClientStarted({ userId: other.id, adEventId: otherEventId });
     const ownerStart = await markClientStarted({ userId: owner.id, adEventId });
     assert.equal(ownerStart.started, true);
@@ -68,12 +67,10 @@ async function main() {
     assert.equal(ownerProvider.adEvent.id, adEventId);
     assert.equal(ownerProvider.adEvent.user_id, owner.id);
 
-    // A repeated provider callback before client completion is idempotent and cannot reward.
     const duplicateProvider = await markProviderConfirmed({ userTelegramId: owner.telegramUserId, providerReference: `provider:${marker}:owner-duplicate` });
     assert.equal(duplicateProvider.duplicate, true);
     assert.equal(duplicateProvider.ready, false);
 
-    // Wrong block and pre-start events cannot be confirmed.
     await markClientStarted({ userId: wrongBlock.id, adEventId: wrongBlockEventId });
     await assert.rejects(() => markProviderConfirmed({ userTelegramId: wrongBlock.telegramUserId, providerReference: `provider:${marker}:wrong-block` }), /No started AdsGram advertisement matches/);
 
