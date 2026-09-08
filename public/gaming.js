@@ -220,7 +220,14 @@
       stage = 'complete';
       if (button) button.textContent = 'CREDITING…';
       await load();
-      toast(completion.duplicate ? 'Ad already credited.' : 'Ad watched — reward credited.');
+      if (completion.rewarded === true) {
+        if (typeof window.showRewardOutcome === 'function') window.showRewardOutcome(completion);
+        else toast(completion.duplicate ? 'Ad already credited.' : 'Ad watched — reward credited.');
+      } else if (typeof window.showRewardOutcome === 'function') {
+        window.showRewardOutcome(completion);
+      } else {
+        toast('Ad completion was confirmed, but no reward was credited.');
+      }
     } catch (error) {
       toast(`Gaming Ad failed — ${formatGamingAdFailure(providerId, stage, error)}`);
     } finally {
@@ -240,20 +247,15 @@
     const digStart = event.target.closest('[data-dig-start]');
     if (digStart) return startDigging();
     const tile = event.target.closest('[data-tile-id]');
-    if (tile) return reveal(Number(tile.dataset.tileId));
+    if (tile) return reveal(tile.dataset.tileId);
     const ad = event.target.closest('[data-gaming-ad]');
     if (ad) return watchAd(ad.dataset.gamingAd);
   });
 
   root.addEventListener('keydown', event => {
-    const wheel = event.target.closest('[data-spin-wheel]');
-    if (wheel && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); spin(); }
+    if ((event.key === 'Enter' || event.key === ' ') && event.target.closest('[data-spin-wheel]')) { event.preventDefault(); spin(); }
   });
 
-  document.addEventListener('click', event => {
-    const back = event.target.closest('[data-gaming-back]');
-    if (back) showView('home');
-  });
-
+  ensureGamingRuntimeStyles();
   load().catch(error => toast(error.message));
 })();

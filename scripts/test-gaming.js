@@ -4,6 +4,7 @@ const { query } = require('../src/db/pool');
 const { validateGamingConfig } = require('../src/services/gaming-service');
 const { AD_PROVIDER_CONTEXTS } = require('../src/services/ad-provider-service');
 const { run: simulateGamingEconomy } = require('./simulate-gaming-economy');
+const { spawnSync } = require('child_process');
 
 function testProviderContext() {
   assert(AD_PROVIDER_CONTEXTS.includes('gaming'));
@@ -63,6 +64,10 @@ function testSourceBoundaries() {
   assert(routes.includes('function publicSession(session)'));
   assert(routes.includes('publicGamingState(await gaming.getGamingState({ userId }))'));
   assert(routes.includes('const providerId = event.rows[0].metadata?.provider_id'));
+  assert(routes.includes('finalizeGamingAdvertisement'));
+  assert(routes.includes('reward: result.reward || null'));
+  assert(routes.includes('resourceGranted: result.resourceGranted || null'));
+  assert(routes.includes('progress: result.progress ?? null'));
   assert(!routes.includes("providerId: 'gigapub'"));
   assert(onclickaRoutes.includes('const CONTEXTS = new Set(['));
   assert(onclickaRoutes.includes("'gaming'"));
@@ -74,6 +79,10 @@ function testSourceBoundaries() {
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
   assert(server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"));
   assert(server.includes("app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));"));
+  assert(service.includes('postEconomyTransactionOnClient'));
+  assert(service.includes("type: 'GAMING_REWARD'"));
+  assert(economy.includes('postEconomyTransactionOnClient'));
+  assert(economy.includes('idempotencyKey'));
 }
 
 function testRewardTables() {
@@ -86,6 +95,7 @@ function testRewardTables() {
 
 function testGamingFrontendContract() {
   const gaming = fs.readFileSync('public/gaming.js', 'utf8');
+  const app = fs.readFileSync('public/app.js', 'utf8');
   const css = fs.readFileSync('public/gaming.css', 'utf8');
   const runtimeCss = fs.readFileSync('public/gaming-runtime.css', 'utf8');
   const html = fs.readFileSync('public/index.html', 'utf8');
@@ -94,7 +104,6 @@ function testGamingFrontendContract() {
   const onclickaLoader = fs.readFileSync('public/onclicka-sdk-loader.js', 'utf8');
   const onclickaEntry = fs.readFileSync('public/onclicka-adapter-entry.js', 'utf8');
   const gigapubEntry = fs.readFileSync('public/gigapub-adapter-entry.js', 'utf8');
-
   assert(gaming.includes('data-spin-wheel'));
   assert(gaming.includes('data-spin-wheel-segment'));
   assert(gaming.includes('data-digging-image'));
@@ -121,6 +130,14 @@ function testGamingFrontendContract() {
   assert(!gaming.includes('const adPromise = adapter.handler'));
   assert(!gaming.includes('Promise.all([startPromise, adPromise])'));
   assert(!gaming.includes('setTimeout(resolve, 1500)'));
+  assert(gaming.includes('showRewardOutcome'));
+  assert(/showRewardOutcome\(completion\)/.test(gaming));
+  assert(gaming.includes('await load();'));
+  assert(gaming.includes('completion.duplicate'));
+  assert(app.includes('function showRewardOutcome(result, fallbackTask = null)'));
+  assert(app.includes('result?.reward'));
+  assert(app.includes('Reward credited'));
+  assert(app.includes('Reward not credited'));
   assert(css.includes('conic-gradient'));
   assert(css.includes('45deg'));
   assert(css.includes('@container'));
@@ -146,7 +163,6 @@ function testGamingFrontendContract() {
   assert(onclickaLoader.includes('DzMoneyOnclicka?.prepare'));
   assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
   assert(gigapubEntry.includes('providers?.gigapub'));
-
   const configMarker = '<script>window.__DzMoneyAdProviderConfig=__AD_PROVIDER_CONFIG__;</script>';
   const providerEntryMarkers = [
     '<script src="/monetag-adapter-entry.js?v=__ASSET_VERSION__">',
@@ -185,7 +201,14 @@ async function run() {
   testRewardTables();
   testGamingFrontendContract();
   await testEconomicConfig();
-  console.log('Gaming core invariants: PASS');
+  console.log('Gaming provider/context invariants: PASS');
+  console.log('Gaming canonical Economy/Ledger reward contract: PASS');
+  console.log('Gaming reward popup + balance synchronization contract: PASS');
+  console.log('Gaming economic configuration simulation: PASS');
+
+  const integration = spawnSync(process.execPath, [require.resolve('./test-onclicka-gaming-callback.js')], { stdio: 'inherit', env: process.env });
+  assert.strictEqual(integration.status, 0, 'Gaming provider/economic integration test must pass');
+  console.log('Gaming provider/economic integration: PASS');
 }
 
 run().catch(error => {
