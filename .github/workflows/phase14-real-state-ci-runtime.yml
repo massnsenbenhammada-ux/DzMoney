@@ -44,7 +44,6 @@ jobs:
       DATABASE_SSL: 'false'
       BOT_TOKEN: test-bot-token
       TEST_TELEGRAM_USER_ID: '900000000'
-      DATABASE_SSL: 'false'
       ADSGRAM_ENABLED: 'false'
       GIGAPUB_ENABLED: 'true'
       GIGAPUB_PROJECT_ID: '7958'
@@ -78,8 +77,8 @@ jobs:
 
       - name: Run real-state Playwright gates
         run: |
-          npm run test:e2e:real-state-gaming
-          npm run test:e2e:real-state-share-with-friends
+          npx playwright test tests/e2e/gaming-real-state.spec.js
+          npx playwright test tests/e2e/share-with-friends-real-state.spec.js
 
       - name: Runtime diagnostics
         if: always()
