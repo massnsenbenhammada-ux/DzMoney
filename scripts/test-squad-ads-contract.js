@@ -7,10 +7,12 @@ const migration = fs.readFileSync(path.join(root, 'migrations/044_squad_ads_task
 const contextMigration = fs.readFileSync(path.join(root, 'migrations/046_squad_ad_event_context.sql'), 'utf8');
 const squadRoutes = fs.readFileSync(path.join(root, 'src/http/squad-routes.js'), 'utf8');
 const squadFrontend = fs.readFileSync(path.join(root, 'public/squad.js'), 'utf8');
+const adClient = fs.readFileSync(path.join(root, 'public/ad-provider-client.js'), 'utf8');
 const taskRoutes = fs.readFileSync(path.join(root, 'src/http/task-routes.js'), 'utf8');
 const advertisementService = fs.readFileSync(path.join(root, 'src/services/task-advertisement-service.js'), 'utf8');
 const monetagPostback = fs.readFileSync(path.join(root, 'src/http/monetag-postback-routes.js'), 'utf8');
 const onclickaPostback = fs.readFileSync(path.join(root, 'src/http/onclicka-postback-routes.js'), 'utf8');
+const dailyRoutes = fs.readFileSync(path.join(root, 'src/http/daily-system-task-routes.js'), 'utf8');
 
 const squadAdsRoute = squadRoutes.slice(
   squadRoutes.indexOf("router.get('/ads'"),
@@ -36,6 +38,14 @@ assert.doesNotMatch(squadAdsRoute, /Valid Squad membership is required/);
 assert.match(squadFrontend, /\/api\/tasks\/advertisement\/start/);
 assert.doesNotMatch(squadFrontend, /\/api\/squad\/ads\/start/);
 assert.match(squadFrontend, /requestVar: ['"]squad['"]/);
+assert.match(squadFrontend, /response\.providerId === 'adsgram'/);
+assert.match(squadFrontend, /\/api\/daily-tasks\/advertisement\/client-complete/);
+assert.match(adClient, /registerAdsgram/);
+assert.match(adClient, /providerAdapters\.adsgram/);
+assert.match(adClient, /window\.Adsgram\.init/);
+assert.match(adClient, /44442/);
+assert.match(dailyRoutes, /adsgramCorrelation\.markClientCompleted/);
+
 assert.match(taskRoutes, /tasksList\.filter\(task => task\.systemKey !== 'squad_ads'\)/);
 assert.match(taskRoutes, /externalAdId: result\.adEvent\?\.external_ad_id/);
 
