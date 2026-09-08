@@ -1,8 +1,12 @@
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const { DAILY_SYSTEM_TASKS, isUtcPlusOneCalendarDayAvailable } = require('../src/services/daily-system-task-contract');
-const source = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'daily-system-task-service.js'), 'utf8');
-const advertisementSource = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'task-advertisement-service.js'), 'utf8');
-const migration = require('fs').readFileSync(require('path').join(__dirname, '..', 'migrations', '029_daily_view_ads_target.sql'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'daily-system-task-service.js'), 'utf8');
+const advertisementSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'task-advertisement-service.js'), 'utf8');
+const adEventSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'ad-event-service.js'), 'utf8');
+const migration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '029_daily_view_ads_target.sql'), 'utf8');
+const providerMigration = fs.readFileSync(path.join(__dirname, '..', 'migrations', '030_daily_view_ads_monetag_provider.sql'), 'utf8');
 
 function testViewAdsIdentifier() {
   assert.strictEqual(DAILY_SYSTEM_TASKS.VIEW_ADS, 'view_ads');
@@ -24,6 +28,14 @@ function testViewAdsHasTwentyAdTargetAndServerProgress() {
   assert.match(source, /verified=TRUE/);
 }
 
+function testViewAdsUsesMonetagOnlyAndDoesNotRotate() {
+  assert.match(providerMigration, /systemKey.*view_ads/);
+  assert.match(providerMigration, /advertisementProvider.*monetag/);
+  assert.match(advertisementSource, /advertisementProvider/);
+  assert.match(advertisementSource, /startPinnedAdvertisementEventOnClient/);
+  assert.match(adEventSource, /startPinnedAdvertisementEventOnClient/);
+}
+
 function testViewAdsDoesNotReuseVerificationGate() {
   assert.doesNotMatch(source, /task_verification_gates/);
 }
@@ -41,6 +53,7 @@ try {
   testViewAdsIdentifier();
   testViewAdsUsesCalendarDayNotRollingCooldown();
   testViewAdsHasTwentyAdTargetAndServerProgress();
+  testViewAdsUsesMonetagOnlyAndDoesNotRotate();
   testViewAdsDoesNotReuseVerificationGate();
   testViewAdsRewardsEachVerifiedAdAndStopsAfterTarget();
   console.log('Daily View Ads invariants: PASS');
