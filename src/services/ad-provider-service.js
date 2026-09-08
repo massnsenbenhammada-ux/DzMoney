@@ -1,11 +1,11 @@
 const AD_PROVIDER_CONTEXTS = ['task', 'gaming', 'daily_checkin', 'verification', 'squad', 'promo'];
+const TASK_PROVIDER_ORDER = ['monetag', 'adsgram'];
 const GAMING_PROVIDER_ORDER = ['gigapub', 'monetag', 'onclicka'];
 const SQUAD_PROVIDER_ORDER = ['monetag', 'onclicka'];
 
 class ProviderUnavailableError extends Error {
   constructor(message) { super(message); this.name = 'ProviderUnavailableError'; }
 }
-
 function validateProvider(provider) {
   if (!provider || typeof provider.id !== 'string' || !provider.id.trim()) throw new Error('Advertisement provider id is required');
   if (!Array.isArray(provider.contexts) || !provider.contexts.length) throw new Error('Advertisement provider contexts are required');
@@ -13,7 +13,6 @@ function validateProvider(provider) {
   if (typeof provider.verifyCompletion !== 'function') throw new Error('Advertisement provider verifyCompletion is required');
   if (provider.contexts.includes('task') && typeof provider.verifyServerCompletion !== 'function') throw new Error('Advertisement provider task context requires a trusted server verification contract');
 }
-
 class AdProviderRegistry {
   constructor(providers = []) { this.providers = new Map(); this.contextEnabled = new Map(); providers.forEach(provider => this.register(provider)); }
   register(provider) {
@@ -39,12 +38,11 @@ class AdProviderRegistry {
     return [...this.providers.values()].filter(provider => provider.enabled && provider.contexts.includes(context) && this.isContextEnabled(provider.id, context));
   }
 }
-
 function selectNextProvider(registry, { context, previousProviderId = null }) {
   if (!registry || typeof registry.listAvailable !== 'function' || typeof registry.listRegistered !== 'function') throw new Error('Advertisement provider registry is required');
   const available = registry.listAvailable(context);
   if (!available.length) throw new Error(`No advertisement provider available for ${context}`);
-  const order = context === 'gaming' ? GAMING_PROVIDER_ORDER : context === 'squad' ? SQUAD_PROVIDER_ORDER : registry.listRegistered();
+  const order = context === 'task' ? TASK_PROVIDER_ORDER : context === 'gaming' ? GAMING_PROVIDER_ORDER : context === 'squad' ? SQUAD_PROVIDER_ORDER : registry.listRegistered();
   if (!previousProviderId) return order.map(id => available.find(provider => provider.id === id)).find(Boolean) || available[0];
   const previousIndex = order.indexOf(previousProviderId);
   if (previousIndex < 0) throw new Error(`Unknown previous advertisement provider: ${previousProviderId}`);
@@ -55,7 +53,6 @@ function selectNextProvider(registry, { context, previousProviderId = null }) {
   }
   throw new Error(`No advertisement provider available for ${context}`);
 }
-
 function getProviderForVerification(registry, { context, providerId }) {
   if (!registry || typeof registry.get !== 'function') throw new Error('Advertisement provider registry is required');
   if (!providerId) throw new Error('Advertisement provider id is required');
@@ -79,5 +76,4 @@ async function verifyWithProvider(registry, { context, providerId, payload, time
   validateVerificationResult(verification);
   return { providerId: provider.id, verification };
 }
-
-module.exports = { AD_PROVIDER_CONTEXTS, GAMING_PROVIDER_ORDER, SQUAD_PROVIDER_ORDER, AdProviderRegistry, ProviderUnavailableError, selectNextProvider, getProviderForVerification, verifyWithProvider };
+module.exports = { AD_PROVIDER_CONTEXTS, TASK_PROVIDER_ORDER, GAMING_PROVIDER_ORDER, SQUAD_PROVIDER_ORDER, AdProviderRegistry, ProviderUnavailableError, selectNextProvider, getProviderForVerification, verifyWithProvider };
