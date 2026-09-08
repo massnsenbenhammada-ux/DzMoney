@@ -10,7 +10,6 @@ const taskRoutes = fs.readFileSync('./src/http/task-routes.js', 'utf8');
 const taskService = fs.readFileSync('./src/services/task-service.js', 'utf8');
 const verificationService = fs.readFileSync('./src/services/task-verification-service.js', 'utf8');
 const economyService = fs.readFileSync('./src/services/economy-service.js', 'utf8');
-const ledgerService = fs.readFileSync('./src/services/ledger-service.js', 'utf8');
 const serverJs = fs.readFileSync('./server.js', 'utf8');
 const migration = fs.readFileSync('./migrations/020_daily_share_with_friends.sql', 'utf8');
 
@@ -33,7 +32,7 @@ assert.match(taskService, /recordTaskClick/);
 assert.match(verificationService, /rewarded/);
 assert.match(verificationService, /economy/);
 assert.match(economyService, /source: 'task'/);
-assert.match(ledgerService, /transaction/);
+assert.match(economyService, /ledger/);
 
 // The frontend must consume the server outcome, refresh the canonical balance,
 // and render the actual credited amount rather than a client-calculated value.
