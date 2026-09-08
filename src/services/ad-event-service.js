@@ -50,6 +50,25 @@ async function startRotatedAdvertisementEventOnClient(client, { userId, context,
   return { adEvent: event.rows[0], providerId: provider.id, duplicate: false };
 }
 
+/** Start an advertisement event using one explicitly selected provider. */
+async function startPinnedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, externalAdId = null, metadata = {}, providerRegistry, providerId }) {
+  requiredId(userId, 'userId');
+  requiredId(idempotencyKey, 'idempotencyKey');
+  requiredId(providerId, 'providerId');
+  if (!AD_CONTEXTS.includes(context)) throw new Error('Invalid advertisement context');
+  if (!providerRegistry || typeof providerRegistry.get !== 'function') throw new Error('Advertisement provider registry is required');
+  const provider = providerRegistry.get(providerId);
+  if (!provider || !provider.enabled || !provider.contexts.includes(context) || !providerRegistry.isContextEnabled(providerId, context)) throw new Error(`Advertisement provider ${providerId} is not available for ${context}`);
+  const existing = await client.query('SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE', [idempotencyKey]);
+  if (existing.rowCount) return { adEvent: existing.rows[0], providerId: existing.rows[0].metadata?.provider_id, duplicate: true };
+  const event = await client.query(
+    `INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,metadata)
+     VALUES($1,$2,$3,$4,NOW(),$5) RETURNING *`,
+    [userId, context, externalAdId || randomUUID(), idempotencyKey, { ...metadata, provider_id: providerId }]
+  );
+  return { adEvent: event.rows[0], providerId, duplicate: false };
+}
+
 /** Mark a supported advertisement event as provider-verified exactly once. */
 async function markAdvertisementVerified({ adEventId, providerReference, verificationMetadata = {} }) {
   requiredId(adEventId, 'adEventId');
@@ -68,4 +87,4 @@ async function markAdvertisementVerified({ adEventId, providerReference, verific
   });
 }
 
-module.exports = { AD_CONTEXTS, startAdvertisementEvent, startRotatedAdvertisementEventOnClient, markAdvertisementVerified };
+module.exports = { AD_CONTEXTS, startAdvertisementEvent, startRotatedAdvertisementEventOnClient, startPinnedAdvertisementEventOnClient, markAdvertisementVerified };

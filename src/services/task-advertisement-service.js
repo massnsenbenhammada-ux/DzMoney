@@ -1,7 +1,7 @@
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
-const { startRotatedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
+const { startRotatedAdvertisementEventOnClient, startPinnedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
 const { activateOnVerifiedActivity } = require('./squad-membership-service');
 
 const ADVERTISEMENT_CONTEXTS = new Set(['task', 'squad']);
@@ -43,6 +43,8 @@ async function startTaskAdvertisement({ userId, taskId, idempotencyKey, provider
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`dzmoney:squad-ads:${userId}:${taskId}`]);
       await enforceSquadAdvertisementTarget(client, { userId, task });
     }
+    const providerId = task.config?.advertisementProvider || null;
+    if (providerId) return startPinnedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId }, providerRegistry, providerId });
     return startRotatedAdvertisementEventOnClient(client, { userId, context, idempotencyKey, metadata: { task_id: taskId }, providerRegistry });
   });
 }

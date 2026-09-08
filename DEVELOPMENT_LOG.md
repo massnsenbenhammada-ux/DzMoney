@@ -1,39 +1,40 @@
 # DzMoney Development Log
 
-## 2026-09-07 — Phase 12 Admin Task/Campaign Review
+## 2026-09-08 — Phase 14 Daily View Ads E2E / Load Gates
 
 ### Pre-change audit
-Inspected current `main` code, creator/task services and routes, Git history and recent Phase 12 PRs, CI/test coverage, request-to-Economy/Ledger tracing, roadmap/contracts/ADRs, repository issues, and recent runtime/deployment failure history before implementation.
+Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client/server flow, canonical `activity_tasks` configuration, `activity_ad_events` provider identity, Monetag `ymid` mapping, postback boundary, existing 1→20 integration journey, security/dependency workflow, and runtime/deployment state before adding release gates.
 
-### Findings
-- Creator campaigns already use the canonical `activity_tasks` table and `task-service.js`.
-- Existing lifecycle is `draft → pending_review → active → paused → completed/expired → closed/refunded`; no new state is required.
-- Creator campaign creation debits DZX through the existing Economy/Ledger path and snapshots the Admin-controlled campaign price.
-- Existing `approveCreatorCampaign` and `rejectCreatorCampaign` already enforce the lifecycle and rejection refund/tax economics.
-- No protected Admin task/campaign review route existed.
-- Existing `adminAuth`, rate limiting, `admin_audit_log`, and `idempotency_records` are the canonical Admin primitives.
-- No GitHub issue authorized a separate task-review engine or alternative campaign accounting source.
+### Evidence before this change
+- Unit, integration, API-contract, and security/dependency gates were already green on the previous exact-head CI.
+- Existing `test:daily-view-ads-20-journey` already proves 1→20 reward/idempotency/concurrency/Economy/Ledger invariants against real PostgreSQL/migrations.
+- No Playwright dependency or E2E runner existed.
+- No dedicated Daily View performance/load gate existed.
+- Daily View does not perform a TON payout; TON testnet transaction execution is therefore outside the Daily View reward path and is not fabricated as an acceptance proof.
 
 ### Implementation
-- Added `src/services/admin-task-campaign-service.js` as a thin Admin orchestration boundary.
-- Added protected `GET /api/admin/tasks` with existing status filtering.
-- Added protected `POST /api/admin/tasks/:taskId/review` for only `approve` or `reject`.
-- Reused existing Task Service lifecycle/economics rather than duplicating them.
-- Required Admin actor, reason, and idempotency key for review mutations.
-- Reused existing Admin audit/idempotency tables.
-- Added a minimal mobile Admin campaign-review surface to the existing Admin page.
-- Added `test:admin-task-campaign` to `test:all`.
-- Added a CodeQL rate-limit rationale matching the project's existing suppression pattern.
-- Rendered campaign fields with DOM `textContent` instead of HTML interpolation to avoid admin-side DOM XSS from creator-controlled titles/metadata.
-- Recorded the decision in `docs/ADR-0018-ADMIN-TASK-CAMPAIGN-REVIEW.md`.
+- Added `@playwright/test` as a dev-only test dependency, pinned to the current stable 1.63 line.
+- Added `playwright.config.js` with a real local server and Chromium test target.
+- Added `tests/e2e/daily-view-ads.spec.js` covering the real browser UI → authenticated Daily View execution → Monetag provider identity → `ymid` → HTTP postback → canonical reward/progress path. The external Monetag SDK is stubbed only at the browser boundary; this test is not claimed as proof of Monetag network reachability.
+- Added `scripts/test-daily-view-ads-load.js` with 50 concurrent canonical advertisement-start operations and a measured p95 threshold.
+- Added both gates to the Phase 2 CI workflow, including Chromium installation and the existing repository secrets without exposing them.
+- Extended workflow path matching to include `tests/**`.
 
-### CI correction
-- Exact-head CI initially failed only because the new contract test incorrectly expected `approve`/`reject` literals in the HTTP route instead of the service boundary.
-- No product/runtime failure occurred; migrations, TON tests, isolated server health, and all checks before `test:all` passed.
-- Corrected the test to assert action transport at the route and transition ownership in the service.
+### Real Monetag acceptance correction
+- Added `tests/e2e/daily-view-ads-real-monetag.spec.js` as an explicit opt-in acceptance test.
+- The real acceptance gate is now explicitly **20 consecutive real Monetag ads in one isolated Telegram session**, not one real ad followed by synthetic callbacks.
+- For every one of the 20 ads the test requires: a fresh server-issued `adEventId`, a unique `externalAdId`/`ymid`, `providerId=monetag`, execution through the real Monetag SDK (`libtl.com/sdk.js` is not stubbed), server-confirmed progress for that exact step, `rewarded=true`, and the exact configured reward of `1000 COIN + 1 DZX + 1 DZP`.
+- The test requires the final `20/20 watched` state and exactly 20 successful rewarded finalization responses in the browser evidence stream. It never fabricates a Monetag postback and never sends a manual reward callback.
+- Added `test:e2e:daily-view-ads:real-monetag` as a manual/non-deterministic command; it is intentionally excluded from deterministic CI because external ad availability and provider timing are not CI-stable.
+- The test does not use the old SDK-load marker as proof; it waits for the actual Monetag handler and real server-confirmed progress instead.
+
+### External-provider evidence
+- Current official Monetag documentation confirms that Rewarded Interstitial supports server-side postbacks, `ymid`, `request_var`, `telegram_id`, `reward_event_type`, and real postback confirmation; Monetag explicitly recommends testing the integration inside Telegram and configuring the postback URL on the SDK zone.
+- Therefore the repository can now test the real provider path, but a PASS requires an actual Monetag-served ad and an actual Monetag server-side postback reaching the deployed DzMoney endpoint.
+- The current Railway production service tracks `main` at commit `4b948b30937929679c6db9215bea379f1bb9645f`; PR #294 is not deployed there yet. No production deployment was triggered by this change.
 
 ### Non-goals
-- No new task engine, verification service, reward service, campaign table, pricing source, or lifecycle state.
-- No manual balance mutation.
-- No automatic review.
-- No Reward Pool revival.
+- No new Economy, Ledger, Task, Verification, Reward, or Provider system.
+- No production provider rotation change.
+- No real Monetag network claim from the deterministic browser stub.
+- No real TON transaction was created merely to close an unrelated Daily View gate.
