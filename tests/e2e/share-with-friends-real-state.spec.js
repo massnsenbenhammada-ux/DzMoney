@@ -35,11 +35,12 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
   await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
   await page.route('**/api/tasks/click', async route => {
     if (!verificationAdId) return route.continue();
+    const clickResponse = await route.fetch();
     const postback = new URL('/api/ads/monetag/postback', baseURL);
     for (const [key, value] of Object.entries({ token: 'test-monetag-secret', telegram_id: telegramId, zone_id: '11627577', event_type: 'impression', reward_event_type: 'valued', estimated_price: '0.001', ymid: verificationAdId, request_var: 'verification' })) postback.searchParams.set(key, value);
     const callback = await request.get(postback.toString());
     expect(callback.ok()).toBeTruthy();
-    await route.continue();
+    await route.fulfill({ response: clickResponse });
   });
   try {
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
@@ -71,9 +72,9 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     const verified = await verifyResponse;
     expect(verified.ok()).toBeTruthy();
     const verifiedBody = await verified.json();
-    expect(verifiedBody.status).toBe('verified');
-    expect(verifiedBody.rewarded).toBe(true);
-    expect(verifiedBody.reason).toBeNull();
+    expect(verifiedBody.clicked).toBe(true);
+    expect(verifiedBody.status).toBe('verification_pending');
+    await expect.poll(async () => (await request.get(`${baseURL}/api/tasks/attempt/${executeBody.attemptId}`, { headers: { 'X-Telegram-Init-Data': initData } })).json(), { timeout: 10000 }).toMatchObject({ status: 'verified' });
     await expect(page.locator('#rewardPopup')).toContainText('Reward credited');
 
     const after = await request.get(`${baseURL}/api/me`, { headers: { 'X-Telegram-Init-Data': initData } });
