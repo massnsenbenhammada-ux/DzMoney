@@ -22,8 +22,7 @@ function buildInitData(userId) {
 test('real Squad WATCH AD completes Monetag then AdsGram rotation', async ({ page, request }) => {
   if (process.env.REAL_SQUAD_ADS_E2E !== '1') test.skip(true, 'Explicit real-provider release gate');
   const baseUrl = process.env.REAL_SQUAD_ADS_BASE_URL || 'https://dzmoney-production.up.railway.app';
-  const baseUserId = BigInt(required('TEST_TELEGRAM_USER_ID'));
-  const telegramUserId = String(baseUserId + BigInt(Date.now() % 1000000));
+  const telegramUserId = required('TEST_TELEGRAM_USER_ID');
   const initData = buildInitData(telegramUserId);
   await page.addInitScript(({ telegramInitData }) => {
     window.Telegram = { WebApp: { initData: telegramInitData, ready() {}, expand() {} } };
