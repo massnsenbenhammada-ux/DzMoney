@@ -1,5 +1,5 @@
 const express = require('express');
-const { ADSGRAM_REWARD_TOKEN, ADSGRAM_BLOCK_ID, ADSGRAM_ENABLED } = require('../config/adsgram');
+const { ADSGRAM_BLOCK_ID, ADSGRAM_ENABLED } = require('../config/adsgram');
 const adsgramCorrelation = require('../services/adsgram-correlation-service');
 const taskAdvertisementService = require('../services/task-advertisement-service');
 const walletService = require('../services/wallet-service');
@@ -9,7 +9,6 @@ function createAdsgramRewardRouter() {
   router.get('/', async (req, res, next) => {
     try {
       if (!ADSGRAM_ENABLED) return res.status(404).json({ ok: false, error: 'AdsGram is disabled' });
-      if (!ADSGRAM_REWARD_TOKEN || String(req.query?.token || '') !== ADSGRAM_REWARD_TOKEN) return res.status(401).json({ ok: false, error: 'Invalid AdsGram reward token' });
       const telegramId = String(req.query?.userid || req.query?.userId || '');
       if (!/^\d+$/.test(telegramId)) return res.status(400).json({ ok: false, error: 'AdsGram userid is required' });
       const reference = `adsgram:${telegramId}:${ADSGRAM_BLOCK_ID}:${Date.now()}`;
