@@ -108,4 +108,5 @@ jobs:
       - name: Run full test suite
         env:
           GIGAPUB_ENABLED: "false"
+          TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
         run: npm run test:all
