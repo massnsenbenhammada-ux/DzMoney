@@ -10,7 +10,8 @@ async function main() {
   assert.deepStrictEqual(provider.contexts, ['task', 'squad']);
   assert.strictEqual((await provider.verifyServerCompletion({ userId: '123', blockId: '44442', reference: 'adsgram:1', providerConfirmed: true, clientCompleted: false, context: 'squad' })).verified, false);
   assert.strictEqual((await provider.verifyServerCompletion({ userId: '123', blockId: '99999', reference: 'adsgram:1', providerConfirmed: true, clientCompleted: true, context: 'squad' })).verified, false);
-  assert.strictEqual((await provider.verifyServerCompletion({ userId: '123', blockId: '44442', reference: 'adsgram:1', providerConfirmed: true, clientCompleted: true, context: 'task' })).verified, false);
+  assert.strictEqual((await provider.verifyServerCompletion({ userId: '123', blockId: '44442', reference: 'adsgram:1', providerConfirmed: true, clientCompleted: true, context: 'gaming' })).verified, false);
+  assert.strictEqual((await provider.verifyServerCompletion({ userId: '123', blockId: '44442', reference: 'adsgram:1', providerConfirmed: true, clientCompleted: true, context: 'task' })).verified, true);
   assert.strictEqual((await provider.verifyServerCompletion({ userId: '123', blockId: '44442', reference: 'adsgram:1', providerConfirmed: true, clientCompleted: true, context: 'squad' })).verified, true);
   const fakeMonetag = { id: 'monetag', contexts: ['squad'], enabled: true, verifyCompletion: async () => ({ verified: false }), verifyServerCompletion: async () => ({ verified: false }) };
   const registry = new AdProviderRegistry([fakeMonetag, provider]);
