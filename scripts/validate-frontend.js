@@ -61,6 +61,7 @@ const renderTaskCategoryBody = renderTaskCategoryStart >= 0 && renderTaskCategor
 const categoryClick = app.indexOf("const category = event.target.closest('[data-task-category]')");
 const categoryDailyRefresh = categoryClick >= 0 ? app.slice(categoryClick, categoryClick + 320) : '';
 
+const advertisementService = fs.readFileSync('src/services/task-advertisement-service.js', 'utf8');
 const taskUxChecks = {
   cooldownIsolated: /systemKey\s*===\s*['"]daily_check_in['"]\s*&&\s*state\.dailyTaskCooldownUntil/.test(app),
   viewAdsRewardIncludesDzp: /\+1,000 COIN[^\n<]*\+1 DZX[^\n<]*\+1 DZP/.test(app),
@@ -86,7 +87,7 @@ const taskUxChecks = {
   dailyRefreshScopedToDailyPage: /state\.page === 'tasks' && state\.taskCategory === 'daily'/.test(app),
   taskProviderContextServer: /const contexts = \['task', 'gaming', 'daily_checkin', 'verification'(?:, 'squad')?(?:, 'promo')?\]/.test(server),
   taskProviderConfigServer: /providers,[\s\S]*listAvailable\(context\)\.map/.test(server),
-  taskAdProviderSelection: /startRotatedAdvertisementEventOnClient\(client, \{[\s\S]*context: 'task'/.test(fs.readFileSync('src/services/task-advertisement-service.js', 'utf8')),
+  taskAdProviderSelection: advertisementService.includes("const ADVERTISEMENT_CONTEXTS = new Set(['task', 'squad'])") && advertisementService.includes('getAdvertisementContext(task)') && advertisementService.includes('startRotatedAdvertisementEventOnClient(client, { userId, context, idempotencyKey'),
   gamingProviderSelection: /providerId\s*=\s*response\.providerId;[\s\S]*getProvider\(providerId\)/.test(gaming),
   noClientPrioritySelection: !server.includes('listAvailable(context)[0]') && !adClient.includes('gamingProvider?.id ==='),
   clientProviderRegistry: adClient.includes('providerAdapters') && adClient.includes('getProvider(providerId)')
