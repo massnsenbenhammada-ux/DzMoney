@@ -63,6 +63,10 @@ function testSourceBoundaries() {
   assert(routes.includes('function publicSession(session)'));
   assert(routes.includes('publicGamingState(await gaming.getGamingState({ userId }))'));
   assert(routes.includes('const providerId = event.rows[0].metadata?.provider_id'));
+  assert(routes.includes('finalizeGamingAdvertisement'));
+  assert(routes.includes('reward: result.reward || null'));
+  assert(routes.includes('resourceGranted: result.resourceGranted || null'));
+  assert(routes.includes('progress: result.progress ?? null'));
   assert(!routes.includes("providerId: 'gigapub'"));
   assert(onclickaRoutes.includes('const CONTEXTS = new Set(['));
   assert(onclickaRoutes.includes("'gaming'"));
@@ -74,6 +78,12 @@ function testSourceBoundaries() {
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
   assert(server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"));
   assert(server.includes("app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));"));
+
+  // Gaming ad rewards must use the canonical Economy transaction path.
+  assert(service.includes('postEconomyTransactionOnClient'));
+  assert(service.includes("type: 'GAMING_REWARD'"));
+  assert(economy.includes('postEconomyTransactionOnClient'));
+  assert(economy.includes('idempotencyKey'));
 }
 
 function testRewardTables() {
@@ -86,6 +96,7 @@ function testRewardTables() {
 
 function testGamingFrontendContract() {
   const gaming = fs.readFileSync('public/gaming.js', 'utf8');
+  const app = fs.readFileSync('public/app.js', 'utf8');
   const css = fs.readFileSync('public/gaming.css', 'utf8');
   const runtimeCss = fs.readFileSync('public/gaming-runtime.css', 'utf8');
   const html = fs.readFileSync('public/index.html', 'utf8');
@@ -121,6 +132,18 @@ function testGamingFrontendContract() {
   assert(!gaming.includes('const adPromise = adapter.handler'));
   assert(!gaming.includes('Promise.all([startPromise, adPromise])'));
   assert(!gaming.includes('setTimeout(resolve, 1500)'));
+
+  // Gaming must display the canonical server reward outcome. A toast alone is
+  // not an economic UX assertion because it can pass while the balance is stale.
+  assert(gaming.includes('showRewardOutcome'));
+  assert(/showRewardOutcome\(completion\)/.test(gaming));
+  assert(gaming.includes('await load();'));
+  assert(gaming.includes('completion.duplicate'));
+  assert(app.includes('function showRewardOutcome(result, fallbackTask = null)'));
+  assert(app.includes('result?.reward'));
+  assert(app.includes('Reward credited'));
+  assert(app.includes('Reward not credited'));
+
   assert(css.includes('conic-gradient'));
   assert(css.includes('45deg'));
   assert(css.includes('@container'));
@@ -185,7 +208,10 @@ async function run() {
   testRewardTables();
   testGamingFrontendContract();
   await testEconomicConfig();
-  console.log('Gaming core invariants: PASS');
+  console.log('Gaming provider/context invariants: PASS');
+  console.log('Gaming canonical Economy/Ledger reward contract: PASS');
+  console.log('Gaming reward popup + balance synchronization contract: PASS');
+  console.log('Gaming economic configuration simulation: PASS');
 }
 
 run().catch(error => {
