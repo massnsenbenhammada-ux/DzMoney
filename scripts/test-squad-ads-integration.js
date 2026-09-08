@@ -1,6 +1,7 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const { pool, withTransaction } = require('../src/db/pool');
 const { markClientStarted, markClientCompleted, markProviderConfirmed } = require('../src/services/adsgram-correlation-service');
 const { finalizeTaskAdvertisement } = require('../src/services/task-advertisement-service');
@@ -26,7 +27,7 @@ async function createEvent(userId, taskId, marker, blockId = ADSGRAM_BLOCK_ID) {
 }
 
 async function main() {
-  const marker = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const marker = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
   const users = [];
   const taskIds = [];
   try {
