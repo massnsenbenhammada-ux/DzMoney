@@ -88,7 +88,7 @@ async function main() {
 
     const duplicateReward = await finalizeTaskAdvertisement({ userId: owner.id, adEventId });
     assert.equal(duplicateReward.duplicate, true);
-    const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND type='ACTIVITY_REWARD'`, [owner.id]);
+    const ledger = await pool.query(`SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND transaction_type='ACTIVITY_REWARD'`, [owner.id]);
     assert.equal(ledger.rows[0].count, 1);
 
     const otherState = await pool.query('SELECT verified,metadata->\'provider_state\' AS provider_state FROM activity_ad_events WHERE id=$1', [otherEventId]);
