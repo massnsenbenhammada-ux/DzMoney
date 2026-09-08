@@ -21,9 +21,12 @@ Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client
 - Extended workflow path matching to include `tests/**`.
 
 ### Real Monetag acceptance correction
-- Added `tests/e2e/daily-view-ads-real-monetag.spec.js` as an explicit opt-in acceptance test. It does not stub `libtl.com/sdk.js`; it requires the real Monetag SDK to load, executes the real Daily View flow, and waits for the server-side verified progress before accepting `1/20 watched`.
+- Added `tests/e2e/daily-view-ads-real-monetag.spec.js` as an explicit opt-in acceptance test.
+- The real acceptance gate is now explicitly **20 consecutive real Monetag ads in one isolated Telegram session**, not one real ad followed by synthetic callbacks.
+- For every one of the 20 ads the test requires: a fresh server-issued `adEventId`, a unique `externalAdId`/`ymid`, `providerId=monetag`, execution through the real Monetag SDK (`libtl.com/sdk.js` is not stubbed), server-confirmed progress for that exact step, `rewarded=true`, and the exact configured reward of `1000 COIN + 1 DZX + 1 DZP`.
+- The test requires the final `20/20 watched` state and exactly 20 successful rewarded finalization responses in the browser evidence stream. It never fabricates a Monetag postback and never sends a manual reward callback.
 - Added `test:e2e:daily-view-ads:real-monetag` as a manual/non-deterministic command; it is intentionally excluded from deterministic CI because external ad availability and provider timing are not CI-stable.
-- The real acceptance test still uses synthetic, valid Telegram initData for an isolated test account; it never fabricates a Monetag postback and never sends a manual reward callback.
+- The test does not use the old SDK-load marker as proof; it waits for the actual Monetag handler and real server-confirmed progress instead.
 
 ### External-provider evidence
 - Current official Monetag documentation confirms that Rewarded Interstitial supports server-side postbacks, `ymid`, `request_var`, `telegram_id`, `reward_event_type`, and real postback confirmation; Monetag explicitly recommends testing the integration inside Telegram and configuring the postback URL on the SDK zone.
@@ -33,5 +36,5 @@ Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client
 ### Non-goals
 - No new Economy, Ledger, Task, Verification, Reward, or Provider system.
 - No production provider rotation change.
-- No real Monetag network claim from the browser stub.
+- No real Monetag network claim from the deterministic browser stub.
 - No real TON transaction was created merely to close an unrelated Daily View gate.
