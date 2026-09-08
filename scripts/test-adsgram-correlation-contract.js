@@ -20,7 +20,7 @@ assert.strictEqual((route.match(/router\.get\(/g) || []).length, 1, 'AdsGram Rew
 assert.strictEqual((server.match(/app\.use\('\/api\/ads\/adsgram\/reward'/g) || []).length, 1, 'server must mount exactly one AdsGram Reward URL callback');
 assert.doesNotMatch(server, /app\.use\('\/api\/ads\/adsgram\/(?!reward)/, 'server must not mount another AdsGram callback path');
 assert.match(route, /pendingClientConfirmation/);
-assert.match(correlation, /No pending AdsGram advertisement matches/);
+assert.match(correlation, /No started AdsGram advertisement matches the provider callback/);
 assert.match(correlation, /context IN \('task','squad'\)/);
 assert.match(correlation, /client_completed/);
 assert.match(correlation, /provider_confirmed/);
