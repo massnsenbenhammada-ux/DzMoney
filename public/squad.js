@@ -113,6 +113,8 @@ async function watchSquadAd() {
       const state = await api(`/api/squad/ads?adEventId=${encodeURIComponent(response.adEventId)}`);
       if (state.event?.verified && state.event?.rewarded) {
         if (status) status.textContent = 'Verified.';
+        await loadMe();
+        showRewardOutcome(state.event);
         await loadSquad();
         return;
       }
