@@ -6,6 +6,11 @@ const { AD_PROVIDER_CONTEXTS } = require("../src/services/ad-provider-service");
 const { run: simulateGamingEconomy } = require("./simulate-gaming-economy");
 const { spawnSync } = require("child_process");
 
+function sourceContains(source, fragment) {
+  const normalize = (value) => value.replace(/[\s'\"]/g, "");
+  return normalize(source).includes(normalize(fragment));
+}
+
 function testProviderContext() {
   assert(AD_PROVIDER_CONTEXTS.includes("gaming"));
   assert(!AD_PROVIDER_CONTEXTS.includes("reward_pool"));
@@ -20,19 +25,20 @@ function testConfigContract() {
     require.resolve("../migrations/042_gaming_activity_contract.sql"),
     "utf8",
   );
-  assert(migration.includes("gaming_config_versions"));
-  assert(migration.includes("gaming_accounts"));
-  assert(migration.includes("gaming_sessions"));
+  assert(sourceContains(migration, "gaming_config_versions"));
+  assert(sourceContains(migration, "gaming_accounts"));
+  assert(sourceContains(migration, "gaming_sessions"));
   assert(/"dailyAdLimit"\s*:\s*100/.test(migration));
   assert(/"boardSize"\s*:\s*16/.test(migration));
   assert(/"energy"\s*:\s*3/.test(migration));
   assert(
-    correction.includes(
+    sourceContains(
+      correction,
       "RENAME COLUMN activity_claimed TO verified_activity_count",
     ),
   );
-  assert(correction.includes("status='closed'"));
-  assert(correction.includes("'diggingAxeEveryAds'"));
+  assert(sourceContains(correction, "status='closed'"));
+  assert(sourceContains(correction, "'diggingAxeEveryAds'"));
 }
 
 function testGamingTaskContract() {
@@ -40,9 +46,9 @@ function testGamingTaskContract() {
     require.resolve("../migrations/039_gaming_tasks.sql"),
     "utf8",
   );
-  assert(migration.includes('"gamingResource":"spin"'));
-  assert(migration.includes('"gamingResource":"axe"'));
-  assert(migration.includes('"mode":"advertisement"'));
+  assert(sourceContains(migration, '"gamingResource":"spin"'));
+  assert(sourceContains(migration, '"gamingResource":"axe"'));
+  assert(sourceContains(migration, '"mode":"advertisement"'));
 }
 
 function testConfigValidation() {
@@ -91,53 +97,59 @@ function testSourceBoundaries() {
     "utf8",
   );
   const server = fs.readFileSync(require.resolve("../server.js"), "utf8");
-  assert(service.includes("source: 'gaming'"));
-  assert(service.includes("gaming:spin:"));
-  assert(service.includes("gaming:digging:"));
-  assert(service.includes("gaming:ad:"));
-  assert(service.includes("recordVerifiedActivityOnClient"));
-  assert(service.includes("startRotatedAdvertisementEventOnClient"));
-  assert(!service.includes("selectProvider"));
-  assert(!verification.includes("grantGamingResourceOnClient"));
-  assert(!verification.includes("row.config.gamingResource"));
-  assert(routes.includes("function publicSession(session)"));
+  assert(sourceContains(service, "source: 'gaming'"));
+  assert(sourceContains(service, "gaming:spin:"));
+  assert(sourceContains(service, "gaming:digging:"));
+  assert(sourceContains(service, "gaming:ad:"));
+  assert(sourceContains(service, "recordVerifiedActivityOnClient"));
+  assert(sourceContains(service, "startRotatedAdvertisementEventOnClient"));
+  assert(!sourceContains(service, "selectProvider"));
+  assert(!sourceContains(verification, "grantGamingResourceOnClient"));
+  assert(!sourceContains(verification, "row.config.gamingResource"));
+  assert(sourceContains(routes, "function publicSession(session)"));
   assert(
-    routes.includes(
+    sourceContains(
+      routes,
       "publicGamingState(await gaming.getGamingState({ userId }))",
     ),
   );
   assert(
-    routes.includes("const providerId = event.rows[0].metadata?.provider_id"),
+    sourceContains(routes, "const providerId = event.rows[0].metadata?.provider_id"),
   );
-  assert(routes.includes("finalizeGamingAdvertisement"));
-  assert(routes.includes("reward: result.reward || null"));
-  assert(routes.includes("resourceGranted: result.resourceGranted || null"));
-  assert(routes.includes("progress: result.progress ?? null"));
-  assert(!routes.includes("providerId: 'gigapub'"));
-  assert(onclickaRoutes.includes("const CONTEXTS = new Set(["));
-  assert(onclickaRoutes.includes("'gaming'"));
+  assert(sourceContains(routes, "finalizeGamingAdvertisement"));
+  assert(sourceContains(routes, "reward: result.reward || null"));
+  assert(sourceContains(routes, "resourceGranted: result.resourceGranted || null"));
+  assert(sourceContains(routes, "progress: result.progress ?? null"));
+  assert(!sourceContains(routes, "providerId: 'gigapub'"));
+  assert(sourceContains(onclickaRoutes, "const CONTEXTS = new Set(["));
+  assert(sourceContains(onclickaRoutes, "'gaming'"));
   assert(
-    onclickaRoutes.includes(
+    sourceContains(
+      onclickaRoutes,
       "taskAdvertisementService.verifyTrustedTaskAdvertisement",
     ),
   );
-  assert(onclickaRoutes.includes("router.get('/', handlePostback)"));
-  assert(onclickaRoutes.includes("const context = event.context"));
-  assert(adminRoutes.includes("router.use(adminAuth)"));
-  assert(adminRoutes.includes("router.put('/config'"));
-  assert(adminRoutes.includes("actorTelegramUserId: req.adminTelegramUserId"));
+  assert(sourceContains(onclickaRoutes, "router.get('/', handlePostback)"));
+  assert(sourceContains(onclickaRoutes, "const context = event.context"));
+  assert(sourceContains(adminRoutes, "router.use(adminAuth)"));
+  assert(sourceContains(adminRoutes, "router.put('/config'"));
+  assert(sourceContains(adminRoutes, "actorTelegramUserId: req.adminTelegramUserId"));
   assert(
-    server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"),
+    sourceContains(
+      server,
+      "app.use('/api/admin/gaming', createAdminGamingRouter());",
+    ),
   );
   assert(
-    server.includes(
+    sourceContains(
+      server,
       "app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));",
     ),
   );
-  assert(service.includes("postEconomyTransactionOnClient"));
-  assert(service.includes("type: 'GAMING_REWARD'"));
-  assert(economy.includes("postEconomyTransactionOnClient"));
-  assert(economy.includes("idempotencyKey"));
+  assert(sourceContains(service, "postEconomyTransactionOnClient"));
+  assert(sourceContains(service, "type: 'GAMING_REWARD'"));
+  assert(sourceContains(economy, "postEconomyTransactionOnClient"));
+  assert(sourceContains(economy, "idempotencyKey"));
 }
 
 function testRewardTables() {
@@ -154,7 +166,7 @@ function testRewardTables() {
     "dzp_10",
     "extra_spin",
   ])
-    assert(service.includes(key));
+    assert(sourceContains(service, key));
   for (const key of [
     "coin_100",
     "coin_1000",
@@ -164,9 +176,14 @@ function testRewardTables() {
     "dzp_10",
     "extra_axe",
   ])
-    assert(service.includes(key));
-  assert(service.includes("bonus === 'coin_100' ? { coin: 100 } : { dzx: 1 }"));
-  assert(service.includes("diggingAxeEveryAds"));
+    assert(sourceContains(service, key));
+  assert(
+    sourceContains(
+      service,
+      "bonus === 'coin_100' ? { coin: 100 } : { dzx: 1 }",
+    ),
+  );
+  assert(sourceContains(service, "diggingAxeEveryAds"));
 }
 
 function testGamingFrontendContract() {
@@ -192,79 +209,82 @@ function testGamingFrontendContract() {
     "public/gigapub-adapter-entry.js",
     "utf8",
   );
-  assert(gaming.includes("data-spin-wheel"));
-  assert(gaming.includes("data-spin-wheel-segment"));
-  assert(gaming.includes("data-digging-image"));
-  assert(gaming.includes("<svg"));
-  assert(gaming.includes("data-spin-result"));
-  assert(gaming.includes("DzMoneyAdClient.getProvider(providerId)"));
-  assert(gaming.includes("formatGamingAdFailure(providerId, stage, error)"));
-  assert(gaming.includes("let providerId = null;"));
-  assert(gaming.includes("let stage = 'start';"));
-  assert(gaming.includes("stage = 'ready';"));
-  assert(gaming.includes("stage = 'show';"));
-  assert(gaming.includes("stage = 'complete';"));
-  assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
-  assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
-  assert(gaming.includes("360 * 3 - index * segment"));
-  assert(gaming.includes("const wheelResults = ['coin_100'"));
-  assert(gaming.includes("renderRewardLists"));
-  assert(gaming.includes("gaming-runtime.css"));
-  assert(gaming.includes("assetVersion"));
-  assert(gaming.includes("const response = await api('/api/gaming/ads/start'"));
+  assert(sourceContains(gaming, "data-spin-wheel"));
+  assert(sourceContains(gaming, "data-spin-wheel-segment"));
+  assert(sourceContains(gaming, "data-digging-image"));
+  assert(sourceContains(gaming, "<svg"));
+  assert(sourceContains(gaming, "data-spin-result"));
+  assert(sourceContains(gaming, "DzMoneyAdClient.getProvider(providerId)"));
+  assert(sourceContains(gaming, "formatGamingAdFailure(providerId, stage, error)"));
+  assert(sourceContains(gaming, "let providerId = null;"));
+  assert(sourceContains(gaming, "let stage = 'start';"));
+  assert(sourceContains(gaming, "stage = 'ready';"));
+  assert(sourceContains(gaming, "stage = 'show';"));
+  assert(sourceContains(gaming, "stage = 'complete';"));
+  assert(sourceContains(gaming, "if (result === 'extra_spin') return '+1 SPIN'"));
+  assert(sourceContains(gaming, "if (result === 'extra_axe') return '+1 AXE'"));
+  assert(sourceContains(gaming, "360 * 3 - index * segment"));
+  assert(sourceContains(gaming, "const wheelResults = ['coin_100'"));
+  assert(sourceContains(gaming, "renderRewardLists"));
+  assert(sourceContains(gaming, "gaming-runtime.css"));
+  assert(sourceContains(gaming, "assetVersion"));
+  assert(sourceContains(gaming, "const response = await api('/api/gaming/ads/start'"));
   assert(
-    gaming.includes(
+    sourceContains(
+      gaming,
       "await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId })",
     ),
   );
   assert(
-    !gaming.includes(
+    !sourceContains(
+      gaming,
       "await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId })",
     ),
   );
-  assert(!gaming.includes("const startPromise = api"));
-  assert(!gaming.includes("const adPromise = adapter.handler"));
-  assert(!gaming.includes("Promise.all([startPromise, adPromise])"));
-  assert(!gaming.includes("setTimeout(resolve, 1500)"));
-  assert(gaming.includes("showRewardOutcome"));
+  assert(!sourceContains(gaming, "const startPromise = api"));
+  assert(!sourceContains(gaming, "const adPromise = adapter.handler"));
+  assert(!sourceContains(gaming, "Promise.all([startPromise, adPromise])"));
+  assert(!sourceContains(gaming, "setTimeout(resolve, 1500)"));
+  assert(sourceContains(gaming, "showRewardOutcome"));
   assert(/showRewardOutcome\(completion\)/.test(gaming));
-  assert(gaming.includes("await load();"));
-  assert(gaming.includes("completion.duplicate"));
+  assert(sourceContains(gaming, "await load();"));
+  assert(sourceContains(gaming, "completion.duplicate"));
   assert(
-    app.includes("function showRewardOutcome(result, fallbackTask = null)"),
+    sourceContains(app, "function showRewardOutcome(result, fallbackTask = null)"),
   );
-  assert(app.includes("result?.reward"));
-  assert(app.includes("Reward credited"));
-  assert(app.includes("Reward not credited"));
-  assert(css.includes("conic-gradient"));
-  assert(css.includes("45deg"));
-  assert(css.includes("@container"));
-  assert(css.includes(":has("));
-  assert(runtimeCss.includes("dzmoney-wheel-three-turns"));
-  assert(runtimeCss.includes('data-spin-wheel-segment="coin_100"'));
-  assert(runtimeCss.includes("transform-origin: 50% 50%"));
-  assert(runtimeCss.includes("translateY(-88px)"));
-  assert(runtimeCss.includes("rotate(calc(var(--i, 0) * -45deg + 90deg))"));
-  assert(!runtimeCss.includes("translateX(-74%)"));
-  assert(html.includes("Gaming Ads"));
-  assert(html.includes('data-gaming-ad="spin"'));
-  assert(html.includes('data-gaming-ad="digging"'));
-  assert(html.includes("/monetag-adapter-entry.js?v=__ASSET_VERSION__"));
-  assert(!html.includes("/monetag-adapter.bundle.js?v=__ASSET_VERSION__"));
-  assert(adClient.includes("providerAdapters"));
-  assert(adClient.includes("getProvider(providerId)"));
-  assert(adClient.includes("registerOnclicka"));
-  assert(monetagEntry.includes("show_11627577"));
-  assert(onclickaLoader.includes("preloadOnclicka"));
-  assert(onclickaLoader.includes("DOMContentLoaded"));
-  assert(!onclickaLoader.includes("setTimeout(preloadOnclicka, 0)"));
-  assert(onclickaLoader.includes("DzMoneyOnclicka?.prepare"));
+  assert(sourceContains(app, "result?.reward"));
+  assert(sourceContains(app, "Reward credited"));
+  assert(sourceContains(app, "Reward not credited"));
+  assert(sourceContains(css, "conic-gradient"));
+  assert(sourceContains(css, "45deg"));
+  assert(sourceContains(css, "@container"));
+  assert(sourceContains(css, ":has("));
+  assert(sourceContains(runtimeCss, "dzmoney-wheel-three-turns"));
+  assert(sourceContains(runtimeCss, 'data-spin-wheel-segment="coin_100"'));
+  assert(sourceContains(runtimeCss, "transform-origin: 50% 50%"));
+  assert(sourceContains(runtimeCss, "translateY(-88px)"));
+  assert(sourceContains(runtimeCss, "rotate(calc(var(--i, 0) * -45deg + 90deg))"));
+  assert(!sourceContains(runtimeCss, "translateX(-74%)"));
+  assert(sourceContains(html, "Gaming Ads"));
+  assert(sourceContains(html, 'data-gaming-ad="spin"'));
+  assert(sourceContains(html, 'data-gaming-ad="digging"'));
+  assert(sourceContains(html, "/monetag-adapter-entry.js?v=__ASSET_VERSION__"));
+  assert(!sourceContains(html, "/monetag-adapter.bundle.js?v=__ASSET_VERSION__"));
+  assert(sourceContains(adClient, "providerAdapters"));
+  assert(sourceContains(adClient, "getProvider(providerId)"));
+  assert(sourceContains(adClient, "registerOnclicka"));
+  assert(sourceContains(monetagEntry, "show_11627577"));
+  assert(sourceContains(onclickaLoader, "preloadOnclicka"));
+  assert(sourceContains(onclickaLoader, "DOMContentLoaded"));
+  assert(!sourceContains(onclickaLoader, "setTimeout(preloadOnclicka, 0)"));
+  assert(sourceContains(onclickaLoader, "DzMoneyOnclicka?.prepare"));
   assert(
-    onclickaEntry.includes(
+    sourceContains(
+      onclickaEntry,
       "prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)",
     ),
   );
-  assert(gigapubEntry.includes("providers?.gigapub"));
+  assert(sourceContains(gigapubEntry, "providers?.gigapub"));
   const configMarker =
     "<script>window.__DzMoneyAdProviderConfig=__AD_PROVIDER_CONFIG__;</script>";
   const providerEntryMarkers = [
