@@ -18,7 +18,8 @@ const validateCreateTask = createStrictObjectValidator({
   rewardDzp: isOptionalString,
   verificationAdSeconds: value => value === undefined || isPositiveInteger(value),
   idempotencyKey: isNonEmptyString,
-  config: value => value === undefined || (value !== null && typeof value === 'object' && !Array.isArray(value)),
+  config: value =>
+    value === undefined || (value !== null && typeof value === 'object' && !Array.isArray(value)),
 });
 
 const validInput = {
@@ -36,9 +37,21 @@ const validInput = {
 
 validateCreateTask(validInput);
 assert.throws(() => validateCreateTask({ ...validInput, title: '' }), /Invalid field: title/);
-assert.throws(() => validateCreateTask({ ...validInput, taskType: 'invalid' }), /Invalid field: taskType/);
-assert.throws(() => validateCreateTask({ ...validInput, idempotencyKey: '' }), /Invalid field: idempotencyKey/);
-assert.throws(() => validateCreateTask({ ...validInput, unknownField: true }), /Unexpected field: unknownField/);
-assert.throws(() => validateCreateTask({ ...validInput, verificationAdSeconds: 0 }), /Invalid field: verificationAdSeconds/);
+assert.throws(
+  () => validateCreateTask({ ...validInput, taskType: 'invalid' }),
+  /Invalid field: taskType/,
+);
+assert.throws(
+  () => validateCreateTask({ ...validInput, idempotencyKey: '' }),
+  /Invalid field: idempotencyKey/,
+);
+assert.throws(
+  () => validateCreateTask({ ...validInput, unknownField: true }),
+  /Unexpected field: unknownField/,
+);
+assert.throws(
+  () => validateCreateTask({ ...validInput, verificationAdSeconds: 0 }),
+  /Invalid field: verificationAdSeconds/,
+);
 
 console.log('Creator task input validation contract: PASS');
