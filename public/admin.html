@@ -18,24 +18,36 @@
       <div class="status-pill"><span></span>Live</div>
     </header>
 
-    <section class="metric-grid" aria-label="Real-time metrics">
-      <article class="metric-card metric-members"><span>Total Members</span><strong id="membersValue">—</strong><small>Registered accounts</small></article>
-      <article class="metric-card metric-ads"><span>Advertisements Watched</span><strong id="adsValue">—</strong><small>Verified ad completions</small></article>
-      <article class="metric-card metric-tasks"><span>Tasks Completed</span><strong id="tasksValue">—</strong><small>Verified task attempts</small></article>
-    </section>
+    <nav class="admin-tabs" aria-label="Admin sections">
+      <button type="button" class="admin-tab active" data-admin-tab="dashboard" aria-controls="dashboardSection" aria-selected="true">Dashboard</button>
+      <button type="button" class="admin-tab" data-admin-tab="economy" aria-controls="economySection" aria-selected="false">Economy</button>
+      <button type="button" class="admin-tab" data-admin-tab="users" aria-controls="usersSection" aria-selected="false">Users</button>
+      <button type="button" class="admin-tab" data-admin-tab="referral" aria-controls="referralSection" aria-selected="false">Referral</button>
+      <button type="button" class="admin-tab" data-admin-tab="squad" aria-controls="squadSection" aria-selected="false">Squad</button>
+      <button type="button" class="admin-tab" data-admin-tab="enforcement" aria-controls="enforcementSection" aria-selected="false">Enforcement</button>
+      <button type="button" class="admin-tab" data-admin-tab="campaigns" aria-controls="adminTaskCampaignSection" aria-selected="false">Campaigns</button>
+    </nav>
 
-    <section class="chart-section" aria-labelledby="sevenDayTitle">
-      <div class="section-heading"><div><span class="eyebrow">LAST 7 DAYS</span><h2 id="sevenDayTitle">Activity Overview</h2></div><button id="refreshButton" type="button">Refresh</button></div>
-      <div class="charts-grid">
-        <article class="chart-card"><header><h3>Total Members</h3><span class="legend members">Members</span></header><div id="membersChart" class="bar-chart" role="img" aria-label="Seven-day total members chart"></div></article>
-        <article class="chart-card"><header><h3>Advertisements</h3><span class="legend ads">Verified ads</span></header><div id="adsChart" class="bar-chart" role="img" aria-label="Seven-day advertisements chart"></div></article>
-        <article class="chart-card"><header><h3>Tasks</h3><span class="legend tasks">Verified tasks</span></header><div id="tasksChart" class="bar-chart" role="img" aria-label="Seven-day tasks chart"></div></article>
-      </div>
-    </section>
+    <section id="dashboardSection" class="admin-dashboard-section" aria-label="Dashboard">
+      <section class="metric-grid" aria-label="Real-time metrics">
+        <article class="metric-card metric-members"><span>Total Members</span><strong id="membersValue">—</strong><small>Registered accounts</small></article>
+        <article class="metric-card metric-ads"><span>Advertisements Watched</span><strong id="adsValue">—</strong><small>Verified ad completions</small></article>
+        <article class="metric-card metric-tasks"><span>Tasks Completed</span><strong id="tasksValue">—</strong><small>Verified task attempts</small></article>
+      </section>
 
-    <section class="ranking-grid" aria-label="Top members">
-      <article class="ranking-card"><div class="section-heading"><div><span class="eyebrow">ACTIVITY</span><h2>Top Active Members</h2></div></div><ol id="activeMembersList" class="ranking-list"></ol></article>
-      <article class="ranking-card"><div class="section-heading"><div><span class="eyebrow">REFERRALS</span><h2>Top Referrers</h2></div></div><ol id="referrersList" class="ranking-list"></ol></article>
+      <section class="chart-section" aria-labelledby="sevenDayTitle">
+        <div class="section-heading"><div><span class="eyebrow">LAST 7 DAYS</span><h2 id="sevenDayTitle">Activity Overview</h2></div><button id="refreshButton" type="button">Refresh</button></div>
+        <div class="charts-grid">
+          <article class="chart-card"><header><h3>Total Members</h3><span class="legend members">Members</span></header><div id="membersChart" class="bar-chart" role="img" aria-label="Seven-day total members chart"></div></article>
+          <article class="chart-card"><header><h3>Advertisements</h3><span class="legend ads">Verified ads</span></header><div id="adsChart" class="bar-chart" role="img" aria-label="Seven-day advertisements chart"></div></article>
+          <article class="chart-card"><header><h3>Tasks</h3><span class="legend tasks">Verified tasks</span></header><div id="tasksChart" class="bar-chart" role="img" aria-label="Seven-day tasks chart"></div></article>
+        </div>
+      </section>
+
+      <section class="ranking-grid" aria-label="Top members">
+        <article class="ranking-card"><div class="section-heading"><div><span class="eyebrow">ACTIVITY</span><h2>Top Active Members</h2></div></div><ol id="activeMembersList" class="ranking-list"></ol></article>
+        <article class="ranking-card"><div class="section-heading"><div><span class="eyebrow">REFERRALS</span><h2>Top Referrers</h2></div></div><ol id="referrersList" class="ranking-list"></ol></article>
+      </section>
     </section>
 
     <section id="economySection" class="settings-section" aria-labelledby="economyTitle">

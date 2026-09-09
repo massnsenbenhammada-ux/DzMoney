@@ -132,6 +132,30 @@ async function loadDashboard() {
   catch (error) { setError(error.message || 'Unable to load Admin dashboard.'); }
 }
 
+const adminTabs = {
+  dashboard: document.getElementById('dashboardSection'),
+  economy: document.getElementById('economySection'),
+  users: document.getElementById('usersSection'),
+  referral: document.getElementById('referralSection'),
+  squad: document.getElementById('squadSection'),
+  enforcement: document.getElementById('enforcementSection'),
+  campaigns: document.getElementById('adminTaskCampaignSection'),
+};
+function setActiveAdminTab(tabName) {
+  const activeTab = adminTabs[tabName] ? tabName : 'dashboard';
+  Object.entries(adminTabs).forEach(([name, section]) => {
+    section.hidden = name !== activeTab;
+    const button = document.querySelector(`[data-admin-tab="${name}"]`);
+    if (button) {
+      button.classList.toggle('active', name === activeTab);
+      button.setAttribute('aria-selected', String(name === activeTab));
+    }
+  });
+  sessionStorage.setItem('dzmoney-admin-tab', activeTab);
+}
+
+document.querySelectorAll('[data-admin-tab]').forEach(button => button.addEventListener('click', () => setActiveAdminTab(button.dataset.adminTab)));
+
 telegram?.ready(); telegram?.expand();
 document.getElementById('refreshButton').addEventListener('click', loadDashboard);
 document.querySelectorAll('[data-economy-key]').forEach(button => button.addEventListener('click', () => saveEconomySetting(button.dataset.economyKey)));
@@ -139,4 +163,5 @@ document.querySelectorAll('[data-referral-key]').forEach(button => button.addEve
 document.querySelectorAll('[data-squad-key]').forEach(button => button.addEventListener('click', () => saveSquadSetting(button.dataset.squadKey)));
 document.getElementById('adminUserSearchButton').addEventListener('click', () => loadUsers().catch(error => setUsersState(error.message, true)));
 document.getElementById('adminUserSearch').addEventListener('keydown', event => { if (event.key === 'Enter') loadUsers().catch(error => setUsersState(error.message, true)); });
+setActiveAdminTab(sessionStorage.getItem('dzmoney-admin-tab') || 'dashboard');
 loadDashboard();
