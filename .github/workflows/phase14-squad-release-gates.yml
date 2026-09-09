@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 24 }
       - run: npm install --no-audit --no-fund
       - run: node --test ./scripts/test-squad-ads-unit.js
 
@@ -70,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 24 }
       - run: npm install --no-audit --no-fund
       - run: npm run migrate
       - run: node ./scripts/test-squad-ads-integration.js
@@ -81,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 24 }
       - run: npm install --no-audit --no-fund
       - run: node ./scripts/test-squad-ads-api-contract.js
       - run: node ./scripts/test-squad-ads-contract.js
@@ -92,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 24 }
       - run: npm install --no-audit --no-fund
       - run: npm audit --omit=dev --audit-level=high
       - run: node ./scripts/test-squad-ads-security.js
@@ -119,7 +119,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 24 }
       - run: npm install --no-audit --no-fund
       - run: npm run migrate
       - run: node ./scripts/test-squad-ads-load.js
