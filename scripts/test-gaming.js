@@ -143,7 +143,7 @@ function testGamingFrontendContract() {
   assert(css.includes('@container'));
   assert(css.includes(':has('));
   assert(runtimeCss.includes('dzmoney-wheel-three-turns'));
-  assert(runtimeCss.includes('data-spin-wheel-segment="coin_100"'));
+  assert(/data-spin-wheel-segment=['"]coin_100['"]/.test(runtimeCss));
   assert(runtimeCss.includes('transform-origin: 50% 50%'));
   assert(runtimeCss.includes('translateY(-88px)'));
   assert(runtimeCss.includes('rotate(calc(var(--i, 0) * -45deg + 90deg))'));
