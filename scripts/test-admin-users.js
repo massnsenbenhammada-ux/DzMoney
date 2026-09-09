@@ -19,7 +19,7 @@ function test(name, fn) {
 
 test("admin users route reuses adminAuth and rate limiting", () => {
   const route = read("src/http/admin-user-routes.js");
-  assert.match(route, /require\('\.\/admin-auth'\)/);
+  assert.match(route, /require\(["']\.\/admin-auth["']\)/);
   assert.match(route, /router\.use\(adminAuth\)/);
   assert.match(route, /createRateLimit/);
 });
