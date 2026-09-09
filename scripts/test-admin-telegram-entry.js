@@ -17,9 +17,7 @@ assert(
   "Admin access must reuse adminAuth",
 );
 assert(
-  /res\.json\(\{\s*ok:\s*true,\s*admin:\s*true\s*\}\)/.test(
-    dashboardRoutes,
-  ),
+  /res\.json\(\{\s*ok:\s*true,\s*admin:\s*true\s*\}\)/.test(dashboardRoutes),
   "Admin access must return an explicit admin result",
 );
 assert(
