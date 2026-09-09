@@ -3,6 +3,7 @@
 process.env.ONCLICKA_ENABLED = 'true';
 process.env.ONCLICKA_SPOT_ID = process.env.ONCLICKA_SPOT_ID || '6134799';
 process.env.GIGAPUB_ENABLED = 'false';
+process.env.MONETAG_ENABLED = 'false';
 
 const assert = require('assert');
 const http = require('http');
@@ -98,6 +99,8 @@ async function testHappyPathAndDuplicate(app) {
     assert.strictEqual(after.spins, before.spins + 1);
     assert.strictEqual(after.spin_ad_progress, before.spin_ad_progress + 1);
 
+    // Economic outcome must exist in the canonical Ledger, with exactly one
+    // GAMING_REWARD transaction and an amount matching the persisted event reward.
     const event = await query("SELECT metadata FROM activity_ad_events WHERE id=$1", [started.adEvent.id]);
     const metadata = event.rows[0].metadata;
     assert(metadata.gaming_reward_transaction_id, 'gaming reward transaction id must be persisted');
