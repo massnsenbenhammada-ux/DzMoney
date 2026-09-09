@@ -1,14 +1,14 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { query, withTransaction, pool } = require('../src/db/pool');
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { query, withTransaction, pool } = require("../src/db/pool");
 const {
   createInvitation,
   acceptInvitation,
   activateOnVerifiedActivity,
-} = require('../src/services/squad-membership-service');
+} = require("../src/services/squad-membership-service");
 
 test(
-  'free invitation flow persists inactive membership and activates it once',
+  "free invitation flow persists inactive membership and activates it once",
   { skip: !process.env.DATABASE_URL },
   async () => {
     const suffix = `${Date.now() % 1000000000}${Math.floor(Math.random() * 1000)}`;
@@ -36,7 +36,7 @@ test(
       ).id;
 
       const squad = await query(
-        'INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id',
+        "INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id",
         [ownerId],
       );
       squadId = squad.rows[0].id;
@@ -46,37 +46,37 @@ test(
         inviterUserId: ownerId,
         inviteeUserId: inviteeId,
       });
-      assert.equal(invitation.status, 'pending');
+      assert.equal(invitation.status, "pending");
 
       const membership = await acceptInvitation({
         invitationId: invitation.id,
         inviteeUserId: inviteeId,
       });
-      assert.equal(membership.status, 'inactive');
+      assert.equal(membership.status, "inactive");
 
       const firstActivation = await withTransaction((client) =>
         activateOnVerifiedActivity(client, inviteeId),
       );
-      assert.equal(firstActivation.status, 'active');
+      assert.equal(firstActivation.status, "active");
       const active = await query(
-        'SELECT status FROM squad_memberships WHERE user_id = $1',
+        "SELECT status FROM squad_memberships WHERE user_id = $1",
         [inviteeId],
       );
-      assert.equal(active.rows[0].status, 'active');
+      assert.equal(active.rows[0].status, "active");
 
       const secondActivation = await withTransaction((client) =>
         activateOnVerifiedActivity(client, inviteeId),
       );
       assert.equal(secondActivation, null);
       const count = await query(
-        'SELECT COUNT(*)::int AS count FROM squad_memberships WHERE user_id = $1',
+        "SELECT COUNT(*)::int AS count FROM squad_memberships WHERE user_id = $1",
         [inviteeId],
       );
       assert.equal(count.rows[0].count, 1);
     } finally {
-      if (squadId) await query('DELETE FROM squads WHERE id = $1', [squadId]);
+      if (squadId) await query("DELETE FROM squads WHERE id = $1", [squadId]);
       if (ownerId || inviteeId)
-        await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [
+        await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
           [ownerId, inviteeId].filter(Boolean),
         ]);
     }

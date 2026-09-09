@@ -1,20 +1,20 @@
-const assert = require('assert');
-const fs = require('fs');
-const path = require('path');
+const assert = require("assert");
+const fs = require("fs");
+const path = require("path");
 const {
   isTelegramChannelMember,
-} = require('../src/services/telegram-channel-verifier');
+} = require("../src/services/telegram-channel-verifier");
 
 async function testAcceptedMembershipStatuses() {
-  const accepted = ['creator', 'administrator', 'member', 'restricted'];
+  const accepted = ["creator", "administrator", "member", "restricted"];
   for (const status of accepted) {
     const result = await isTelegramChannelMember({
-      botToken: 'test-token',
-      channel: '@DzMoneyChecking',
+      botToken: "test-token",
+      channel: "@DzMoneyChecking",
       userId: 123,
       request: async () => ({
         ok: true,
-        result: { status, is_member: status !== 'left' },
+        result: { status, is_member: status !== "left" },
       }),
     });
     assert.strictEqual(result, true, `Expected ${status} to verify`);
@@ -22,10 +22,10 @@ async function testAcceptedMembershipStatuses() {
 }
 
 async function testRejectedStatuses() {
-  for (const status of ['left', 'kicked']) {
+  for (const status of ["left", "kicked"]) {
     const result = await isTelegramChannelMember({
-      botToken: 'test-token',
-      channel: '@DzMoneyChecking',
+      botToken: "test-token",
+      channel: "@DzMoneyChecking",
       userId: 123,
       request: async () => ({ ok: true, result: { status, is_member: false } }),
     });
@@ -35,37 +35,37 @@ async function testRejectedStatuses() {
 
 async function testTelegramFailureRejects() {
   const result = await isTelegramChannelMember({
-    botToken: 'test-token',
-    channel: '@DzMoneyChecking',
+    botToken: "test-token",
+    channel: "@DzMoneyChecking",
     userId: 123,
-    request: async () => ({ ok: false, description: 'Forbidden' }),
+    request: async () => ({ ok: false, description: "Forbidden" }),
   });
   assert.strictEqual(result, false);
 }
 
 async function testRequiredArguments() {
   await assert.rejects(() =>
-    isTelegramChannelMember({ channel: '@DzMoneyChecking', userId: 123 }),
+    isTelegramChannelMember({ channel: "@DzMoneyChecking", userId: 123 }),
   );
   await assert.rejects(() =>
-    isTelegramChannelMember({ botToken: 'test-token', userId: 123 }),
+    isTelegramChannelMember({ botToken: "test-token", userId: 123 }),
   );
   await assert.rejects(() =>
     isTelegramChannelMember({
-      botToken: 'test-token',
-      channel: '@DzMoneyChecking',
+      botToken: "test-token",
+      channel: "@DzMoneyChecking",
     }),
   );
 }
 
 function testChannelFlowBoundary() {
   const route = fs.readFileSync(
-    path.join(__dirname, '../src/http/daily-system-task-routes.js'),
-    'utf8',
+    path.join(__dirname, "../src/http/daily-system-task-routes.js"),
+    "utf8",
   );
   const frontend = fs.readFileSync(
-    path.join(__dirname, '../public/check-for-update.js'),
-    'utf8',
+    path.join(__dirname, "../public/check-for-update.js"),
+    "utf8",
   );
   assert.match(route, /systemKey === DAILY_SYSTEM_TASKS\.CHECK_FOR_UPDATE/);
   assert.match(route, /actionUrl: 'https:\/\/t\.me\/DzMoneyChecking'/);
@@ -87,9 +87,9 @@ function testChannelFlowBoundary() {
   await testTelegramFailureRejects();
   await testRequiredArguments();
   testChannelFlowBoundary();
-  console.log('Daily Check for Update verification invariants: PASS');
+  console.log("Daily Check for Update verification invariants: PASS");
 })().catch((error) => {
-  console.error('Daily Check for Update verification invariants: FAIL');
+  console.error("Daily Check for Update verification invariants: FAIL");
   console.error(error);
   process.exitCode = 1;
 });

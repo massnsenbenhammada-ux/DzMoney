@@ -1,5 +1,5 @@
 (() => {
-  const CHANNEL_TASK_KEY = 'check_for_update';
+  const CHANNEL_TASK_KEY = "check_for_update";
   const RETURN_VERIFY_COOLDOWN_MS = 10000;
   let busy = false;
   let pendingAttemptId = null;
@@ -8,8 +8,8 @@
 
   function apiHeaders() {
     return {
-      'Content-Type': 'application/json',
-      'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || '',
+      "Content-Type": "application/json",
+      "X-Telegram-Init-Data": window.Telegram?.WebApp?.initData || "",
     };
   }
 
@@ -19,14 +19,14 @@
       headers: { ...apiHeaders(), ...(options.headers || {}) },
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || 'Request failed');
+    if (!response.ok) throw new Error(body.error || "Request failed");
     return body;
   }
 
   function openChannel(url) {
-    if (typeof window.Telegram?.WebApp?.openTelegramLink === 'function')
+    if (typeof window.Telegram?.WebApp?.openTelegramLink === "function")
       window.Telegram.WebApp.openTelegramLink(url);
-    else window.open(url, '_blank', 'noopener,noreferrer');
+    else window.open(url, "_blank", "noopener,noreferrer");
   }
 
   function setButton(button, text, disabled = false) {
@@ -40,11 +40,11 @@
   }
 
   function notify(message) {
-    const toast = document.getElementById('toast');
+    const toast = document.getElementById("toast");
     if (toast) {
       toast.textContent = message;
-      toast.classList.add('show');
-      setTimeout(() => toast.classList.remove('show'), 3000);
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 3000);
     }
   }
 
@@ -52,32 +52,32 @@
     if (busy) return false;
     busy = true;
     try {
-      const result = await request('/api/daily-tasks/verify', {
-        method: 'POST',
+      const result = await request("/api/daily-tasks/verify", {
+        method: "POST",
         body: JSON.stringify({
           attemptId,
           idempotencyKey: `daily-system:${attemptId}`,
         }),
       });
-      if (result.status === 'verified') {
+      if (result.status === "verified") {
         pendingAttemptId = null;
         pendingActionUrl = null;
-        setButton(button, 'Done', true);
-        notify('Check for Update verified. Reward added.');
+        setButton(button, "Done", true);
+        notify("Check for Update verified. Reward added.");
         return true;
       }
-      if (result.status === 'rejected') {
+      if (result.status === "rejected") {
         pendingAttemptId = null;
         pendingActionUrl = null;
-        setButton(button, 'Check for Update', false);
+        setButton(button, "Check for Update", false);
         notify(
-          'Membership could not be verified. Join the channel and try again.',
+          "Membership could not be verified. Join the channel and try again.",
         );
       }
       return false;
     } catch (error) {
-      setButton(button, 'Verify', false);
-      notify(error.message || 'Unable to verify membership.');
+      setButton(button, "Verify", false);
+      notify(error.message || "Unable to verify membership.");
       return false;
     } finally {
       busy = false;
@@ -85,7 +85,7 @@
   }
 
   async function verifyOnReturn() {
-    if (!pendingAttemptId || document.visibilityState !== 'visible') return;
+    if (!pendingAttemptId || document.visibilityState !== "visible") return;
     const now = Date.now();
     if (now - lastReturnVerifyAt < RETURN_VERIFY_COOLDOWN_MS) return;
     lastReturnVerifyAt = now;
@@ -95,32 +95,32 @@
   async function start(button) {
     if (busy) return;
     busy = true;
-    setButton(button, 'Opening…', true);
+    setButton(button, "Opening…", true);
     try {
-      const result = await request('/api/daily-tasks/execute', {
-        method: 'POST',
+      const result = await request("/api/daily-tasks/execute", {
+        method: "POST",
         body: JSON.stringify({
           systemKey: CHANNEL_TASK_KEY,
           idempotencyKey: `daily:${CHANNEL_TASK_KEY}:${crypto.randomUUID()}`,
-          metadata: { source: 'tasks_ui' },
+          metadata: { source: "tasks_ui" },
         }),
       });
       if (
-        typeof result.actionUrl !== 'string' ||
-        result.actionUrl === '' ||
+        typeof result.actionUrl !== "string" ||
+        result.actionUrl === "" ||
         result.verificationAdId !== null
       )
-        throw new Error('Check for Update channel contract is invalid');
+        throw new Error("Check for Update channel contract is invalid");
       pendingAttemptId = result.attemptId;
       pendingActionUrl = result.actionUrl;
       openChannel(pendingActionUrl);
-      setButton(button, 'Verifying…', false);
+      setButton(button, "Verifying…", false);
       notify(
-        'Return to DzMoney after joining; membership will be verified automatically.',
+        "Return to DzMoney after joining; membership will be verified automatically.",
       );
     } catch (error) {
-      notify(error.message || 'Unable to start Check for Update.');
-      setButton(button, 'Check for Update', false);
+      notify(error.message || "Unable to start Check for Update.");
+      setButton(button, "Check for Update", false);
     } finally {
       busy = false;
     }
@@ -137,7 +137,7 @@
     else start(button);
   }
 
-  document.addEventListener('click', intercept, true);
-  document.addEventListener('visibilitychange', verifyOnReturn);
-  window.addEventListener('focus', verifyOnReturn);
+  document.addEventListener("click", intercept, true);
+  document.addEventListener("visibilitychange", verifyOnReturn);
+  window.addEventListener("focus", verifyOnReturn);
 })();

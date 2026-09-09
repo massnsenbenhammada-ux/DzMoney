@@ -15,13 +15,13 @@ async function provisionSquadForUsers(withTransaction) {
     if (users.rows.length < 10) return null;
     const ownerUserId = users.rows[0].id;
     const squad = await client.query(
-      'INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id, owner_user_id',
+      "INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id, owner_user_id",
       [ownerUserId],
     );
     const squadId = squad.rows[0].id;
     for (const user of users.rows) {
       await client.query(
-        'INSERT INTO squad_memberships (squad_id, user_id) VALUES ($1, $2)',
+        "INSERT INTO squad_memberships (squad_id, user_id) VALUES ($1, $2)",
         [squadId, user.id],
       );
     }

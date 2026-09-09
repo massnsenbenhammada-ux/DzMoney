@@ -1,12 +1,12 @@
-const assert = require('assert');
-const { pool, withTransaction } = require('../src/db/pool');
-const { createTask } = require('../src/services/task-service');
+const assert = require("assert");
+const { pool, withTransaction } = require("../src/db/pool");
+const { createTask } = require("../src/services/task-service");
 
 async function createTestUser() {
   const marker = Date.now();
   const result = await pool.query(
-    'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id',
-    [String(marker), `creator_contract_${marker}`, 'Creator Contract Test'],
+    "INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id",
+    [String(marker), `creator_contract_${marker}`, "Creator Contract Test"],
   );
   return result.rows[0].id;
 }
@@ -15,11 +15,11 @@ async function cleanup(userId, taskIds) {
   await withTransaction(async (client) => {
     if (taskIds.length) {
       await client.query(
-        'DELETE FROM activity_tasks WHERE id = ANY($1::bigint[])',
+        "DELETE FROM activity_tasks WHERE id = ANY($1::bigint[])",
         [taskIds],
       );
     }
-    await client.query('DELETE FROM users WHERE id=$1', [userId]);
+    await client.query("DELETE FROM users WHERE id=$1", [userId]);
   });
 }
 
@@ -36,8 +36,8 @@ async function main() {
 
     // Creator campaigns require explicit ownership, a positive target, and a canonical verification contract.
     const campaign = await createTask({
-      taskType: 'social',
-      title: 'Creator campaign contract',
+      taskType: "social",
+      title: "Creator campaign contract",
       creatorId: userId,
       target: 1000,
       rewardCoin: 1000,
@@ -45,8 +45,8 @@ async function main() {
       rewardDzp: 1,
       verificationAdSeconds: 5,
       config: {
-        campaignUrl: 'https://t.me/example_bot?start=campaign',
-        verification: { method: 'click_proof' },
+        campaignUrl: "https://t.me/example_bot?start=campaign",
+        verification: { method: "click_proof" },
         test: true,
       },
     });
@@ -58,8 +58,8 @@ async function main() {
     // Creator campaign without ownership must be rejected.
     await expectReject(
       {
-        taskType: 'social',
-        title: 'Missing creator',
+        taskType: "social",
+        title: "Missing creator",
         target: 1000,
         rewardCoin: 1000,
         rewardDzx: 1,
@@ -72,8 +72,8 @@ async function main() {
     // Creator campaign without target must be rejected.
     await expectReject(
       {
-        taskType: 'social',
-        title: 'Missing target',
+        taskType: "social",
+        title: "Missing target",
         creatorId: userId,
         rewardCoin: 1000,
         rewardDzx: 1,
@@ -86,8 +86,8 @@ async function main() {
     // Target must be strictly positive.
     await expectReject(
       {
-        taskType: 'social',
-        title: 'Invalid target',
+        taskType: "social",
+        title: "Invalid target",
         creatorId: userId,
         target: 0,
         rewardCoin: 1000,
@@ -100,8 +100,8 @@ async function main() {
 
     await expectReject(
       {
-        taskType: 'social',
-        title: 'Fractional target',
+        taskType: "social",
+        title: "Fractional target",
         creatorId: userId,
         target: 10.5,
         rewardCoin: 1000,
@@ -114,8 +114,8 @@ async function main() {
 
     // Daily tasks remain system-owned and must not receive creator campaign fields.
     const daily = await createTask({
-      taskType: 'daily',
-      title: 'System daily contract',
+      taskType: "daily",
+      title: "System daily contract",
       rewardCoin: 1000,
       rewardDzx: 1,
       rewardDzp: 1,
@@ -126,9 +126,9 @@ async function main() {
     assert.strictEqual(daily.creator_id, null);
     assert.strictEqual(daily.target, null);
 
-    console.log('Creator campaign task contract: PASS');
+    console.log("Creator campaign task contract: PASS");
   } catch (error) {
-    console.error('Creator campaign task contract: FAIL');
+    console.error("Creator campaign task contract: FAIL");
     console.error(error);
     process.exitCode = 1;
   } finally {
@@ -136,7 +136,7 @@ async function main() {
       try {
         await cleanup(userId, taskIds);
       } catch (cleanupError) {
-        console.error('Creator campaign contract cleanup: FAIL');
+        console.error("Creator campaign contract cleanup: FAIL");
         console.error(cleanupError);
         process.exitCode = 1;
       }
@@ -146,7 +146,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Creator campaign contract runner: FAIL');
+  console.error("Creator campaign contract runner: FAIL");
   console.error(error);
   process.exit(1);
 });

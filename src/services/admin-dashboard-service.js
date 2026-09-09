@@ -1,6 +1,6 @@
-const { query } = require('../db/pool');
+const { query } = require("../db/pool");
 
-const UTC_PLUS_ONE = 'Etc/GMT-1';
+const UTC_PLUS_ONE = "Etc/GMT-1";
 
 async function getAdminDashboardMetrics({ now = new Date() } = {}) {
   const result = await query(

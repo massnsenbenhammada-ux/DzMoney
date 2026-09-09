@@ -1,105 +1,105 @@
 (() => {
-  const stylesheet = document.createElement('link');
-  stylesheet.rel = 'stylesheet';
-  stylesheet.href = '/conversion.css?v=__ASSET_VERSION__';
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "/conversion.css?v=__ASSET_VERSION__";
   document.head.appendChild(stylesheet);
 
   const ensureModal = () => {
-    let dialog = document.getElementById('conversionModal');
+    let dialog = document.getElementById("conversionModal");
     if (dialog) return dialog;
-    dialog = document.createElement('dialog');
-    dialog.id = 'conversionModal';
-    dialog.className = 'conversion-dialog';
-    dialog.setAttribute('aria-labelledby', 'conversionTitle');
+    dialog = document.createElement("dialog");
+    dialog.id = "conversionModal";
+    dialog.className = "conversion-dialog";
+    dialog.setAttribute("aria-labelledby", "conversionTitle");
     dialog.innerHTML = `<form method="dialog" class="conversion-sheet"><header class="conversion-header"><div><span class="eyebrow">CONVERSION</span><h2 id="conversionTitle">Convert to DZP</h2></div><button value="cancel" class="conversion-close" aria-label="Close">&times;</button></header><div class="conversion-source" role="group" aria-label="Conversion type"><button type="button" data-source="coin" class="conversion-source-option" aria-pressed="true"><span>COIN</span><small>Activity points</small></button><span class="conversion-arrow" aria-hidden="true">→</span><button type="button" data-source="dzx" class="conversion-source-option" aria-pressed="false"><span>DZX</span><small>Main balance</small></button></div><label class="conversion-field"><span>Amount to convert</span><div class="conversion-input-wrap"><input id="conversionAmount" inputmode="decimal" autocomplete="off" placeholder="10,000" aria-describedby="conversionHint conversionPreview"><span id="conversionUnit">COIN</span></div></label><div id="conversionPreview" class="conversion-preview" aria-live="polite"><span>YOU WILL RECEIVE</span><strong>— DZP</strong></div><p id="conversionHint" class="conversion-hint">1 DZP = 10,000 COIN</p><div class="conversion-notice"><span aria-hidden="true">ⓘ</span><p>Converted DZP is not earned activity and does not increase Reward Pool weight.</p></div><button type="button" class="primary-btn conversion-submit" id="conversionSubmit" disabled>Convert</button></form>`;
     document.body.appendChild(dialog);
-    dialog.addEventListener('click', (event) => {
+    dialog.addEventListener("click", (event) => {
       if (event.target === dialog) dialog.close();
     });
     dialog
-      .querySelector('.conversion-close')
-      .addEventListener('click', () => dialog.close());
+      .querySelector(".conversion-close")
+      .addEventListener("click", () => dialog.close());
     dialog
-      .querySelectorAll('[data-source]')
+      .querySelectorAll("[data-source]")
       .forEach((button) =>
-        button.addEventListener('click', () =>
+        button.addEventListener("click", () =>
           selectSource(button.dataset.source),
         ),
       );
     dialog
-      .querySelector('#conversionAmount')
-      .addEventListener('input', updatePreview);
+      .querySelector("#conversionAmount")
+      .addEventListener("input", updatePreview);
     dialog
-      .querySelector('#conversionSubmit')
-      .addEventListener('click', submitConversion);
+      .querySelector("#conversionSubmit")
+      .addEventListener("click", submitConversion);
     return dialog;
   };
 
   const ensureOutcomeModal = () => {
-    let dialog = document.getElementById('conversionOutcomeModal');
+    let dialog = document.getElementById("conversionOutcomeModal");
     if (dialog) return dialog;
-    dialog = document.createElement('dialog');
-    dialog.id = 'conversionOutcomeModal';
-    dialog.className = 'conversion-dialog conversion-outcome-dialog';
-    dialog.setAttribute('aria-labelledby', 'conversionOutcomeTitle');
+    dialog = document.createElement("dialog");
+    dialog.id = "conversionOutcomeModal";
+    dialog.className = "conversion-dialog conversion-outcome-dialog";
+    dialog.setAttribute("aria-labelledby", "conversionOutcomeTitle");
     dialog.innerHTML = `<div class="conversion-outcome"><div id="conversionOutcomeIcon" class="conversion-outcome-icon" aria-hidden="true"></div><span id="conversionOutcomeEyebrow" class="eyebrow">CONVERSION</span><h2 id="conversionOutcomeTitle"></h2><p id="conversionOutcomeMessage"></p><div id="conversionOutcomeDetails" class="conversion-outcome-details" hidden></div><button type="button" class="primary-btn conversion-outcome-action" id="conversionOutcomeAction">Done</button></div>`;
     document.body.appendChild(dialog);
-    dialog.addEventListener('click', (event) => {
+    dialog.addEventListener("click", (event) => {
       if (event.target === dialog) dialog.close();
     });
     dialog
-      .querySelector('#conversionOutcomeAction')
-      .addEventListener('click', () => dialog.close());
+      .querySelector("#conversionOutcomeAction")
+      .addEventListener("click", () => dialog.close());
     return dialog;
   };
 
-  function showConversionOutcome({ success, title, message, details = '' }) {
+  function showConversionOutcome({ success, title, message, details = "" }) {
     const dialog = ensureOutcomeModal();
-    const icon = dialog.querySelector('#conversionOutcomeIcon');
-    const action = dialog.querySelector('#conversionOutcomeAction');
-    const detailsEl = dialog.querySelector('#conversionOutcomeDetails');
-    dialog.classList.toggle('conversion-outcome--success', success);
-    dialog.classList.toggle('conversion-outcome--error', !success);
-    icon.textContent = success ? '✓' : '!';
-    dialog.querySelector('#conversionOutcomeEyebrow').textContent = success
-      ? 'COMPLETED'
-      : 'UNABLE TO CONVERT';
-    dialog.querySelector('#conversionOutcomeTitle').textContent = title;
-    dialog.querySelector('#conversionOutcomeMessage').textContent = message;
+    const icon = dialog.querySelector("#conversionOutcomeIcon");
+    const action = dialog.querySelector("#conversionOutcomeAction");
+    const detailsEl = dialog.querySelector("#conversionOutcomeDetails");
+    dialog.classList.toggle("conversion-outcome--success", success);
+    dialog.classList.toggle("conversion-outcome--error", !success);
+    icon.textContent = success ? "✓" : "!";
+    dialog.querySelector("#conversionOutcomeEyebrow").textContent = success
+      ? "COMPLETED"
+      : "UNABLE TO CONVERT";
+    dialog.querySelector("#conversionOutcomeTitle").textContent = title;
+    dialog.querySelector("#conversionOutcomeMessage").textContent = message;
     detailsEl.textContent = details;
     detailsEl.hidden = !details;
-    action.textContent = success ? 'Done' : 'Try Again';
+    action.textContent = success ? "Done" : "Try Again";
     action.onclick = () => {
       dialog.close();
       if (!success) openConversion();
     };
-    if (typeof dialog.showModal === 'function') dialog.showModal();
-    else dialog.setAttribute('open', '');
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
   }
 
   let rates = null;
-  let source = 'coin';
+  let source = "coin";
 
   function sourceConfig() {
-    return source === 'coin'
+    return source === "coin"
       ? {
-          rateKey: 'economy.coin_per_dzp',
-          unit: 'COIN',
-          label: '1 DZP = 10,000 COIN',
-          field: 'coin',
-          endpoint: '/api/conversion/coin-to-dzp',
+          rateKey: "economy.coin_per_dzp",
+          unit: "COIN",
+          label: "1 DZP = 10,000 COIN",
+          field: "coin",
+          endpoint: "/api/conversion/coin-to-dzp",
         }
       : {
-          rateKey: 'economy.dzx_per_dzp',
-          unit: 'DZX',
-          label: '1 DZP = 10 DZX',
-          field: 'dzx',
-          endpoint: '/api/conversion/dzx-to-dzp',
+          rateKey: "economy.dzx_per_dzp",
+          unit: "DZX",
+          label: "1 DZP = 10 DZX",
+          field: "dzx",
+          endpoint: "/api/conversion/dzx-to-dzp",
         };
   }
 
   function parsePositiveInteger(text) {
-    const normalized = text.replace(/,/g, '').trim();
+    const normalized = text.replace(/,/g, "").trim();
     if (!/^\d+$/.test(normalized) || /^0+$/.test(normalized)) return null;
     return BigInt(normalized);
   }
@@ -108,19 +108,19 @@
     const dialog = ensureModal();
     const config = sourceConfig();
     const amount = parsePositiveInteger(
-      dialog.querySelector('#conversionAmount').value,
+      dialog.querySelector("#conversionAmount").value,
     );
     const rateText = rates?.[config.rateKey];
-    const rate = parsePositiveInteger(String(rateText ?? ''));
-    const preview = dialog.querySelector('#conversionPreview');
-    const submit = dialog.querySelector('#conversionSubmit');
-    dialog.querySelector('#conversionUnit').textContent = config.unit;
-    dialog.querySelector('#conversionHint').textContent = rate
+    const rate = parsePositiveInteger(String(rateText ?? ""));
+    const preview = dialog.querySelector("#conversionPreview");
+    const submit = dialog.querySelector("#conversionSubmit");
+    dialog.querySelector("#conversionUnit").textContent = config.unit;
+    dialog.querySelector("#conversionHint").textContent = rate
       ? `1 DZP = ${format(rateText)} ${config.unit}`
       : config.label;
     submit.disabled = true;
     if (!amount || !rate) {
-      preview.innerHTML = '<span>YOU WILL RECEIVE</span><strong>— DZP</strong>';
+      preview.innerHTML = "<span>YOU WILL RECEIVE</span><strong>— DZP</strong>";
       return;
     }
     if (amount < rate || amount % rate !== 0n) {
@@ -135,13 +135,13 @@
   async function loadRates() {
     const dialog = ensureModal();
     try {
-      const data = rates || (await api('/api/conversion/rates'));
+      const data = rates || (await api("/api/conversion/rates"));
       rates = data.rates || {};
       updatePreview();
     } catch (error) {
-      dialog.querySelector('#conversionHint').textContent =
-        error.message || 'Rates unavailable';
-      dialog.querySelector('#conversionSubmit').disabled = true;
+      dialog.querySelector("#conversionHint").textContent =
+        error.message || "Rates unavailable";
+      dialog.querySelector("#conversionSubmit").disabled = true;
     }
   }
 
@@ -149,44 +149,44 @@
     source = nextSource;
     const dialog = ensureModal();
     dialog
-      .querySelectorAll('[data-source]')
+      .querySelectorAll("[data-source]")
       .forEach((button) =>
         button.setAttribute(
-          'aria-pressed',
+          "aria-pressed",
           String(button.dataset.source === source),
         ),
       );
-    dialog.querySelector('#conversionAmount').value = '';
+    dialog.querySelector("#conversionAmount").value = "";
     updatePreview();
   }
 
   async function submitConversion() {
     const dialog = ensureModal();
-    const button = dialog.querySelector('#conversionSubmit');
-    const input = dialog.querySelector('#conversionAmount');
+    const button = dialog.querySelector("#conversionSubmit");
+    const input = dialog.querySelector("#conversionAmount");
     const amount = parsePositiveInteger(input.value);
     const config = sourceConfig();
-    if (!amount) return toast('Enter a valid positive amount.');
+    if (!amount) return toast("Enter a valid positive amount.");
     button.disabled = true;
     try {
       const key = crypto.randomUUID();
       const result = await api(config.endpoint, {
-        method: 'POST',
-        headers: { 'Idempotency-Key': key },
+        method: "POST",
+        headers: { "Idempotency-Key": key },
         body: JSON.stringify({ [config.field]: amount.toString() }),
       });
       dialog.close();
       await loadMe();
-      const rate = parsePositiveInteger(String(rates?.[config.rateKey] ?? ''));
+      const rate = parsePositiveInteger(String(rates?.[config.rateKey] ?? ""));
       const received = result.dzp ?? (rate ? amount / rate : null);
       showConversionOutcome({
         success: true,
-        title: 'Conversion successful',
-        message: 'Your balance has been updated.',
+        title: "Conversion successful",
+        message: "Your balance has been updated.",
         details:
           received !== null
             ? `${amount.toLocaleString()} ${config.unit} → ${received.toLocaleString()} DZP`
-            : '',
+            : "",
       });
       resetConversionForm();
     } catch (error) {
@@ -194,30 +194,30 @@
       updatePreview();
       showConversionOutcome({
         success: false,
-        title: 'Conversion failed',
-        message: error.message || 'The conversion could not be completed.',
-        details: '',
+        title: "Conversion failed",
+        message: error.message || "The conversion could not be completed.",
+        details: "",
       });
     }
   }
 
   function resetConversionForm() {
     const dialog = ensureModal();
-    dialog.querySelector('#conversionAmount').value = '';
+    dialog.querySelector("#conversionAmount").value = "";
     updatePreview();
   }
 
   function openConversion() {
     const dialog = ensureModal();
     resetConversionForm();
-    if (typeof dialog.showModal === 'function') dialog.showModal();
-    else dialog.setAttribute('open', '');
+    if (typeof dialog.showModal === "function") dialog.showModal();
+    else dialog.setAttribute("open", "");
     loadRates();
-    dialog.querySelector('#conversionAmount').focus({ preventScroll: true });
+    dialog.querySelector("#conversionAmount").focus({ preventScroll: true });
   }
 
-  document.addEventListener('click', (event) => {
-    if (event.target.closest('#openConversion, #walletConversion'))
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("#openConversion, #walletConversion"))
       openConversion();
   });
 })();

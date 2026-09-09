@@ -1,14 +1,14 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('fs');
-const path = require('path');
-const { query, pool } = require('../src/db/pool');
-const walletService = require('../src/services/wallet-service');
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("fs");
+const path = require("path");
+const { query, pool } = require("../src/db/pool");
+const walletService = require("../src/services/wallet-service");
 const {
   getAdminDashboardMetrics,
-} = require('../src/services/admin-dashboard-service');
+} = require("../src/services/admin-dashboard-service");
 
-const root = path.join(__dirname, '..');
+const root = path.join(__dirname, "..");
 
 async function insertAd(userId, suffix, offsetDays) {
   await query(
@@ -32,14 +32,14 @@ async function insertTaskAttempt(userId, taskId, suffix, offsetDays) {
   );
 }
 
-test('Admin dashboard API and page preserve the existing admin authentication boundary', () => {
+test("Admin dashboard API and page preserve the existing admin authentication boundary", () => {
   const routes = fs.readFileSync(
-    path.join(root, 'src/http/admin-dashboard-routes.js'),
-    'utf8',
+    path.join(root, "src/http/admin-dashboard-routes.js"),
+    "utf8",
   );
-  const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
-  const page = fs.readFileSync(path.join(root, 'public/admin.js'), 'utf8');
-  const html = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const page = fs.readFileSync(path.join(root, "public/admin.js"), "utf8");
+  const html = fs.readFileSync(path.join(root, "public/admin.html"), "utf8");
   assert.match(routes, /router\.use\(adminAuth\)/);
   assert.match(routes, /router\.use\(createRateLimit/);
   assert.match(
@@ -56,7 +56,7 @@ test('Admin dashboard API and page preserve the existing admin authentication bo
 });
 
 test(
-  'Admin dashboard aggregates members, verified ads, verified tasks and seven UTC+1 days',
+  "Admin dashboard aggregates members, verified ads, verified tasks and seven UTC+1 days",
   { skip: !process.env.DATABASE_URL },
   async () => {
     const suffix = `${Date.now()}`;
@@ -137,25 +137,25 @@ test(
     } finally {
       if (userIds.length) {
         await query(
-          'DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])',
+          "DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])",
           [userIds],
         );
         await query(
-          'DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])',
+          "DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])",
           [userIds],
         );
-        await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [
+        await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
           userIds,
         ]);
       }
       if (taskId)
-        await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+        await query("DELETE FROM activity_tasks WHERE id=$1", [taskId]);
     }
   },
 );
 
 test(
-  'Admin dashboard returns top active members and qualified referrers',
+  "Admin dashboard returns top active members and qualified referrers",
   { skip: !process.env.DATABASE_URL },
   async () => {
     const suffix = `${Date.now()}`;
@@ -207,27 +207,27 @@ test(
     } finally {
       if (userIds.length) {
         await query(
-          'DELETE FROM referral_attributions WHERE referrer_user_id = ANY($1::bigint[]) OR referred_user_id = ANY($1::bigint[])',
+          "DELETE FROM referral_attributions WHERE referrer_user_id = ANY($1::bigint[]) OR referred_user_id = ANY($1::bigint[])",
           [userIds],
         );
         await query(
-          'DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])',
+          "DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])",
           [userIds],
         );
         await query(
-          'DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])',
+          "DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])",
           [userIds],
         );
-        await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [
+        await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
           userIds,
         ]);
       }
       if (taskId)
-        await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+        await query("DELETE FROM activity_tasks WHERE id=$1", [taskId]);
     }
   },
 );
 
 if (require.main === module) {
-  process.on('exit', () => pool.end());
+  process.on("exit", () => pool.end());
 }

@@ -58,7 +58,7 @@
   color: var(--muted);
   text-align: left;
 }
-.conversion-source-option[aria-pressed='true'] {
+.conversion-source-option[aria-pressed="true"] {
   background: var(--primary-dark);
   color: var(--primary);
   box-shadow: inset 0 0 0 1px

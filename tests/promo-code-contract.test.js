@@ -1,14 +1,14 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
-const root = path.join(__dirname, '..');
+const root = path.join(__dirname, "..");
 
-test('Phase 10 migration defines canonical promo campaigns and redemptions', () => {
+test("Phase 10 migration defines canonical promo campaigns and redemptions", () => {
   const migration = fs.readFileSync(
-    path.join(root, 'migrations/047_promo_codes.sql'),
-    'utf8',
+    path.join(root, "migrations/047_promo_codes.sql"),
+    "utf8",
   );
   assert.match(migration, /CREATE TABLE IF NOT EXISTS promo_campaigns/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS promo_redemptions/);
@@ -23,49 +23,49 @@ test('Phase 10 migration defines canonical promo campaigns and redemptions', () 
   assert.match(migration, /code TEXT NOT NULL UNIQUE/);
 });
 
-test('Promo service exposes redeem and finalization boundaries', () => {
-  const service = require('../src/services/promo-code-service');
-  assert.equal(typeof service.redeemPromoCode, 'function');
-  assert.equal(typeof service.finalizePromoRedemption, 'function');
-  assert.equal(typeof service.listPromoCampaigns, 'function');
-  assert.equal(typeof service.createPromoCampaign, 'function');
-  assert.equal(typeof service.updatePromoCampaign, 'function');
-  assert.equal(service.normalizePromoCode(' dz-2026 '), 'DZ-2026');
+test("Promo service exposes redeem and finalization boundaries", () => {
+  const service = require("../src/services/promo-code-service");
+  assert.equal(typeof service.redeemPromoCode, "function");
+  assert.equal(typeof service.finalizePromoRedemption, "function");
+  assert.equal(typeof service.listPromoCampaigns, "function");
+  assert.equal(typeof service.createPromoCampaign, "function");
+  assert.equal(typeof service.updatePromoCampaign, "function");
+  assert.equal(service.normalizePromoCode(" dz-2026 "), "DZ-2026");
   assert.throws(
-    () => service.normalizePromoCode('bad code'),
+    () => service.normalizePromoCode("bad code"),
     /Invalid promo code/,
   );
 });
 
-test('Promo reward validation only permits COIN or DZX', () => {
-  const { normalizeReward } = require('../src/services/promo-code-service');
+test("Promo reward validation only permits COIN or DZX", () => {
+  const { normalizeReward } = require("../src/services/promo-code-service");
   assert.deepEqual(
-    normalizeReward({ rewardCurrency: 'coin', rewardAmount: '1000' }),
-    { currency: 'COIN', amount: '1000' },
+    normalizeReward({ rewardCurrency: "coin", rewardAmount: "1000" }),
+    { currency: "COIN", amount: "1000" },
   );
   assert.deepEqual(
-    normalizeReward({ rewardCurrency: 'DZX', rewardAmount: '2.5' }),
-    { currency: 'DZX', amount: '2.5' },
+    normalizeReward({ rewardCurrency: "DZX", rewardAmount: "2.5" }),
+    { currency: "DZX", amount: "2.5" },
   );
   assert.throws(
-    () => normalizeReward({ rewardCurrency: 'DZP', rewardAmount: 1 }),
+    () => normalizeReward({ rewardCurrency: "DZP", rewardAmount: 1 }),
     /reward currency/,
   );
   assert.throws(
-    () => normalizeReward({ rewardCurrency: 'COIN', rewardAmount: 0 }),
+    () => normalizeReward({ rewardCurrency: "COIN", rewardAmount: 0 }),
     /positive/,
   );
 });
 
-test('Promo routes are mounted and protected by Telegram/admin authentication boundaries', () => {
-  const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
+test("Promo routes are mounted and protected by Telegram/admin authentication boundaries", () => {
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
   const routes = fs.readFileSync(
-    path.join(root, 'src/http/promo-code-routes.js'),
-    'utf8',
+    path.join(root, "src/http/promo-code-routes.js"),
+    "utf8",
   );
   const adminRoutes = fs.readFileSync(
-    path.join(root, 'src/http/admin-promo-code-routes.js'),
-    'utf8',
+    path.join(root, "src/http/admin-promo-code-routes.js"),
+    "utf8",
   );
   assert.match(server, /require\('\.\/src\/http\/promo-code-routes'\)/);
   assert.match(server, /app\.use\('\/api\/promo'/);
@@ -76,30 +76,30 @@ test('Promo routes are mounted and protected by Telegram/admin authentication bo
   assert.match(adminRoutes, /router\.use\(adminAuth\)/);
 });
 
-test('Promo advertisement is an explicit provider context and never a task verification event', () => {
+test("Promo advertisement is an explicit provider context and never a task verification event", () => {
   const provider = fs.readFileSync(
-    path.join(root, 'src/services/ad-provider-service.js'),
-    'utf8',
+    path.join(root, "src/services/ad-provider-service.js"),
+    "utf8",
   );
   const event = fs.readFileSync(
-    path.join(root, 'src/services/ad-event-service.js'),
-    'utf8',
+    path.join(root, "src/services/ad-event-service.js"),
+    "utf8",
   );
   const monetag = fs.readFileSync(
-    path.join(root, 'src/config/monetag.js'),
-    'utf8',
+    path.join(root, "src/config/monetag.js"),
+    "utf8",
   );
   const onclicka = fs.readFileSync(
-    path.join(root, 'src/config/onclicka.js'),
-    'utf8',
+    path.join(root, "src/config/onclicka.js"),
+    "utf8",
   );
   const monetagPostback = fs.readFileSync(
-    path.join(root, 'src/http/monetag-postback-routes.js'),
-    'utf8',
+    path.join(root, "src/http/monetag-postback-routes.js"),
+    "utf8",
   );
   const onclickaPostback = fs.readFileSync(
-    path.join(root, 'src/http/onclicka-postback-routes.js'),
-    'utf8',
+    path.join(root, "src/http/onclicka-postback-routes.js"),
+    "utf8",
   );
   assert.match(provider, /'promo'/);
   assert.match(event, /'promo'/);
@@ -109,11 +109,11 @@ test('Promo advertisement is an explicit provider context and never a task verif
   assert.match(onclickaPostback, /context === 'promo'/);
 });
 
-test('Home contains the Phase 10 promo code entry point', () => {
-  const html = fs.readFileSync(path.join(root, 'public/index.html'), 'utf8');
+test("Home contains the Phase 10 promo code entry point", () => {
+  const html = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
   const promo = fs.readFileSync(
-    path.join(root, 'public/promo-code.js'),
-    'utf8',
+    path.join(root, "public/promo-code.js"),
+    "utf8",
   );
   assert.match(html, /id="promoCodeInput"/);
   assert.match(html, /id="promoCodeButton"/);

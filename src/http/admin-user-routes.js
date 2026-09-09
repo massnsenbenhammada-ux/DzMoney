@@ -1,18 +1,18 @@
-const express = require('express');
-const { adminAuth } = require('./admin-auth');
-const { createRateLimit } = require('./rate-limit');
+const express = require("express");
+const { adminAuth } = require("./admin-auth");
+const { createRateLimit } = require("./rate-limit");
 const {
   searchUsers,
   getUserProfile,
   adjustBalance,
-} = require('../services/admin-user-service');
+} = require("../services/admin-user-service");
 
 function createAdminUserRouter() {
   const router = express.Router();
   router.use(adminAuth);
   router.use(createRateLimit({ windowMs: 60_000, max: 60 }));
 
-  router.get('/', async (req, res, next) => {
+  router.get("/", async (req, res, next) => {
     try {
       res.json({
         ok: true,
@@ -23,7 +23,7 @@ function createAdminUserRouter() {
     }
   });
 
-  router.get('/:userId', async (req, res, next) => {
+  router.get("/:userId", async (req, res, next) => {
     try {
       res.json({ ok: true, ...(await getUserProfile(req.params.userId)) });
     } catch (error) {
@@ -31,7 +31,7 @@ function createAdminUserRouter() {
     }
   });
 
-  router.post('/:userId/balance-adjustment', async (req, res, next) => {
+  router.post("/:userId/balance-adjustment", async (req, res, next) => {
     try {
       const result = await adjustBalance({
         userId: req.params.userId,

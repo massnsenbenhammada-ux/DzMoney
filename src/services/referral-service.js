@@ -1,5 +1,5 @@
-const { withTransaction, query } = require('../db/pool');
-const { postEconomyTransactionOnClient } = require('./economy-service');
+const { withTransaction, query } = require("../db/pool");
+const { postEconomyTransactionOnClient } = require("./economy-service");
 
 function positiveId(value, name) {
   const id = Number(value);
@@ -9,14 +9,14 @@ function positiveId(value, name) {
 }
 
 function requiredId(value, name) {
-  if (value === undefined || value === null || value === '')
+  if (value === undefined || value === null || value === "")
     throw new Error(`${name} is required`);
   return positiveId(value, name);
 }
 
 async function referralSettingNumber(client, key, fallback) {
   const result = await client.query(
-    'SELECT value FROM admin_settings WHERE key = $1',
+    "SELECT value FROM admin_settings WHERE key = $1",
     [key],
   );
   if (!result.rowCount) return fallback;
@@ -26,12 +26,12 @@ async function referralSettingNumber(client, key, fallback) {
 
 async function referralRewardConfig(client) {
   return {
-    coin: await referralSettingNumber(client, 'referral.reward_coin', 10000),
-    dzx: await referralSettingNumber(client, 'referral.reward_dzx', 10),
-    dzp: await referralSettingNumber(client, 'referral.reward_dzp', 10),
+    coin: await referralSettingNumber(client, "referral.reward_coin", 10000),
+    dzx: await referralSettingNumber(client, "referral.reward_dzx", 10),
+    dzp: await referralSettingNumber(client, "referral.reward_dzp", 10),
     lifetimePercent: await referralSettingNumber(
       client,
-      'referral.lifetime_percent',
+      "referral.lifetime_percent",
       20,
     ),
   };
@@ -40,13 +40,13 @@ async function referralRewardConfig(client) {
 function lifetimeAmount(value, percent) {
   const amount = Number(value ?? 0);
   if (!Number.isFinite(amount) || amount < 0)
-    throw new Error('Lifetime reward amount must be a non-negative number');
+    throw new Error("Lifetime reward amount must be a non-negative number");
   return Number(((amount * percent) / 100).toFixed(8));
 }
 
 async function findAttribution(client, referredUserId, lock = false) {
   const result = await client.query(
-    `SELECT * FROM referral_attributions WHERE referred_user_id = $1${lock ? ' FOR UPDATE' : ''}`,
+    `SELECT * FROM referral_attributions WHERE referred_user_id = $1${lock ? " FOR UPDATE" : ""}`,
     [referredUserId],
   );
   return result.rows[0] || null;
@@ -54,9 +54,9 @@ async function findAttribution(client, referredUserId, lock = false) {
 
 /** Creates the immutable referral attribution for a referred user. */
 async function createAttribution({ referrerUserId, referredUserId }) {
-  const referrer = positiveId(referrerUserId, 'referrerUserId');
-  const referred = positiveId(referredUserId, 'referredUserId');
-  if (referrer === referred) throw new Error('Self referral is not allowed');
+  const referrer = positiveId(referrerUserId, "referrerUserId");
+  const referred = positiveId(referredUserId, "referredUserId");
+  if (referrer === referred) throw new Error("Self referral is not allowed");
 
   return withTransaction(async (client) => {
     const inserted = await client.query(
@@ -78,9 +78,9 @@ async function resolveExistingAttribution(
   referredUserId,
 ) {
   const existing = await findAttribution(client, referredUserId);
-  if (!existing) throw new Error('Unable to resolve referral attribution');
+  if (!existing) throw new Error("Unable to resolve referral attribution");
   if (Number(existing.referrer_user_id) !== referrerUserId) {
-    throw new Error('User is already attributed to another referrer');
+    throw new Error("User is already attributed to another referrer");
   }
   return { attribution: existing, duplicate: true };
 }
@@ -91,7 +91,7 @@ async function verifyQualificationEvidence(
   source,
   referenceId,
 ) {
-  if (source === 'task') {
+  if (source === "task") {
     const result = await client.query(
       `SELECT id FROM task_attempts WHERE id=$1 AND user_id=$2 AND status='verified'`,
       [referenceId, referredUserId],
@@ -113,22 +113,22 @@ async function qualifyReferral({
   referenceId,
   idempotencyKey,
 }) {
-  const referred = requiredId(referredUserId, 'referredUserId');
-  const evidenceId = requiredId(referenceId, 'referenceId');
-  if (!['task', 'advertisement'].includes(source))
-    throw new Error('Invalid referral qualification source');
+  const referred = requiredId(referredUserId, "referredUserId");
+  const evidenceId = requiredId(referenceId, "referenceId");
+  if (!["task", "advertisement"].includes(source))
+    throw new Error("Invalid referral qualification source");
   if (
     idempotencyKey === undefined ||
     idempotencyKey === null ||
-    idempotencyKey === ''
+    idempotencyKey === ""
   ) {
-    throw new Error('idempotencyKey is required');
+    throw new Error("idempotencyKey is required");
   }
 
   return withTransaction(async (client) => {
     const attribution = await findAttribution(client, referred, true);
-    if (!attribution) throw new Error('Referral attribution not found');
-    if (attribution.status === 'qualified')
+    if (!attribution) throw new Error("Referral attribution not found");
+    if (attribution.status === "qualified")
       return { attribution, duplicate: true };
     const verified = await verifyQualificationEvidence(
       client,
@@ -158,43 +158,43 @@ async function creditReferralLifetimeOnClient(
   client,
   { referredUserId, source, sourceReferenceId, idempotencyKey, baseReward },
 ) {
-  const referred = requiredId(referredUserId, 'referredUserId');
-  if (!['task', 'advertisement'].includes(source))
-    throw new Error('Invalid lifetime referral source');
+  const referred = requiredId(referredUserId, "referredUserId");
+  if (!["task", "advertisement"].includes(source))
+    throw new Error("Invalid lifetime referral source");
   if (
     sourceReferenceId === undefined ||
     sourceReferenceId === null ||
-    sourceReferenceId === ''
+    sourceReferenceId === ""
   ) {
-    throw new Error('sourceReferenceId is required');
+    throw new Error("sourceReferenceId is required");
   }
   if (
     idempotencyKey === undefined ||
     idempotencyKey === null ||
-    idempotencyKey === ''
+    idempotencyKey === ""
   ) {
-    throw new Error('idempotencyKey is required');
+    throw new Error("idempotencyKey is required");
   }
   const config = await referralRewardConfig(client);
   const coin = lifetimeAmount(baseReward?.coin, config.lifetimePercent);
   const dzx = lifetimeAmount(baseReward?.dzx, config.lifetimePercent);
   const attribution = await findAttribution(client, referred, true);
   if (!attribution) return { qualified: false, duplicate: false };
-  if (attribution.status !== 'qualified')
+  if (attribution.status !== "qualified")
     return { qualified: false, duplicate: false };
   const movements = [];
   if (coin > 0)
-    movements.push({ currency: 'COIN', amount: coin, source: 'referral' });
+    movements.push({ currency: "COIN", amount: coin, source: "referral" });
   if (dzx > 0)
-    movements.push({ currency: 'DZX', amount: dzx, source: 'referral' });
+    movements.push({ currency: "DZX", amount: dzx, source: "referral" });
   if (!movements.length)
     return { qualified: true, duplicate: false, rewarded: false };
   const reward = await postEconomyTransactionOnClient(client, {
     idempotencyKey,
     userId: Number(attribution.referrer_user_id),
-    type: 'REWARD',
+    type: "REWARD",
     metadata: {
-      source: 'referral_lifetime',
+      source: "referral_lifetime",
       referred_user_id: referred,
       source_type: source,
       source_reference_id: String(sourceReferenceId),
@@ -227,46 +227,46 @@ async function assertActivationKeyAvailable(client, key, attributionId) {
     [key],
   );
   if (result.rowCount && Number(result.rows[0].id) !== Number(attributionId)) {
-    throw new Error('Activation idempotency key already used');
+    throw new Error("Activation idempotency key already used");
   }
 }
 
 /** Credits the configured one-time referral activation through the existing Economy and Ledger. */
 async function activateReferral({ referredUserId, idempotencyKey }) {
-  const referred = requiredId(referredUserId, 'referredUserId');
+  const referred = requiredId(referredUserId, "referredUserId");
   if (
     idempotencyKey === undefined ||
     idempotencyKey === null ||
-    idempotencyKey === ''
+    idempotencyKey === ""
   ) {
-    throw new Error('idempotencyKey is required');
+    throw new Error("idempotencyKey is required");
   }
   return withTransaction(async (client) => {
     const attribution = await findAttribution(client, referred, true);
-    if (!attribution) throw new Error('Referral attribution not found');
-    if (attribution.status !== 'qualified')
-      throw new Error('Referral is not qualified');
+    if (!attribution) throw new Error("Referral attribution not found");
+    if (attribution.status !== "qualified")
+      throw new Error("Referral is not qualified");
     await assertActivationKeyAvailable(client, idempotencyKey, attribution.id);
     if (attribution.activation_at) {
       if (attribution.activation_idempotency_key === idempotencyKey) {
         return { attribution, duplicate: true };
       }
-      throw new Error('Referral is already activated');
+      throw new Error("Referral is already activated");
     }
     const config = await referralRewardConfig(client);
     await postEconomyTransactionOnClient(client, {
       idempotencyKey,
       userId: Number(attribution.referrer_user_id),
-      type: 'REWARD',
-      metadata: { source: 'referral_activation', referred_user_id: referred },
+      type: "REWARD",
+      metadata: { source: "referral_activation", referred_user_id: referred },
       movements: [
-        { currency: 'COIN', amount: config.coin, source: 'referral' },
-        { currency: 'DZX', amount: config.dzx, source: 'referral' },
+        { currency: "COIN", amount: config.coin, source: "referral" },
+        { currency: "DZX", amount: config.dzx, source: "referral" },
         {
-          currency: 'DZP',
+          currency: "DZP",
           amount: config.dzp,
-          source: 'referral',
-          dzpBucket: 'earned_dzp',
+          source: "referral",
+          dzpBucket: "earned_dzp",
         },
       ],
     });
@@ -287,7 +287,7 @@ async function activateReferral({ referredUserId, idempotencyKey }) {
 
 /** Returns the number of server-qualified referrals for a referrer. */
 async function getQualifiedReferralCount(referrerUserId) {
-  const referrer = positiveId(referrerUserId, 'referrerUserId');
+  const referrer = positiveId(referrerUserId, "referrerUserId");
   const result = await query(
     `SELECT COUNT(*)::integer AS count
      FROM referral_attributions
@@ -299,7 +299,7 @@ async function getQualifiedReferralCount(referrerUserId) {
 
 /** Returns the canonical referral attribution for a referred user. */
 async function getReferralByReferredUser(referredUserId) {
-  const referred = positiveId(referredUserId, 'referredUserId');
+  const referred = positiveId(referredUserId, "referredUserId");
   const result = await query(
     `SELECT * FROM referral_attributions WHERE referred_user_id = $1`,
     [referred],

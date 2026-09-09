@@ -1,28 +1,28 @@
-'use strict';
+"use strict";
 
-const { decodeTonAddress } = require('./admin-settings-service');
+const { decodeTonAddress } = require("./admin-settings-service");
 
 const NETWORK_BASE_URLS = Object.freeze({
-  mainnet: 'https://toncenter.com/api/v3',
-  testnet: 'https://testnet.toncenter.com/api/v3',
+  mainnet: "https://toncenter.com/api/v3",
+  testnet: "https://testnet.toncenter.com/api/v3",
 });
 
 function assertNetwork(network) {
   if (!Object.prototype.hasOwnProperty.call(NETWORK_BASE_URLS, network))
-    throw new Error('Unsupported TON network');
+    throw new Error("Unsupported TON network");
 }
 function toRawAddress(address) {
   const decoded = decodeTonAddress(address);
-  const encoded = address.replace(/-/g, '+').replace(/_/g, '/');
-  const bytes = Buffer.from(encoded, 'base64');
-  return `${decoded.workchain}:${bytes.subarray(2, 34).toString('hex')}`;
+  const encoded = address.replace(/-/g, "+").replace(/_/g, "/");
+  const bytes = Buffer.from(encoded, "base64");
+  return `${decoded.workchain}:${bytes.subarray(2, 34).toString("hex")}`;
 }
 function canonicalAddress(address) {
-  if (typeof address !== 'string')
-    throw new Error('TON address must be a string');
+  if (typeof address !== "string")
+    throw new Error("TON address must be a string");
   const value = address.trim();
   if (/^-?\d+:[0-9a-fA-F]{64}$/.test(value)) {
-    const [workchain, hash] = value.split(':');
+    const [workchain, hash] = value.split(":");
     return `${Number(workchain)}:${hash.toLowerCase()}`;
   }
   return toRawAddress(value);
@@ -30,30 +30,30 @@ function canonicalAddress(address) {
 function tonToNano(value) {
   const text = String(value).trim();
   if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text))
-    throw new Error('TON amount must be a positive decimal');
-  const [whole, fraction = ''] = text.split('.');
+    throw new Error("TON amount must be a positive decimal");
+  const [whole, fraction = ""] = text.split(".");
   if (fraction.length > 9)
-    throw new Error('TON amount exceeds nanoTON precision');
+    throw new Error("TON amount exceeds nanoTON precision");
   const nano =
-    BigInt(whole || '0') * 1000000000n +
-    BigInt((fraction + '000000000').slice(0, 9) || '0');
-  if (nano <= 0n) throw new Error('TON amount must be positive');
+    BigInt(whole || "0") * 1000000000n +
+    BigInt((fraction + "000000000").slice(0, 9) || "0");
+  if (nano <= 0n) throw new Error("TON amount must be positive");
   return nano;
 }
 function assertTransactionHash(txHash) {
-  if (typeof txHash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(txHash.trim()))
+  if (typeof txHash !== "string" || !/^[0-9a-fA-F]{64}$/.test(txHash.trim()))
     throw new Error(
-      'TON transaction hash must be a 64-character hexadecimal hash',
+      "TON transaction hash must be a 64-character hexadecimal hash",
     );
   return txHash.trim().toLowerCase();
 }
 function hashToHex(value) {
-  const text = String(value || '').trim();
+  const text = String(value || "").trim();
   if (/^[0-9a-fA-F]{64}$/.test(text)) return text.toLowerCase();
-  const normalized = text.replace(/-/g, '+').replace(/_/g, '/');
+  const normalized = text.replace(/-/g, "+").replace(/_/g, "/");
   try {
-    const bytes = Buffer.from(normalized, 'base64');
-    if (bytes.length === 32) return bytes.toString('hex');
+    const bytes = Buffer.from(normalized, "base64");
+    if (bytes.length === 32) return bytes.toString("hex");
   } catch {}
   return null;
 }
@@ -63,10 +63,10 @@ function hashesEqual(left, right) {
   return Boolean(leftHex && rightHex && leftHex === rightHex);
 }
 async function fetchJson(url, apiKey, fetchImpl = globalThis.fetch) {
-  if (typeof fetchImpl !== 'function')
-    throw new Error('Fetch implementation is required');
+  if (typeof fetchImpl !== "function")
+    throw new Error("Fetch implementation is required");
   const response = await fetchImpl(url, {
-    headers: apiKey ? { 'X-API-Key': apiKey } : {},
+    headers: apiKey ? { "X-API-Key": apiKey } : {},
   });
   if (!response.ok) throw new Error(`TON provider HTTP ${response.status}`);
   return response.json();
@@ -84,7 +84,7 @@ function findTransaction(payload, txHash) {
 }
 function findTraceTransaction(trace, txHash) {
   const transactions = trace?.transactions;
-  if (!transactions || typeof transactions !== 'object') return null;
+  if (!transactions || typeof transactions !== "object") return null;
   return (
     Object.values(transactions).find(
       (tx) =>
@@ -116,26 +116,26 @@ function assertIncomingTransfer(
   expectedNano,
 ) {
   if (!transaction?.in_msg)
-    throw new Error('TON transaction has no inbound message');
+    throw new Error("TON transaction has no inbound message");
   if (transaction.description?.aborted)
-    throw new Error('TON transaction was aborted');
+    throw new Error("TON transaction was aborted");
   if (transaction.in_msg.bounced)
-    throw new Error('TON inbound message was bounced');
+    throw new Error("TON inbound message was bounced");
   const destination = canonicalAddress(transaction.in_msg.destination);
   const account = canonicalAddress(transaction.account);
   const expected = canonicalAddress(expectedDestination);
   if (destination !== expected || account !== expected)
-    throw new Error('TON transaction destination mismatch');
-  const actualNano = BigInt(String(transaction.in_msg.value || '0'));
+    throw new Error("TON transaction destination mismatch");
+  const actualNano = BigInt(String(transaction.in_msg.value || "0"));
   if (actualNano !== expectedNano)
-    throw new Error('TON transaction amount mismatch');
+    throw new Error("TON transaction amount mismatch");
 }
 async function verifyTonDeposit({
   network,
   txHash,
   expectedAmountTon,
   expectedDestination,
-  apiKey = '',
+  apiKey = "",
   fetchImpl,
   baseUrl,
 }) {
@@ -143,7 +143,7 @@ async function verifyTonDeposit({
   const hash = assertTransactionHash(txHash);
   const expectedNano = tonToNano(expectedAmountTon);
   const destination = canonicalAddress(expectedDestination);
-  const root = (baseUrl || NETWORK_BASE_URLS[network]).replace(/\/$/, '');
+  const root = (baseUrl || NETWORK_BASE_URLS[network]).replace(/\/$/, "");
   let transactionPayload;
   let tracePayload;
   try {
@@ -159,8 +159,8 @@ async function verifyTonDeposit({
     );
   } catch (error) {
     return {
-      status: 'HOLD',
-      reason: 'PROVIDER_FAILURE',
+      status: "HOLD",
+      reason: "PROVIDER_FAILURE",
       providerError: error.message,
     };
   }
@@ -168,15 +168,15 @@ async function verifyTonDeposit({
   const transaction =
     findTransaction(transactionPayload, hash) ||
     findTraceTransaction(trace, hash);
-  if (!transaction) return { status: 'HOLD', reason: 'TRANSACTION_NOT_FOUND' };
+  if (!transaction) return { status: "HOLD", reason: "TRANSACTION_NOT_FOUND" };
   if (!traceBindsToTransaction(trace, hash))
     return {
-      status: 'HOLD',
-      reason: 'TRACE_TRANSACTION_MISMATCH',
+      status: "HOLD",
+      reason: "TRACE_TRANSACTION_MISMATCH",
       transaction,
     };
   if (!isFinalized(trace))
-    return { status: 'HOLD', reason: 'NOT_FINALIZED', transaction };
+    return { status: "HOLD", reason: "NOT_FINALIZED", transaction };
   let currentMasterchainSeqno;
   try {
     const payload = await fetchJson(
@@ -187,19 +187,19 @@ async function verifyTonDeposit({
     currentMasterchainSeqno = masterchainSeqno(payload);
   } catch (error) {
     return {
-      status: 'HOLD',
-      reason: 'MASTERCHAIN_INFO_UNAVAILABLE',
+      status: "HOLD",
+      reason: "MASTERCHAIN_INFO_UNAVAILABLE",
       providerError: error.message,
       transaction,
     };
   }
   const evidenceMasterchainSeqno = Number(trace.mc_seqno_end);
   if (currentMasterchainSeqno === null)
-    return { status: 'HOLD', reason: 'MASTERCHAIN_INFO_INVALID', transaction };
+    return { status: "HOLD", reason: "MASTERCHAIN_INFO_INVALID", transaction };
   if (currentMasterchainSeqno < evidenceMasterchainSeqno) {
     return {
-      status: 'HOLD',
-      reason: 'MASTERCHAIN_BEHIND_EVIDENCE',
+      status: "HOLD",
+      reason: "MASTERCHAIN_BEHIND_EVIDENCE",
       transaction,
       evidenceMasterchainSeqno,
       observedMasterchainSeqno: currentMasterchainSeqno,
@@ -208,15 +208,15 @@ async function verifyTonDeposit({
   try {
     assertIncomingTransfer(transaction, destination, expectedNano);
   } catch (error) {
-    return { status: 'REJECT', reason: error.message, transaction };
+    return { status: "REJECT", reason: error.message, transaction };
   }
   return {
-    status: 'VERIFIED',
+    status: "VERIFIED",
     network,
     transactionHash: hash,
     destination,
     amountNano: expectedNano.toString(),
-    finality: 'FINALIZED',
+    finality: "FINALIZED",
     masterchainSeqno: evidenceMasterchainSeqno,
     observedMasterchainSeqno: currentMasterchainSeqno,
     transaction,

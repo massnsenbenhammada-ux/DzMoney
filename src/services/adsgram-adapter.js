@@ -3,9 +3,9 @@ const {
   ADSGRAM_BLOCK_ID,
   ADSGRAM_ENABLED,
   assertAdsgramConfiguration,
-} = require('../config/adsgram');
+} = require("../config/adsgram");
 
-const ADSGRAM_CONTEXTS = ['task', 'squad'];
+const ADSGRAM_CONTEXTS = ["task", "squad"];
 
 function createAdsgramProvider() {
   assertAdsgramConfiguration();
@@ -18,16 +18,16 @@ function createAdsgramProvider() {
         payload.providerConfirmed === true && payload.clientCompleted === true;
       return {
         verified,
-        reference: String(payload.reference || ''),
+        reference: String(payload.reference || ""),
         metadata: { blockId: ADSGRAM_BLOCK_ID },
       };
     },
     async verifyServerCompletion(payload = {}) {
       const userId = payload.userId == null ? null : String(payload.userId);
       const reference =
-        payload.reference == null ? '' : String(payload.reference);
-      const blockId = payload.blockId == null ? '' : String(payload.blockId);
-      const context = payload.context == null ? '' : String(payload.context);
+        payload.reference == null ? "" : String(payload.reference);
+      const blockId = payload.blockId == null ? "" : String(payload.blockId);
+      const context = payload.context == null ? "" : String(payload.context);
       const verified =
         payload.providerConfirmed === true &&
         payload.clientCompleted === true &&
@@ -41,7 +41,7 @@ function createAdsgramProvider() {
         userId,
         providerId: ADSGRAM_PROVIDER_ID,
         context,
-        metadata: { blockId, source: 'adsgram_reward_url' },
+        metadata: { blockId, source: "adsgram_reward_url" },
       };
     },
   };

@@ -1,4 +1,4 @@
-const assert = require('assert');
+const assert = require("assert");
 const {
   AD_PROVIDER_CONTEXTS,
   SQUAD_PROVIDER_ORDER,
@@ -7,7 +7,7 @@ const {
   selectNextProvider,
   getProviderForVerification,
   verifyWithProvider,
-} = require('../src/services/ad-provider-service');
+} = require("../src/services/ad-provider-service");
 
 function provider(id, contexts, overrides = {}) {
   return {
@@ -25,73 +25,73 @@ function provider(id, contexts, overrides = {}) {
 
 function testContextSelection() {
   const registry = new AdProviderRegistry([
-    provider('first', ['verification']),
-    provider('second', ['verification']),
+    provider("first", ["verification"]),
+    provider("second", ["verification"]),
   ]);
   assert.strictEqual(
-    selectNextProvider(registry, { context: 'verification' }).id,
-    'first',
+    selectNextProvider(registry, { context: "verification" }).id,
+    "first",
   );
   assert.strictEqual(
     selectNextProvider(registry, {
-      context: 'verification',
-      previousProviderId: 'first',
+      context: "verification",
+      previousProviderId: "first",
     }).id,
-    'second',
+    "second",
   );
   assert.strictEqual(
     selectNextProvider(registry, {
-      context: 'verification',
-      previousProviderId: 'second',
+      context: "verification",
+      previousProviderId: "second",
     }).id,
-    'first',
+    "first",
   );
-  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('gaming'), true);
-  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('squad'), true);
-  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes('reward_pool'), false);
+  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes("gaming"), true);
+  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes("squad"), true);
+  assert.strictEqual(AD_PROVIDER_CONTEXTS.includes("reward_pool"), false);
 }
 
 function testSquadRotationOrder() {
   const registry = new AdProviderRegistry([
-    provider('gigapub', ['squad']),
-    provider('onclicka', ['squad']),
-    provider('monetag', ['squad']),
-    provider('adsgram', ['squad']),
+    provider("gigapub", ["squad"]),
+    provider("onclicka", ["squad"]),
+    provider("monetag", ["squad"]),
+    provider("adsgram", ["squad"]),
   ]);
   assert.deepStrictEqual(SQUAD_PROVIDER_ORDER, [
-    'monetag',
-    'adsgram',
-    'onclicka',
+    "monetag",
+    "adsgram",
+    "onclicka",
   ]);
   assert.strictEqual(
-    selectNextProvider(registry, { context: 'squad' }).id,
-    'monetag',
+    selectNextProvider(registry, { context: "squad" }).id,
+    "monetag",
   );
   assert.strictEqual(
     selectNextProvider(registry, {
-      context: 'squad',
-      previousProviderId: 'monetag',
+      context: "squad",
+      previousProviderId: "monetag",
     }).id,
-    'adsgram',
+    "adsgram",
   );
   assert.strictEqual(
     selectNextProvider(registry, {
-      context: 'squad',
-      previousProviderId: 'adsgram',
+      context: "squad",
+      previousProviderId: "adsgram",
     }).id,
-    'onclicka',
+    "onclicka",
   );
   assert.strictEqual(
     selectNextProvider(registry, {
-      context: 'squad',
-      previousProviderId: 'onclicka',
+      context: "squad",
+      previousProviderId: "onclicka",
     }).id,
-    'monetag',
+    "monetag",
   );
-  registry.setContextEnabled('monetag', 'squad', false);
+  registry.setContextEnabled("monetag", "squad", false);
   assert.strictEqual(
-    selectNextProvider(registry, { context: 'squad' }).id,
-    'adsgram',
+    selectNextProvider(registry, { context: "squad" }).id,
+    "adsgram",
   );
 }
 
@@ -99,19 +99,19 @@ function testProviderValidation() {
   assert.throws(
     () =>
       new AdProviderRegistry([
-        provider('duplicate', ['verification']),
-        provider('duplicate', ['verification']),
+        provider("duplicate", ["verification"]),
+        provider("duplicate", ["verification"]),
       ]),
     /Duplicate advertisement provider/,
   );
   assert.throws(
-    () => new AdProviderRegistry([provider('bad-context', ['unknown'])]),
+    () => new AdProviderRegistry([provider("bad-context", ["unknown"])]),
     /Invalid advertisement context/,
   );
   assert.throws(
     () =>
       new AdProviderRegistry([
-        provider('no-verify', ['verification'], { verifyCompletion: null }),
+        provider("no-verify", ["verification"], { verifyCompletion: null }),
       ]),
     /verifyCompletion/,
   );
@@ -119,79 +119,79 @@ function testProviderValidation() {
 
 function testDisabledProviderIsSkipped() {
   const registry = new AdProviderRegistry([
-    provider('first', ['verification']),
-    provider('disabled', ['verification'], { enabled: false }),
-    provider('third', ['verification']),
+    provider("first", ["verification"]),
+    provider("disabled", ["verification"], { enabled: false }),
+    provider("third", ["verification"]),
   ]);
   assert.strictEqual(
     selectNextProvider(registry, {
-      context: 'verification',
-      previousProviderId: 'first',
+      context: "verification",
+      previousProviderId: "first",
     }).id,
-    'third',
+    "third",
   );
   assert.strictEqual(
     selectNextProvider(registry, {
-      context: 'verification',
-      previousProviderId: 'third',
+      context: "verification",
+      previousProviderId: "third",
     }).id,
-    'first',
+    "first",
   );
 }
 
 async function testVerificationUsesRecordedProviderOnly() {
   const registry = new AdProviderRegistry([
-    provider('first', ['verification'], {
+    provider("first", ["verification"], {
       verifyCompletion: async () => {
-        throw new ProviderUnavailableError('first');
+        throw new ProviderUnavailableError("first");
       },
     }),
-    provider('second', ['verification']),
+    provider("second", ["verification"]),
   ]);
   await assert.rejects(
     () =>
       verifyWithProvider(registry, {
-        context: 'verification',
-        providerId: 'first',
+        context: "verification",
+        providerId: "first",
         payload: {},
       }),
     /timed out|first/,
   );
   assert.strictEqual(
     getProviderForVerification(registry, {
-      context: 'verification',
-      providerId: 'second',
+      context: "verification",
+      providerId: "second",
     }).id,
-    'second',
+    "second",
   );
 }
 
 async function testVerifiedResult() {
   const registry = new AdProviderRegistry([
-    provider('trusted', ['verification']),
+    provider("trusted", ["verification"]),
   ]);
   const result = await verifyWithProvider(registry, {
-    context: 'verification',
-    providerId: 'trusted',
-    payload: { externalId: 'x' },
+    context: "verification",
+    providerId: "trusted",
+    payload: { externalId: "x" },
   });
   assert.deepStrictEqual(result, {
-    providerId: 'trusted',
-    verification: { verified: true, reference: 'trusted-ref' },
+    providerId: "trusted",
+    verification: { verified: true, reference: "trusted-ref" },
   });
 }
 
 async function testInvalidProviderResultFailsClosed() {
   const registry = new AdProviderRegistry([
-    provider('malformed', ['verification'], {
+    provider("malformed", ["verification"], {
       verifyCompletion: async () => ({ verified: true }),
     }),
   ]);
   await assert.rejects(
     () =>
       verifyWithProvider(registry, {
-        context: 'verification',
-        providerId: 'malformed',
+        context: "verification",
+        providerId: "malformed",
         payload: {},
       }),
     /requires a provider reference/,
@@ -201,38 +201,38 @@ async function testInvalidProviderResultFailsClosed() {
 function testNoProviderFailsClosed() {
   const registry = new AdProviderRegistry([]);
   assert.throws(
-    () => selectNextProvider(registry, { context: 'verification' }),
+    () => selectNextProvider(registry, { context: "verification" }),
     /No advertisement provider available/,
   );
 }
 
 function testAdminCanDisableOneContextOnly() {
   const registry = new AdProviderRegistry([
-    provider('multi', ['task', 'verification', 'daily_checkin', 'gaming']),
+    provider("multi", ["task", "verification", "daily_checkin", "gaming"]),
   ]);
-  registry.setContextEnabled('multi', 'daily_checkin', false);
+  registry.setContextEnabled("multi", "daily_checkin", false);
   assert.strictEqual(
-    selectNextProvider(registry, { context: 'task' }).id,
-    'multi',
+    selectNextProvider(registry, { context: "task" }).id,
+    "multi",
   );
   assert.strictEqual(
-    selectNextProvider(registry, { context: 'verification' }).id,
-    'multi',
+    selectNextProvider(registry, { context: "verification" }).id,
+    "multi",
   );
   assert.throws(
-    () => selectNextProvider(registry, { context: 'daily_checkin' }),
+    () => selectNextProvider(registry, { context: "daily_checkin" }),
     /No advertisement provider available/,
   );
   assert.strictEqual(
-    selectNextProvider(registry, { context: 'gaming' }).id,
-    'multi',
+    selectNextProvider(registry, { context: "gaming" }).id,
+    "multi",
   );
 }
 
 function testContextEnablementRejectsUnknownContext() {
-  const registry = new AdProviderRegistry([provider('multi', ['task'])]);
+  const registry = new AdProviderRegistry([provider("multi", ["task"])]);
   assert.throws(
-    () => registry.setContextEnabled('multi', 'unknown', false),
+    () => registry.setContextEnabled("multi", "unknown", false),
     /Invalid advertisement context/,
   );
 }
@@ -249,9 +249,9 @@ function testContextEnablementRejectsUnknownContext() {
     testNoProviderFailsClosed();
     testAdminCanDisableOneContextOnly();
     testContextEnablementRejectsUnknownContext();
-    console.log('Multi-provider advertisement rotation invariants: PASS');
+    console.log("Multi-provider advertisement rotation invariants: PASS");
   } catch (error) {
-    console.error('Multi-provider advertisement rotation invariants: FAIL');
+    console.error("Multi-provider advertisement rotation invariants: FAIL");
     console.error(error);
     process.exitCode = 1;
   }

@@ -1,14 +1,14 @@
-const { query, withTransaction } = require('../db/pool');
+const { query, withTransaction } = require("../db/pool");
 
 const DEFAULT_TARGET_PER_MEMBER = 10;
 const DEFAULT_VERIFIED_AD_TARGET = 10;
-const UTC_PLUS_ONE = 'Etc/GMT-1';
+const UTC_PLUS_ONE = "Etc/GMT-1";
 
 function dayDate(value = null) {
   if (value) {
     const text = String(value).slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(text))
-      throw new Error('day must be YYYY-MM-DD');
+      throw new Error("day must be YYYY-MM-DD");
     return text;
   }
   return new Date(Date.now() + 3600000).toISOString().slice(0, 10);
@@ -20,7 +20,7 @@ function nextDay(value) {
       ? value.toISOString().slice(0, 10)
       : String(value).slice(0, 10);
   const date = new Date(`${text}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) throw new Error('Invalid daily state date');
+  if (Number.isNaN(date.getTime())) throw new Error("Invalid daily state date");
   date.setUTCDate(date.getUTCDate() + 1);
   return date.toISOString().slice(0, 10);
 }
@@ -28,14 +28,14 @@ function nextDay(value) {
 function previousDay(value) {
   const text = String(value).slice(0, 10);
   const date = new Date(`${text}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) throw new Error('Invalid daily state date');
+  if (Number.isNaN(date.getTime())) throw new Error("Invalid daily state date");
   date.setUTCDate(date.getUTCDate() - 1);
   return date.toISOString().slice(0, 10);
 }
 
 async function settingNumber(client, key, fallback) {
   const result = await client.query(
-    'SELECT value FROM admin_settings WHERE key=$1',
+    "SELECT value FROM admin_settings WHERE key=$1",
     [key],
   );
   if (!result.rowCount) return fallback;
@@ -45,21 +45,21 @@ async function settingNumber(client, key, fallback) {
 
 function modifierRate(contribution) {
   const value = Number(contribution);
-  if (value >= 10000) return '1';
-  if (value >= 5000) return '0.5';
-  if (value >= 1500) return '0.15';
-  return '0';
+  if (value >= 10000) return "1";
+  if (value >= 5000) return "0.5";
+  if (value >= 1500) return "0.15";
+  return "0";
 }
 
 async function ensureDailyState(client, squadId, day) {
   const existing = await client.query(
-    'SELECT * FROM squad_daily_states WHERE squad_id=$1 AND day_date=$2 FOR UPDATE',
+    "SELECT * FROM squad_daily_states WHERE squad_id=$1 AND day_date=$2 FOR UPDATE",
     [squadId, day],
   );
   if (existing.rowCount) return existing.rows[0];
   const targetPerMember = await settingNumber(
     client,
-    'squad.daily_target_dzp_per_member',
+    "squad.daily_target_dzp_per_member",
     DEFAULT_TARGET_PER_MEMBER,
   );
   const inserted = await client.query(
@@ -109,16 +109,16 @@ async function refreshContributors(
   targetReached,
 ) {
   await client.query(
-    'DELETE FROM squad_daily_contributors WHERE squad_daily_state_id=$1',
+    "DELETE FROM squad_daily_contributors WHERE squad_daily_state_id=$1",
     [state.id],
   );
   if (!targetReached && !activityReached) return;
   const conditions =
     targetReached && activityReached
-      ? '(activity.user_id IS NOT NULL OR COALESCE(dzp.contribution,0) > 0)'
+      ? "(activity.user_id IS NOT NULL OR COALESCE(dzp.contribution,0) > 0)"
       : targetReached
-        ? 'COALESCE(dzp.contribution,0) > 0'
-        : 'activity.user_id IS NOT NULL';
+        ? "COALESCE(dzp.contribution,0) > 0"
+        : "activity.user_id IS NOT NULL";
   await client.query(
     `INSERT INTO squad_daily_contributors(squad_daily_state_id,squad_id,user_id,contribution,activation_contributor)
      SELECT $1,$2,users.user_id,COALESCE(dzp.contribution,0),TRUE
@@ -158,7 +158,7 @@ async function evaluateDailyStateOnClient(client, { squadId, day }) {
   const state = await ensureDailyState(client, squadId, day);
   const metrics = await activityMetrics(client, squadId, day);
   const activeMemberCount = Number(metrics.active_member_count || 0);
-  const dzpContribution = String(metrics.dzp_contribution || '0');
+  const dzpContribution = String(metrics.dzp_contribution || "0");
   const targetReached = Number(dzpContribution) >= Number(state.daily_target);
   const activityReached =
     state.eligible_member_count > 0 &&
@@ -166,19 +166,19 @@ async function evaluateDailyStateOnClient(client, { squadId, day }) {
   const active = targetReached || activityReached;
   const activationReason =
     targetReached && activityReached
-      ? 'both'
+      ? "both"
       : targetReached
-        ? 'target'
+        ? "target"
         : activityReached
-          ? 'activity'
+          ? "activity"
           : null;
-  const rate = active ? modifierRate(dzpContribution) : '0';
+  const rate = active ? modifierRate(dzpContribution) : "0";
   const updated = await client.query(
     `UPDATE squad_daily_states SET active_member_count=$1,dzp_contribution=$2,status=$3,activation_reason=$4,modifier_rate=$5,evaluated_at=NOW() WHERE id=$6 RETURNING *`,
     [
       activeMemberCount,
       dzpContribution,
-      active ? 'active' : 'risk',
+      active ? "active" : "risk",
       activationReason,
       rate,
       state.id,
@@ -190,13 +190,13 @@ async function evaluateDailyStateOnClient(client, { squadId, day }) {
 }
 
 async function getDailySquadState({ squadId, day = null }) {
-  if (!squadId) throw new Error('squadId is required');
+  if (!squadId) throw new Error("squadId is required");
   const selectedDay = dayDate(day);
   return withTransaction(async (client) => {
-    const squad = await client.query('SELECT id FROM squads WHERE id=$1', [
+    const squad = await client.query("SELECT id FROM squads WHERE id=$1", [
       squadId,
     ]);
-    if (!squad.rowCount) throw new Error('Squad not found');
+    if (!squad.rowCount) throw new Error("Squad not found");
     const row = await evaluateDailyStateOnClient(client, {
       squadId,
       day: selectedDay,
@@ -214,7 +214,7 @@ async function getDailySquadState({ squadId, day = null }) {
       modifierRate: String(row.modifier_rate),
       verifiedAdTarget: await settingNumber(
         client,
-        'squad.daily_verified_ad_target',
+        "squad.daily_verified_ad_target",
         DEFAULT_VERIFIED_AD_TARGET,
       ),
       evaluatedAt: row.evaluated_at,
@@ -223,36 +223,36 @@ async function getDailySquadState({ squadId, day = null }) {
 }
 
 async function getApplicableSquadModifierOnClient(client, { userId, day }) {
-  if (!userId) throw new Error('userId is required');
+  if (!userId) throw new Error("userId is required");
   const applicationDay = dayDate(day);
   const previous = previousDay(applicationDay);
   const membership = await client.query(
     `SELECT sm.squad_id FROM squad_memberships sm WHERE sm.user_id=$1 AND sm.status IN ('active','inactive')`,
     [userId],
   );
-  if (!membership.rowCount) return { rate: '0', contributor: false };
+  if (!membership.rowCount) return { rate: "0", contributor: false };
   const state = await client.query(
-    'SELECT * FROM squad_daily_states WHERE squad_id=$1 AND day_date=$2',
+    "SELECT * FROM squad_daily_states WHERE squad_id=$1 AND day_date=$2",
     [membership.rows[0].squad_id, previous],
   );
   if (
     !state.rowCount ||
-    state.rows[0].status !== 'active' ||
-    String(state.rows[0].modifier_rate) === '0'
+    state.rows[0].status !== "active" ||
+    String(state.rows[0].modifier_rate) === "0"
   )
-    return { rate: '0', contributor: false };
+    return { rate: "0", contributor: false };
   const contributor = await client.query(
-    'SELECT 1 FROM squad_daily_contributors WHERE squad_daily_state_id=$1 AND user_id=$2 AND activation_contributor=TRUE',
+    "SELECT 1 FROM squad_daily_contributors WHERE squad_daily_state_id=$1 AND user_id=$2 AND activation_contributor=TRUE",
     [state.rows[0].id, userId],
   );
   return {
-    rate: contributor.rowCount ? String(state.rows[0].modifier_rate) : '0',
+    rate: contributor.rowCount ? String(state.rows[0].modifier_rate) : "0",
     contributor: Boolean(contributor.rowCount),
   };
 }
 
 async function getCurrentUserSquadState({ userId, day = null }) {
-  if (!userId) throw new Error('userId is required');
+  if (!userId) throw new Error("userId is required");
   const result = await query(
     `SELECT squad_id FROM squad_memberships WHERE user_id=$1 AND status IN ('active','inactive')`,
     [userId],

@@ -1,13 +1,13 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
 
-const index = fs.readFileSync('public/index.html', 'utf8');
-const premiumUi = fs.readFileSync('public/premium-ui.js', 'utf8');
-const premiumCss = fs.readFileSync('public/premium-ui.css', 'utf8');
-const squadCss = fs.readFileSync('public/squad.css', 'utf8');
-const squadRoutes = fs.readFileSync('src/http/squad-routes.js', 'utf8');
-const app = fs.readFileSync('public/app.js', 'utf8');
-const gaming = fs.readFileSync('public/gaming.js', 'utf8');
+const index = fs.readFileSync("public/index.html", "utf8");
+const premiumUi = fs.readFileSync("public/premium-ui.js", "utf8");
+const premiumCss = fs.readFileSync("public/premium-ui.css", "utf8");
+const squadCss = fs.readFileSync("public/squad.css", "utf8");
+const squadRoutes = fs.readFileSync("src/http/squad-routes.js", "utf8");
+const app = fs.readFileSync("public/app.js", "utf8");
+const gaming = fs.readFileSync("public/gaming.js", "utf8");
 
 assert.match(index, /data-page="home"/);
 assert.match(index, /data-page="gaming"[\s\S]*Gaming Ads[\s\S]*Tasks/);
@@ -36,9 +36,9 @@ assert.match(premiumUi, /textContent = 'Execute'/);
 assert.match(premiumUi, /phase11-squad-nav/);
 
 const observerStart = premiumUi.indexOf(
-  'const observer = new MutationObserver',
+  "const observer = new MutationObserver",
 );
-assert.ok(observerStart >= 0, 'Phase 11 MutationObserver must exist');
+assert.ok(observerStart >= 0, "Phase 11 MutationObserver must exist");
 const observerBlock = premiumUi.slice(observerStart);
 assert.match(observerBlock, /observer\.disconnect\(\)/);
 assert.match(
@@ -48,7 +48,7 @@ assert.match(
 assert.equal(
   (observerBlock.match(/updateSquadPresentation\(\)/g) || []).length,
   0,
-  'MutationObserver must not invoke async Squad API synchronization',
+  "MutationObserver must not invoke async Squad API synchronization",
 );
 
 assert.match(premiumCss, /width:min\(85vw,440px\)/);
@@ -67,8 +67,8 @@ assert.match(squadRoutes, /progressPercent/);
 
 const gamingPage = index.slice(index.indexOf('data-page="gaming"'));
 const gamingOrder = [
-  gamingPage.indexOf('Gaming Ads'),
-  gamingPage.indexOf('Tasks'),
+  gamingPage.indexOf("Gaming Ads"),
+  gamingPage.indexOf("Tasks"),
 ];
 assert.ok(
   gamingOrder[0] >= 0 && gamingOrder[1] >= 0 && gamingOrder[0] < gamingOrder[1],
@@ -76,13 +76,13 @@ assert.ok(
 assert.match(gaming, /setAll\('\[data-spin-balance\]'/);
 assert.match(gaming, /setAll\('\[data-axe-balance\]'/);
 
-const nonDailyTask = app.slice(app.indexOf('if (!isDaily)'));
+const nonDailyTask = app.slice(app.indexOf("if (!isDaily)"));
 assert.match(nonDailyTask, /data-task-open=/);
 assert.match(nonDailyTask, /data-task-verify=/);
 assert.match(nonDailyTask, /task-verify-action/);
 
 const navMatch = index.match(/<nav class="bottom-nav"[\s\S]*?<\/nav>/);
-assert.ok(navMatch, 'Bottom navigation must exist');
+assert.ok(navMatch, "Bottom navigation must exist");
 assert.equal((navMatch[0].match(/class="nav-item/g) || []).length, 5);
 const nav = navMatch[0];
 assert.ok(nav.indexOf('data-go="tasks"') < nav.indexOf('data-go="squad"'));
@@ -92,4 +92,4 @@ assert.match(
   /\.phase11-squad-nav\{[^}]*transform:translateY\(-8px\)/,
 );
 
-console.log('Phase 11 UI contract checks passed.');
+console.log("Phase 11 UI contract checks passed.");

@@ -1,37 +1,37 @@
-'use strict';
+"use strict";
 
-const { withTransaction, query } = require('../db/pool');
+const { withTransaction, query } = require("../db/pool");
 const {
   postEconomyTransactionOnClient,
   TON_DZX,
-} = require('./economy-service');
-const { verifyTonDeposit } = require('./ton-blockchain-verifier');
+} = require("./economy-service");
+const { verifyTonDeposit } = require("./ton-blockchain-verifier");
 const {
   getTonDepositAddresses,
   normalizeTonAddress,
-} = require('./admin-settings-service');
+} = require("./admin-settings-service");
 
 const NUMERIC_PATTERN = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/;
 const NUMERIC_SCALE = 9;
-const TON_NETWORKS = new Set(['mainnet', 'testnet']);
+const TON_NETWORKS = new Set(["mainnet", "testnet"]);
 
 function positiveNumeric(value, name) {
   const text = String(value).trim();
   if (!NUMERIC_PATTERN.test(text))
     throw new Error(`${name} must be a valid decimal number`);
-  const [integerPart, fractionPart = ''] = text.replace('-', '').split('.');
+  const [integerPart, fractionPart = ""] = text.replace("-", "").split(".");
   if (
-    integerPart.replace(/^0+/, '').length > 21 ||
+    integerPart.replace(/^0+/, "").length > 21 ||
     fractionPart.length > NUMERIC_SCALE
   )
     throw new Error(`${name} exceeds NUMERIC(30,9) precision`);
-  if (text.startsWith('-') || /^0+(?:\.0*)?$/.test(text))
+  if (text.startsWith("-") || /^0+(?:\.0*)?$/.test(text))
     throw new Error(`${name} must be a positive number`);
   return text;
 }
 async function settingNumber(client, key, fallback) {
   const result = await client.query(
-    'SELECT value FROM admin_settings WHERE key=$1',
+    "SELECT value FROM admin_settings WHERE key=$1",
     [key],
   );
   if (!result.rowCount) return fallback;
@@ -40,24 +40,24 @@ async function settingNumber(client, key, fallback) {
 }
 async function settingBoolean(client, key, fallback) {
   const result = await client.query(
-    'SELECT value FROM admin_settings WHERE key=$1',
+    "SELECT value FROM admin_settings WHERE key=$1",
     [key],
   );
   if (!result.rowCount) return fallback;
   const value = result.rows[0].value;
-  if (typeof value === 'boolean') return value;
-  if (value === 'true' || value === 'false') return value === 'true';
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === "false") return value === "true";
   return fallback;
 }
 async function settingNetwork(client) {
   const result = await client.query(
-    'SELECT value FROM admin_settings WHERE key=$1',
-    ['deposit.ton.active_network'],
+    "SELECT value FROM admin_settings WHERE key=$1",
+    ["deposit.ton.active_network"],
   );
-  const value = result.rowCount ? result.rows[0].value : 'mainnet';
-  const network = typeof value === 'string' ? value : value?.network;
+  const value = result.rowCount ? result.rows[0].value : "mainnet";
+  const network = typeof value === "string" ? value : value?.network;
   if (!TON_NETWORKS.has(network))
-    throw new Error('Invalid configured TON deposit network');
+    throw new Error("Invalid configured TON deposit network");
   return network;
 }
 async function getDepositSettings() {
@@ -67,17 +67,17 @@ async function getDepositSettings() {
   return Object.fromEntries(result.rows.map((row) => [row.key, row.value]));
 }
 function assertTxHash(txHash) {
-  if (typeof txHash !== 'string' || !/^[0-9a-fA-F]{64}$/.test(txHash.trim()))
-    throw new Error('txHash must be a 64-character hexadecimal hash');
+  if (typeof txHash !== "string" || !/^[0-9a-fA-F]{64}$/.test(txHash.trim()))
+    throw new Error("txHash must be a 64-character hexadecimal hash");
   return txHash.trim().toLowerCase();
 }
 function tonToNano(value) {
-  const text = positiveNumeric(value, 'tonAmount');
-  const [whole, fraction = ''] = text.split('.');
+  const text = positiveNumeric(value, "tonAmount");
+  const [whole, fraction = ""] = text.split(".");
   if (fraction.length > 9)
-    throw new Error('tonAmount exceeds nanoTON precision');
+    throw new Error("tonAmount exceeds nanoTON precision");
   return (
-    BigInt(whole) * 1000000000n + BigInt((fraction + '000000000').slice(0, 9))
+    BigInt(whole) * 1000000000n + BigInt((fraction + "000000000").slice(0, 9))
   );
 }
 async function expireStalePendingDeposits(client, userId, timeoutHours) {
@@ -87,7 +87,7 @@ async function expireStalePendingDeposits(client, userId, timeoutHours) {
   );
 }
 async function reserveDailyDepositQuota(client, userId, tonAmount) {
-  const limit = await settingNumber(client, 'deposit.daily_limit_ton', 10);
+  const limit = await settingNumber(client, "deposit.daily_limit_ton", 10);
   await client.query(
     `INSERT INTO deposit_daily_usage (user_id,usage_date,ton_used) VALUES ($1,CURRENT_DATE,0) ON CONFLICT (user_id,usage_date) DO NOTHING`,
     [userId],
@@ -113,9 +113,9 @@ async function creditConfirmedDeposit(
   return postEconomyTransactionOnClient(client, {
     idempotencyKey: `deposit:${deposit.id}`,
     userId: deposit.user_id,
-    type: 'DEPOSIT',
+    type: "DEPOSIT",
     metadata: {
-      source: 'deposit',
+      source: "deposit",
       deposit_id: deposit.id,
       blockchain: deposit.blockchain,
       tx_hash: deposit.tx_hash,
@@ -128,14 +128,14 @@ async function creditConfirmedDeposit(
       ...extraMetadata,
     },
     movements: [
-      { currency: 'DZX', amount: deposit.dzx_amount, source: 'deposit' },
+      { currency: "DZX", amount: deposit.dzx_amount, source: "deposit" },
     ],
   });
 }
 async function calculateDZX(client, tonAmount) {
-  const rate = await settingNumber(client, 'economy.dzx_per_ton', TON_DZX);
+  const rate = await settingNumber(client, "economy.dzx_per_ton", TON_DZX);
   const result = await client.query(
-    'SELECT $1::numeric * $2::numeric AS dzx_amount',
+    "SELECT $1::numeric * $2::numeric AS dzx_amount",
     [tonAmount, String(rate)],
   );
   return { rate, dzxAmount: result.rows[0].dzx_amount };
@@ -148,38 +148,38 @@ async function processDeposit({
   confirmationCount = 0,
   metadata = {},
 }) {
-  if (!idempotencyKey) throw new Error('idempotencyKey is required');
-  if (!userId) throw new Error('userId is required');
+  if (!idempotencyKey) throw new Error("idempotencyKey is required");
+  if (!userId) throw new Error("userId is required");
   const hash = assertTxHash(txHash);
-  const amount = positiveNumeric(tonAmount, 'tonAmount');
+  const amount = positiveNumeric(tonAmount, "tonAmount");
   const confirmations = Number(confirmationCount);
   if (!Number.isInteger(confirmations) || confirmations < 0)
-    throw new Error('confirmationCount must be a non-negative integer');
+    throw new Error("confirmationCount must be a non-negative integer");
   if (confirmations > 0)
     throw new Error(
-      'Blockchain confirmation must come from TON Evidence Verifier',
+      "Blockchain confirmation must come from TON Evidence Verifier",
     );
   return withTransaction(async (client) => {
-    if (!(await settingBoolean(client, 'deposit.enabled', true)))
-      throw new Error('Deposits are disabled');
+    if (!(await settingBoolean(client, "deposit.enabled", true)))
+      throw new Error("Deposits are disabled");
     const network = await settingNetwork(client);
     const timeoutHours = await settingNumber(
       client,
-      'deposit.pending_timeout_hours',
+      "deposit.pending_timeout_hours",
       24,
     );
     await expireStalePendingDeposits(client, userId, timeoutHours);
     const existingTx = await client.query(
-      'SELECT * FROM deposits WHERE tx_hash=$1 FOR SHARE',
+      "SELECT * FROM deposits WHERE tx_hash=$1 FOR SHARE",
       [hash],
     );
     if (
       existingTx.rowCount &&
       existingTx.rows[0].idempotency_key !== idempotencyKey
     )
-      throw new Error('Blockchain transaction has already been recorded');
+      throw new Error("Blockchain transaction has already been recorded");
     const requiredConfirmations = Math.floor(
-      await settingNumber(client, 'deposit.required_confirmations', 1),
+      await settingNumber(client, "deposit.required_confirmations", 1),
     );
     const { rate, dzxAmount } = await calculateDZX(client, amount);
     const inserted = await client.query(
@@ -192,16 +192,16 @@ async function processDeposit({
         amount,
         dzxAmount,
         requiredConfirmations,
-        { ...metadata, source: 'deposit', network, rate_dzx_per_ton: rate },
+        { ...metadata, source: "deposit", network, rate_dzx_per_ton: rate },
       ],
     );
     if (!inserted.rowCount) {
       const existing = await client.query(
-        'SELECT * FROM deposits WHERE idempotency_key=$1 FOR SHARE',
+        "SELECT * FROM deposits WHERE idempotency_key=$1 FOR SHARE",
         [idempotencyKey],
       );
       if (!existing.rowCount)
-        throw new Error('Unable to resolve idempotent deposit');
+        throw new Error("Unable to resolve idempotent deposit");
       const previous = existing.rows[0];
       if (
         String(previous.user_id) !== String(userId) ||
@@ -209,12 +209,12 @@ async function processDeposit({
         previous.ton_amount !== amount
       )
         throw new Error(
-          'Idempotency key was already used with different deposit data',
+          "Idempotency key was already used with different deposit data",
         );
       return {
         deposit: previous,
         duplicate: true,
-        credited: previous.status === 'CONFIRMED',
+        credited: previous.status === "CONFIRMED",
       };
     }
     return { deposit: inserted.rows[0], duplicate: false, credited: false };
@@ -222,7 +222,7 @@ async function processDeposit({
 }
 async function verifyStoredDeposit(deposit) {
   if (!TON_NETWORKS.has(deposit.network))
-    throw new Error('Deposit has no valid TON network');
+    throw new Error("Deposit has no valid TON network");
   const addresses = await getTonDepositAddresses();
   const configured = addresses[`deposit.ton.${deposit.network}_address`];
   if (!configured)
@@ -240,38 +240,38 @@ async function verifyStoredDeposit(deposit) {
   });
 }
 async function confirmDeposit({ idempotencyKey, metadata = {} }) {
-  if (!idempotencyKey) throw new Error('idempotencyKey is required');
+  if (!idempotencyKey) throw new Error("idempotencyKey is required");
   const initial = await query(
-    'SELECT * FROM deposits WHERE idempotency_key=$1',
+    "SELECT * FROM deposits WHERE idempotency_key=$1",
     [idempotencyKey],
   );
-  if (!initial.rowCount) throw new Error('Deposit not found');
+  if (!initial.rowCount) throw new Error("Deposit not found");
   const before = initial.rows[0];
-  if (before.status === 'REJECTED')
-    throw new Error('Rejected deposit cannot be confirmed');
-  if (before.status === 'CONFIRMED')
+  if (before.status === "REJECTED")
+    throw new Error("Rejected deposit cannot be confirmed");
+  if (before.status === "CONFIRMED")
     return { deposit: before, duplicate: true, credited: true };
   const verification = await verifyStoredDeposit(before);
   return withTransaction(async (client) => {
     const row = await client.query(
-      'SELECT * FROM deposits WHERE idempotency_key=$1 FOR UPDATE',
+      "SELECT * FROM deposits WHERE idempotency_key=$1 FOR UPDATE",
       [idempotencyKey],
     );
-    if (!row.rowCount) throw new Error('Deposit not found');
+    if (!row.rowCount) throw new Error("Deposit not found");
     const deposit = row.rows[0];
-    if (deposit.status === 'REJECTED')
-      throw new Error('Rejected deposit cannot be confirmed');
-    if (deposit.status === 'CONFIRMED')
+    if (deposit.status === "REJECTED")
+      throw new Error("Rejected deposit cannot be confirmed");
+    if (deposit.status === "CONFIRMED")
       return { deposit, duplicate: true, credited: true };
     if (
       deposit.tx_hash !== before.tx_hash ||
       deposit.network !== before.network ||
       deposit.ton_amount !== before.ton_amount
     )
-      throw new Error('Deposit changed during blockchain verification');
+      throw new Error("Deposit changed during blockchain verification");
     const timeoutHours = await settingNumber(
       client,
-      'deposit.pending_timeout_hours',
+      "deposit.pending_timeout_hours",
       24,
     );
     if (
@@ -289,13 +289,13 @@ async function confirmDeposit({ idempotencyKey, metadata = {} }) {
         expired: true,
       };
     }
-    if (verification.status !== 'VERIFIED')
+    if (verification.status !== "VERIFIED")
       return {
         deposit,
         duplicate: false,
         credited: false,
         held: true,
-        reason: verification.reason || 'BLOCKCHAIN_EVIDENCE_NOT_VERIFIED',
+        reason: verification.reason || "BLOCKCHAIN_EVIDENCE_NOT_VERIFIED",
       };
     await reserveDailyDepositQuota(client, deposit.user_id, deposit.ton_amount);
     const economy = await creditConfirmedDeposit(
@@ -326,7 +326,7 @@ async function confirmDeposit({ idempotencyKey, metadata = {} }) {
   });
 }
 async function getDepositByTxHash(txHash) {
-  const result = await query('SELECT * FROM deposits WHERE tx_hash=$1', [
+  const result = await query("SELECT * FROM deposits WHERE tx_hash=$1", [
     assertTxHash(txHash),
   ]);
   return result.rows[0] || null;

@@ -1,6 +1,6 @@
-const assert = require('assert');
-const walletService = require('../src/services/wallet-service');
-const { pool } = require('../src/db/pool');
+const assert = require("assert");
+const walletService = require("../src/services/wallet-service");
+const { pool } = require("../src/db/pool");
 
 async function main() {
   const suffix = `${Date.now()}${Math.floor(Math.random() * 100)}`;
@@ -13,17 +13,17 @@ async function main() {
   assert.strictEqual(reopened.referral_code, created.referral_code);
 
   const result = await pool.query(
-    'SELECT COUNT(*)::integer AS count FROM users WHERE referral_code = $1',
+    "SELECT COUNT(*)::integer AS count FROM users WHERE referral_code = $1",
     [created.referral_code],
   );
   assert.strictEqual(Number(result.rows[0].count), 1);
 
-  console.log('Referral bootstrap foundation invariants: PASS');
+  console.log("Referral bootstrap foundation invariants: PASS");
 }
 
 main()
   .catch((error) => {
-    console.error('Referral bootstrap foundation invariants: FAIL');
+    console.error("Referral bootstrap foundation invariants: FAIL");
     console.error(error);
     process.exitCode = 1;
   })

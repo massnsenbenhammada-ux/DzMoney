@@ -1,14 +1,14 @@
-'use strict';
+"use strict";
 
-const { query, withTransaction } = require('../db/pool');
-const taskService = require('./task-service');
+const { query, withTransaction } = require("../db/pool");
+const taskService = require("./task-service");
 
 async function listAdminTasks({ status = null } = {}) {
   const allowed = new Set(taskService.TASK_STATUSES);
   if (status !== null && !allowed.has(status))
-    throw new Error('Invalid task status');
+    throw new Error("Invalid task status");
   const params = status === null ? [] : [status];
-  const filter = status === null ? '' : ' AND status=$1';
+  const filter = status === null ? "" : " AND status=$1";
   const result = await query(
     `SELECT id, task_type, title, description, creator_id, target, reward_coin, reward_dzx, reward_dzp,
             verification_ad_seconds, status, config, created_at, updated_at
@@ -27,15 +27,15 @@ async function reviewCreatorCampaign({
   reason,
   idempotencyKey,
 }) {
-  if (!actorTelegramUserId) throw new Error('actorTelegramUserId is required');
-  if (!reason || !String(reason).trim()) throw new Error('reason is required');
-  if (!idempotencyKey) throw new Error('idempotencyKey is required');
-  if (!['approve', 'reject'].includes(action))
-    throw new Error('Invalid review action');
+  if (!actorTelegramUserId) throw new Error("actorTelegramUserId is required");
+  if (!reason || !String(reason).trim()) throw new Error("reason is required");
+  if (!idempotencyKey) throw new Error("idempotencyKey is required");
+  if (!["approve", "reject"].includes(action))
+    throw new Error("Invalid review action");
 
   const key = `admin-task-review:${idempotencyKey}`;
   const existing = await query(
-    'SELECT response FROM idempotency_records WHERE key=$1',
+    "SELECT response FROM idempotency_records WHERE key=$1",
     [key],
   );
   if (existing.rowCount)
@@ -43,10 +43,10 @@ async function reviewCreatorCampaign({
 
   const task = await taskService.getTask(taskId);
   if (task.creator_id === null || task.creator_id === undefined)
-    throw new Error('Only creator campaigns can be reviewed');
+    throw new Error("Only creator campaigns can be reviewed");
   const previousStatus = task.status;
   const result =
-    action === 'approve'
+    action === "approve"
       ? await taskService.approveCreatorCampaign(taskId)
       : await taskService.rejectCreatorCampaign(taskId, task.creator_id);
 
@@ -74,7 +74,7 @@ async function reviewCreatorCampaign({
       ],
     );
     await client.query(
-      'INSERT INTO idempotency_records(key, response) VALUES ($1,$2::jsonb)',
+      "INSERT INTO idempotency_records(key, response) VALUES ($1,$2::jsonb)",
       [key, JSON.stringify(response)],
     );
   });

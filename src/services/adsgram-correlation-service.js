@@ -1,5 +1,5 @@
-const { withTransaction } = require('../db/pool');
-const { ADSGRAM_BLOCK_ID } = require('../config/adsgram');
+const { withTransaction } = require("../db/pool");
+const { ADSGRAM_BLOCK_ID } = require("../config/adsgram");
 
 // AdsGram deliberately has no per-impression provider id in the documented Reward URL; only a client-started event may accept provider confirmation.
 async function getPendingEvent(client, { userId, adEventId }) {
@@ -8,7 +8,7 @@ async function getPendingEvent(client, { userId, adEventId }) {
     [adEventId, userId],
   );
   if (!result.rowCount)
-    throw new Error('AdsGram advertisement event not found');
+    throw new Error("AdsGram advertisement event not found");
   return result.rows[0];
 }
 
@@ -21,9 +21,9 @@ async function markClientStarted({ userId, adEventId }) {
     const event = await getPendingEvent(client, { userId, adEventId });
     if (event.metadata?.provider_state?.client_started === true)
       return { started: true, duplicate: true, adEvent: event };
-    const state = nextState(event, 'client_started');
+    const state = nextState(event, "client_started");
     const updated = await client.query(
-      'UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1 RETURNING *',
+      "UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1 RETURNING *",
       [adEventId, JSON.stringify({ provider_state: state })],
     );
     return { started: true, duplicate: false, adEvent: updated.rows[0] };
@@ -35,8 +35,8 @@ async function markClientCompleted({ userId, adEventId }) {
     const event = await getPendingEvent(client, { userId, adEventId });
     const current = event.metadata?.provider_state || {};
     if (current.client_started !== true)
-      throw new Error('AdsGram advertisement has not started');
-    const state = nextState(event, 'client_completed');
+      throw new Error("AdsGram advertisement has not started");
+    const state = nextState(event, "client_completed");
     if (current.client_completed === true) {
       return {
         ready:
@@ -47,7 +47,7 @@ async function markClientCompleted({ userId, adEventId }) {
       };
     }
     const updated = await client.query(
-      'UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1 RETURNING *',
+      "UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1 RETURNING *",
       [adEventId, JSON.stringify({ provider_state: state })],
     );
     return finalizeIfReady(client, updated.rows[0], state);
@@ -73,7 +73,7 @@ async function markProviderConfirmed({ userTelegramId, providerReference }) {
     );
     if (!result.rowCount)
       throw new Error(
-        'No started AdsGram advertisement matches the provider callback',
+        "No started AdsGram advertisement matches the provider callback",
       );
     const event = result.rows[0];
     const current = event.metadata?.provider_state || {};
@@ -85,9 +85,9 @@ async function markProviderConfirmed({ userTelegramId, providerReference }) {
         duplicate: true,
       };
     }
-    const state = nextState(event, 'provider_confirmed');
+    const state = nextState(event, "provider_confirmed");
     const updated = await client.query(
-      'UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1 RETURNING *',
+      "UPDATE activity_ad_events SET metadata=metadata || $2::jsonb WHERE id=$1 RETURNING *",
       [
         event.id,
         JSON.stringify({
@@ -121,12 +121,12 @@ async function finalizeIfReady(client, event, state) {
       JSON.stringify({
         provider_reference: reference,
         provider_verification: {
-          provider_id: 'adsgram',
+          provider_id: "adsgram",
           block_id: ADSGRAM_BLOCK_ID,
           client_started: true,
           client_completed: true,
           provider_confirmed: true,
-          source: 'adsgram_dual_confirmation',
+          source: "adsgram_dual_confirmation",
         },
       }),
     ],

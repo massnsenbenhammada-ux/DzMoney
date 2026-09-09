@@ -1,10 +1,10 @@
-const assert = require('node:assert/strict');
-const { pool, withTransaction } = require('../src/db/pool');
-const { createUser } = require('../src/services/wallet-service');
-const { postEconomyTransaction } = require('../src/services/economy-service');
-const { createCreatorCampaign } = require('../src/services/task-service');
+const assert = require("node:assert/strict");
+const { pool, withTransaction } = require("../src/db/pool");
+const { createUser } = require("../src/services/wallet-service");
+const { postEconomyTransaction } = require("../src/services/economy-service");
+const { createCreatorCampaign } = require("../src/services/task-service");
 
-const PRICE_KEY = 'task.campaign_price_dzx_per_execution';
+const PRICE_KEY = "task.campaign_price_dzx_per_execution";
 
 async function main() {
   let user;
@@ -12,8 +12,8 @@ async function main() {
   const marker = `campaign-economics-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const campaignKey = `${marker}:campaign`;
   const creatorConfig = {
-    campaignUrl: 'https://t.me/example_bot?start=campaign',
-    verification: { method: 'click_proof' },
+    campaignUrl: "https://t.me/example_bot?start=campaign",
+    verification: { method: "click_proof" },
     test: true,
   };
 
@@ -21,27 +21,27 @@ async function main() {
     user = await createUser({
       telegramUserId: -Date.now(),
       username: marker,
-      firstName: 'Campaign Economics Test',
+      firstName: "Campaign Economics Test",
     });
 
     // The Admin price is a backend setting; the Creator supplies only target.
     await pool.query(
       `INSERT INTO admin_settings(key, value) VALUES ($1, $2::jsonb)
        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-      [PRICE_KEY, '10'],
+      [PRICE_KEY, "10"],
     );
 
     await postEconomyTransaction({
       idempotencyKey: `${marker}:fund`,
       userId: user.id,
-      type: 'TEST_CREDIT',
-      metadata: { source: 'test' },
-      movements: [{ currency: 'DZX', amount: 10000, source: 'test' }],
+      type: "TEST_CREDIT",
+      metadata: { source: "test" },
+      movements: [{ currency: "DZX", amount: 10000, source: "test" }],
     });
 
     const campaign = await createCreatorCampaign({
-      taskType: 'social',
-      title: 'Campaign economics contract',
+      taskType: "social",
+      title: "Campaign economics contract",
       creatorId: user.id,
       target: 1000,
       idempotencyKey: campaignKey,
@@ -79,8 +79,8 @@ async function main() {
 
     // Replaying the same idempotency key must not debit the Creator twice.
     const duplicate = await createCreatorCampaign({
-      taskType: 'social',
-      title: 'Campaign economics contract',
+      taskType: "social",
+      title: "Campaign economics contract",
       creatorId: user.id,
       target: 1000,
       idempotencyKey: campaignKey,
@@ -103,8 +103,8 @@ async function main() {
     await assert.rejects(
       () =>
         createCreatorCampaign({
-          taskType: 'social',
-          title: 'Client price injection',
+          taskType: "social",
+          title: "Client price injection",
           creatorId: user.id,
           target: 1,
           idempotencyKey: `${marker}:injection`,
@@ -117,35 +117,35 @@ async function main() {
       /price.*server|price.*admin|unexpected.*price/i,
     );
 
-    console.log('Creator campaign economics contract: PASS');
+    console.log("Creator campaign economics contract: PASS");
   } catch (error) {
-    console.error('Creator campaign economics contract: FAIL');
+    console.error("Creator campaign economics contract: FAIL");
     console.error(error);
     process.exitCode = 1;
   } finally {
     if (taskId) {
-      await pool.query('DELETE FROM activity_tasks WHERE id = $1', [taskId]);
+      await pool.query("DELETE FROM activity_tasks WHERE id = $1", [taskId]);
     }
     if (user) {
       await withTransaction(async (client) => {
         await client.query(
-          'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)',
+          "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)",
           [user.id],
         );
         await client.query(
-          'DELETE FROM ledger_transactions WHERE user_id = $1',
+          "DELETE FROM ledger_transactions WHERE user_id = $1",
           [user.id],
         );
-        await client.query('DELETE FROM users WHERE id = $1', [user.id]);
+        await client.query("DELETE FROM users WHERE id = $1", [user.id]);
       });
     }
-    await pool.query('DELETE FROM admin_settings WHERE key = $1', [PRICE_KEY]);
+    await pool.query("DELETE FROM admin_settings WHERE key = $1", [PRICE_KEY]);
     await pool.end();
   }
 }
 
 main().catch((error) => {
-  console.error('Creator campaign economics runner: FAIL');
+  console.error("Creator campaign economics runner: FAIL");
   console.error(error);
   process.exit(1);
 });

@@ -1,12 +1,12 @@
-const assert = require('assert');
-const walletService = require('../src/services/wallet-service');
-const referralService = require('../src/services/referral-service');
-const economyService = require('../src/services/economy-service');
-const { pool } = require('../src/db/pool');
+const assert = require("assert");
+const walletService = require("../src/services/wallet-service");
+const referralService = require("../src/services/referral-service");
+const economyService = require("../src/services/economy-service");
+const { pool } = require("../src/db/pool");
 
 async function balances(userId) {
   const result = await pool.query(
-    'SELECT currency,balance FROM wallet_accounts WHERE user_id=$1 ORDER BY currency',
+    "SELECT currency,balance FROM wallet_accounts WHERE user_id=$1 ORDER BY currency",
     [userId],
   );
   return Object.fromEntries(
@@ -35,7 +35,7 @@ async function qualifiedReferral(suffix) {
   );
   await referralService.qualifyReferral({
     referredUserId: referred.id,
-    source: 'task',
+    source: "task",
     referenceId: attempt.rows[0].id,
     idempotencyKey: `lifetime-qualification-${suffix}`,
   });
@@ -49,7 +49,7 @@ async function main() {
 
   const first = await referralService.creditReferralLifetime({
     referredUserId: referred.id,
-    source: 'task',
+    source: "task",
     sourceReferenceId: `task-${suffix}`,
     idempotencyKey: `lifetime-${suffix}`,
     baseReward: { coin: 1000, dzx: 5, dzp: 1 },
@@ -63,7 +63,7 @@ async function main() {
 
   const retry = await referralService.creditReferralLifetime({
     referredUserId: referred.id,
-    source: 'task',
+    source: "task",
     sourceReferenceId: `task-${suffix}`,
     idempotencyKey: `lifetime-${suffix}`,
     baseReward: { coin: 1000, dzx: 5, dzp: 1 },
@@ -74,7 +74,7 @@ async function main() {
   await assert.rejects(
     referralService.creditReferralLifetime({
       referredUserId: referred.id,
-      source: 'promo',
+      source: "promo",
       sourceReferenceId: `promo-${suffix}`,
       idempotencyKey: `promo-lifetime-${suffix}`,
       baseReward: { coin: 1000, dzx: 5, dzp: 1 },
@@ -95,7 +95,7 @@ async function main() {
   const pendingBefore = await balances(pendingReferrer.id);
   const pending = await referralService.creditReferralLifetime({
     referredUserId: pendingReferred.id,
-    source: 'advertisement',
+    source: "advertisement",
     sourceReferenceId: `pending-ad-${suffix}`,
     idempotencyKey: `pending-lifetime-${suffix}`,
     baseReward: { coin: 1000, dzx: 5, dzp: 1 },
@@ -112,12 +112,12 @@ async function main() {
   );
   assert.strictEqual(ledger.rows[0].count, 1);
 
-  console.log('Referral lifetime 20 percent invariants: PASS');
+  console.log("Referral lifetime 20 percent invariants: PASS");
 }
 
 main()
   .catch((error) => {
-    console.error('Referral lifetime 20 percent invariants: FAIL');
+    console.error("Referral lifetime 20 percent invariants: FAIL");
     console.error(error);
     process.exitCode = 1;
   })

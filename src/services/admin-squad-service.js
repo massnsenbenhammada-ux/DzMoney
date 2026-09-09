@@ -1,9 +1,9 @@
-const { query, withTransaction } = require('../db/pool');
+const { query, withTransaction } = require("../db/pool");
 
 const SQUAD_SETTING_KEYS = new Set([
-  'squad.membership_tiers',
-  'squad.daily_target_dzp_per_member',
-  'squad.daily_verified_ad_target',
+  "squad.membership_tiers",
+  "squad.daily_target_dzp_per_member",
+  "squad.daily_verified_ad_target",
 ]);
 
 const MODIFIER_MAPPING = [
@@ -24,16 +24,16 @@ async function getSquadSettings() {
       result.rows.map((row) => [row.key, row.value]),
     ),
     modifierMapping: MODIFIER_MAPPING,
-    modifierCurrencies: ['COIN', 'DZX'],
+    modifierCurrencies: ["COIN", "DZX"],
     dzpModifierExcluded: true,
-    source: 'Verified Activity',
+    source: "Verified Activity",
   };
 }
 
 function normalizeSetting(key, value) {
-  if (key === 'squad.membership_tiers') {
+  if (key === "squad.membership_tiers") {
     if (!Array.isArray(value) || !value.length)
-      throw new Error('Membership tiers must be a non-empty array');
+      throw new Error("Membership tiers must be a non-empty array");
     const tiers = value.map((tier) => ({
       minMembers: Number(tier.minMembers),
       maxMembers: Number(tier.maxMembers),
@@ -50,38 +50,38 @@ function normalizeSetting(key, value) {
           tier.price <= 0,
       )
     ) {
-      throw new Error('Invalid Squad membership tier configuration');
+      throw new Error("Invalid Squad membership tier configuration");
     }
     for (let index = 1; index < tiers.length; index += 1) {
       if (tiers[index].minMembers !== tiers[index - 1].maxMembers + 1)
-        throw new Error('Squad membership tiers must be contiguous');
+        throw new Error("Squad membership tiers must be contiguous");
     }
     return tiers;
   }
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric < 0)
-    throw new Error('Squad setting must be a non-negative number');
-  if (key === 'squad.daily_verified_ad_target' && !Number.isInteger(numeric))
-    throw new Error('Verified ad target must be an integer');
+    throw new Error("Squad setting must be a non-negative number");
+  if (key === "squad.daily_verified_ad_target" && !Number.isInteger(numeric))
+    throw new Error("Verified ad target must be an integer");
   return numeric;
 }
 
 async function setSquadSetting({ key, value, actorTelegramUserId }) {
   if (!SQUAD_SETTING_KEYS.has(key))
-    throw new Error('Unsupported Squad setting');
-  if (!actorTelegramUserId) throw new Error('Admin actor is required');
+    throw new Error("Unsupported Squad setting");
+  if (!actorTelegramUserId) throw new Error("Admin actor is required");
   const normalized = normalizeSetting(key, value);
   return withTransaction(async (client) => {
     const current = await client.query(
-      'SELECT value FROM admin_settings WHERE key=$1 FOR UPDATE',
+      "SELECT value FROM admin_settings WHERE key=$1 FOR UPDATE",
       [key],
     );
-    if (!current.rowCount) throw new Error('Squad setting is not initialized');
+    if (!current.rowCount) throw new Error("Squad setting is not initialized");
     const oldValue = current.rows[0].value;
     if (JSON.stringify(oldValue) === JSON.stringify(normalized))
       return { key, value: oldValue, changed: false };
     await client.query(
-      'UPDATE admin_settings SET value=$1::jsonb, updated_at=NOW() WHERE key=$2',
+      "UPDATE admin_settings SET value=$1::jsonb, updated_at=NOW() WHERE key=$2",
       [JSON.stringify(normalized), key],
     );
     await client.query(

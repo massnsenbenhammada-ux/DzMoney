@@ -1,15 +1,15 @@
-const express = require('express');
-const { query } = require('../db/pool');
-const { telegramAuth } = require('./telegram-auth');
+const express = require("express");
+const { query } = require("../db/pool");
+const { telegramAuth } = require("./telegram-auth");
 const {
   createInvitation,
   acceptInvitation,
   getPaidMembershipTiers,
   purchasePaidMembership,
-} = require('../services/squad-membership-service');
+} = require("../services/squad-membership-service");
 const {
   getCurrentUserSquadState,
-} = require('../services/squad-daily-state-service');
+} = require("../services/squad-daily-state-service");
 
 const router = express.Router();
 const asyncRoute = (handler) => (req, res, next) =>
@@ -18,7 +18,7 @@ router.use(telegramAuth);
 
 async function currentUserId(req) {
   const result = await query(
-    'SELECT id FROM users WHERE telegram_user_id = $1',
+    "SELECT id FROM users WHERE telegram_user_id = $1",
     [String(req.telegramUser.id)],
   );
   return result.rows[0]?.id || null;
@@ -34,11 +34,11 @@ function dailyAdvertisementDateFilter() {
 }
 
 router.get(
-  '/',
+  "/",
   asyncRoute(async (req, res) => {
     const userId = await currentUserId(req);
     if (!userId)
-      return res.status(404).json({ ok: false, error: 'User not found' });
+      return res.status(404).json({ ok: false, error: "User not found" });
     const membership = await query(
       `SELECT s.id AS squad_id, s.owner_user_id, COUNT(sm2.id) FILTER (WHERE sm2.status <> 'cancelled') AS member_count, sm.status AS membership_status FROM squad_memberships sm JOIN squads s ON s.id = sm.squad_id LEFT JOIN squad_memberships sm2 ON sm2.squad_id = s.id WHERE sm.user_id = $1 AND sm.status <> 'cancelled' GROUP BY s.id, s.owner_user_id, sm.status`,
       [userId],
@@ -75,36 +75,36 @@ router.get(
 );
 
 router.get(
-  '/daily-state',
+  "/daily-state",
   asyncRoute(async (req, res) => {
     const userId = await currentUserId(req);
     if (!userId)
-      return res.status(404).json({ ok: false, error: 'User not found' });
+      return res.status(404).json({ ok: false, error: "User not found" });
     const state = await getCurrentUserSquadState({ userId });
     res.json({ ok: true, state });
   }),
 );
 
 router.get(
-  '/ads',
+  "/ads",
   asyncRoute(async (req, res) => {
     const userId = await currentUserId(req);
     if (!userId)
-      return res.status(404).json({ ok: false, error: 'User not found' });
+      return res.status(404).json({ ok: false, error: "User not found" });
     const task = await getSquadAdsTask();
     if (!task)
       return res
         .status(404)
-        .json({ ok: false, error: 'Squad Ads task is not configured' });
+        .json({ ok: false, error: "Squad Ads task is not configured" });
     const target = Number(task.config?.advertisementTarget);
     if (!Number.isInteger(target) || target <= 0)
       return res
         .status(500)
-        .json({ ok: false, error: 'Invalid Squad Ads target' });
+        .json({ ok: false, error: "Invalid Squad Ads target" });
     const dateFilter =
-      task.config?.dailyMode === 'advertisement'
+      task.config?.dailyMode === "advertisement"
         ? dailyAdvertisementDateFilter()
-        : '';
+        : "";
     const result = await query(
       `SELECT COUNT(*)::int AS completed FROM activity_ad_events WHERE user_id=$1 AND context='squad' AND verified=true AND metadata->>'task_id'=$2${dateFilter}`,
       [userId, String(task.id)],
@@ -113,15 +113,15 @@ router.get(
     if (req.query.adEventId) {
       const eventId = Number(req.query.adEventId);
       if (!Number.isInteger(eventId) || eventId <= 0)
-        return res.status(400).json({ ok: false, error: 'Invalid adEventId' });
+        return res.status(400).json({ ok: false, error: "Invalid adEventId" });
       const event = await query(
-        'SELECT id,verified,completed_at,metadata FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context=$3',
-        [eventId, userId, 'squad'],
+        "SELECT id,verified,completed_at,metadata FROM activity_ad_events WHERE id=$1 AND user_id=$2 AND context=$3",
+        [eventId, userId, "squad"],
       );
       if (!event.rowCount)
         return res
           .status(404)
-          .json({ ok: false, error: 'Squad advertisement event not found' });
+          .json({ ok: false, error: "Squad advertisement event not found" });
       const metadata = event.rows[0].metadata || {};
       const rewarded = Boolean(metadata.reward_transaction_id);
       const reward = rewarded
@@ -164,7 +164,7 @@ router.get(
 );
 
 router.get(
-  '/membership-tiers',
+  "/membership-tiers",
   asyncRoute(async (req, res) => {
     const tiers = await getPaidMembershipTiers({
       query: (...args) => query(...args),
@@ -173,22 +173,22 @@ router.get(
   }),
 );
 router.post(
-  '/membership/purchase',
+  "/membership/purchase",
   asyncRoute(async (req, res) => {
     const userId = await currentUserId(req);
     if (!userId)
-      return res.status(404).json({ ok: false, error: 'User not found' });
+      return res.status(404).json({ ok: false, error: "User not found" });
     const keys = Object.keys(req.body || {});
-    if (keys.some((key) => !['maxMembers', 'idempotencyKey'].includes(key)))
+    if (keys.some((key) => !["maxMembers", "idempotencyKey"].includes(key)))
       return res
         .status(400)
-        .json({ ok: false, error: 'Unknown purchase fields' });
+        .json({ ok: false, error: "Unknown purchase fields" });
     const maxMembers = Number(req.body?.maxMembers);
-    const idempotencyKey = String(req.body?.idempotencyKey || '');
+    const idempotencyKey = String(req.body?.idempotencyKey || "");
     if (!Number.isInteger(maxMembers) || maxMembers <= 0 || !idempotencyKey)
       return res.status(400).json({
         ok: false,
-        error: 'maxMembers and idempotencyKey are required',
+        error: "maxMembers and idempotencyKey are required",
       });
     const result = await purchasePaidMembership({
       userId,
@@ -213,11 +213,11 @@ router.post(
   }),
 );
 router.get(
-  '/invitations',
+  "/invitations",
   asyncRoute(async (req, res) => {
     const userId = await currentUserId(req);
     if (!userId)
-      return res.status(404).json({ ok: false, error: 'User not found' });
+      return res.status(404).json({ ok: false, error: "User not found" });
     const result = await query(
       `SELECT i.id, i.squad_id, i.inviter_user_id, i.status, i.created_at FROM squad_invitations i WHERE i.invitee_user_id = $1 AND i.status = 'pending' ORDER BY i.created_at DESC`,
       [userId],
@@ -235,26 +235,26 @@ router.get(
   }),
 );
 router.post(
-  '/invitations',
+  "/invitations",
   asyncRoute(async (req, res) => {
     const inviterUserId = await currentUserId(req);
     if (!inviterUserId)
-      return res.status(404).json({ ok: false, error: 'User not found' });
+      return res.status(404).json({ ok: false, error: "User not found" });
     const squadId = Number(req.body?.squadId);
-    const telegramUserId = String(req.body?.inviteeTelegramUserId || '');
+    const telegramUserId = String(req.body?.inviteeTelegramUserId || "");
     if (!Number.isInteger(squadId) || squadId <= 0 || !telegramUserId)
       return res.status(400).json({
         ok: false,
-        error: 'squadId and inviteeTelegramUserId are required',
+        error: "squadId and inviteeTelegramUserId are required",
       });
     const invitee = await query(
-      'SELECT id FROM users WHERE telegram_user_id = $1',
+      "SELECT id FROM users WHERE telegram_user_id = $1",
       [telegramUserId],
     );
     if (!invitee.rows[0])
       return res
         .status(404)
-        .json({ ok: false, error: 'Invitee user not found' });
+        .json({ ok: false, error: "Invitee user not found" });
     const invitation = await createInvitation({
       squadId,
       inviterUserId,
@@ -272,16 +272,16 @@ router.post(
   }),
 );
 router.post(
-  '/invitations/:id/accept',
+  "/invitations/:id/accept",
   asyncRoute(async (req, res) => {
     const inviteeUserId = await currentUserId(req);
     if (!inviteeUserId)
-      return res.status(404).json({ ok: false, error: 'User not found' });
+      return res.status(404).json({ ok: false, error: "User not found" });
     const invitationId = Number(req.params.id);
     if (!Number.isInteger(invitationId) || invitationId <= 0)
       return res
         .status(400)
-        .json({ ok: false, error: 'Invalid invitation id' });
+        .json({ ok: false, error: "Invalid invitation id" });
     const membership = await acceptInvitation({ invitationId, inviteeUserId });
     res.status(201).json({
       ok: true,

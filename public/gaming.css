@@ -1,4 +1,4 @@
-[data-page='gaming'] {
+[data-page="gaming"] {
   position: relative;
   overflow: hidden;
 }
@@ -54,13 +54,13 @@
     box-shadow 0.18s ease;
 }
 .gaming-card::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
   opacity: 0.9;
 }
-.gaming-card[data-gaming-view-link='spin']::before {
+.gaming-card[data-gaming-view-link="spin"]::before {
   background:
     radial-gradient(
       circle at 12% 20%,
@@ -69,7 +69,7 @@
     ),
     linear-gradient(135deg, rgba(25, 63, 57, 0.42), transparent 72%);
 }
-.gaming-card[data-gaming-view-link='digging']::before {
+.gaming-card[data-gaming-view-link="digging"]::before {
   background:
     radial-gradient(
       circle at 12% 20%,
@@ -145,21 +145,21 @@
   letter-spacing: 0.1em;
 }
 .gaming-card-count.ready::after {
-  content: 'READY';
+  content: "READY";
   color: var(--primary);
   font-size: 7px;
   font-weight: 900;
   letter-spacing: 0.1em;
 }
 .gaming-card-count.empty::after {
-  content: 'NO BALANCE';
+  content: "NO BALANCE";
   color: #a58f83;
   font-size: 7px;
   font-weight: 900;
   letter-spacing: 0.08em;
 }
 .gaming-card::after {
-  content: '›';
+  content: "›";
   position: absolute;
   right: 14px;
   bottom: 11px;
@@ -229,8 +229,8 @@
   font-weight: 850;
   letter-spacing: 0.11em;
 }
-.gaming-stat strong[data-spin-balance='0'],
-.gaming-stat strong[data-axe-balance='0'] {
+.gaming-stat strong[data-spin-balance="0"],
+.gaming-stat strong[data-axe-balance="0"] {
   color: #b5a69f;
 }
 .gaming-action {
@@ -283,7 +283,7 @@
   gap: 8px;
 }
 .gaming-ad-head strong::before {
-  content: '▶';
+  content: "▶";
   display: grid;
   place-items: center;
   width: 21px;
@@ -326,7 +326,7 @@
   color: #65756f;
   border-color: rgba(255, 255, 255, 0.07);
 }
-.gaming-ad .gaming-action[aria-busy='true'] {
+.gaming-ad .gaming-action[aria-busy="true"] {
   filter: saturate(0.8);
 }
 .spin-wheel-host {
@@ -356,7 +356,7 @@
   transform-origin: 50% 0;
 }
 .spin-wheel-pointer::after {
-  content: '';
+  content: "";
   position: absolute;
   left: 5px;
   top: 2px;
@@ -388,7 +388,7 @@
   cursor: pointer;
 }
 .spin-wheel::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 8px;
   border-radius: 50%;
@@ -408,7 +408,7 @@
     inset 0 0 26px rgba(0, 0, 0, 0.24);
 }
 .spin-wheel::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 12px;
   border-radius: 50%;
@@ -581,7 +581,7 @@
   overflow: hidden;
 }
 .gaming-tile::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 5px;
   border-radius: 11px;

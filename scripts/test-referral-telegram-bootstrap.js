@@ -1,6 +1,6 @@
-const assert = require('assert');
+const assert = require("assert");
 
-process.env.BOT_TOKEN = process.env.BOT_TOKEN || 'test-bot-token';
+process.env.BOT_TOKEN = process.env.BOT_TOKEN || "test-bot-token";
 
 function buildInitData({
   user,
@@ -8,44 +8,44 @@ function buildInitData({
   authDate = Math.floor(Date.now() / 1000),
   hash,
 }) {
-  const crypto = require('crypto');
+  const crypto = require("crypto");
   const params = new URLSearchParams({
     auth_date: String(authDate),
     start_param: startParam,
     user: JSON.stringify(user),
   });
   const secret = crypto
-    .createHmac('sha256', 'WebAppData')
+    .createHmac("sha256", "WebAppData")
     .update(process.env.BOT_TOKEN)
     .digest();
   const dataCheckString = [...params.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
+    .join("\n");
   const calculated = crypto
-    .createHmac('sha256', secret)
+    .createHmac("sha256", secret)
     .update(dataCheckString)
-    .digest('hex');
-  params.set('hash', hash || calculated);
+    .digest("hex");
+  params.set("hash", hash || calculated);
   return params.toString();
 }
 
 async function testSignedStartParam() {
   const {
     parseVerifiedTelegramInitData,
-  } = require('../src/http/telegram-auth');
-  const user = { id: 900000001, first_name: 'ReferralTest' };
-  const initData = buildInitData({ user, startParam: 'ABC1234567' });
+  } = require("../src/http/telegram-auth");
+  const user = { id: 900000001, first_name: "ReferralTest" };
+  const initData = buildInitData({ user, startParam: "ABC1234567" });
   const verified = parseVerifiedTelegramInitData(initData);
   assert.strictEqual(verified.user.id, user.id);
-  assert.strictEqual(verified.startParam, 'ABC1234567');
+  assert.strictEqual(verified.startParam, "ABC1234567");
   const tampered = new URLSearchParams(initData);
-  tampered.set('hash', '0'.repeat(64));
+  tampered.set("hash", "0".repeat(64));
   assert.strictEqual(parseVerifiedTelegramInitData(tampered.toString()), null);
 }
 
 async function testFirstEntryAttribution() {
-  const authPath = require.resolve('../src/http/telegram-auth');
+  const authPath = require.resolve("../src/http/telegram-auth");
   require.cache[authPath] = {
     id: authPath,
     filename: authPath,
@@ -53,10 +53,10 @@ async function testFirstEntryAttribution() {
     exports: { telegramAuth: (req, _res, next) => next() },
   };
 
-  const walletService = require('../src/services/wallet-service');
-  const { query, pool } = require('../src/db/pool');
-  const referralService = require('../src/services/referral-service');
-  const router = require('../src/http/me-routes');
+  const walletService = require("../src/services/wallet-service");
+  const { query, pool } = require("../src/db/pool");
+  const referralService = require("../src/services/referral-service");
+  const router = require("../src/http/me-routes");
   const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const referrerTelegramId = `9${suffix}`;
   const referredTelegramId = `8${suffix}`;
@@ -67,10 +67,10 @@ async function testFirstEntryAttribution() {
   async function callMe(startParam) {
     return new Promise((resolve, reject) => {
       const req = {
-        method: 'GET',
-        url: '/',
-        originalUrl: '/',
-        telegramUser: { id: referredTelegramId, first_name: 'New' },
+        method: "GET",
+        url: "/",
+        originalUrl: "/",
+        telegramUser: { id: referredTelegramId, first_name: "New" },
         telegramStartParam: startParam,
       };
       const res = {
@@ -92,7 +92,7 @@ async function testFirstEntryAttribution() {
   try {
     await callMe(referrer.referral_code);
     const attributed = await query(
-      'SELECT * FROM referral_attributions WHERE referred_user_id = (SELECT id FROM users WHERE telegram_user_id = $1)',
+      "SELECT * FROM referral_attributions WHERE referred_user_id = (SELECT id FROM users WHERE telegram_user_id = $1)",
       [referredTelegramId],
     );
     assert.strictEqual(attributed.rows.length, 1);
@@ -101,21 +101,21 @@ async function testFirstEntryAttribution() {
       Number(referrer.id),
     );
 
-    await callMe('DIFFERENT1');
+    await callMe("DIFFERENT1");
     const unchanged = await referralService.getReferralByReferredUser(
       attributed.rows[0].referred_user_id,
     );
     assert.strictEqual(Number(unchanged.referrer_user_id), Number(referrer.id));
   } finally {
     await query(
-      'DELETE FROM referral_attributions WHERE referrer_user_id = $1 OR referred_user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($2, $3))',
+      "DELETE FROM referral_attributions WHERE referrer_user_id = $1 OR referred_user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($2, $3))",
       [referrer.id, referredTelegramId, referrerTelegramId],
     );
     await query(
-      'DELETE FROM wallet_accounts WHERE user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($1, $2))',
+      "DELETE FROM wallet_accounts WHERE user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($1, $2))",
       [referredTelegramId, referrerTelegramId],
     );
-    await query('DELETE FROM users WHERE telegram_user_id IN ($1, $2)', [
+    await query("DELETE FROM users WHERE telegram_user_id IN ($1, $2)", [
       referredTelegramId,
       referrerTelegramId,
     ]);
@@ -126,9 +126,9 @@ async function testFirstEntryAttribution() {
 Promise.resolve()
   .then(testSignedStartParam)
   .then(testFirstEntryAttribution)
-  .then(() => console.log('Referral Telegram bootstrap invariants: PASS'))
+  .then(() => console.log("Referral Telegram bootstrap invariants: PASS"))
   .catch((error) => {
-    console.error('Referral Telegram bootstrap invariants: FAIL');
+    console.error("Referral Telegram bootstrap invariants: FAIL");
     console.error(error);
     process.exitCode = 1;
   });

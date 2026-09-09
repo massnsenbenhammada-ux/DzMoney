@@ -1,15 +1,15 @@
-const assert = require('node:assert/strict');
-const { query, withTransaction, pool } = require('../src/db/pool');
+const assert = require("node:assert/strict");
+const { query, withTransaction, pool } = require("../src/db/pool");
 const {
   createUser,
   getUserWallets,
-} = require('../src/services/wallet-service');
+} = require("../src/services/wallet-service");
 const {
   creditActivityReward,
   convertCoinToDzp,
   convertDzxToDzp,
   postEconomyTransaction,
-} = require('../src/services/economy-service');
+} = require("../src/services/economy-service");
 
 async function main() {
   const marker = `phase1-ledger-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -20,13 +20,13 @@ async function main() {
     user = await createUser({
       telegramUserId,
       username: marker,
-      firstName: 'Phase 1 Ledger Test',
+      firstName: "Phase 1 Ledger Test",
     });
     const wallets = await getUserWallets(user.id);
     assert.deepEqual(wallets.map((w) => w.currency).sort(), [
-      'COIN',
-      'DZP',
-      'DZX',
+      "COIN",
+      "DZP",
+      "DZX",
     ]);
     assert.ok(wallets.every((w) => Number(w.balance) === 0));
 
@@ -34,22 +34,22 @@ async function main() {
     const firstReward = await creditActivityReward({
       idempotencyKey: rewardKey,
       userId: user.id,
-      source: 'advertisement',
+      source: "advertisement",
       coin: 10000,
       dzx: 10,
       dzp: 1,
-      modifiers: [{ type: 'squad', rate: 0.5 }],
+      modifiers: [{ type: "squad", rate: 0.5 }],
     });
     assert.equal(firstReward.duplicate, false);
 
     const duplicateReward = await creditActivityReward({
       idempotencyKey: rewardKey,
       userId: user.id,
-      source: 'advertisement',
+      source: "advertisement",
       coin: 10000,
       dzx: 10,
       dzp: 1,
-      modifiers: [{ type: 'squad', rate: 0.5 }],
+      modifiers: [{ type: "squad", rate: 0.5 }],
     });
     assert.equal(duplicateReward.duplicate, true);
 
@@ -60,7 +60,7 @@ async function main() {
     assert.equal(balancesAfterReward.COIN, 15000);
     assert.equal(balancesAfterReward.DZX, 15);
     assert.equal(balancesAfterReward.DZP, 1);
-    assert.equal(Number(state.find((w) => w.currency === 'DZP').earned_dzp), 1);
+    assert.equal(Number(state.find((w) => w.currency === "DZP").earned_dzp), 1);
 
     const rewardTx = await query(
       `SELECT transaction_type, metadata
@@ -68,17 +68,17 @@ async function main() {
        WHERE idempotency_key = $1`,
       [rewardKey],
     );
-    assert.equal(rewardTx.rows[0].transaction_type, 'REWARD');
-    assert.equal(rewardTx.rows[0].metadata.source, 'advertisement');
+    assert.equal(rewardTx.rows[0].transaction_type, "REWARD");
+    assert.equal(rewardTx.rows[0].metadata.source, "advertisement");
     assert.equal(Number(rewardTx.rows[0].metadata.base_reward.dzx), 10);
     assert.equal(Number(rewardTx.rows[0].metadata.final_reward.dzx), 15);
-    assert.equal(rewardTx.rows[0].metadata.modifiers[0].type, 'squad');
+    assert.equal(rewardTx.rows[0].metadata.modifiers[0].type, "squad");
     assert.equal(Number(rewardTx.rows[0].metadata.modifiers[0].rate), 0.5);
 
     const promoReward = await creditActivityReward({
       idempotencyKey: `${marker}:promo`,
       userId: user.id,
-      source: 'promo',
+      source: "promo",
       dzx: 2,
     });
     assert.equal(promoReward.duplicate, false);
@@ -96,7 +96,7 @@ async function main() {
         creditActivityReward({
           idempotencyKey: `${marker}:squad-source`,
           userId: user.id,
-          source: 'squad',
+          source: "squad",
           dzx: 1,
         }),
       /Invalid activity reward source/,
@@ -110,7 +110,7 @@ async function main() {
     assert.equal(coinConversion.dzp, 1);
 
     state = await getUserWallets(user.id);
-    const afterCoinConversion = state.find((w) => w.currency === 'DZP');
+    const afterCoinConversion = state.find((w) => w.currency === "DZP");
     assert.equal(Number(afterCoinConversion.balance), 2);
     assert.equal(Number(afterCoinConversion.earned_dzp), 1);
     assert.equal(Number(afterCoinConversion.converted_dzp), 1);
@@ -123,7 +123,7 @@ async function main() {
     assert.equal(dzxConversion.dzp, 1);
 
     state = await getUserWallets(user.id);
-    const afterDzxConversion = state.find((w) => w.currency === 'DZP');
+    const afterDzxConversion = state.find((w) => w.currency === "DZP");
     assert.equal(Number(afterDzxConversion.balance), 3);
     assert.equal(Number(afterDzxConversion.converted_dzp), 2);
     assert.equal(Number(afterDzxConversion.earned_dzp), 1);
@@ -131,20 +131,20 @@ async function main() {
     await postEconomyTransaction({
       idempotencyKey: `${marker}:purchase-dzp`,
       userId: user.id,
-      type: 'PACKAGE_PURCHASE',
-      metadata: { source: 'purchase' },
+      type: "PACKAGE_PURCHASE",
+      metadata: { source: "purchase" },
       movements: [
         {
-          currency: 'DZP',
+          currency: "DZP",
           amount: 5,
-          source: 'purchase',
-          dzpBucket: 'purchased_dzp',
+          source: "purchase",
+          dzpBucket: "purchased_dzp",
         },
       ],
     });
 
     state = await getUserWallets(user.id);
-    const afterPurchase = state.find((w) => w.currency === 'DZP');
+    const afterPurchase = state.find((w) => w.currency === "DZP");
     assert.equal(Number(afterPurchase.balance), 8);
     assert.equal(Number(afterPurchase.purchased_dzp), 5);
     assert.equal(Number(afterPurchase.earned_dzp), 1);
@@ -155,8 +155,8 @@ async function main() {
         postEconomyTransaction({
           idempotencyKey: `${marker}:overspend`,
           userId: user.id,
-          type: 'TEST_DEBIT',
-          movements: [{ currency: 'DZX', amount: -999999, source: 'test' }],
+          type: "TEST_DEBIT",
+          movements: [{ currency: "DZX", amount: -999999, source: "test" }],
         }),
       /Insufficient DZX balance/,
     );
@@ -179,19 +179,19 @@ async function main() {
     );
     assert.equal(Number(badBalances.rows[0].count), 0);
 
-    console.log('Phase 1 economy + ledger integration: PASS');
+    console.log("Phase 1 economy + ledger integration: PASS");
   } finally {
     if (user) {
       await withTransaction(async (client) => {
         await client.query(
-          'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)',
+          "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)",
           [user.id],
         );
         await client.query(
-          'DELETE FROM ledger_transactions WHERE user_id = $1',
+          "DELETE FROM ledger_transactions WHERE user_id = $1",
           [user.id],
         );
-        await client.query('DELETE FROM users WHERE id = $1', [user.id]);
+        await client.query("DELETE FROM users WHERE id = $1", [user.id]);
       });
     }
     await pool.end();
@@ -199,7 +199,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Phase 1 economy + ledger integration: FAIL');
+  console.error("Phase 1 economy + ledger integration: FAIL");
   console.error(error);
   process.exit(1);
 });

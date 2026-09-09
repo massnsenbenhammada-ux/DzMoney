@@ -1,17 +1,17 @@
-const assert = require('assert');
-const { pool, withTransaction } = require('../src/db/pool');
-const { AdProviderRegistry } = require('../src/services/ad-provider-service');
+const assert = require("assert");
+const { pool, withTransaction } = require("../src/db/pool");
+const { AdProviderRegistry } = require("../src/services/ad-provider-service");
 const {
   startTaskAdvertisement,
   verifyTrustedTaskAdvertisement,
   finalizeTaskAdvertisement,
-} = require('../src/services/task-advertisement-service');
+} = require("../src/services/task-advertisement-service");
 const provider = {
-  id: 'task-concurrency-test-provider',
-  contexts: ['task'],
+  id: "task-concurrency-test-provider",
+  contexts: ["task"],
   async verifyCompletion() {
     throw new Error(
-      'client verification must never be used for task advertisements',
+      "client verification must never be used for task advertisements",
     );
   },
   async verifyServerCompletion(payload) {
@@ -20,7 +20,7 @@ const provider = {
       reference: payload.reference,
       userId: payload.userId,
       providerId: provider.id,
-      context: 'task',
+      context: "task",
     };
   },
 };
@@ -28,14 +28,14 @@ const registry = new AdProviderRegistry([provider]);
 async function createUser() {
   const marker = Date.now() + Math.floor(Math.random() * 1000000);
   const result = await pool.query(
-    'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id, telegram_user_id',
-    [marker, `task_concurrency_${Date.now()}`, 'Task Concurrency Test'],
+    "INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id, telegram_user_id",
+    [marker, `task_concurrency_${Date.now()}`, "Task Concurrency Test"],
   );
   const userId = result.rows[0].id;
   await withTransaction(async (client) => {
-    for (const currency of ['COIN', 'DZX', 'DZP'])
+    for (const currency of ["COIN", "DZX", "DZP"])
       await client.query(
-        'INSERT INTO wallet_accounts (user_id, currency) VALUES ($1,$2) ON CONFLICT (user_id,currency) DO NOTHING',
+        "INSERT INTO wallet_accounts (user_id, currency) VALUES ($1,$2) ON CONFLICT (user_id,currency) DO NOTHING",
         [userId, currency],
       );
   });
@@ -50,20 +50,20 @@ async function createTask() {
 async function cleanup(userId, taskId) {
   await withTransaction(async (client) => {
     await client.query(
-      'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)',
+      "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)",
       [userId],
     );
-    await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [
+    await client.query("DELETE FROM ledger_transactions WHERE user_id=$1", [
       userId,
     ]);
-    await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [
+    await client.query("DELETE FROM activity_ad_events WHERE user_id=$1", [
       userId,
     ]);
-    await client.query('DELETE FROM wallet_accounts WHERE user_id=$1', [
+    await client.query("DELETE FROM wallet_accounts WHERE user_id=$1", [
       userId,
     ]);
-    await client.query('DELETE FROM users WHERE id=$1', [userId]);
-    await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+    await client.query("DELETE FROM users WHERE id=$1", [userId]);
+    await client.query("DELETE FROM activity_tasks WHERE id=$1", [taskId]);
   });
 }
 async function main() {
@@ -82,7 +82,7 @@ async function main() {
         reference: started.adEvent.external_ad_id,
         userId: telegramUserId,
         providerId: provider.id,
-        context: 'task',
+        context: "task",
       },
       providerRegistry: registry,
     });
@@ -99,26 +99,26 @@ async function main() {
       1,
     );
     const transactions = await pool.query(
-      'SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND idempotency_key=$2',
+      "SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND idempotency_key=$2",
       [userId, `task-advertisement:${started.adEvent.id}`],
     );
     assert.strictEqual(transactions.rows[0].count, 1);
     const balances = await pool.query(
-      'SELECT currency,balance FROM wallet_accounts WHERE user_id=$1 ORDER BY currency',
+      "SELECT currency,balance FROM wallet_accounts WHERE user_id=$1 ORDER BY currency",
       [userId],
     );
     const balanceByCurrency = Object.fromEntries(
       balances.rows.map((row) => [row.currency, Number(row.balance)]),
     );
     assert.deepStrictEqual(balanceByCurrency, { COIN: 1000, DZX: 1, DZP: 1 });
-    console.log('Task advertisement concurrent finalization invariant: PASS');
+    console.log("Task advertisement concurrent finalization invariant: PASS");
   } finally {
     await cleanup(userId, taskId);
     await pool.end();
   }
 }
 main().catch((error) => {
-  console.error('Task advertisement concurrent finalization invariant: FAIL');
+  console.error("Task advertisement concurrent finalization invariant: FAIL");
   console.error(error);
   process.exit(1);
 });

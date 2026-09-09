@@ -1,7 +1,7 @@
-const assert = require('node:assert/strict');
-const { pool, withTransaction } = require('../src/db/pool');
-const { createUser } = require('../src/services/wallet-service');
-const { postEconomyTransaction } = require('../src/services/economy-service');
+const assert = require("node:assert/strict");
+const { pool, withTransaction } = require("../src/db/pool");
+const { createUser } = require("../src/services/wallet-service");
+const { postEconomyTransaction } = require("../src/services/economy-service");
 
 async function main() {
   let userA;
@@ -13,29 +13,29 @@ async function main() {
     userA = await createUser({
       telegramUserId: `9${Date.now()}01`,
       username: `${marker}-a`,
-      firstName: 'Economy Idempotency A',
+      firstName: "Economy Idempotency A",
     });
     userB = await createUser({
       telegramUserId: `9${Date.now()}02`,
       username: `${marker}-b`,
-      firstName: 'Economy Idempotency B',
+      firstName: "Economy Idempotency B",
     });
 
     const first = await postEconomyTransaction({
       idempotencyKey: sharedKey,
       userId: userA.id,
-      type: 'TEST_CREDIT',
+      type: "TEST_CREDIT",
       metadata: { source: marker },
-      movements: [{ currency: 'DZX', amount: 10, source: 'test' }],
+      movements: [{ currency: "DZX", amount: 10, source: "test" }],
     });
     assert.equal(first.duplicate, false);
 
     const sameOwnerRetry = await postEconomyTransaction({
       idempotencyKey: sharedKey,
       userId: userA.id,
-      type: 'TEST_CREDIT',
+      type: "TEST_CREDIT",
       metadata: { source: marker },
-      movements: [{ currency: 'DZX', amount: 10, source: 'test' }],
+      movements: [{ currency: "DZX", amount: 10, source: "test" }],
     });
     assert.equal(sameOwnerRetry.duplicate, true);
     assert.equal(String(sameOwnerRetry.transaction.user_id), String(userA.id));
@@ -45,9 +45,9 @@ async function main() {
         postEconomyTransaction({
           idempotencyKey: sharedKey,
           userId: userB.id,
-          type: 'TEST_CREDIT',
+          type: "TEST_CREDIT",
           metadata: { source: marker },
-          movements: [{ currency: 'DZX', amount: 10, source: 'test' }],
+          movements: [{ currency: "DZX", amount: 10, source: "test" }],
         }),
       /idempotency.*owner|idempotency.*user|ownership/i,
     );
@@ -57,9 +57,9 @@ async function main() {
         postEconomyTransaction({
           idempotencyKey: sharedKey,
           userId: userA.id,
-          type: 'DIFFERENT_TEST_OPERATION',
+          type: "DIFFERENT_TEST_OPERATION",
           metadata: { source: marker },
-          movements: [{ currency: 'DZX', amount: 10, source: 'test' }],
+          movements: [{ currency: "DZX", amount: 10, source: "test" }],
         }),
       /idempotency.*type|operation|mismatch/i,
     );
@@ -77,9 +77,9 @@ async function main() {
     assert.equal(byUser[String(userA.id)], 10);
     assert.equal(byUser[String(userB.id)], 0);
 
-    console.log('Economy idempotency ownership invariants: PASS');
+    console.log("Economy idempotency ownership invariants: PASS");
   } catch (error) {
-    console.error('Economy idempotency ownership invariants: FAIL');
+    console.error("Economy idempotency ownership invariants: FAIL");
     console.error(error);
     process.exitCode = 1;
   } finally {
@@ -94,10 +94,10 @@ async function main() {
           [userIds],
         );
         await client.query(
-          'DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])',
+          "DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])",
           [userIds],
         );
-        await client.query('DELETE FROM users WHERE id = ANY($1::bigint[])', [
+        await client.query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
           userIds,
         ]);
       });
@@ -107,7 +107,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Economy idempotency ownership runner: FAIL');
+  console.error("Economy idempotency ownership runner: FAIL");
   console.error(error);
   process.exit(1);
 });

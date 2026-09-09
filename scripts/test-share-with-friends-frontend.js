@@ -1,25 +1,25 @@
-const assert = require('assert');
-const fs = require('fs');
+const assert = require("assert");
+const fs = require("fs");
 
-const indexHtml = fs.readFileSync('./public/index.html', 'utf8');
-const shareJs = fs.readFileSync('./public/share.js', 'utf8');
-const appJs = fs.readFileSync('./public/app.js', 'utf8');
-const squadJs = fs.readFileSync('./public/squad.js', 'utf8');
-const squadRoutes = fs.readFileSync('./src/http/squad-routes.js', 'utf8');
-const taskRoutes = fs.readFileSync('./src/http/task-routes.js', 'utf8');
-const taskService = fs.readFileSync('./src/services/task-service.js', 'utf8');
+const indexHtml = fs.readFileSync("./public/index.html", "utf8");
+const shareJs = fs.readFileSync("./public/share.js", "utf8");
+const appJs = fs.readFileSync("./public/app.js", "utf8");
+const squadJs = fs.readFileSync("./public/squad.js", "utf8");
+const squadRoutes = fs.readFileSync("./src/http/squad-routes.js", "utf8");
+const taskRoutes = fs.readFileSync("./src/http/task-routes.js", "utf8");
+const taskService = fs.readFileSync("./src/services/task-service.js", "utf8");
 const verificationService = fs.readFileSync(
-  './src/services/task-verification-service.js',
-  'utf8',
+  "./src/services/task-verification-service.js",
+  "utf8",
 );
 const economyService = fs.readFileSync(
-  './src/services/economy-service.js',
-  'utf8',
+  "./src/services/economy-service.js",
+  "utf8",
 );
-const serverJs = fs.readFileSync('./server.js', 'utf8');
+const serverJs = fs.readFileSync("./server.js", "utf8");
 const migration = fs.readFileSync(
-  './migrations/020_daily_share_with_friends.sql',
-  'utf8',
+  "./migrations/020_daily_share_with_friends.sql",
+  "utf8",
 );
 
 assert.match(indexHtml, /id="shareReferral"/);
@@ -82,8 +82,8 @@ assert.match(migration, /systemKey.*share_with_friends/);
 assert.match(migration, /dailyPolicy.*utc_plus_one_calendar_day/);
 assert.match(migration, /urlSource.*user_referral_link/);
 
-console.log('Share with Friends frontend/integration contract: PASS');
-console.log('Share economic outcome + canonical Economy/Ledger contract: PASS');
-console.log('Share retry/idempotency contract: PASS');
-console.log('Dynamic API no-cache reward synchronization contract: PASS');
-console.log('Squad reward balance synchronization contract: PASS');
+console.log("Share with Friends frontend/integration contract: PASS");
+console.log("Share economic outcome + canonical Economy/Ledger contract: PASS");
+console.log("Share retry/idempotency contract: PASS");
+console.log("Dynamic API no-cache reward synchronization contract: PASS");
+console.log("Squad reward balance synchronization contract: PASS");

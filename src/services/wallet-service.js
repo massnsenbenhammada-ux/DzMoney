@@ -1,6 +1,6 @@
-const { query, withTransaction } = require('../db/pool');
+const { query, withTransaction } = require("../db/pool");
 
-const CURRENCIES = ['COIN', 'DZX', 'DZP'];
+const CURRENCIES = ["COIN", "DZX", "DZP"];
 
 async function ensureWallets(client, userId) {
   for (const currency of CURRENCIES) {
@@ -50,9 +50,9 @@ async function getUserWallets(userId) {
 }
 
 async function getBalance(userId, currency) {
-  if (!CURRENCIES.includes(currency)) throw new Error('Unsupported currency');
+  if (!CURRENCIES.includes(currency)) throw new Error("Unsupported currency");
   const result = await query(
-    'SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = $2',
+    "SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = $2",
     [userId, currency],
   );
   return result.rows[0] || null;

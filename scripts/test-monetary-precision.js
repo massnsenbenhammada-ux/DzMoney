@@ -1,12 +1,12 @@
-const assert = require('node:assert/strict');
-const { pool, withTransaction } = require('../src/db/pool');
-const { createUser } = require('../src/services/wallet-service');
+const assert = require("node:assert/strict");
+const { pool, withTransaction } = require("../src/db/pool");
+const { createUser } = require("../src/services/wallet-service");
 const {
   creditActivityReward,
   multiplyRatioScaled,
   decimalToScaled,
   scaledToDecimal,
-} = require('../src/services/economy-service');
+} = require("../src/services/economy-service");
 
 async function main() {
   const marker = `monetary-precision-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -16,38 +16,38 @@ async function main() {
     assert.equal(
       scaledToDecimal(
         multiplyRatioScaled(
-          decimalToScaled('100', 'amount'),
-          decimalToScaled('2', 'part'),
-          decimalToScaled('3', 'total'),
+          decimalToScaled("100", "amount"),
+          decimalToScaled("2", "part"),
+          decimalToScaled("3", "total"),
         ),
       ),
-      '66.666666667',
+      "66.666666667",
     );
     assert.equal(
       scaledToDecimal(
         multiplyRatioScaled(
-          decimalToScaled('2', 'amount'),
-          decimalToScaled('1', 'part'),
-          decimalToScaled('4', 'total'),
+          decimalToScaled("2", "amount"),
+          decimalToScaled("1", "part"),
+          decimalToScaled("4", "total"),
         ),
       ),
-      '0.5',
+      "0.5",
     );
 
     user = await createUser({
       telegramUserId: -Date.now(),
       username: marker,
-      firstName: 'Monetary Precision Test',
+      firstName: "Monetary Precision Test",
     });
 
     await creditActivityReward({
       idempotencyKey: `${marker}:decimal-modifier`,
       userId: user.id,
-      source: 'task',
-      coin: '0.1',
-      dzx: '0',
-      dzp: '0',
-      modifiers: [{ type: 'squad', rate: '0.1' }],
+      source: "task",
+      coin: "0.1",
+      dzx: "0",
+      dzp: "0",
+      modifiers: [{ type: "squad", rate: "0.1" }],
     });
 
     const reward = await pool.query(
@@ -55,24 +55,24 @@ async function main() {
        FROM ledger_entries le
        JOIN ledger_transactions lt ON lt.id = le.transaction_id
        WHERE lt.idempotency_key = $1 AND le.currency = 'COIN'`,
-      [`${marker}:decimal-modifier`, '0.11'],
+      [`${marker}:decimal-modifier`, "0.11"],
     );
     assert.equal(reward.rows.length, 1);
     assert.equal(reward.rows[0].amount_matches, true);
 
-    console.log('Monetary precision invariants: PASS');
+    console.log("Monetary precision invariants: PASS");
   } finally {
     if (user) {
       await withTransaction(async (client) => {
         await client.query(
-          'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)',
+          "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)",
           [user.id],
         );
         await client.query(
-          'DELETE FROM ledger_transactions WHERE user_id = $1',
+          "DELETE FROM ledger_transactions WHERE user_id = $1",
           [user.id],
         );
-        await client.query('DELETE FROM users WHERE id = $1', [user.id]);
+        await client.query("DELETE FROM users WHERE id = $1", [user.id]);
       });
     }
     await pool.end();
@@ -80,7 +80,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Monetary precision invariants: FAIL');
+  console.error("Monetary precision invariants: FAIL");
   console.error(error);
   process.exit(1);
 });

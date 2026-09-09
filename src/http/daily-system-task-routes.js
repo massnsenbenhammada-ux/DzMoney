@@ -1,17 +1,17 @@
-const express = require('express');
-const walletService = require('../services/wallet-service');
-const dailyTasks = require('../services/daily-system-task-service');
-const taskVerificationService = require('../services/task-verification-service');
-const taskAdvertisementService = require('../services/task-advertisement-service');
-const adsgramCorrelation = require('../services/adsgram-correlation-service');
-const referralService = require('../services/referral-service');
-const providerRegistryRuntime = require('../services/ad-provider-registry-runtime');
+const express = require("express");
+const walletService = require("../services/wallet-service");
+const dailyTasks = require("../services/daily-system-task-service");
+const taskVerificationService = require("../services/task-verification-service");
+const taskAdvertisementService = require("../services/task-advertisement-service");
+const adsgramCorrelation = require("../services/adsgram-correlation-service");
+const referralService = require("../services/referral-service");
+const providerRegistryRuntime = require("../services/ad-provider-registry-runtime");
 const {
   DAILY_SYSTEM_TASKS,
   isReferralAchievementClaimable,
-} = require('../services/daily-system-task-contract');
-const { telegramAuth } = require('./telegram-auth');
-const { createRateLimit } = require('./rate-limit');
+} = require("../services/daily-system-task-contract");
+const { telegramAuth } = require("./telegram-auth");
+const { createRateLimit } = require("./rate-limit");
 
 const SYSTEM_TASK_KEYS = new Set(Object.values(DAILY_SYSTEM_TASKS));
 
@@ -34,7 +34,7 @@ function createDailySystemTaskRouter({
   router.use(userRateLimit);
 
   router.get(
-    '/',
+    "/",
     asyncRoute(async (req, res) => {
       const systemKey = String(
         req.query?.systemKey || DAILY_SYSTEM_TASKS.CHECK_FOR_UPDATE,
@@ -42,7 +42,7 @@ function createDailySystemTaskRouter({
       if (!SYSTEM_TASK_KEYS.has(systemKey))
         return res
           .status(400)
-          .json({ ok: false, error: 'Unsupported system task' });
+          .json({ ok: false, error: "Unsupported system task" });
       const user = await wallet.createUser({
         telegramUserId: String(req.telegramUser.id),
         username: req.telegramUser.username || null,
@@ -114,26 +114,26 @@ function createDailySystemTaskRouter({
   );
 
   router.post(
-    '/execute',
+    "/execute",
     sensitiveRateLimit,
     asyncRoute(async (req, res) => {
       const body = req.body;
-      if (!body || typeof body !== 'object' || Array.isArray(body))
+      if (!body || typeof body !== "object" || Array.isArray(body))
         return res
           .status(400)
-          .json({ ok: false, error: 'request body must be an object' });
-      const allowed = new Set(['idempotencyKey', 'systemKey', 'metadata']);
+          .json({ ok: false, error: "request body must be an object" });
+      const allowed = new Set(["idempotencyKey", "systemKey", "metadata"]);
       if (Object.keys(body).some((key) => !allowed.has(key)))
         return res
           .status(400)
-          .json({ ok: false, error: 'unknown request field' });
+          .json({ ok: false, error: "unknown request field" });
       if (
-        typeof body.idempotencyKey !== 'string' ||
-        body.idempotencyKey.trim() === ''
+        typeof body.idempotencyKey !== "string" ||
+        body.idempotencyKey.trim() === ""
       )
         return res
           .status(400)
-          .json({ ok: false, error: 'idempotencyKey is required' });
+          .json({ ok: false, error: "idempotencyKey is required" });
       const idempotencyKey = body.idempotencyKey;
       const systemKey = String(
         body.systemKey || DAILY_SYSTEM_TASKS.CHECK_FOR_UPDATE,
@@ -141,16 +141,16 @@ function createDailySystemTaskRouter({
       if (!SYSTEM_TASK_KEYS.has(systemKey))
         return res
           .status(400)
-          .json({ ok: false, error: 'Unsupported system task' });
+          .json({ ok: false, error: "Unsupported system task" });
       if (
         body.metadata !== undefined &&
-        (typeof body.metadata !== 'object' ||
+        (typeof body.metadata !== "object" ||
           body.metadata === null ||
           Array.isArray(body.metadata))
       )
         return res
           .status(400)
-          .json({ ok: false, error: 'metadata must be an object' });
+          .json({ ok: false, error: "metadata must be an object" });
       const user = await wallet.createUser({
         telegramUserId: String(req.telegramUser.id),
         username: req.telegramUser.username || null,
@@ -161,7 +161,7 @@ function createDailySystemTaskRouter({
         const task = await tasks.getSystemTask(systemKey);
         const progress = await tasks.getAdvertisementProgress(task, user.id);
         if (!progress.available)
-          throw new Error('Daily advertisement target is already complete');
+          throw new Error("Daily advertisement target is already complete");
         const result = await advertisement.startTaskAdvertisement({
           userId: user.id,
           taskId: task.id,
@@ -192,7 +192,7 @@ function createDailySystemTaskRouter({
           verificationAdId: null,
           verificationProvider: null,
           verificationStatus: result.gate.status,
-          actionUrl: 'https://t.me/DzMoneyChecking',
+          actionUrl: "https://t.me/DzMoneyChecking",
           duplicate: result.duplicate,
         });
       const verificationAd = await verification.startTaskVerificationAd({
@@ -213,29 +213,29 @@ function createDailySystemTaskRouter({
   );
 
   router.post(
-    '/verify',
+    "/verify",
     sensitiveRateLimit,
     asyncRoute(async (req, res) => {
       const body = req.body;
-      if (!body || typeof body !== 'object' || Array.isArray(body))
+      if (!body || typeof body !== "object" || Array.isArray(body))
         return res
           .status(400)
-          .json({ ok: false, error: 'request body must be an object' });
-      const allowed = new Set(['attemptId', 'idempotencyKey']);
+          .json({ ok: false, error: "request body must be an object" });
+      const allowed = new Set(["attemptId", "idempotencyKey"]);
       if (Object.keys(body).some((key) => !allowed.has(key)))
         return res
           .status(400)
-          .json({ ok: false, error: 'unknown request field' });
+          .json({ ok: false, error: "unknown request field" });
       const attemptId = Number(body.attemptId);
       if (!Number.isInteger(attemptId) || attemptId <= 0)
         return res
           .status(400)
-          .json({ ok: false, error: 'attemptId must be a positive integer' });
+          .json({ ok: false, error: "attemptId must be a positive integer" });
       const idempotencyKey = body.idempotencyKey || `daily-system:${attemptId}`;
-      if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '')
+      if (typeof idempotencyKey !== "string" || idempotencyKey.trim() === "")
         return res
           .status(400)
-          .json({ ok: false, error: 'idempotencyKey is invalid' });
+          .json({ ok: false, error: "idempotencyKey is invalid" });
       const user = await wallet.createUser({
         telegramUserId: String(req.telegramUser.id),
         username: req.telegramUser.username || null,
@@ -255,23 +255,23 @@ function createDailySystemTaskRouter({
   );
 
   router.post(
-    '/advertisement/finalize',
+    "/advertisement/finalize",
     sensitiveRateLimit,
     asyncRoute(async (req, res) => {
       const body = req.body;
-      if (!body || typeof body !== 'object' || Array.isArray(body))
+      if (!body || typeof body !== "object" || Array.isArray(body))
         return res
           .status(400)
-          .json({ ok: false, error: 'request body must be an object' });
-      if (Object.keys(body).some((key) => key !== 'adEventId'))
+          .json({ ok: false, error: "request body must be an object" });
+      if (Object.keys(body).some((key) => key !== "adEventId"))
         return res
           .status(400)
-          .json({ ok: false, error: 'unknown request field' });
+          .json({ ok: false, error: "unknown request field" });
       const adEventId = Number(body.adEventId);
       if (!Number.isInteger(adEventId) || adEventId <= 0)
         return res
           .status(400)
-          .json({ ok: false, error: 'adEventId must be a positive integer' });
+          .json({ ok: false, error: "adEventId must be a positive integer" });
       const user = await wallet.createUser({
         telegramUserId: String(req.telegramUser.id),
         username: req.telegramUser.username || null,
@@ -287,23 +287,23 @@ function createDailySystemTaskRouter({
   );
 
   router.post(
-    '/advertisement/client-started',
+    "/advertisement/client-started",
     sensitiveRateLimit,
     asyncRoute(async (req, res) => {
       const body = req.body;
-      if (!body || typeof body !== 'object' || Array.isArray(body))
+      if (!body || typeof body !== "object" || Array.isArray(body))
         return res
           .status(400)
-          .json({ ok: false, error: 'request body must be an object' });
-      if (Object.keys(body).some((key) => key !== 'adEventId'))
+          .json({ ok: false, error: "request body must be an object" });
+      if (Object.keys(body).some((key) => key !== "adEventId"))
         return res
           .status(400)
-          .json({ ok: false, error: 'unknown request field' });
+          .json({ ok: false, error: "unknown request field" });
       const adEventId = Number(body.adEventId);
       if (!Number.isInteger(adEventId) || adEventId <= 0)
         return res
           .status(400)
-          .json({ ok: false, error: 'adEventId must be a positive integer' });
+          .json({ ok: false, error: "adEventId must be a positive integer" });
       const user = await wallet.createUser({
         telegramUserId: String(req.telegramUser.id),
         username: req.telegramUser.username || null,
@@ -319,23 +319,23 @@ function createDailySystemTaskRouter({
   );
 
   router.post(
-    '/advertisement/client-complete',
+    "/advertisement/client-complete",
     sensitiveRateLimit,
     asyncRoute(async (req, res) => {
       const body = req.body;
-      if (!body || typeof body !== 'object' || Array.isArray(body))
+      if (!body || typeof body !== "object" || Array.isArray(body))
         return res
           .status(400)
-          .json({ ok: false, error: 'request body must be an object' });
-      if (Object.keys(body).some((key) => key !== 'adEventId'))
+          .json({ ok: false, error: "request body must be an object" });
+      if (Object.keys(body).some((key) => key !== "adEventId"))
         return res
           .status(400)
-          .json({ ok: false, error: 'unknown request field' });
+          .json({ ok: false, error: "unknown request field" });
       const adEventId = Number(body.adEventId);
       if (!Number.isInteger(adEventId) || adEventId <= 0)
         return res
           .status(400)
-          .json({ ok: false, error: 'adEventId must be a positive integer' });
+          .json({ ok: false, error: "adEventId must be a positive integer" });
       const user = await wallet.createUser({
         telegramUserId: String(req.telegramUser.id),
         username: req.telegramUser.username || null,

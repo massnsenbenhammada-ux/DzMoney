@@ -1,8 +1,8 @@
-const { query } = require('../db/pool');
-const { postEconomyTransaction } = require('./economy-service');
+const { query } = require("../db/pool");
+const { postEconomyTransaction } = require("./economy-service");
 
-const CURRENCIES = new Set(['COIN', 'DZX', 'DZP']);
-const DZP_BUCKETS = new Set(['earned_dzp', 'converted_dzp', 'purchased_dzp']);
+const CURRENCIES = new Set(["COIN", "DZX", "DZP"]);
+const DZP_BUCKETS = new Set(["earned_dzp", "converted_dzp", "purchased_dzp"]);
 
 function normalizeLimit(value) {
   const limit = Number.parseInt(value, 10);
@@ -10,23 +10,23 @@ function normalizeLimit(value) {
 }
 
 function requireReason(reason) {
-  const value = String(reason || '').trim();
-  if (!value) throw new Error('reason is required');
-  if (value.length > 500) throw new Error('reason is too long');
+  const value = String(reason || "").trim();
+  if (!value) throw new Error("reason is required");
+  if (value.length > 500) throw new Error("reason is too long");
   return value;
 }
 
 function validateAdjustment({ currency, amount, dzpSource }) {
-  if (!CURRENCIES.has(currency)) throw new Error('Unsupported currency');
-  if (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(String(amount || '').trim()))
-    throw new Error('amount must be a valid decimal number');
-  if (Number(amount) === 0) throw new Error('amount must be non-zero');
-  if (currency === 'DZP' && !DZP_BUCKETS.has(dzpSource))
-    throw new Error('dzpSource is required for DZP adjustments');
+  if (!CURRENCIES.has(currency)) throw new Error("Unsupported currency");
+  if (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(String(amount || "").trim()))
+    throw new Error("amount must be a valid decimal number");
+  if (Number(amount) === 0) throw new Error("amount must be non-zero");
+  if (currency === "DZP" && !DZP_BUCKETS.has(dzpSource))
+    throw new Error("dzpSource is required for DZP adjustments");
 }
 
 async function searchUsers(search, limit = 25) {
-  const value = String(search || '').trim();
+  const value = String(search || "").trim();
   const pattern = `%${value}%`;
   const result = await query(
     `SELECT id, telegram_user_id, username, first_name, photo_url, created_at, updated_at
@@ -45,7 +45,7 @@ async function getUserProfile(userId) {
      FROM users WHERE id = $1`,
     [userId],
   );
-  if (!userResult.rowCount) throw new Error('User not found');
+  if (!userResult.rowCount) throw new Error("User not found");
 
   const [wallets, ledger] = await Promise.all([
     query(
@@ -83,22 +83,22 @@ async function adjustBalance({
 }) {
   validateAdjustment({ currency, amount, dzpSource });
   const normalizedReason = requireReason(reason);
-  const key = String(idempotencyKey || '').trim();
-  if (!key) throw new Error('idempotencyKey is required');
-  if (key.length > 200) throw new Error('idempotencyKey is too long');
-  if (!actorTelegramUserId) throw new Error('actorTelegramUserId is required');
+  const key = String(idempotencyKey || "").trim();
+  if (!key) throw new Error("idempotencyKey is required");
+  if (key.length > 200) throw new Error("idempotencyKey is too long");
+  if (!actorTelegramUserId) throw new Error("actorTelegramUserId is required");
 
   const profile = await getUserProfile(userId);
   const result = await postEconomyTransaction({
     idempotencyKey: key,
     userId: profile.user.id,
-    type: 'ADMIN_BALANCE_ADJUSTMENT',
+    type: "ADMIN_BALANCE_ADJUSTMENT",
     movements: [
       {
         currency,
         amount: String(amount).trim(),
-        source: 'admin_adjustment',
-        ...(currency === 'DZP' ? { dzpBucket: dzpSource } : {}),
+        source: "admin_adjustment",
+        ...(currency === "DZP" ? { dzpBucket: dzpSource } : {}),
       },
     ],
     metadata: {
@@ -106,7 +106,7 @@ async function adjustBalance({
       reason: normalizedReason,
       currency,
       amount: String(amount).trim(),
-      ...(currency === 'DZP' ? { dzp_source: dzpSource } : {}),
+      ...(currency === "DZP" ? { dzp_source: dzpSource } : {}),
     },
   });
 

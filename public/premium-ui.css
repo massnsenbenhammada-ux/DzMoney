@@ -119,7 +119,7 @@ body {
   transform: translate(-50%, -50%) scale(1);
 }
 .reward-popup:before {
-  content: '✦';
+  content: "✦";
   display: block;
   margin-bottom: 10px;
   color: var(--primary);

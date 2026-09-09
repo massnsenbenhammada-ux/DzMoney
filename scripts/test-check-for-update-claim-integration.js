@@ -1,17 +1,17 @@
-const assert = require('assert');
-const crypto = require('crypto');
-const { pool } = require('../src/db/pool');
-const walletService = require('../src/services/wallet-service');
+const assert = require("assert");
+const crypto = require("crypto");
+const { pool } = require("../src/db/pool");
+const walletService = require("../src/services/wallet-service");
 const {
   executeSystemTask,
-} = require('../src/services/daily-system-task-service');
+} = require("../src/services/daily-system-task-service");
 const {
   finalizeTaskVerification,
   resolveTrustedTaskVerifier,
-} = require('../src/services/task-verification-service');
+} = require("../src/services/task-verification-service");
 
-const SYSTEM_KEY = 'check_for_update';
-const CHANNEL = '@DzMoneyChecking';
+const SYSTEM_KEY = "check_for_update";
+const CHANNEL = "@DzMoneyChecking";
 
 async function createTestUser(prefix) {
   const telegramUserId = (
@@ -20,7 +20,7 @@ async function createTestUser(prefix) {
   ).toString();
   return walletService.createUser({
     telegramUserId,
-    username: `${prefix}_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
+    username: `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
     firstName: `Check Update ${prefix}`,
   });
 }
@@ -44,10 +44,10 @@ function telegramMembershipVerifier({
   const verifier = resolveTrustedTaskVerifier({
     config: {
       verification: {
-        provider: 'telegram_channel',
-        method: 'bot_api',
-        event: 'channel_membership',
-        providerConfigRef: 'telegram.dzmoney_updates',
+        provider: "telegram_channel",
+        method: "bot_api",
+        event: "channel_membership",
+        providerConfigRef: "telegram.dzmoney_updates",
       },
     },
     telegramUserId: expectedTelegramUserId,
@@ -64,7 +64,7 @@ function telegramMembershipVerifier({
 }
 
 async function main() {
-  const user = await createTestUser('claim');
+  const user = await createTestUser("claim");
   try {
     const taskResult = await pool.query(
       `SELECT id, reward_coin, reward_dzx, reward_dzp, config
@@ -76,14 +76,14 @@ async function main() {
     assert.strictEqual(
       taskResult.rowCount,
       1,
-      'Check for Update task must be active',
+      "Check for Update task must be active",
     );
     const task = taskResult.rows[0];
-    assert.strictEqual(task.config.dailyPolicy, 'utc_plus_one_calendar_day');
-    assert.strictEqual(task.config.verification.provider, 'telegram_channel');
+    assert.strictEqual(task.config.dailyPolicy, "utc_plus_one_calendar_day");
+    assert.strictEqual(task.config.verification.provider, "telegram_channel");
     assert.strictEqual(
       task.config.verification.providerConfigRef,
-      'telegram.dzmoney_updates',
+      "telegram.dzmoney_updates",
     );
     const expected = {
       COIN: Number(task.reward_coin),
@@ -92,7 +92,7 @@ async function main() {
     };
     assert(
       expected.COIN > 0 || expected.DZX > 0 || expected.DZP > 0,
-      'Check for Update must have a reward',
+      "Check for Update must have a reward",
     );
 
     const before = await walletBalances(user.id);
@@ -102,12 +102,12 @@ async function main() {
       userId: user.id,
       idempotencyKey: `check-update-negative-${crypto.randomUUID()}`,
     });
-    assert.strictEqual(failedExecution.attempt.status, 'verification_pending');
-    assert.strictEqual(failedExecution.gate.status, 'pending');
+    assert.strictEqual(failedExecution.attempt.status, "verification_pending");
+    assert.strictEqual(failedExecution.gate.status, "pending");
     assert.strictEqual(failedExecution.gate.ad_event_id, null);
 
     const rejectedTelegram = telegramMembershipVerifier({
-      botToken: 'test-bot-token',
+      botToken: "test-bot-token",
       expectedTelegramUserId: user.telegram_user_id,
       member: false,
     });
@@ -118,17 +118,17 @@ async function main() {
     });
     assert.deepStrictEqual(rejected, {
       duplicate: false,
-      status: 'rejected',
+      status: "rejected",
       rewarded: false,
     });
     assert(
       rejectedTelegram.getCalls() >= 1,
-      'Telegram membership verifier must be called',
+      "Telegram membership verifier must be called",
     );
     assert.deepStrictEqual(
       await walletBalances(user.id),
       before,
-      'Non-member must receive no reward',
+      "Non-member must receive no reward",
     );
 
     const execution = await executeSystemTask({
@@ -136,16 +136,16 @@ async function main() {
       userId: user.id,
       idempotencyKey: `check-update-success-${crypto.randomUUID()}`,
     });
-    assert.strictEqual(execution.attempt.status, 'verification_pending');
-    assert.strictEqual(execution.gate.status, 'pending');
+    assert.strictEqual(execution.attempt.status, "verification_pending");
+    assert.strictEqual(execution.gate.status, "pending");
     assert.strictEqual(
       execution.gate.ad_event_id,
       null,
-      'Check for Update must not create an ad event',
+      "Check for Update must not create an ad event",
     );
 
     const acceptedTelegram = telegramMembershipVerifier({
-      botToken: 'test-bot-token',
+      botToken: "test-bot-token",
       expectedTelegramUserId: user.telegram_user_id,
       member: true,
     });
@@ -164,7 +164,7 @@ async function main() {
     ]);
     const rewarded = results.filter(
       (result) =>
-        result.status === 'verified' &&
+        result.status === "verified" &&
         result.rewarded === true &&
         result.duplicate !== true,
     );
@@ -172,12 +172,12 @@ async function main() {
     assert.strictEqual(
       rewarded.length,
       1,
-      'Concurrent Check for Update claims must create one reward',
+      "Concurrent Check for Update claims must create one reward",
     );
     assert.strictEqual(
       duplicates.length,
       1,
-      'Concurrent Check for Update claim must produce one duplicate result',
+      "Concurrent Check for Update claim must produce one duplicate result",
     );
     assert.deepStrictEqual(rewarded[0].reward, {
       coin: expected.COIN,
@@ -186,7 +186,7 @@ async function main() {
     });
     assert(
       acceptedTelegram.getCalls() >= 1,
-      'Accepted claim must use Telegram membership verifier',
+      "Accepted claim must use Telegram membership verifier",
     );
 
     const after = await walletBalances(user.id);
@@ -204,20 +204,20 @@ async function main() {
     assert.strictEqual(
       transactions.rowCount,
       1,
-      'Check for Update must create exactly one task reward transaction',
+      "Check for Update must create exactly one task reward transaction",
     );
-    assert.strictEqual(transactions.rows[0].transaction_type, 'REWARD');
-    assert.strictEqual(transactions.rows[0].metadata.activity_type, 'daily');
-    assert.strictEqual(transactions.rows[0].metadata.activity_context, 'task');
+    assert.strictEqual(transactions.rows[0].transaction_type, "REWARD");
+    assert.strictEqual(transactions.rows[0].metadata.activity_type, "daily");
+    assert.strictEqual(transactions.rows[0].metadata.activity_context, "task");
 
     const adEvents = await pool.query(
-      'SELECT id FROM activity_ad_events WHERE user_id=$1',
+      "SELECT id FROM activity_ad_events WHERE user_id=$1",
       [user.id],
     );
     assert.strictEqual(
       adEvents.rowCount,
       0,
-      'Check for Update must not create advertisement events',
+      "Check for Update must not create advertisement events",
     );
 
     const retry = await finalizeTaskVerification({
@@ -225,12 +225,12 @@ async function main() {
       idempotencyKey: `check-update-retry-${crypto.randomUUID()}`,
       verifyTaskCompletion: acceptedTelegram.verifier,
     });
-    assert.strictEqual(retry.status, 'verified');
+    assert.strictEqual(retry.status, "verified");
     assert.strictEqual(retry.duplicate, true);
     assert.deepStrictEqual(
       await walletBalances(user.id),
       after,
-      'Retry must not grant a second reward',
+      "Retry must not grant a second reward",
     );
 
     await assert.rejects(
@@ -253,33 +253,33 @@ async function main() {
       userId: user.id,
       idempotencyKey: `check-update-next-day-${crypto.randomUUID()}`,
     });
-    assert.strictEqual(nextDayExecution.attempt.status, 'verification_pending');
+    assert.strictEqual(nextDayExecution.attempt.status, "verification_pending");
     assert.strictEqual(nextDayExecution.gate.ad_event_id, null);
 
-    console.log('Check for Update claim integration: PASS');
+    console.log("Check for Update claim integration: PASS");
   } finally {
     await pool.query(
-      'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)',
+      "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)",
       [user.id],
     );
-    await pool.query('DELETE FROM ledger_transactions WHERE user_id=$1', [
+    await pool.query("DELETE FROM ledger_transactions WHERE user_id=$1", [
       user.id,
     ]);
     await pool.query(
-      'DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)',
+      "DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)",
       [user.id],
     );
-    await pool.query('DELETE FROM task_attempts WHERE user_id=$1', [user.id]);
-    await pool.query('DELETE FROM activity_ad_events WHERE user_id=$1', [
+    await pool.query("DELETE FROM task_attempts WHERE user_id=$1", [user.id]);
+    await pool.query("DELETE FROM activity_ad_events WHERE user_id=$1", [
       user.id,
     ]);
-    await pool.query('DELETE FROM wallet_accounts WHERE user_id=$1', [user.id]);
-    await pool.query('DELETE FROM users WHERE id=$1', [user.id]);
+    await pool.query("DELETE FROM wallet_accounts WHERE user_id=$1", [user.id]);
+    await pool.query("DELETE FROM users WHERE id=$1", [user.id]);
   }
 }
 
 main().catch((error) => {
-  console.error('Check for Update claim integration: FAIL');
+  console.error("Check for Update claim integration: FAIL");
   console.error(error);
   process.exit(1);
 });

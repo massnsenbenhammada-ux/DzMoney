@@ -1,13 +1,13 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { query, pool } = require('../src/db/pool');
-const walletService = require('../src/services/wallet-service');
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const { query, pool } = require("../src/db/pool");
+const walletService = require("../src/services/wallet-service");
 const {
   purchasePaidMembership,
-} = require('../src/services/squad-membership-service');
+} = require("../src/services/squad-membership-service");
 
 test(
-  'paid membership burns DZP, selects the smallest eligible Squad, starts inactive, and is idempotent',
+  "paid membership burns DZP, selects the smallest eligible Squad, starts inactive, and is idempotent",
   { skip: !process.env.DATABASE_URL },
   async () => {
     const suffix = `${Date.now()}`;
@@ -24,11 +24,11 @@ test(
         ids.push(user.id);
       }
       const firstSquad = await query(
-        'INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id',
+        "INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id",
         [users[0].id],
       );
       const secondSquad = await query(
-        'INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id',
+        "INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id",
         [users[1].id],
       );
       squadIds.push(firstSquad.rows[0].id, secondSquad.rows[0].id);
@@ -56,7 +56,7 @@ test(
       });
       assert.equal(first.duplicate, false);
       assert.equal(String(first.membership.squad_id), String(squadIds[1]));
-      assert.equal(first.membership.status, 'inactive');
+      assert.equal(first.membership.status, "inactive");
       assert.equal(Number(first.price), 100);
 
       const balance = await query(
@@ -81,20 +81,20 @@ test(
     } finally {
       if (ids.length) {
         await query(
-          'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[])) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = ANY($1::bigint[]))',
+          "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[])) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = ANY($1::bigint[]))",
           [ids],
         );
         await query(
-          'DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])',
+          "DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])",
           [ids],
         );
       }
       if (squadIds.length)
-        await query('DELETE FROM squads WHERE id = ANY($1::bigint[])', [
+        await query("DELETE FROM squads WHERE id = ANY($1::bigint[])", [
           squadIds,
         ]);
       if (ids.length)
-        await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [ids]);
+        await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [ids]);
     }
     await pool.end();
   },

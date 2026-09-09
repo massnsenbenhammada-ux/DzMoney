@@ -1,4 +1,4 @@
-const assert = require('node:assert/strict');
+const assert = require("node:assert/strict");
 const {
   TON_DZX,
   TON_COIN,
@@ -7,7 +7,7 @@ const {
   DZP_DZX,
   tonToDZX,
   dzxToTON,
-} = require('../src/services/economy-service');
+} = require("../src/services/economy-service");
 
 // Finalized Phase 1 economy relationships:
 // 1 TON = 10,000 DZX = 10,000,000 COIN
@@ -29,4 +29,4 @@ assert.equal(DZP_DZX * DZX_COIN, DZP_COIN);
 assert.throws(() => tonToDZX(0));
 assert.throws(() => dzxToTON(0));
 
-console.log('Phase 1 economy invariants: PASS');
+console.log("Phase 1 economy invariants: PASS");

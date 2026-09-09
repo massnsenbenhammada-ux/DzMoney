@@ -1,9 +1,9 @@
-'use strict';
+"use strict";
 
-const express = require('express');
-const { adminAuth } = require('./admin-auth');
-const { createRateLimit } = require('./rate-limit');
-const service = require('../services/admin-task-campaign-service');
+const express = require("express");
+const { adminAuth } = require("./admin-auth");
+const { createRateLimit } = require("./rate-limit");
+const service = require("../services/admin-task-campaign-service");
 
 function createAdminTaskCampaignRouter({ tasks = service } = {}) {
   const router = express.Router();
@@ -14,7 +14,7 @@ function createAdminTaskCampaignRouter({ tasks = service } = {}) {
   router.use(createRateLimit({ windowMs: 60_000, max: 60 }));
 
   router.get(
-    '/',
+    "/",
     asyncRoute(async (req, res) => {
       res.json({
         ok: true,
@@ -24,13 +24,13 @@ function createAdminTaskCampaignRouter({ tasks = service } = {}) {
   );
 
   router.post(
-    '/:taskId/review',
+    "/:taskId/review",
     asyncRoute(async (req, res) => {
       const taskId = Number(req.params.taskId);
       if (!Number.isInteger(taskId) || taskId <= 0)
         return res
           .status(400)
-          .json({ ok: false, error: 'taskId must be a positive integer' });
+          .json({ ok: false, error: "taskId must be a positive integer" });
       const result = await tasks.reviewCreatorCampaign({
         taskId,
         action: req.body?.action,

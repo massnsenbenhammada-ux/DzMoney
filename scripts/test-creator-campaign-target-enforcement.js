@@ -1,11 +1,11 @@
-const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
-const { pool, withTransaction } = require('../src/db/pool');
-const { createUser } = require('../src/services/wallet-service');
-const { executeTask } = require('../src/services/task-service');
+const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
+const { pool, withTransaction } = require("../src/db/pool");
+const { createUser } = require("../src/services/wallet-service");
+const { executeTask } = require("../src/services/task-service");
 const {
   finalizeTaskVerification,
-} = require('../src/services/task-verification-service');
+} = require("../src/services/task-verification-service");
 
 async function main() {
   const marker = `creator-target-${crypto.randomUUID()}`;
@@ -32,8 +32,8 @@ async function main() {
         marker,
         users[0].id,
         JSON.stringify({
-          campaignUrl: 'https://t.me/example',
-          verification: { method: 'click_proof' },
+          campaignUrl: "https://t.me/example",
+          verification: { method: "click_proof" },
         }),
       ],
     );
@@ -59,14 +59,14 @@ async function main() {
       idempotencyKey: `${marker}:verify:${users[0].id}`,
       verifyTaskCompletion: async () => true,
     });
-    assert.equal(first.status, 'verified');
+    assert.equal(first.status, "verified");
     assert.equal(
       (
-        await pool.query('SELECT status FROM activity_tasks WHERE id=$1', [
+        await pool.query("SELECT status FROM activity_tasks WHERE id=$1", [
           taskId,
         ])
       ).rows[0].status,
-      'active',
+      "active",
     );
 
     const remaining = await Promise.all([
@@ -83,19 +83,19 @@ async function main() {
     ]);
 
     assert.equal(
-      remaining.filter((result) => result.status === 'verified').length,
+      remaining.filter((result) => result.status === "verified").length,
       1,
     );
     assert.equal(
-      remaining.filter((result) => result.status === 'rejected').length,
+      remaining.filter((result) => result.status === "rejected").length,
       1,
     );
 
     const task = await pool.query(
-      'SELECT status,target FROM activity_tasks WHERE id=$1',
+      "SELECT status,target FROM activity_tasks WHERE id=$1",
       [taskId],
     );
-    assert.equal(task.rows[0].status, 'completed');
+    assert.equal(task.rows[0].status, "completed");
     assert.equal(Number(task.rows[0].target), 2);
 
     const verified = await pool.query(
@@ -121,38 +121,38 @@ async function main() {
       /not active/i,
     );
 
-    console.log('Creator campaign target enforcement: PASS');
+    console.log("Creator campaign target enforcement: PASS");
   } catch (error) {
-    console.error('Creator campaign target enforcement: FAIL');
+    console.error("Creator campaign target enforcement: FAIL");
     console.error(error);
     process.exitCode = 1;
   } finally {
     await withTransaction(async (client) => {
       if (taskId) {
         await client.query(
-          'DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE task_id=$1)',
+          "DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE task_id=$1)",
           [taskId],
         );
-        await client.query('DELETE FROM task_attempts WHERE task_id=$1', [
+        await client.query("DELETE FROM task_attempts WHERE task_id=$1", [
           taskId,
         ]);
         await client.query(
           "DELETE FROM activity_ad_events WHERE metadata->>'task_id'=$1",
           [String(taskId)],
         );
-        await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
+        await client.query("DELETE FROM activity_tasks WHERE id=$1", [taskId]);
       }
       if (users.length) {
         const ids = users.map((user) => user.id);
         await client.query(
-          'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[]))',
+          "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[]))",
           [ids],
         );
         await client.query(
-          'DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])',
+          "DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])",
           [ids],
         );
-        await client.query('DELETE FROM users WHERE id = ANY($1::bigint[])', [
+        await client.query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
           ids,
         ]);
       }
@@ -162,7 +162,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Creator campaign target enforcement runner: FAIL');
+  console.error("Creator campaign target enforcement runner: FAIL");
   console.error(error);
   process.exit(1);
 });
