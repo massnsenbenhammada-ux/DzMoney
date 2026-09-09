@@ -24,7 +24,9 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Run Prettier
-        run: npx prettier --write .
+        run: npx prettier --write . --ignore-pattern 'package-lock.json' --ignore-pattern '.github/workflows/**'
+      - name: Remove generated lockfile
+        run: rm -f package-lock.json
       - name: Commit formatting changes
         run: |
           if git diff --quiet; then
