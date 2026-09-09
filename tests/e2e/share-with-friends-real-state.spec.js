@@ -19,6 +19,9 @@ async function cleanup(userId) {
     const id = u.rows[0].id;
     await db.query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)', [id]);
     await db.query('DELETE FROM ledger_transactions WHERE user_id=$1', [id]);
+    await db.query('DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)', [id]);
+    await db.query('DELETE FROM task_attempts WHERE user_id=$1', [id]);
+    await db.query('DELETE FROM daily_checkins WHERE user_id=$1', [id]);
     await db.query('DELETE FROM activity_ad_events WHERE user_id=$1', [id]);
     await db.query('DELETE FROM wallet_accounts WHERE user_id=$1', [id]);
     await db.query('DELETE FROM users WHERE id=$1', [id]);
