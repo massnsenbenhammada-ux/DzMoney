@@ -1,12 +1,15 @@
 # ADR: TON Deposit Blockchain Evidence Contract
 
 ## Status
+
 Accepted — implementation stage.
 
 ## Context
+
 DzMoney must credit TON deposits only from blockchain evidence. Client-supplied transaction amounts or confirmation counts are not a source of truth.
 
 ## Decision
+
 1. TON Center API v3 is the initial blockchain read adapter.
 2. Mainnet and Testnet use separate base URLs and configuration addresses.
 3. A deposit candidate is read by transaction hash and must contain an inbound message to the configured deposit address.
@@ -18,6 +21,7 @@ DzMoney must credit TON deposits only from blockchain evidence. Client-supplied 
 9. Provider access is isolated behind an adapter so a second independent provider can be added later without changing Deposit business rules.
 
 ## Failure policy
+
 - Provider timeout/HTTP failure: HOLD.
 - Transaction not found: HOLD until a later verification attempt; never credit.
 - Not finalized: HOLD.
@@ -26,4 +30,5 @@ DzMoney must credit TON deposits only from blockchain evidence. Client-supplied 
 - Mainnet reorg: finalized transactions are treated as irreversible according to TON finality; pre-finality evidence is never credited.
 
 ## Consequence
+
 The blockchain is the source of truth for transaction evidence. Admin settings are the source of truth for the current receiving address. The Economy remains the source of truth for internal balances.
