@@ -19,16 +19,17 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: npm install --ignore-scripts
-      - name: Measure authoritative Prettier offenders
+      - name: Inspect selected candidate formatter diffs
         shell: bash
         run: |
           set -o pipefail
-          echo "HEAD=$(git rev-parse HEAD)"
-          echo "PRETTIER_VERSION=$(npx prettier --version)"
-          npx prettier scripts/test-input-validation.js > /tmp/test-input-validation.formatted.js
-          echo "INPUT_VALIDATION_DIFF=$(if cmp -s scripts/test-input-validation.js /tmp/test-input-validation.formatted.js; then echo false; else echo true; fi)"
-          if ! cmp -s scripts/test-input-validation.js /tmp/test-input-validation.formatted.js; then diff -u scripts/test-input-validation.js /tmp/test-input-validation.formatted.js || true; fi
-          npx prettier . --list-different > prettier-offenders.txt || true
-          count=$(wc -l < prettier-offenders.txt | tr -d ' ')
-          echo "PRETTIER_OFFENDER_COUNT=$count"
-          cat prettier-offenders.txt
+          for file in scripts/test-creator-task-input-validation.js scripts/test-creator-task-validation.js; do
+            echo "===== $file ====="
+            npx prettier "$file" > /tmp/formatted.js
+            if cmp -s "$file" /tmp/formatted.js; then
+              echo "DIFF=false"
+            else
+              echo "DIFF=true"
+              diff -u "$file" /tmp/formatted.js || true
+            fi
+          done
