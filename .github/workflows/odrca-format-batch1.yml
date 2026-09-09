@@ -1,20 +1,21 @@
 name: ODRCA Formatting Batch 1
 
 on:
-  push:
-    branches:
-      - chore/restore-quality-guardrails
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
   format-batch-1:
+    if: github.event.pull_request.head.ref == 'chore/restore-quality-guardrails'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout exact PR head
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,7 +30,6 @@ jobs:
       - name: Commit only Batch 1
         run: |
           git add DEVELOPMENT_LOG.md docs/ADR-0013-daily-checkin-canonical-task.md docs/ADR-0015-admin-users.md docs/ADR-0016-admin-referral.md docs/ADR-0017-ADMIN-ACCOUNT-ENFORCEMENT.md
-          git diff --cached --name-only
           test "$(git diff --cached --name-only | wc -l)" -le 5
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
