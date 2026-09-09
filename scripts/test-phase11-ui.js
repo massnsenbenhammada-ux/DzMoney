@@ -40,7 +40,7 @@ assert.match(observerBlock, /finally \{[\s\S]*observer\.observe\(root, \{ childL
 assert.equal((observerBlock.match(/updateSquadPresentation\(\)/g) || []).length, 0, 'MutationObserver must not invoke async Squad API synchronization');
 
 assert.match(premiumCss, /width\s*:\s*min\(85vw,\s*440px\)/);
-assert.match(premiumCss, /transform\s*:\s*translateX\(100%\)/);
+assert.match(premiumCss, /transform:translateX\(100%\)/);
 assert.match(premiumCss, /phase11-drawer-panel/);
 assert.match(premiumCss, /prefers-reduced-motion/);
 assert.match(premiumCss, /phase11-conversion-notice/);
@@ -70,6 +70,6 @@ assert.equal((navMatch[0].match(/class="nav-item/g) || []).length, 5);
 const nav = navMatch[0];
 assert.ok(nav.indexOf('data-go="tasks"') < nav.indexOf('data-go="squad"'));
 assert.ok(nav.indexOf('data-go="squad"') < nav.indexOf('data-go="friends"'));
-assert.match(squadCss, /\.phase11-squad-nav\{[^}]*transform\s*:\s*translateY\(-8px\)/);
+assert.match(squadCss, /\.phase11-squad-nav\{[^}]*transform:translateY\(-8px\)/);
 
 console.log('Phase 11 UI contract checks passed.');
