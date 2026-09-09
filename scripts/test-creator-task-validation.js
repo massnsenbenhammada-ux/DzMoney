@@ -21,7 +21,8 @@ const validateCreateTask = createStrictObjectValidator({
   description: value => value === undefined || typeof value === 'string',
   target: isNonEmptyString,
   idempotencyKey: isNonEmptyString,
-  config: value => value === undefined || (value !== null && typeof value === 'object' && !Array.isArray(value)),
+  config: value =>
+    value === undefined || (value !== null && typeof value === 'object' && !Array.isArray(value)),
 });
 
 const validInput = {
@@ -37,8 +38,14 @@ validateCreateTask(validInput);
 
 assert.throws(() => validateCreateTask({ ...validInput, unknown: true }), /Unexpected field/);
 assert.throws(() => validateCreateTask({ ...validInput, title: '' }), /Invalid field: title/);
-assert.throws(() => validateCreateTask({ ...validInput, taskType: 'invalid' }), /Invalid field: taskType/);
-assert.throws(() => validateCreateTask({ ...validInput, idempotencyKey: '' }), /Invalid field: idempotencyKey/);
+assert.throws(
+  () => validateCreateTask({ ...validInput, taskType: 'invalid' }),
+  /Invalid field: taskType/,
+);
+assert.throws(
+  () => validateCreateTask({ ...validInput, idempotencyKey: '' }),
+  /Invalid field: idempotencyKey/,
+);
 assert.throws(() => validateCreateTask({ ...validInput, config: [] }), /Invalid field: config/);
 assert.equal(isHttpUrl(validInput.config.completion.url), true);
 
