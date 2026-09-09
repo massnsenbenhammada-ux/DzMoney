@@ -98,7 +98,10 @@ assert.match(
   /tasksList\.filter\(task => task\.systemKey !== ["']squad_ads["']\)/,
 );
 assert.match(taskRoutes, /externalAdId: result\.adEvent\?\.external_ad_id/);
-assert.match(advertisementService, /config\.advertisementContext \|\| ["']task["']/);
+assert.match(
+  advertisementService,
+  /config\.advertisementContext \|\| ["']task["']/,
+);
 assert.match(advertisementService, /context IN \(["']task["'],["']squad["']\)/);
 assert.match(advertisementService, /squad_ads.*config\.systemKey/);
 assert.match(advertisementService, /client_started/);
