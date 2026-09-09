@@ -40,7 +40,7 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     if (!verificationAdId) return route.continue();
     const clickResponse = await route.fetch();
     const postback = new URL('/api/ads/monetag/postback', baseURL);
-    for (const [key, value] of Object.entries({ token: 'test-monetag-secret', telegram_id: telegramId, zone_id: '11627577', event_type: 'impression', reward_event_type: 'valued', estimated_price: '0.001', ymid: verificationAdId, request_var: 'task' })) postback.searchParams.set(key, value);
+    for (const [key, value] of Object.entries({ token: 'test-monetag-secret', telegram_id: telegramId, zone_id: '11627577', event_type: 'impression', reward_event_type: 'valued', estimated_price: '0.001', ymid: verificationAdId, request_var: 'verification' })) postback.searchParams.set(key, value);
     const callback = await request.get(postback.toString());
     expect(callback.ok()).toBeTruthy();
     await route.fulfill({ response: clickResponse });
