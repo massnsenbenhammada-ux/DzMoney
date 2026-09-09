@@ -48,10 +48,13 @@ const dailyRoutes = fs.readFileSync(
   "utf8",
 );
 
-const squadAdsRoute = squadRoutes.slice(
-  squadRoutes.search(/router\.get\(["']\/ads["']/),
-  squadRoutes.search(/router\.get\(["']\/membership-tiers["']/),
+const squadAdsStart = squadRoutes.search(/router\.get\(\s*["']\/ads["']/);
+const membershipTiersStart = squadRoutes.search(
+  /router\.get\(\s*["']\/membership-tiers["']/,
 );
+assert(squadAdsStart >= 0);
+assert(membershipTiersStart > squadAdsStart);
+const squadAdsRoute = squadRoutes.slice(squadAdsStart, membershipTiersStart);
 
 assert.match(migration, /systemKey":\s*["']squad_ads/);
 assert.match(migration, /advertisementTarget":10/);
@@ -66,16 +69,16 @@ assert.match(
   contextMigration,
   /context IN \('task', 'reward_pool', 'daily_checkin', 'verification', 'gaming', 'squad'\)/,
 );
-assert.match(squadAdsRoute, /router\.get\(["']\/ads["']/);
-assert.doesNotMatch(squadAdsRoute, /router\.post\(["']\/ads\/start["']/);
+assert.match(squadAdsRoute, /router\.get\(\s*["']\/ads["']/);
+assert.doesNotMatch(squadAdsRoute, /router\.post\(\s*["']\/ads\/start["']/);
 assert.match(squadAdsRoute, /context\s*=\s*["']squad["']/);
 assert.doesNotMatch(squadAdsRoute, /squad_memberships/);
 assert.doesNotMatch(squadAdsRoute, /membership/);
 assert.doesNotMatch(squadAdsRoute, /Valid Squad membership is required/);
 assert.match(squadFrontend, /\/api\/tasks\/advertisement\/start/);
 assert.doesNotMatch(squadFrontend, /\/api\/squad\/ads\/start/);
-assert.match(squadFrontend, /requestVar: ["']squad["']/);
-assert.match(squadFrontend, /response\.providerId === ["']adsgram["']/);
+assert.match(squadFrontend, /requestVar:\s*["']squad["']/);
+assert.match(squadFrontend, /response\.providerId ===\s*["']adsgram["']/);
 assert.match(
   squadFrontend,
   /\/api\/daily-tasks\/advertisement\/client-started/,
@@ -88,21 +91,24 @@ assert.match(squadFrontend, /onStart/);
 assert.match(adClient, /registerAdsgram/);
 assert.match(adClient, /providerAdapters\.adsgram/);
 assert.match(adClient, /window\.Adsgram\.init/);
-assert.match(adClient, /addEventListener\(["']onStart["']/);
+assert.match(adClient, /addEventListener\(\s*["']onStart["']/);
 assert.match(adClient, /44442/);
 assert.match(dailyRoutes, /adsgram\s*=\s*adsgramCorrelation/);
 assert.match(dailyRoutes, /adsgram\.markClientStarted/);
 assert.match(dailyRoutes, /adsgram\.markClientCompleted/);
 assert.match(
   taskRoutes,
-  /tasksList\.filter\(task => task\.systemKey !== ["']squad_ads["']\)/,
+  /tasksList\.filter\(task => task\.systemKey !==\s*["']squad_ads["']\)/,
 );
-assert.match(taskRoutes, /externalAdId: result\.adEvent\?\.external_ad_id/);
+assert.match(taskRoutes, /externalAdId:\s*result\.adEvent\?\.external_ad_id/);
 assert.match(
   advertisementService,
-  /config\.advertisementContext \|\| ["']task["']/,
+  /config\.advertisementContext\s*\|\|\s*["']task["']/,
 );
-assert.match(advertisementService, /context IN \(["']task["'],["']squad["']\)/);
+assert.match(
+  advertisementService,
+  /context IN \(["']task["']\s*,\s*["']squad["']\)/,
+);
 assert.match(advertisementService, /squad_ads.*config\.systemKey/);
 assert.match(advertisementService, /client_started/);
 assert.doesNotMatch(advertisementService, /squad_memberships/);
