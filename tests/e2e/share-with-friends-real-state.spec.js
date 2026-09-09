@@ -90,6 +90,6 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     const ledger = await db.query("SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id=$1 AND transaction_type='REWARD' AND metadata->>'activity_type'='daily'", [userId]);
     expect(ledger.rows[0].count).toBe(1);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#coinBalance')).toHaveText(String(afterCoin));
+    await expect(page.locator('#coinBalance')).toHaveText(afterCoin.toLocaleString('en-US'));
   } finally { await db.end(); await cleanup(telegramId); }
 });
