@@ -246,9 +246,8 @@ function testGamingFrontendContract() {
     ),
   );
   assert(
-    sourceContains(
+    /await adapter\.handler\(\{[\s\S]*?requestVar:\s*['"]gaming['"],[\s\S]*?adEventId:\s*response\.adEventId,[\s\S]*?ymid:\s*response\.externalAdId\s*,?\s*\}\)/.test(
       gaming,
-      "await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId })",
     ),
   );
   assert(
