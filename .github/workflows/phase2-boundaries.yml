@@ -124,6 +124,7 @@ jobs:
       - name: Run full test suite
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          GIGAPUB_ENABLED: "false"
+          GIGAPUB_ENABLED: "true"
+          ONCLICKA_ENABLED: "false"
           TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
         run: npm run test:all
