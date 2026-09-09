@@ -28,8 +28,8 @@ async function visibleTrackedSections(page) {
 test.describe('Admin panel tabs', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
-      sessionStorage.clear();
-      window.Telegram = {
+      globalThis.sessionStorage.clear();
+      globalThis.Telegram = {
         WebApp: {
           initData: 'e2e-admin-tabs',
           ready() {},
