@@ -108,6 +108,8 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     await reloadGamingLoad;
     await page.getByRole('button', { name: /🎮 Gaming Spin & Digging/ }).click();
     await page.getByRole('button', { name: /Spin Use Spins for one server-side result/ }).click();
-    await expect(page.locator('[data-spin-balance]')).toHaveText(String(beforeSpins + 1));
+    const visibleSpin = page.locator('[data-gaming-view="spin"]:not(.gaming-hidden) [data-spin-balance]');
+    await expect(visibleSpin).toHaveCount(1);
+    await expect(visibleSpin).toHaveText(String(beforeSpins + 1));
   } finally { await db.end(); await cleanup(telegramId); }
 });
