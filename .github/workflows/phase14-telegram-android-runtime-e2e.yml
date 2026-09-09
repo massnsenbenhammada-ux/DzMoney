@@ -8,11 +8,17 @@ on:
         required: true
         default: false
         type: boolean
+      run_authenticated_webview:
+        description: 'Make Telegram WebView authentication a blocking gate'
+        required: true
+        default: false
+        type: boolean
   push:
     branches:
-      - feat/phase14-telegram-android-runtime-e2e
+      - feat/phase14-android-real-state-runtime
     paths:
       - '.github/workflows/phase14-telegram-android-runtime-e2e.yml'
+      - 'scripts/telegram-android-webview-runtime.js'
       - 'tests/e2e/**'
       - 'public/**'
       - 'src/**'
@@ -22,6 +28,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  TELEGRAM_TEST_MINI_APP_URL: https://t.me/DzMoneyCITestBot/DzMoney
 
 jobs:
   android-runtime:
@@ -33,7 +42,7 @@ jobs:
       ANDROID_TARGET: google_apis
       ANDROID_ARCH: x86
       AVD_NAME: dzmoney-api30
-      DZ_MONEY_MINI_APP_URL: https://t.me/DzaMoneybot/DzMoney
+      DZ_MONEY_MINI_APP_URL: https://t.me/DzMoneyCITestBot/DzMoney
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,6 +67,8 @@ jobs:
 
       - name: Start Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          TELEGRAM_WEBVIEW_BLOCKING: ${{ inputs.run_authenticated_webview == true }}
         with:
           api-level: 30
           target: google_apis
@@ -107,11 +118,25 @@ jobs:
             adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
             adb shell dumpsys package "$(cat /tmp/dzmoney-telegram-package)" | head -n 40
 
-            echo 'Opening the canonical DzMoney Direct Mini App link...'
+            echo 'Opening the Test Bot Direct Mini App link...'
             adb shell am start -a android.intent.action.VIEW -d "$DZ_MONEY_MINI_APP_URL"
             sleep 8
             adb shell dumpsys activity activities | grep -E 'mResumedActivity|mCurrentFocus' | head -n 5
             adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
+
+            echo 'Inspecting the real Telegram Android WebView boundary...'
+            set +e
+            TELEGRAM_PACKAGE_FILE=/tmp/dzmoney-telegram-package node scripts/telegram-android-webview-runtime.js > telegram-webview-runtime.txt 2>&1
+            WEBVIEW_EXIT=$?
+            set -e
+            cat telegram-webview-runtime.txt
+            if [ "$WEBVIEW_EXIT" -ne 0 ] && [ "${TELEGRAM_WEBVIEW_BLOCKING:-false}" = "true" ]; then
+              echo 'Authenticated Telegram WebView gate is blocking: real initData + /api/me evidence is required.'
+              exit "$WEBVIEW_EXIT"
+            fi
+            if [ "$WEBVIEW_EXIT" -ne 0 ]; then
+              echo 'WebView authentication is not yet a blocking gate; preserving the failure as diagnostic evidence.'
+            fi
 
             echo 'Capturing Telegram + Mini App launch evidence...'
             adb exec-out screencap -p > telegram-mini-app-runtime.png
@@ -125,6 +150,7 @@ jobs:
           path: |
             telegram-mini-app-runtime.png
             telegram-mini-app-logcat.txt
+            telegram-webview-runtime.txt
           if-no-files-found: ignore
 
       - name: Real provider gate preflight
