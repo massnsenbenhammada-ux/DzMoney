@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  workflows: write
 
 jobs:
   format:
@@ -20,9 +21,11 @@ jobs:
         with:
           node-version: 20
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm install --ignore-scripts --no-package-lock
       - name: Format repository
         run: npm run format
+      - name: Remove generated package lock
+        run: rm -f package-lock.json
       - name: Commit formatting-only changes
         run: |
           git config user.name "github-actions[bot]"
