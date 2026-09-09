@@ -1,0 +1,31 @@
+name: ODRCA Cluster 6 Observe
+
+on:
+  push:
+    branches: [odrca/cluster-6-observe]
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Measure authoritative Prettier offenders
+        shell: bash
+        run: |
+          set -o pipefail
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "PRETTIER_VERSION=$(npx prettier --version)"
+          npx prettier . --list-different > prettier-offenders.txt || true
+          count=$(wc -l < prettier-offenders.txt | tr -d ' ')
+          echo "PRETTIER_OFFENDER_COUNT=$count"
+          cat prettier-offenders.txt
