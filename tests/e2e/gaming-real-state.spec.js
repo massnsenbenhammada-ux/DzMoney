@@ -37,8 +37,11 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
   });
   page.on('response', async response => {
     if (!response.url().endsWith('/api/gaming') || response.request().method() !== 'GET') return;
-    try { console.log(`GAMING_API_RESPONSE ${response.status()} ${JSON.stringify(await response.json())}`); }
-    catch (error) { console.log(`GAMING_API_RESPONSE_BODY_ERROR ${error.message}`); }
+    try {
+      console.log(`GAMING_API_RESPONSE ${response.status()} ${JSON.stringify(await response.json())}`);
+    } catch (error) {
+      console.log(`GAMING_API_RESPONSE_BODY_ERROR ${error.message}`);
+    }
   });
   await page.addInitScript(({ data }) => { window.Telegram = { WebApp: { initData: data, ready() {}, expand() {}, openTelegramLink() {} } }; }, { data: initData });
   await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
@@ -67,7 +70,14 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     try {
       await expect(button).toBeVisible();
     } catch (error) {
-      console.log(`GAMING_NAV_FAILURE ${JSON.stringify({ browserErrors, dom: await page.evaluate(() => ({ active: document.querySelector('.page.active')?.dataset.page, home: document.querySelector('[data-gaming-view="home"]')?.className, spin: document.querySelector('[data-gaming-view="spin"]')?.className, ad: document.querySelector('[data-gaming-ad="spin"]')?.className, gamingViews: [...document.querySelectorAll('[data-gaming-view]')].map(el => ({ view: el.dataset.gamingView, className: el.className, hidden: el.hidden, rect: el.getBoundingClientRect().toJSON() })) }))}`);
+      const diagnostic = await page.evaluate(() => ({
+        active: document.querySelector('.page.active')?.dataset.page,
+        home: document.querySelector('[data-gaming-view="home"]')?.className,
+        spin: document.querySelector('[data-gaming-view="spin"]')?.className,
+        ad: document.querySelector('[data-gaming-ad="spin"]')?.className,
+        gamingViews: [...document.querySelectorAll('[data-gaming-view]')].map(el => ({ view: el.dataset.gamingView, className: el.className, hidden: el.hidden, rect: el.getBoundingClientRect().toJSON() }))
+      }));
+      console.log(`GAMING_NAV_FAILURE ${JSON.stringify({ browserErrors, diagnostic })}`);
       throw error;
     }
     const startWait = page.waitForResponse(r => r.url().endsWith('/api/gaming/ads/start') && r.request().method() === 'POST');
