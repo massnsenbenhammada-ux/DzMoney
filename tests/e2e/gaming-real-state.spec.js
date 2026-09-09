@@ -46,6 +46,11 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
   await page.addInitScript(({ data }) => { window.Telegram = { WebApp: { initData: data, ready() {}, expand() {}, openTelegramLink() {} } }; }, { data: initData });
   await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
   try {
+    // Provision the authenticated user before page startup: gaming.js loads /api/gaming immediately.
+    const me = await request.get(`${baseURL}/api/me`, { headers: { 'X-Telegram-Init-Data': initData } });
+    expect(me.ok()).toBeTruthy();
+    const userId = (await me.json()).user.id;
+
     const gamingLoad = page.waitForResponse(response => response.url().endsWith('/api/gaming') && response.request().method() === 'GET');
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.status')).toContainText('Online');
@@ -53,9 +58,6 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     expect(before.ok()).toBeTruthy();
     const beforeState = await before.json();
     const beforeSpins = Number(beforeState.gaming.account.spins);
-    const me = await request.get(`${baseURL}/api/me`, { headers: { 'X-Telegram-Init-Data': initData } });
-    expect(me.ok()).toBeTruthy();
-    const userId = (await me.json()).user.id;
     await gamingLoad;
 
     await page.evaluate(({ data }) => {
