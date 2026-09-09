@@ -26,6 +26,14 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
+          echo "PRETTIER_VERSION=$(npx prettier --version)"
+          npx prettier public/gaming-runtime.css > /tmp/gaming-runtime.formatted.css
+          if ! cmp -s public/gaming-runtime.css /tmp/gaming-runtime.formatted.css; then
+            echo "GAMING_RUNTIME_PRETTIER_DIFF=true"
+            diff -u public/gaming-runtime.css /tmp/gaming-runtime.formatted.css || true
+          else
+            echo "GAMING_RUNTIME_PRETTIER_DIFF=false"
+          fi
           npx prettier . --list-different > prettier-offenders.txt || true
           count=$(wc -l < prettier-offenders.txt | tr -d ' ')
           echo "PRETTIER_OFFENDER_COUNT=$count"
