@@ -26,8 +26,9 @@ assert.match(shareJs, /showRewardOutcome\(status\)/);
 // canonical verification/economy path; UI-only success is not sufficient.
 assert.match(taskRoutes, /const attemptId = Number\(req\.body\?\.attemptId\);/);
 assert.match(taskRoutes, /recordTaskClick\(\{ attemptId, userId: user\.id \}\)/);
-assert.match(taskRoutes, /finalizeTaskVerification\(\{ attemptId, idempotencyKey: `task:\$\{attemptId\}` \}\)/);
-assert.match(taskRoutes, /rewarded: finalization\.rewarded === true/);
+assert.match(taskRoutes, /const status = await verification\.getTaskVerificationStatus\(\{ attemptId, userId: user\.id \}\)/);
+assert.match(taskRoutes, /rewarded: status\.status === 'verified'/);
+assert.doesNotMatch(taskRoutes, /const finalization = await verification\.finalizeTaskVerification\(\{ attemptId, idempotencyKey: `task:\$\{attemptId\}` \}\)/);
 assert.match(taskService, /recordTaskClick/);
 assert.match(verificationService, /rewarded/);
 assert.match(verificationService, /economy/);
