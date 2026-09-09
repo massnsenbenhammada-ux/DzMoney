@@ -34,13 +34,15 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
   const initData = buildInitData(telegramId);
   const db = new Pool({ connectionString: process.env.DATABASE_URL, ssl: false });
   let verificationAdId = null;
+  const monetagSecret = process.env.MONETAG_POSTBACK_SECRET;
+  if (!monetagSecret) throw new Error('MONETAG_POSTBACK_SECRET is required for Share real-state E2E');
   await page.addInitScript(({ data }) => { window.Telegram = { WebApp: { initData: data, ready() {}, expand() {}, openTelegramLink() {} } }; }, { data: initData });
   await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
   await page.route('**/api/tasks/click', async route => {
     if (!verificationAdId) return route.continue();
     const clickResponse = await route.fetch();
     const postback = new URL('/api/ads/monetag/postback', baseURL);
-    for (const [key, value] of Object.entries({ token: 'test-monetag-secret', telegram_id: telegramId, zone_id: '11627577', event_type: 'impression', reward_event_type: 'valued', estimated_price: '0.001', ymid: verificationAdId, request_var: 'verification' })) postback.searchParams.set(key, value);
+    for (const [key, value] of Object.entries({ token: monetagSecret, telegram_id: telegramId, zone_id: '11627577', event_type: 'impression', reward_event_type: 'valued', estimated_price: '0.001', ymid: verificationAdId, request_var: 'verification' })) postback.searchParams.set(key, value);
     const callback = await request.get(postback.toString());
     expect(callback.ok()).toBeTruthy();
     await route.fulfill({ response: clickResponse });
