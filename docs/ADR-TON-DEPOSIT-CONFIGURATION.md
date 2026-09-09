@@ -1,9 +1,11 @@
 # ADR — TON Deposit Network and Address Configuration
 
 ## Status
+
 Accepted
 
 ## Decision
+
 DzMoney stores one deposit address per TON network in the existing `admin_settings` source of truth:
 
 - `deposit.ton.testnet_address`
