@@ -39,7 +39,7 @@ assert.match(observerBlock, /observer\.disconnect\(\)/);
 assert.match(observerBlock, /finally \{[\s\S]*observer\.observe\(root, \{ childList: true, subtree: true \}\)/);
 assert.equal((observerBlock.match(/updateSquadPresentation\(\)/g) || []).length, 0, 'MutationObserver must not invoke async Squad API synchronization');
 
-assert.match(premiumCss, /width:min\(85vw,440px\)/);
+assert.match(premiumCss, /width\s*:\s*min\(85vw,\s*440px\)/);
 assert.match(premiumCss, /transform:translateX\(100%\)/);
 assert.match(premiumCss, /phase11-drawer-panel/);
 assert.match(premiumCss, /prefers-reduced-motion/);
