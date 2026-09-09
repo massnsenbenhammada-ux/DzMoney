@@ -5,7 +5,7 @@ on:
     branches: [odrca/batch-3-format-artifact]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   format-artifact:
@@ -35,11 +35,21 @@ jobs:
             public/admin.css \
             public/premium-ui.css \
             public/squad.css
-      - name: Show isolated diff
+      - name: Validate and commit only Batch 3 files
         run: |
           git diff --check
-          git diff --stat
-          git diff -- public/creator-task.css public/conversion.css public/admin.css public/premium-ui.css public/squad.css
+          if git diff --quiet -- public/creator-task.css public/conversion.css public/admin.css public/premium-ui.css public/squad.css; then
+            echo "No Batch 3 formatting changes remain."
+            exit 0
+          fi
+          git status --short
+          git add -- public/creator-task.css public/conversion.css public/admin.css public/premium-ui.css public/squad.css
+          git diff --cached --check
+          git diff --cached --stat
+          git diff --cached --name-only
+          test "$(git diff --cached --name-only | wc -l)" -eq 5
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore(odrca): format Batch 3 CSS candidates'
+          git push
       - name: Upload formatted candidates
         uses: actions/upload-artifact@v4
         with:
