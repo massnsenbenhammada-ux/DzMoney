@@ -48,6 +48,7 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     }, { data: initData });
 
     await page.getByRole('button', { name: /🎮 Gaming Spin & Digging/ }).click();
+    await page.waitForResponse(response => response.url().endsWith('/api/gaming') && response.request().method() === 'GET');
     await page.getByRole('button', { name: /Spin Use Spins for one server-side result/ }).click();
     const button = page.locator('[data-gaming-ad="spin"]');
     await expect(button).toBeVisible();
@@ -74,6 +75,7 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     expect((await duplicate.json()).duplicate).toBe(true);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: /🎮 Gaming Spin & Digging/ }).click();
+    await page.waitForResponse(response => response.url().endsWith('/api/gaming') && response.request().method() === 'GET');
     await page.getByRole('button', { name: /Spin Use Spins for one server-side result/ }).click();
     await expect(page.locator('[data-spin-balance]')).toHaveText(String(beforeSpins + 1));
   } finally { await db.end(); await cleanup(telegramId); }
