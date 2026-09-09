@@ -26,10 +26,10 @@ if (!categoryBody.includes('creatorPanel.hidden = true')) {
   throw new Error('Creator panel must be hidden inside a specific task category');
 }
 
-if (!/\.creator-panel\[hidden\]\{display:none\}/.test(creatorCss)) {
+if (!/\.creator-panel\[hidden\]\s*\{\s*display:\s*none\s*;?\s*\}/.test(creatorCss)) {
   throw new Error('Creator panel hidden state must be enforced by CSS');
 }
-if (/\.creator-panel\{display:block\}/.test(creatorCss)) {
+if (/\.creator-panel\s*\{\s*display:\s*block\s*;?\s*\}/.test(creatorCss)) {
   throw new Error('Creator CSS must not override the hidden attribute with display:block');
 }
 
