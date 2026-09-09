@@ -1,0 +1,36 @@
+name: ODRCA Formatting Batch 2 Config
+
+on:
+  push:
+    branches: [chore/restore-quality-guardrails]
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Format isolated config candidates
+        run: npx prettier --write package.json eslint.config.js playwright.config.js
+      - name: Verify isolated formatting
+        run: npx prettier --check package.json eslint.config.js playwright.config.js
+      - name: Commit formatting-only changes and remove runner
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json eslint.config.js playwright.config.js
+          git rm .github/workflows/odrca-format-batch2-config.yml
+          git diff --cached --name-only
+          git commit -m 'chore(odrca): apply config formatting batch 2'
+          git push origin HEAD:chore/restore-quality-guardrails
