@@ -36,23 +36,23 @@ sleep 8
 adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
 adb shell dumpsys package "$(cat /tmp/dzmoney-telegram-package)" | head -n 40
 
-echo 'Resolving Telegram launcher activity for explicit Mini App intent routing...'
+echo 'Resolving the actual Telegram activity for the Mini App VIEW intent...'
 TELEGRAM_PACKAGE="$(cat /tmp/dzmoney-telegram-package)"
 test -n "$TELEGRAM_PACKAGE"
-TELEGRAM_ACTIVITY="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$TELEGRAM_PACKAGE" | tail -n 1 | tr -d '\r')"
+TELEGRAM_ACTIVITY="$(adb shell cmd package resolve-activity --brief -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "$DZ_MONEY_MINI_APP_URL" "$TELEGRAM_PACKAGE" | tail -n 1 | tr -d '\r')"
 test -n "$TELEGRAM_ACTIVITY"
 test "$TELEGRAM_ACTIVITY" != 'No activity found'
 case "$TELEGRAM_ACTIVITY" in
   "$TELEGRAM_PACKAGE"/*) ;;
   *)
-    echo "ERROR: Resolved launcher activity '$TELEGRAM_ACTIVITY' does not belong to Telegram package '$TELEGRAM_PACKAGE'."
+    echo "ERROR: Resolved Mini App activity '$TELEGRAM_ACTIVITY' does not belong to Telegram package '$TELEGRAM_PACKAGE'."
     exit 1
     ;;
 esac
-echo "Telegram launcher activity: $TELEGRAM_ACTIVITY"
+echo "Telegram Mini App activity: $TELEGRAM_ACTIVITY"
 
 echo 'Opening the Test Bot Direct Mini App link explicitly inside Telegram...'
-adb shell am start -W -n "$TELEGRAM_ACTIVITY" -a android.intent.action.VIEW -d "$DZ_MONEY_MINI_APP_URL"
+adb shell am start -W -n "$TELEGRAM_ACTIVITY" -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "$DZ_MONEY_MINI_APP_URL"
 sleep 8
 FOREGROUND_STATE="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|mCurrentFocus' | head -n 5 || true)"
 printf '%s\n' "$FOREGROUND_STATE"
