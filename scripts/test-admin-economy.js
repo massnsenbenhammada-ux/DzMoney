@@ -29,7 +29,7 @@ function test(name, fn) {
 }
 
 test("economy route reuses adminAuth", () => {
-  assert.match(route, /require\('\.\/admin-auth'\)/);
+  assert.match(route, /require\(["']\.\/admin-auth["']\)/);
   assert.match(route, /router\.use\(adminAuth\)/);
 });
 
