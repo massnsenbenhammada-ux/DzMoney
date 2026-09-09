@@ -1,67 +1,143 @@
-const assert = require('assert');
-const http = require('http');
-const express = require('express');
-const { createTaskRouter } = require('../src/http/task-routes');
+const assert = require("assert");
+const http = require("http");
+const express = require("express");
+const { createTaskRouter } = require("../src/http/task-routes");
 
 async function request(port, body) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ hostname: '127.0.0.1', port, path: '/api/tasks/execute', method: 'POST', headers: { 'content-type': 'application/json' } }, res => {
-      let data = '';
-      res.setEncoding('utf8');
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => resolve({ status: res.statusCode, body: data ? JSON.parse(data) : {} }));
-    });
-    req.on('error', reject);
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: "/api/tasks/execute",
+        method: "POST",
+        headers: { "content-type": "application/json" },
+      },
+      (res) => {
+        let data = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () =>
+          resolve({
+            status: res.statusCode,
+            body: data ? JSON.parse(data) : {},
+          }),
+        );
+      },
+    );
+    req.on("error", reject);
     req.end(JSON.stringify(body));
   });
 }
 
 async function run() {
   const calls = [];
-  const tasks = { async executeTask(input) { calls.push(input); return { attempt: { id: 41 }, gate: { id: 9, idempotency_key: 'verification:41', status: 'pending' }, duplicate: false }; } };
-  const wallet = { async createUser(input) { calls.push({ createUser: input }); return { id: 7 }; } };
+  const tasks = {
+    async executeTask(input) {
+      calls.push(input);
+      return {
+        attempt: { id: 41 },
+        gate: { id: 9, idempotency_key: "verification:41", status: "pending" },
+        duplicate: false,
+      };
+    },
+  };
+  const wallet = {
+    async createUser(input) {
+      calls.push({ createUser: input });
+      return { id: 7 };
+    },
+  };
   const verification = {
     async startTaskVerificationAd(input) {
       calls.push({ startVerification: input });
-      return { providerId: 'monetag', adEvent: { external_ad_id: 'verification-ad-41' } };
-    }
+      return {
+        providerId: "monetag",
+        adEvent: { external_ad_id: "verification-ad-41" },
+      };
+    },
   };
-  const auth = (req, _res, next) => { req.telegramUser = { id: 123, username: 'tester', first_name: 'Test' }; next(); };
+  const auth = (req, _res, next) => {
+    req.telegramUser = { id: 123, username: "tester", first_name: "Test" };
+    next();
+  };
   const app = express();
   app.use(express.json());
-  app.use('/api/tasks', createTaskRouter({ wallet, tasks, verification, auth }));
-  const server = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
+  app.use(
+    "/api/tasks",
+    createTaskRouter({ wallet, tasks, verification, auth }),
+  );
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, "127.0.0.1", () => resolve(s));
+  });
   try {
-    const result = await request(server.address().port, { taskId: 12, idempotencyKey: 'exec-http-1', metadata: { source: 'ui' } });
+    const result = await request(server.address().port, {
+      taskId: 12,
+      idempotencyKey: "exec-http-1",
+      metadata: { source: "ui" },
+    });
     assert.strictEqual(result.status, 200);
     assert.deepStrictEqual(result.body, {
       ok: true,
       attemptId: 41,
       gateId: 9,
-      verificationAdId: 'verification-ad-41',
-      verificationProvider: 'monetag',
-      verificationStatus: 'pending',
-      duplicate: false
+      verificationAdId: "verification-ad-41",
+      verificationProvider: "monetag",
+      verificationStatus: "pending",
+      duplicate: false,
     });
-    assert.deepStrictEqual(calls[0], { createUser: { telegramUserId: '123', username: 'tester', firstName: 'Test', photoUrl: null } });
-    assert.deepStrictEqual(calls[1], { taskId: 12, userId: 7, idempotencyKey: 'exec-http-1', metadata: { source: 'ui' } });
+    assert.deepStrictEqual(calls[0], {
+      createUser: {
+        telegramUserId: "123",
+        username: "tester",
+        firstName: "Test",
+        photoUrl: null,
+      },
+    });
+    assert.deepStrictEqual(calls[1], {
+      taskId: 12,
+      userId: 7,
+      idempotencyKey: "exec-http-1",
+      metadata: { source: "ui" },
+    });
     assert.strictEqual(calls[2].startVerification.attemptId, 41);
-    assert.strictEqual(calls[2].startVerification.idempotencyKey, 'verification:41');
+    assert.strictEqual(
+      calls[2].startVerification.idempotencyKey,
+      "verification:41",
+    );
     assert.ok(calls[2].startVerification.providerRegistry);
 
-    const unknownField = await request(server.address().port, { taskId: 12, idempotencyKey: 'exec-http-2', metadata: { source: 'ui' }, unexpected: true });
+    const unknownField = await request(server.address().port, {
+      taskId: 12,
+      idempotencyKey: "exec-http-2",
+      metadata: { source: "ui" },
+      unexpected: true,
+    });
     assert.strictEqual(unknownField.status, 400);
 
-    const invalidTaskId = await request(server.address().port, { taskId: '12', idempotencyKey: 'exec-http-3', metadata: { source: 'ui' } });
+    const invalidTaskId = await request(server.address().port, {
+      taskId: "12",
+      idempotencyKey: "exec-http-3",
+      metadata: { source: "ui" },
+    });
     assert.strictEqual(invalidTaskId.status, 400);
 
-    const invalidMetadata = await request(server.address().port, { taskId: 12, idempotencyKey: 'exec-http-4', metadata: 'ui' });
+    const invalidMetadata = await request(server.address().port, {
+      taskId: 12,
+      idempotencyKey: "exec-http-4",
+      metadata: "ui",
+    });
     assert.strictEqual(invalidMetadata.status, 400);
 
-    console.log('Task execution HTTP boundary: PASS');
+    console.log("Task execution HTTP boundary: PASS");
   } finally {
-    await new Promise(resolve => server.close(resolve));
+    await new Promise((resolve) => server.close(resolve));
   }
 }
 
-run().catch(error => { console.error(error); process.exitCode = 1; });
+run().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

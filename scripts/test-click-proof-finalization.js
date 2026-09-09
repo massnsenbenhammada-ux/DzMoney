@@ -1,10 +1,15 @@
-const assert = require('assert');
+const assert = require("assert");
 
 async function run() {
-  const verificationService = require('../src/services/task-verification-service');
+  const verificationService = require("../src/services/task-verification-service");
   const originalLoad = verificationService.__loadTaskVerificationAttempt;
-  assert.ok(!originalLoad, 'test guard');
-  console.log('click-proof finalization contract test scaffold requires no new verifier');
+  assert.ok(!originalLoad, "test guard");
+  console.log(
+    "click-proof finalization contract test scaffold requires no new verifier",
+  );
 }
 
-run().catch(error => { console.error(error); process.exit(1); });
+run().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

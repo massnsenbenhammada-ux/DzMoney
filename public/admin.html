@@ -1,25 +1,497 @@
 <!doctype html>
 <html lang="en" dir="ltr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark"><title>DzMoney Admin</title><link rel="stylesheet" href="/admin.css"></head>
-<body>
-<main class="admin-shell">
-<header class="admin-header"><div><span class="eyebrow">DZMoney CONTROL</span><h1>Admin Dashboard</h1><p>Operational metrics from the canonical backend sources.</p></div><div class="status-pill"><span></span>Live</div></header>
-<nav class="admin-tabs" aria-label="Admin sections">
-<button type="button" class="admin-tab active" data-admin-tab="dashboard" aria-controls="dashboardSection" aria-selected="true">Dashboard</button><button type="button" class="admin-tab" data-admin-tab="economy" aria-controls="economySection" aria-selected="false">Economy</button><button type="button" class="admin-tab" data-admin-tab="users" aria-controls="usersSection" aria-selected="false">Users</button><button type="button" class="admin-tab" data-admin-tab="referral" aria-controls="referralSection" aria-selected="false">Referral</button><button type="button" class="admin-tab" data-admin-tab="squad" aria-controls="squadSection" aria-selected="false">Squad</button><button type="button" class="admin-tab" data-admin-tab="enforcement" aria-controls="enforcementSection" aria-selected="false">Enforcement</button><button type="button" class="admin-tab" data-admin-tab="campaigns" aria-controls="adminTaskCampaignSection" aria-selected="false">Campaigns</button>
-</nav>
-<section id="dashboardSection" class="admin-dashboard-section" aria-label="Dashboard">
-<section class="metric-grid" aria-label="Real-time metrics"><article class="metric-card metric-members"><span>Total Members</span><strong id="membersValue">—</strong><small>Registered accounts</small></article><article class="metric-card metric-ads"><span>Advertisements Watched</span><strong id="adsValue">—</strong><small>Verified ad completions</small></article><article class="metric-card metric-tasks"><span>Tasks Completed</span><strong id="tasksValue">—</strong><small>Verified task attempts</small></article></section>
-<section class="chart-section" aria-labelledby="sevenDayTitle"><div class="section-heading"><div><span class="eyebrow">LAST 7 DAYS</span><h2 id="sevenDayTitle">Activity Overview</h2></div><button id="refreshButton" type="button">Refresh</button></div><div class="charts-grid"><article class="chart-card"><header><h3>Total Members</h3><span class="legend members">Members</span></header><div id="membersChart" class="bar-chart" role="img" aria-label="Seven-day total members chart"></div></article><article class="chart-card"><header><h3>Advertisements</h3><span class="legend ads">Verified ads</span></header><div id="adsChart" class="bar-chart" role="img" aria-label="Seven-day advertisements chart"></div></article><article class="chart-card"><header><h3>Tasks</h3><span class="legend tasks">Verified tasks</span></header><div id="tasksChart" class="bar-chart" role="img" aria-label="Seven-day tasks chart"></div></article></div></section>
-<section class="ranking-grid" aria-label="Top members"><article class="ranking-card"><div class="section-heading"><div><span class="eyebrow">ACTIVITY</span><h2>Top Active Members</h2></div></div><ol id="activeMembersList" class="ranking-list"></ol></article><article class="ranking-card"><div class="section-heading"><div><span class="eyebrow">REFERRALS</span><h2>Top Referrers</h2></div></div><ol id="referrersList" class="ranking-list"></ol></article></section>
-<p id="dashboardState" class="settings-state" aria-live="polite"></p>
-</section>
-<section id="economySection" class="settings-section" aria-labelledby="economyTitle"><div class="section-heading"><div><span class="eyebrow">ECONOMY</span><h2 id="economyTitle">Economic Rates</h2></div><div class="users-toolbar"><span class="settings-note">Changes apply to future operations.</span><button type="button" data-admin-refresh="economy">Refresh</button></div></div><div class="settings-grid"><label class="setting-card"><span>TON → DZX</span><small>Reference rate: DZX per 1 TON</small><input id="economyDZXPerTon" inputmode="decimal" autocomplete="off"><button type="button" data-economy-key="economy.dzx_per_ton">Save</button></label><label class="setting-card"><span>COIN → DZP</span><small>Conversion rate: COIN per 1 DZP</small><input id="economyCoinPerDZP" inputmode="decimal" autocomplete="off"><button type="button" data-economy-key="economy.coin_per_dzp">Save</button></label><label class="setting-card"><span>DZX → DZP</span><small>Conversion rate: DZX per 1 DZP</small><input id="economyDZXPerDZP" inputmode="decimal" autocomplete="off"><button type="button" data-economy-key="economy.dzx_per_dzp">Save</button></label></div><p id="economyState" class="settings-state" aria-live="polite"></p></section>
-<section id="usersSection" class="settings-section" aria-labelledby="usersTitle"><div class="section-heading"><div><span class="eyebrow">USERS</span><h2 id="usersTitle">Member Management</h2></div><div class="users-toolbar"><input id="adminUserSearch" type="search" placeholder="Username, name or Telegram ID" autocomplete="off"><button id="adminUserSearchButton" type="button">Search</button><button type="button" data-admin-refresh="users">Refresh</button></div></div><div class="users-grid"><article class="users-card"><div class="section-heading"><div><span class="eyebrow">DIRECTORY</span><h2>Members</h2></div></div><ul id="adminUserList" class="users-list"></ul></article><article id="adminUserProfile" class="users-card"><div class="section-heading"><div><span class="eyebrow">PROFILE</span><h2>Select a member</h2></div></div><p class="user-meta">Search and select a member to inspect canonical balances and ledger activity.</p></article></div><p id="usersState" class="users-state" aria-live="polite"></p></section>
-<section id="referralSection" class="settings-section" aria-labelledby="referralTitle"><div class="section-heading"><div><span class="eyebrow">REFERRAL</span><h2 id="referralTitle">Referral Controls</h2></div><div class="users-toolbar"><span class="settings-note">Changes apply to future referral operations.</span><button type="button" data-admin-refresh="referral">Refresh</button></div></div><div class="settings-grid"><article class="setting-card"><span>Qualification</span><small id="referralQualification">Verified task or advertisement</small></article><label class="setting-card"><span>Activation COIN</span><small>One-time reward to the referrer</small><input id="referralActivationCoin" inputmode="decimal" autocomplete="off"><button type="button" data-referral-key="referral.reward_coin">Save</button></label><label class="setting-card"><span>Activation DZX</span><small>One-time reward to the referrer</small><input id="referralActivationDzx" inputmode="decimal" autocomplete="off"><button type="button" data-referral-key="referral.reward_dzx">Save</button></label><label class="setting-card"><span>Activation DZP</span><small>One-time earned DZP reward</small><input id="referralActivationDzp" inputmode="decimal" autocomplete="off"><button type="button" data-referral-key="referral.reward_dzp">Save</button></label><label class="setting-card"><span>Lifetime %</span><small>Percentage of qualified base COIN/DZX activity</small><input id="referralLifetime" inputmode="decimal" autocomplete="off"><button type="button" data-referral-key="referral.lifetime_percent">Save</button></label></div><p id="referralState" class="settings-state" aria-live="polite"></p></section>
-<section id="squadSection" class="settings-section" aria-labelledby="squadTitle"><div class="section-heading"><div><span class="eyebrow">SQUAD</span><h2 id="squadTitle">Squad Controls</h2></div><div class="users-toolbar"><span class="settings-note">Uses the locked Squad contract and canonical settings.</span><button type="button" data-admin-refresh="squad">Refresh</button></div></div><div class="settings-grid"><label class="setting-card"><span>Daily DZP Target / Member</span><small>Target is snapshotted when a new UTC+1 day starts.</small><input id="squadDailyTarget" inputmode="decimal" autocomplete="off"><button type="button" data-squad-key="squad.daily_target_dzp_per_member">Save</button></label><label class="setting-card"><span>Verified Ads / Day</span><small>Default verified Squad advertisement target.</small><input id="squadVerifiedAdTarget" inputmode="numeric" autocomplete="off"><button type="button" data-squad-key="squad.daily_verified_ad_target">Save</button></label><article class="setting-card"><span>Membership Tiers</span><small id="squadMembershipTiers">Loading…</small></article><article class="setting-card"><span>Modifier Mapping</span><small id="squadModifierMapping">Loading…</small></article><article class="setting-card"><span>Modifier Source</span><small>Verified Activity. Applies to COIN/DZX only; DZP is excluded.</small></article></div><div class="section-heading"><div><span class="eyebrow">WEEKLY CHALLENGES</span><h2>Challenge Scopes</h2></div></div><p id="squadChallengeScopes" class="settings-state" aria-live="polite">Loading…</p><p id="squadState" class="settings-state" aria-live="polite"></p></section>
-<section id="enforcementSection" class="settings-section" aria-labelledby="enforcementTitle"><div class="section-heading"><div><span class="eyebrow">ENFORCEMENT</span><h2 id="enforcementTitle">Account Status</h2></div><div class="users-toolbar"><span class="settings-note">Explicit Admin action only; every mutation is reasoned and audited.</span><button type="button" data-admin-refresh="enforcement">Refresh</button></div></div><div class="settings-grid"><label class="setting-card"><span>User ID</span><small>Use the canonical DzMoney user ID from Users.</small><input id="enforcementUserId" inputmode="numeric" autocomplete="off" placeholder="User #"></label><article class="setting-card"><span>Current Status</span><strong id="enforcementCurrentStatus">—</strong><small id="enforcementMembershipStatus">Membership: —</small></article><label class="setting-card"><span>Reason</span><small>Mandatory Admin reason.</small><textarea id="enforcementReason" maxlength="500" placeholder="Reason for the action"></textarea></label><label class="setting-card"><span>Evidence</span><small>Optional evidence reference or concise note.</small><textarea id="enforcementEvidence" maxlength="2000" placeholder="Evidence reference"></textarea></label></div><div class="users-toolbar"><button id="enforcementLoad" type="button">Load Status</button><button id="enforcementSuspend" type="button">Suspend</button><button id="enforcementBan" type="button">Ban</button><button id="enforcementActivate" type="button">Activate</button></div><p id="enforcementState" class="settings-state" aria-live="polite"></p></section>
-<section id="adminTaskCampaignSection" class="settings-section" aria-labelledby="adminTaskCampaignTitle"><div class="section-heading"><div><span class="eyebrow">TASKS / CAMPAIGNS</span><h2 id="adminTaskCampaignTitle">Creator Campaign Review</h2></div><button id="adminTaskCampaignRefresh" type="button">Refresh</button></div><p id="adminTaskCampaignState" class="settings-state" aria-live="polite">Loading…</p><ul id="adminTaskCampaignList" class="users-list"></ul></section>
-<p id="errorState" class="error-state" hidden></p><footer>DzMoney Admin · server-authoritative · no client-side economic authority</footer>
-</main>
-<script src="https://telegram.org/js/telegram-web-app.js"></script><script src="/admin.js"></script><script src="/admin-enforcement.js"></script><script src="/admin-task-campaign.js"></script><script src="/admin-tabs.js"></script>
-</body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <title>DzMoney Admin</title>
+    <link rel="stylesheet" href="/admin.css" />
+  </head>
+  <body>
+    <main class="admin-shell">
+      <header class="admin-header">
+        <div>
+          <span class="eyebrow">DZMoney CONTROL</span>
+          <h1>Admin Dashboard</h1>
+          <p>Operational metrics from the canonical backend sources.</p>
+        </div>
+        <div class="status-pill"><span></span>Live</div>
+      </header>
+      <nav class="admin-tabs" aria-label="Admin sections">
+        <button
+          type="button"
+          class="admin-tab active"
+          data-admin-tab="dashboard"
+          aria-controls="dashboardSection"
+          aria-selected="true"
+        >
+          Dashboard</button
+        ><button
+          type="button"
+          class="admin-tab"
+          data-admin-tab="economy"
+          aria-controls="economySection"
+          aria-selected="false"
+        >
+          Economy</button
+        ><button
+          type="button"
+          class="admin-tab"
+          data-admin-tab="users"
+          aria-controls="usersSection"
+          aria-selected="false"
+        >
+          Users</button
+        ><button
+          type="button"
+          class="admin-tab"
+          data-admin-tab="referral"
+          aria-controls="referralSection"
+          aria-selected="false"
+        >
+          Referral</button
+        ><button
+          type="button"
+          class="admin-tab"
+          data-admin-tab="squad"
+          aria-controls="squadSection"
+          aria-selected="false"
+        >
+          Squad</button
+        ><button
+          type="button"
+          class="admin-tab"
+          data-admin-tab="enforcement"
+          aria-controls="enforcementSection"
+          aria-selected="false"
+        >
+          Enforcement</button
+        ><button
+          type="button"
+          class="admin-tab"
+          data-admin-tab="campaigns"
+          aria-controls="adminTaskCampaignSection"
+          aria-selected="false"
+        >
+          Campaigns
+        </button>
+      </nav>
+      <section
+        id="dashboardSection"
+        class="admin-dashboard-section"
+        aria-label="Dashboard"
+      >
+        <section class="metric-grid" aria-label="Real-time metrics">
+          <article class="metric-card metric-members">
+            <span>Total Members</span><strong id="membersValue">—</strong
+            ><small>Registered accounts</small>
+          </article>
+          <article class="metric-card metric-ads">
+            <span>Advertisements Watched</span><strong id="adsValue">—</strong
+            ><small>Verified ad completions</small>
+          </article>
+          <article class="metric-card metric-tasks">
+            <span>Tasks Completed</span><strong id="tasksValue">—</strong
+            ><small>Verified task attempts</small>
+          </article>
+        </section>
+        <section class="chart-section" aria-labelledby="sevenDayTitle">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">LAST 7 DAYS</span>
+              <h2 id="sevenDayTitle">Activity Overview</h2>
+            </div>
+            <button id="refreshButton" type="button">Refresh</button>
+          </div>
+          <div class="charts-grid">
+            <article class="chart-card">
+              <header>
+                <h3>Total Members</h3>
+                <span class="legend members">Members</span>
+              </header>
+              <div
+                id="membersChart"
+                class="bar-chart"
+                role="img"
+                aria-label="Seven-day total members chart"
+              ></div>
+            </article>
+            <article class="chart-card">
+              <header>
+                <h3>Advertisements</h3>
+                <span class="legend ads">Verified ads</span>
+              </header>
+              <div
+                id="adsChart"
+                class="bar-chart"
+                role="img"
+                aria-label="Seven-day advertisements chart"
+              ></div>
+            </article>
+            <article class="chart-card">
+              <header>
+                <h3>Tasks</h3>
+                <span class="legend tasks">Verified tasks</span>
+              </header>
+              <div
+                id="tasksChart"
+                class="bar-chart"
+                role="img"
+                aria-label="Seven-day tasks chart"
+              ></div>
+            </article>
+          </div>
+        </section>
+        <section class="ranking-grid" aria-label="Top members">
+          <article class="ranking-card">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">ACTIVITY</span>
+                <h2>Top Active Members</h2>
+              </div>
+            </div>
+            <ol id="activeMembersList" class="ranking-list"></ol>
+          </article>
+          <article class="ranking-card">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">REFERRALS</span>
+                <h2>Top Referrers</h2>
+              </div>
+            </div>
+            <ol id="referrersList" class="ranking-list"></ol>
+          </article>
+        </section>
+        <p id="dashboardState" class="settings-state" aria-live="polite"></p>
+      </section>
+      <section
+        id="economySection"
+        class="settings-section"
+        aria-labelledby="economyTitle"
+      >
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">ECONOMY</span>
+            <h2 id="economyTitle">Economic Rates</h2>
+          </div>
+          <div class="users-toolbar">
+            <span class="settings-note"
+              >Changes apply to future operations.</span
+            ><button type="button" data-admin-refresh="economy">Refresh</button>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <label class="setting-card"
+            ><span>TON → DZX</span><small>Reference rate: DZX per 1 TON</small
+            ><input
+              id="economyDZXPerTon"
+              inputmode="decimal"
+              autocomplete="off"
+            /><button type="button" data-economy-key="economy.dzx_per_ton">
+              Save
+            </button></label
+          ><label class="setting-card"
+            ><span>COIN → DZP</span
+            ><small>Conversion rate: COIN per 1 DZP</small
+            ><input
+              id="economyCoinPerDZP"
+              inputmode="decimal"
+              autocomplete="off"
+            /><button type="button" data-economy-key="economy.coin_per_dzp">
+              Save
+            </button></label
+          ><label class="setting-card"
+            ><span>DZX → DZP</span><small>Conversion rate: DZX per 1 DZP</small
+            ><input
+              id="economyDZXPerDZP"
+              inputmode="decimal"
+              autocomplete="off"
+            /><button type="button" data-economy-key="economy.dzx_per_dzp">
+              Save
+            </button></label
+          >
+        </div>
+        <p id="economyState" class="settings-state" aria-live="polite"></p>
+      </section>
+      <section
+        id="usersSection"
+        class="settings-section"
+        aria-labelledby="usersTitle"
+      >
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">USERS</span>
+            <h2 id="usersTitle">Member Management</h2>
+          </div>
+          <div class="users-toolbar">
+            <input
+              id="adminUserSearch"
+              type="search"
+              placeholder="Username, name or Telegram ID"
+              autocomplete="off"
+            /><button id="adminUserSearchButton" type="button">Search</button
+            ><button type="button" data-admin-refresh="users">Refresh</button>
+          </div>
+        </div>
+        <div class="users-grid">
+          <article class="users-card">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">DIRECTORY</span>
+                <h2>Members</h2>
+              </div>
+            </div>
+            <ul id="adminUserList" class="users-list"></ul>
+          </article>
+          <article id="adminUserProfile" class="users-card">
+            <div class="section-heading">
+              <div>
+                <span class="eyebrow">PROFILE</span>
+                <h2>Select a member</h2>
+              </div>
+            </div>
+            <p class="user-meta">
+              Search and select a member to inspect canonical balances and
+              ledger activity.
+            </p>
+          </article>
+        </div>
+        <p id="usersState" class="users-state" aria-live="polite"></p>
+      </section>
+      <section
+        id="referralSection"
+        class="settings-section"
+        aria-labelledby="referralTitle"
+      >
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">REFERRAL</span>
+            <h2 id="referralTitle">Referral Controls</h2>
+          </div>
+          <div class="users-toolbar">
+            <span class="settings-note"
+              >Changes apply to future referral operations.</span
+            ><button type="button" data-admin-refresh="referral">
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <article class="setting-card">
+            <span>Qualification</span
+            ><small id="referralQualification"
+              >Verified task or advertisement</small
+            >
+          </article>
+          <label class="setting-card"
+            ><span>Activation COIN</span
+            ><small>One-time reward to the referrer</small
+            ><input
+              id="referralActivationCoin"
+              inputmode="decimal"
+              autocomplete="off"
+            /><button type="button" data-referral-key="referral.reward_coin">
+              Save
+            </button></label
+          ><label class="setting-card"
+            ><span>Activation DZX</span
+            ><small>One-time reward to the referrer</small
+            ><input
+              id="referralActivationDzx"
+              inputmode="decimal"
+              autocomplete="off"
+            /><button type="button" data-referral-key="referral.reward_dzx">
+              Save
+            </button></label
+          ><label class="setting-card"
+            ><span>Activation DZP</span><small>One-time earned DZP reward</small
+            ><input
+              id="referralActivationDzp"
+              inputmode="decimal"
+              autocomplete="off"
+            /><button type="button" data-referral-key="referral.reward_dzp">
+              Save
+            </button></label
+          ><label class="setting-card"
+            ><span>Lifetime %</span
+            ><small>Percentage of qualified base COIN/DZX activity</small
+            ><input
+              id="referralLifetime"
+              inputmode="decimal"
+              autocomplete="off"
+            /><button
+              type="button"
+              data-referral-key="referral.lifetime_percent"
+            >
+              Save
+            </button></label
+          >
+        </div>
+        <p id="referralState" class="settings-state" aria-live="polite"></p>
+      </section>
+      <section
+        id="squadSection"
+        class="settings-section"
+        aria-labelledby="squadTitle"
+      >
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">SQUAD</span>
+            <h2 id="squadTitle">Squad Controls</h2>
+          </div>
+          <div class="users-toolbar">
+            <span class="settings-note"
+              >Uses the locked Squad contract and canonical settings.</span
+            ><button type="button" data-admin-refresh="squad">Refresh</button>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <label class="setting-card"
+            ><span>Daily DZP Target / Member</span
+            ><small>Target is snapshotted when a new UTC+1 day starts.</small
+            ><input
+              id="squadDailyTarget"
+              inputmode="decimal"
+              autocomplete="off"
+            /><button
+              type="button"
+              data-squad-key="squad.daily_target_dzp_per_member"
+            >
+              Save
+            </button></label
+          ><label class="setting-card"
+            ><span>Verified Ads / Day</span
+            ><small>Default verified Squad advertisement target.</small
+            ><input
+              id="squadVerifiedAdTarget"
+              inputmode="numeric"
+              autocomplete="off"
+            /><button
+              type="button"
+              data-squad-key="squad.daily_verified_ad_target"
+            >
+              Save
+            </button></label
+          >
+          <article class="setting-card">
+            <span>Membership Tiers</span
+            ><small id="squadMembershipTiers">Loading…</small>
+          </article>
+          <article class="setting-card">
+            <span>Modifier Mapping</span
+            ><small id="squadModifierMapping">Loading…</small>
+          </article>
+          <article class="setting-card">
+            <span>Modifier Source</span
+            ><small
+              >Verified Activity. Applies to COIN/DZX only; DZP is
+              excluded.</small
+            >
+          </article>
+        </div>
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">WEEKLY CHALLENGES</span>
+            <h2>Challenge Scopes</h2>
+          </div>
+        </div>
+        <p id="squadChallengeScopes" class="settings-state" aria-live="polite">
+          Loading…
+        </p>
+        <p id="squadState" class="settings-state" aria-live="polite"></p>
+      </section>
+      <section
+        id="enforcementSection"
+        class="settings-section"
+        aria-labelledby="enforcementTitle"
+      >
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">ENFORCEMENT</span>
+            <h2 id="enforcementTitle">Account Status</h2>
+          </div>
+          <div class="users-toolbar">
+            <span class="settings-note"
+              >Explicit Admin action only; every mutation is reasoned and
+              audited.</span
+            ><button type="button" data-admin-refresh="enforcement">
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="settings-grid">
+          <label class="setting-card"
+            ><span>User ID</span
+            ><small>Use the canonical DzMoney user ID from Users.</small
+            ><input
+              id="enforcementUserId"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="User #"
+          /></label>
+          <article class="setting-card">
+            <span>Current Status</span
+            ><strong id="enforcementCurrentStatus">—</strong
+            ><small id="enforcementMembershipStatus">Membership: —</small>
+          </article>
+          <label class="setting-card"
+            ><span>Reason</span><small>Mandatory Admin reason.</small
+            ><textarea
+              id="enforcementReason"
+              maxlength="500"
+              placeholder="Reason for the action"
+            ></textarea></label
+          ><label class="setting-card"
+            ><span>Evidence</span
+            ><small>Optional evidence reference or concise note.</small
+            ><textarea
+              id="enforcementEvidence"
+              maxlength="2000"
+              placeholder="Evidence reference"
+            ></textarea>
+          </label>
+        </div>
+        <div class="users-toolbar">
+          <button id="enforcementLoad" type="button">Load Status</button
+          ><button id="enforcementSuspend" type="button">Suspend</button
+          ><button id="enforcementBan" type="button">Ban</button
+          ><button id="enforcementActivate" type="button">Activate</button>
+        </div>
+        <p id="enforcementState" class="settings-state" aria-live="polite"></p>
+      </section>
+      <section
+        id="adminTaskCampaignSection"
+        class="settings-section"
+        aria-labelledby="adminTaskCampaignTitle"
+      >
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">TASKS / CAMPAIGNS</span>
+            <h2 id="adminTaskCampaignTitle">Creator Campaign Review</h2>
+          </div>
+          <button id="adminTaskCampaignRefresh" type="button">Refresh</button>
+        </div>
+        <p
+          id="adminTaskCampaignState"
+          class="settings-state"
+          aria-live="polite"
+        >
+          Loading…
+        </p>
+        <ul id="adminTaskCampaignList" class="users-list"></ul>
+      </section>
+      <p id="errorState" class="error-state" hidden></p>
+      <footer>
+        DzMoney Admin · server-authoritative · no client-side economic authority
+      </footer>
+    </main>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/admin.js"></script>
+    <script src="/admin-enforcement.js"></script>
+    <script src="/admin-task-campaign.js"></script>
+    <script src="/admin-tabs.js"></script>
+  </body>
+</html>

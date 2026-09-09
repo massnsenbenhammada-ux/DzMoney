@@ -270,11 +270,13 @@ Economic history is immutable; corrections use compensating/auditable records.
 The Task Engine cannot be considered complete until automated tests cover:
 
 ### Happy path
+
 - Execute → Verify → reward;
 - advertisement completion → reward;
 - verification-ad flow → exactly one task reward.
 
 ### Duplicate/replay
+
 - duplicate verify;
 - duplicate provider callback;
 - repeated identical idempotency key;
@@ -282,24 +284,28 @@ The Task Engine cannot be considered complete until automated tests cover:
 - replayed provider event.
 
 ### Eligibility
+
 - inactive/paused/expired task;
 - completed campaign;
 - exceeded user/campaign limit;
 - unauthorized creator/category action.
 
 ### Atomicity
+
 - transaction rollback;
 - concurrent verification;
 - concurrent provider callbacks;
 - ledger/balance consistency after failure.
 
 ### Separation
+
 - verification ad ≠ second task reward;
 - Reward Pool ad ≠ Task activity;
 - activity identifiers remain separated;
 - task reward source remains `task`.
 
 ### Security
+
 - forged reward amount;
 - forged completion state;
 - invalid provider signature/callback;

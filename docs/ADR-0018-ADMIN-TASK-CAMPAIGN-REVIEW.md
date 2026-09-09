@@ -3,9 +3,11 @@
 **Status:** Accepted
 
 ## Context
+
 Creator campaigns already use the canonical `activity_tasks` table and `task-service.js`. The existing Creator flow can create a campaign, debit the creator through Economy/Ledger, and submit it to `pending_review`, but there was no protected Admin control surface for that review step.
 
 ## Decision
+
 1. Add a thin Admin Task/Campaign route and service boundary; do not create a second task engine.
 2. Admin lists creator-owned tasks from `activity_tasks` and filters by the existing `TASK_STATUSES` values.
 3. Admin review supports only the existing `approve` and `reject` transitions.
@@ -16,6 +18,7 @@ Creator campaigns already use the canonical `activity_tasks` table and `task-ser
 8. No new task lifecycle state, verification path, reward path, campaign pricing source, or provider credential mechanism is introduced.
 
 ## Non-goals
+
 - No redesign of the Creator Task Engine.
 - No manual balance mutation.
 - No new campaign accounting system.

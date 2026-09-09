@@ -38,15 +38,19 @@ Promo may issue COIN or DZX according to its campaign configuration. Squad modif
 There are distinct advertisement contexts:
 
 ### Activity/Task ads
+
 Ads used as qualifying activity or as a verification gate for tasks.
 
 ### Reward Pool ads
+
 Ads viewed inside the Reward Pool page. They are counted only toward the Reward Pool activation requirement and must never be counted as Task ads.
 
 ### Daily Check-in ad
+
 Daily Check-in is ad-gated. The configured Daily Check-in reward is issued only after the required ad completion is authoritatively confirmed.
 
 ### Verification ad
+
 A short ad shown after the user presses Verify on a non-advertisement task. It is a gate only and creates no separate reward.
 
 Each ad event must carry an explicit context/source so one ad cannot satisfy another subsystem's counter accidentally.

@@ -1,23 +1,30 @@
-const assert = require('assert');
-const walletService = require('../src/services/wallet-service');
-const referralService = require('../src/services/referral-service');
-const { pool } = require('../src/db/pool');
+const assert = require("assert");
+const walletService = require("../src/services/wallet-service");
+const referralService = require("../src/services/referral-service");
+const { pool } = require("../src/db/pool");
 
 async function createQualifiedReferral(suffix) {
-  const referrer = await walletService.createUser({ telegramUserId: `8${suffix}01` });
-  const referred = await walletService.createUser({ telegramUserId: `8${suffix}02` });
-  await referralService.createAttribution({ referrerUserId: referrer.id, referredUserId: referred.id });
+  const referrer = await walletService.createUser({
+    telegramUserId: `8${suffix}01`,
+  });
+  const referred = await walletService.createUser({
+    telegramUserId: `8${suffix}02`,
+  });
+  await referralService.createAttribution({
+    referrerUserId: referrer.id,
+    referredUserId: referred.id,
+  });
   const task = await pool.query(
-    `INSERT INTO activity_tasks(task_type,title,reward_coin) VALUES('game','Referral activation test',1) RETURNING id`
+    `INSERT INTO activity_tasks(task_type,title,reward_coin) VALUES('game','Referral activation test',1) RETURNING id`,
   );
   const attempt = await pool.query(
     `INSERT INTO task_attempts(task_id,user_id,status,execute_idempotency_key,verified_at)
      VALUES($1,$2,'verified',$3,NOW()) RETURNING id`,
-    [task.rows[0].id, referred.id, `activation-task-${suffix}`]
+    [task.rows[0].id, referred.id, `activation-task-${suffix}`],
   );
   await referralService.qualifyReferral({
     referredUserId: referred.id,
-    source: 'task',
+    source: "task",
     referenceId: attempt.rows[0].id,
     idempotencyKey: `qualification-${suffix}`,
   });
@@ -27,9 +34,11 @@ async function createQualifiedReferral(suffix) {
 async function balances(userId) {
   const result = await pool.query(
     `SELECT currency, balance FROM wallet_accounts WHERE user_id = $1 ORDER BY currency`,
-    [userId]
+    [userId],
   );
-  return Object.fromEntries(result.rows.map(row => [row.currency, Number(row.balance)]));
+  return Object.fromEntries(
+    result.rows.map((row) => [row.currency, Number(row.balance)]),
+  );
 }
 
 async function main() {
@@ -59,7 +68,7 @@ async function main() {
       referredUserId: referred.id,
       idempotencyKey: `activation-other-${suffix}`,
     }),
-    /already activated/
+    /already activated/,
   );
 
   const ledger = await pool.query(
@@ -67,16 +76,16 @@ async function main() {
      JOIN ledger_transactions lt ON lt.id = le.transaction_id
      WHERE lt.user_id = $1 AND lt.transaction_type = 'REWARD'
        AND lt.metadata->>'source' = 'referral_activation'`,
-    [referrer.id]
+    [referrer.id],
   );
   assert.strictEqual(ledger.rows[0].count, 3);
 
-  console.log('Referral activation invariants: PASS');
+  console.log("Referral activation invariants: PASS");
 }
 
 main()
-  .catch(error => {
-    console.error('Referral activation invariants: FAIL');
+  .catch((error) => {
+    console.error("Referral activation invariants: FAIL");
     console.error(error);
     process.exitCode = 1;
   })

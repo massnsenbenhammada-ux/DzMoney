@@ -11,6 +11,7 @@
 Before inspecting, proposing, modifying, reviewing, testing, or merging code, an AI tool MUST read this document and the repository's governing documentation. This document is the mandatory AI change-control contract for DzMoney.
 
 Required reading also includes, when present and relevant:
+
 - `docs/ARCHITECTURE_RULES.md`
 - `PROJECT_ROADMAP.md`
 - `IMPLEMENTATION_STATUS.md`
@@ -84,6 +85,7 @@ Before code changes, verify:
 Every protected resource must verify that the authenticated principal owns or is authorized to access it.
 
 Examples of untrusted input include:
+
 - `user_id`
 - `taskId`
 - reward amounts
@@ -232,6 +234,7 @@ The system MUST NOT claim that a Telegram share was successfully completed when 
 The existing authenticated user identity, canonical referral link, task attempt, verification gate, and Economy/Ledger paths must be reused.
 
 Do not create:
+
 - a second referral source;
 - a Share database/table solely to duplicate existing state;
 - a new Economy or Ledger;
