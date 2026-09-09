@@ -1,0 +1,53 @@
+name: ODRCA Batch 3 Format Artifact
+
+on:
+  push:
+    branches: [odrca/batch-3-format-artifact]
+
+permissions:
+  contents: read
+
+jobs:
+  format-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Format isolated Batch 3 candidates
+        run: |
+          npx prettier --write \
+            public/creator-task.css \
+            public/conversion.css \
+            public/admin.css \
+            public/premium-ui.css \
+            public/squad.css
+      - name: Verify isolated formatting
+        run: |
+          npx prettier --check \
+            public/creator-task.css \
+            public/conversion.css \
+            public/admin.css \
+            public/premium-ui.css \
+            public/squad.css
+      - name: Show isolated diff
+        run: |
+          git diff --check
+          git diff --stat
+          git diff -- public/creator-task.css public/conversion.css public/admin.css public/premium-ui.css public/squad.css
+      - name: Upload formatted candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: odrca-batch3-format-candidates
+          path: |
+            public/creator-task.css
+            public/conversion.css
+            public/admin.css
+            public/premium-ui.css
+            public/squad.css
+          if-no-files-found: error
