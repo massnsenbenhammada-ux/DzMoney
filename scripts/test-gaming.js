@@ -150,7 +150,7 @@ function testSourceBoundaries() {
   assert(
     sourceContains(
       server,
-      "app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));",
+      "app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry })",
     ),
   );
   assert(sourceContains(service, "postEconomyTransactionOnClient"));
