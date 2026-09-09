@@ -1,0 +1,61 @@
+name: Lint and Complexity
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  format-check:
+    name: Format baseline measurement
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Measure Prettier baseline
+        shell: bash
+        run: |
+          set -o pipefail
+          npx prettier . --list-different > prettier-offenders.txt || true
+          count=$(wc -l < prettier-offenders.txt | tr -d ' ')
+          echo "PRETTIER_OFFENDER_COUNT=$count"
+          if [ "$count" -gt 0 ]; then
+            cat prettier-offenders.txt
+          fi
+
+  complexity-gate:
+    name: ESLint baseline measurement
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Measure ESLint baseline
+        shell: bash
+        run: |
+          npx eslint . --format json > eslint-report.json || true
+          node <<'NODE'
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('eslint-report.json', 'utf8'));
+          const errors = report.reduce((sum, file) => sum + file.errorCount, 0);
+          const warnings = report.reduce((sum, file) => sum + file.warningCount, 0);
+          const files = report.filter((file) => file.messages.length > 0).length;
+          console.log(`ESLINT_ERROR_COUNT=${errors}`);
+          console.log(`ESLINT_WARNING_COUNT=${warnings}`);
+          console.log(`ESLINT_AFFECTED_FILE_COUNT=${files}`);
+          NODE
