@@ -4,6 +4,8 @@
 
 This file is an entrypoint only. The full and canonical AI governance rules are in `docs/CONSTITUTION_54.md` and MUST be read before any code change.
 
+**Mandatory UI completion rule:** Before reporting any interactive UI task complete, read and follow the `Definition of Done for any interactive UI change (buttons, tabs, forms, toggles)` section in `AGENTS.md`.
+
 ## Non-negotiable
 
 - Follow Constitution 54 literally.
