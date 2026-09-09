@@ -1,7 +1,6 @@
 const assert = require('assert');
 const walletService = require('../src/services/wallet-service');
 const referralService = require('../src/services/referral-service');
-const economyService = require('../src/services/economy-service');
 const { pool } = require('../src/db/pool');
 
 async function balances(userId) {

@@ -8,12 +8,12 @@ module.exports = defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
-    browserName: 'chromium'
+    browserName: 'chromium',
   },
   webServer: {
     command: 'node server.js',
     url: 'http://127.0.0.1:3000/health',
     reuseExistingServer: !process.env.CI,
-    timeout: 120000
-  }
+    timeout: 120000,
+  },
 });
