@@ -98,7 +98,7 @@ assert.match(dailyRoutes, /adsgram\.markClientStarted/);
 assert.match(dailyRoutes, /adsgram\.markClientCompleted/);
 assert.match(
   taskRoutes,
-  /tasksList\.filter\(task => task\.systemKey !==\s*["']squad_ads["']\)/,
+  /tasksList\.filter\(\(?task\)?\s*=>\s*task\.systemKey !==\s*["']squad_ads["']\)/,
 );
 assert.match(taskRoutes, /externalAdId:\s*result\.adEvent\?\.external_ad_id/);
 assert.match(
