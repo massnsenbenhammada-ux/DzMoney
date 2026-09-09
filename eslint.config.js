@@ -76,6 +76,25 @@ const browserGlobals = {
   window: 'readonly',
 };
 
+const browserApplicationGlobals = {
+  api: 'readonly',
+  closeDashboardStream: 'readonly',
+  format: 'readonly',
+  loadAdminTasks: 'readonly',
+  loadDashboard: 'readonly',
+  loadEconomySettings: 'readonly',
+  loadEnforcementState: 'readonly',
+  loadMe: 'readonly',
+  loadReferralSettings: 'readonly',
+  loadSquadSettings: 'readonly',
+  loadUsers: 'readonly',
+  loadedTabs: 'readonly',
+  openDashboardStream: 'readonly',
+  setError: 'readonly',
+  showRewardOutcome: 'readonly',
+  toast: 'readonly',
+};
+
 const qualityRules = {
   complexity: ['error', 10],
   'max-depth': ['error', 4],
@@ -112,7 +131,7 @@ module.exports = [
   {
     files: ['public/**/*.js'],
     languageOptions: {
-      globals: browserGlobals,
+      globals: { ...browserGlobals, ...browserApplicationGlobals },
     },
   },
   {
