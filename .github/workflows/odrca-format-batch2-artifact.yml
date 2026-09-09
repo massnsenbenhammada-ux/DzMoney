@@ -1,0 +1,49 @@
+name: ODRCA Formatting Batch 2 Artifact
+
+on:
+  push:
+    branches: [chore/restore-quality-guardrails]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch head
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Format isolated Batch 2 candidates
+        run: |
+          npx prettier --write \
+            IMPLEMENTATION_STATUS.md \
+            PROJECT_ROADMAP.md \
+            package.json \
+            eslint.config.js \
+            playwright.config.js
+      - name: Verify isolated formatting
+        run: |
+          npx prettier --check \
+            IMPLEMENTATION_STATUS.md \
+            PROJECT_ROADMAP.md \
+            package.json \
+            eslint.config.js \
+            playwright.config.js
+      - name: Upload formatted candidates
+        uses: actions/upload-artifact@v4
+        with:
+          name: odrca-format-batch2-candidates
+          path: |
+            IMPLEMENTATION_STATUS.md
+            PROJECT_ROADMAP.md
+            package.json
+            eslint.config.js
+            playwright.config.js
+          if-no-files-found: error
