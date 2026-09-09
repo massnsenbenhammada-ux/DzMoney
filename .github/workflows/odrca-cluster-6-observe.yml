@@ -25,6 +25,9 @@ jobs:
           set -o pipefail
           echo "HEAD=$(git rev-parse HEAD)"
           echo "PRETTIER_VERSION=$(npx prettier --version)"
+          npx prettier scripts/test-input-validation.js > /tmp/test-input-validation.formatted.js
+          echo "INPUT_VALIDATION_DIFF=$(if cmp -s scripts/test-input-validation.js /tmp/test-input-validation.formatted.js; then echo false; else echo true; fi)"
+          if ! cmp -s scripts/test-input-validation.js /tmp/test-input-validation.formatted.js; then diff -u scripts/test-input-validation.js /tmp/test-input-validation.formatted.js || true; fi
           npx prettier . --list-different > prettier-offenders.txt || true
           count=$(wc -l < prettier-offenders.txt | tr -d ' ')
           echo "PRETTIER_OFFENDER_COUNT=$count"
