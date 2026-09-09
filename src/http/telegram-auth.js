@@ -30,7 +30,8 @@ function verifyTelegramInitData(initData) {
 }
 
 async function telegramAuth(req, res, next) {
-  const initData = req.get('X-Telegram-Init-Data') || req.body?.initData;
+  const queryInitData = req.path === '/stream' ? req.query?.initData : undefined;
+  const initData = req.get('X-Telegram-Init-Data') || req.body?.initData || queryInitData;
   const verified = parseVerifiedTelegramInitData(initData);
   if (!verified) return res.status(401).json({ error: 'Invalid Telegram authentication' });
   req.telegramUser = verified.user;

@@ -19,6 +19,25 @@ function createAdminDashboardRouter({ dashboard = { getAdminDashboardMetrics } }
     res.json({ ok: true, ...metrics });
   }));
 
+  router.get('/stream', asyncRoute(async (req, res) => {
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+    res.flushHeaders();
+
+    const sendMetrics = async () => {
+      const metrics = await dashboard.getAdminDashboardMetrics();
+      res.write(`data: ${JSON.stringify({ ok: true, ...metrics })}\n\n`);
+    };
+
+    await sendMetrics();
+    const interval = setInterval(() => sendMetrics().catch(() => res.end()), 15_000);
+    req.on('close', () => clearInterval(interval));
+  }));
+
   return router;
 }
 
