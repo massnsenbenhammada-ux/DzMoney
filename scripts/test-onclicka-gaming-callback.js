@@ -18,7 +18,9 @@ function request(app, path) {
       const port = server.address().port;
       const req = http.get({ hostname: '127.0.0.1', port, path }, res => {
         let body = '';
-        res.on('data', chunk => { body += chunk; });
+        res.on('data', chunk => {
+          body += chunk;
+        });
         res.on('end', () => server.close(() => resolve({ status: res.statusCode, body })));
       });
       req.on('error', error => server.close(() => reject(error)));
@@ -30,9 +32,12 @@ function request(app, path) {
 async function createUser(marker) {
   const result = await query(
     'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id,telegram_user_id',
-    [marker, `onclicka_${marker}`, 'OnClickA Test']
+    [marker, `onclicka_${marker}`, 'OnClickA Test'],
   );
-  await query("INSERT INTO wallet_accounts(user_id,currency) VALUES($1,'COIN'),($1,'DZX'),($1,'DZP')", [result.rows[0].id]);
+  await query(
+    "INSERT INTO wallet_accounts(user_id,currency) VALUES($1,'COIN'),($1,'DZX'),($1,'DZP')",
+    [result.rows[0].id],
+  );
   return result.rows[0];
 }
 
@@ -42,27 +47,41 @@ async function createEvent(userId, metadata, suffix = '') {
       (user_id,context,external_ad_id,idempotency_key,started_at,metadata)
      VALUES ($1,'gaming',$2,$3,NOW(),$4)
      RETURNING *`,
-    [userId, `onclicka-test-${userId}-${suffix || Date.now()}`, `onclicka-gaming-${userId}-${suffix || Date.now()}`, metadata]
+    [
+      userId,
+      `onclicka-test-${userId}-${suffix || Date.now()}`,
+      `onclicka-gaming-${userId}-${suffix || Date.now()}`,
+      metadata,
+    ],
   );
   return result.rows[0];
 }
 
 async function getAccount(userId) {
-  const result = await query('SELECT spins,axes,spin_ad_progress,digging_ad_progress FROM gaming_accounts WHERE user_id=$1', [userId]);
+  const result = await query(
+    'SELECT spins,axes,spin_ad_progress,digging_ad_progress FROM gaming_accounts WHERE user_id=$1',
+    [userId],
+  );
   return result.rows[0] || null;
 }
 
 async function getGamingRewardLedger(userId) {
-  return query(`
+  return query(
+    `
     SELECT lt.id,lt.transaction_type,le.currency,le.amount,le.source
     FROM ledger_transactions lt
     JOIN ledger_entries le ON le.transaction_id=lt.id
     WHERE lt.user_id=$1 AND lt.transaction_type='GAMING_REWARD'
-    ORDER BY lt.id DESC`, [userId]);
+    ORDER BY lt.id DESC`,
+    [userId],
+  );
 }
 
 async function cleanupUser(userId) {
-  await query('DELETE FROM ledger_entries WHERE wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)', [userId]);
+  await query(
+    'DELETE FROM ledger_entries WHERE wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)',
+    [userId],
+  );
   await query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
   await query('DELETE FROM wallet_accounts WHERE user_id=$1', [userId]);
   await query('DELETE FROM users WHERE id=$1', [userId]);
@@ -76,7 +95,7 @@ async function testHappyPathAndDuplicate(app) {
       userId: user.id,
       game: 'spin',
       idempotencyKey: `onclicka-integration:${marker}`,
-      providerRegistry
+      providerRegistry,
     });
     assert.strictEqual(started.providerId, ONCLICKA_PROVIDER_ID);
     const before = await getAccount(user.id);
@@ -99,28 +118,48 @@ async function testHappyPathAndDuplicate(app) {
 
     // Economic outcome must exist in the canonical Ledger, with exactly one
     // GAMING_REWARD transaction and an amount matching the persisted event reward.
-    const event = await query("SELECT metadata FROM activity_ad_events WHERE id=$1", [started.adEvent.id]);
+    const event = await query('SELECT metadata FROM activity_ad_events WHERE id=$1', [
+      started.adEvent.id,
+    ]);
     const metadata = event.rows[0].metadata;
     assert(metadata.gaming_reward_transaction_id, 'gaming reward transaction id must be persisted');
-    assert(metadata.ad_bonus && (metadata.ad_bonus.coin === 100 || metadata.ad_bonus.dzx === 1), 'persisted gaming ad bonus is invalid');
+    assert(
+      metadata.ad_bonus && (metadata.ad_bonus.coin === 100 || metadata.ad_bonus.dzx === 1),
+      'persisted gaming ad bonus is invalid',
+    );
     const ledgerAfter = await getGamingRewardLedger(user.id);
     assert.strictEqual(ledgerAfter.rowCount, 1);
-    assert.strictEqual(String(ledgerAfter.rows[0].id), String(metadata.gaming_reward_transaction_id));
+    assert.strictEqual(
+      String(ledgerAfter.rows[0].id),
+      String(metadata.gaming_reward_transaction_id),
+    );
     assert.strictEqual(ledgerAfter.rows[0].source, 'gaming');
-    assert.strictEqual(Number(ledgerAfter.rows[0].amount), Number(Object.values(metadata.ad_bonus)[0]));
+    assert.strictEqual(
+      Number(ledgerAfter.rows[0].amount),
+      Number(Object.values(metadata.ad_bonus)[0]),
+    );
 
     const duplicate = await request(app, `/api/ads/onclicka?USERID=${marker}`);
     assert.strictEqual(duplicate.status, 404);
     const afterDuplicate = await getAccount(user.id);
     assert.deepStrictEqual(afterDuplicate, after);
     const ledgerAfterDuplicate = await getGamingRewardLedger(user.id);
-    assert.strictEqual(ledgerAfterDuplicate.rowCount, 1, 'duplicate callback must not create another economic credit');
+    assert.strictEqual(
+      ledgerAfterDuplicate.rowCount,
+      1,
+      'duplicate callback must not create another economic credit',
+    );
 
     const directDuplicate = await gamingService.finalizeGamingAdvertisement({
       userId: user.id,
       adEventId: started.adEvent.id,
       providerReference: `onclicka:${process.env.ONCLICKA_SPOT_ID}:${marker}`,
-      verificationMetadata: { provider_id: ONCLICKA_PROVIDER_ID, spot_id: process.env.ONCLICKA_SPOT_ID, telegram_user_id: marker, confirmedByPostback: true }
+      verificationMetadata: {
+        provider_id: ONCLICKA_PROVIDER_ID,
+        spot_id: process.env.ONCLICKA_SPOT_ID,
+        telegram_user_id: marker,
+        confirmedByPostback: true,
+      },
     });
     assert.strictEqual(directDuplicate.duplicate, true);
     assert.strictEqual(directDuplicate.rewarded, true);
@@ -168,7 +207,11 @@ async function testWrongProvider(app) {
   const marker = `${Date.now()}${Math.floor(Math.random() * 1000000)}`;
   const user = await createUser(marker);
   try {
-    await createEvent(user.id, { game: 'spin', provider_id: 'monetag', config_version: 1 }, 'wrong-provider');
+    await createEvent(
+      user.id,
+      { game: 'spin', provider_id: 'monetag', config_version: 1 },
+      'wrong-provider',
+    );
     const response = await request(app, `/api/ads/onclicka?USERID=${marker}`);
     assert.strictEqual(response.status, 404);
   } finally {
@@ -185,8 +228,14 @@ async function testLateCallback(app) {
   const marker = `${Date.now()}${Math.floor(Math.random() * 1000000)}`;
   const user = await createUser(marker);
   try {
-    const event = await createEvent(user.id, { game: 'spin', provider_id: ONCLICKA_PROVIDER_ID, config_version: 1 }, 'late');
-    await query('UPDATE activity_ad_events SET verified=TRUE,completed_at=NOW() WHERE id=$1', [event.id]);
+    const event = await createEvent(
+      user.id,
+      { game: 'spin', provider_id: ONCLICKA_PROVIDER_ID, config_version: 1 },
+      'late',
+    );
+    await query('UPDATE activity_ad_events SET verified=TRUE,completed_at=NOW() WHERE id=$1', [
+      event.id,
+    ]);
     const response = await request(app, `/api/ads/onclicka?USERID=${marker}`);
     assert.strictEqual(response.status, 404);
   } finally {
@@ -208,7 +257,9 @@ async function main() {
     await testWrongProvider(app);
     await testWrongContext(app);
     await testLateCallback(app);
-    console.log('OnClickA Gaming callback integration: PASS (provider verification, resource grant, Economy/Ledger reward, persisted reward metadata, duplicate protection, idempotency, invalid user/context/provider, late callback)');
+    console.log(
+      'OnClickA Gaming callback integration: PASS (provider verification, resource grant, Economy/Ledger reward, persisted reward metadata, duplicate protection, idempotency, invalid user/context/provider, late callback)',
+    );
   } catch (error) {
     console.error('OnClickA Gaming callback integration: FAIL');
     console.error(error);

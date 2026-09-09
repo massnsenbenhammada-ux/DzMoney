@@ -5,7 +5,7 @@ function buildTrace(result) {
     context: 'gaming',
     providerId: result.providerId,
     adEventId: String(result.adEvent.id),
-    duplicate: result.duplicate
+    duplicate: result.duplicate,
   };
 }
 
@@ -14,7 +14,7 @@ assert.deepStrictEqual(trace, {
   context: 'gaming',
   providerId: 'gigapub',
   adEventId: '42',
-  duplicate: false
+  duplicate: false,
 });
 assert.ok(!Object.prototype.hasOwnProperty.call(trace, 'userId'));
 console.log('Gaming ad provider trace contract tests passed.');
