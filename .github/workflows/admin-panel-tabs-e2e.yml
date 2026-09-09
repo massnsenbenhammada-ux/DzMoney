@@ -1,0 +1,46 @@
+name: Admin Panel Tabs E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'public/admin.html'
+      - 'public/admin.js'
+      - 'public/admin-tabs.js'
+      - 'public/admin.css'
+      - 'tests/e2e/admin-panel-tabs.spec.js'
+      - 'playwright.config.js'
+      - 'package.json'
+      - '.github/workflows/admin-panel-tabs-e2e.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'public/admin.html'
+      - 'public/admin.js'
+      - 'public/admin-tabs.js'
+      - 'public/admin.css'
+      - 'tests/e2e/admin-panel-tabs.spec.js'
+      - 'playwright.config.js'
+      - 'package.json'
+      - '.github/workflows/admin-panel-tabs-e2e.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-panel-tabs:
+    name: Admin panel tabs E2E
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run admin panel tabs E2E
+        run: npm run test:e2e:admin-panel-tabs
