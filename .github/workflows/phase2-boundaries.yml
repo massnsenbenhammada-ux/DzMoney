@@ -94,7 +94,7 @@ jobs:
           TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
         run: node ./scripts/test-check-for-update-real-telegram.js
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Run Daily View Ads Playwright E2E
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
