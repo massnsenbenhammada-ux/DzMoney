@@ -14,7 +14,7 @@ test("Phase 10 migration defines canonical promo campaigns and redemptions", () 
   assert.match(migration, /CREATE TABLE IF NOT EXISTS promo_redemptions/);
   assert.match(
     migration,
-    /reward_currency TEXT NOT NULL CHECK \(reward_currency IN \('COIN', 'DZX'\)\)/,
+    /reward_currency TEXT NOT NULL CHECK \(reward_currency IN \(['"]COIN['"], ['"]DZX['"]\)\)/,
   );
   assert.match(
     migration,
@@ -67,12 +67,15 @@ test("Promo routes are mounted and protected by Telegram/admin authentication bo
     path.join(root, "src/http/admin-promo-code-routes.js"),
     "utf8",
   );
-  assert.match(server, /require\('\.\/src\/http\/promo-code-routes'\)/);
-  assert.match(server, /app\.use\('\/api\/promo'/);
-  assert.match(server, /require\('\.\/src\/http\/admin-promo-code-routes'\)/);
-  assert.match(server, /app\.use\('\/api\/admin\/promo'/);
+  assert.match(server, /require\(["']\.\/src\/http\/promo-code-routes["']\)/);
+  assert.match(server, /app\.use\(["']\/api\/promo["']/);
+  assert.match(
+    server,
+    /require\(["']\.\/src\/http\/admin-promo-code-routes["']\)/,
+  );
+  assert.match(server, /app\.use\(["']\/api\/admin\/promo["']/);
   assert.match(routes, /router\.use\(auth\)/);
-  assert.doesNotMatch(routes, /router\.post\('\/finalize'/);
+  assert.doesNotMatch(routes, /router\.post\(["']\/finalize["']/);
   assert.match(adminRoutes, /router\.use\(adminAuth\)/);
 });
 
@@ -101,12 +104,12 @@ test("Promo advertisement is an explicit provider context and never a task verif
     path.join(root, "src/http/onclicka-postback-routes.js"),
     "utf8",
   );
-  assert.match(provider, /'promo'/);
-  assert.match(event, /'promo'/);
+  assert.match(provider, /["']promo["']/);
+  assert.match(event, /["']promo["']/);
   assert.match(monetag, /MONETAG_PROMO_CONTEXT/);
-  assert.match(onclicka, /'promo'/);
-  assert.match(monetagPostback, /context === 'promo'/);
-  assert.match(onclickaPostback, /context === 'promo'/);
+  assert.match(onclicka, /["']promo["']/);
+  assert.match(monetagPostback, /context === ["']promo["']/);
+  assert.match(onclickaPostback, /context === ["']promo["']/);
 });
 
 test("Home contains the Phase 10 promo code entry point", () => {
