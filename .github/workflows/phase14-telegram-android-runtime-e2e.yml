@@ -118,11 +118,18 @@ jobs:
             adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
             adb shell dumpsys package "$(cat /tmp/dzmoney-telegram-package)" | head -n 40
 
-            echo 'Opening the Test Bot Direct Mini App link...'
-            adb shell am start -a android.intent.action.VIEW -d "$DZ_MONEY_MINI_APP_URL"
+            echo 'Opening the Test Bot Direct Mini App link inside Telegram...'
+            TELEGRAM_PACKAGE="$(cat /tmp/dzmoney-telegram-package)"
+            adb shell am start -a android.intent.action.VIEW -d "$DZ_MONEY_MINI_APP_URL" -p "$TELEGRAM_PACKAGE"
             sleep 8
-            adb shell dumpsys activity activities | grep -E 'mResumedActivity|mCurrentFocus' | head -n 5
-            adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
+            FOREGROUND_STATE="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|mCurrentFocus' | head -n 5 || true)"
+            printf '%s\n' "$FOREGROUND_STATE"
+            printf '%s\n' "$FOREGROUND_STATE" | grep -F "$TELEGRAM_PACKAGE" || {
+              echo "ERROR: Mini App deep link was not routed to Telegram package $TELEGRAM_PACKAGE."
+              echo 'Foreground activity evidence above is required to diagnose Android intent routing.'
+              exit 1
+            }
+            adb shell pidof "$TELEGRAM_PACKAGE"
 
             echo 'Inspecting the real Telegram Android WebView boundary...'
             set +e
