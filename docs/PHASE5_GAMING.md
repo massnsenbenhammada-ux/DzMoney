@@ -11,6 +11,7 @@ Historical Reward Pool PRs/commits remain Git history only.
 ## Scope
 
 Gaming is an independent subsystem containing:
+
 - 🎡 Spin
 - ⛏️ Digging
 
@@ -23,12 +24,14 @@ Spin and Axe have two independent sources.
 ### Activity Verified
 
 `Activity Verified` is the global qualifying activity boundary. It is not a Gaming Ads event and is not limited to Gaming. A qualifying verified task/activity produces:
+
 - +1,000 COIN
 - +1 DZX
 - +1 DZP
 - +1 Spin
 
 Every 10 qualifying `Activity Verified` events also grant:
+
 - +1 Axe
 
 The Activity Verified counter is independent from all Gaming Ad counters.
@@ -38,10 +41,12 @@ The Activity Verified counter is independent from all Gaming Ad counters.
 Gaming Ads are standalone in-game advertisements and never become `Activity Verified`.
 
 Spin:
+
 - every verified Gaming Ad → +1 Spin;
 - every verified Gaming Ad also receives one independent random Ad Bonus: +100 COIN or +1 DZX.
 
 Digging:
+
 - every verified Gaming Ad increments the Digging Ad counter;
 - every 10 verified Digging Ads → +1 Axe;
 - every verified Gaming Ad also receives one independent random Ad Bonus: +100 COIN or +1 DZX.
@@ -83,9 +88,11 @@ The Spin and Digging ad counters are independent.
 ### Game Random Reward
 
 Digging uses the same Random Reward table as Spin, except the resource result is:
+
 - +1 Axe
 
 The full Digging Game Random Reward table is:
+
 - 100 COIN
 - 1,000 COIN
 - 1 DZX
@@ -106,6 +113,7 @@ Normal Game Tasks remain part of the existing Task Catalog → Execution → Ver
 ## Configuration
 
 Admin controls, as applicable:
+
 - Gaming daily ad limits;
 - reset timezone;
 - enabled state;
@@ -121,6 +129,7 @@ The initial distribution is intentionally ordered:
 `No Reward > 100 COIN > +1 Spin/+1 Axe > 1,000 COIN > 1 DZX > 1 DZP > 10 DZX > 10 DZP`
 
 Initial Spin weights:
+
 - No Reward: 750
 - 100 COIN: 180
 - +1 Spin: 50
@@ -153,6 +162,7 @@ Exact page order on both game pages:
 **Game → Gaming Ads → Tasks**
 
 Spin page:
+
 - back to Gaming;
 - Spin balance;
 - wheel/result;
@@ -163,6 +173,7 @@ Spin page:
 - Possible Rewards.
 
 Digging page:
+
 - back to Gaming;
 - Axe balance;
 - Energy 3/3;
@@ -177,6 +188,7 @@ Use native semantic HTML and modern mobile-first CSS primitives. Keep the existi
 ## Economic simulation gate
 
 Before finalizing reward values or weights, simulate 1,000 users × 30 days and measure:
+
 - Activity Verified events;
 - Spins;
 - Axes;
