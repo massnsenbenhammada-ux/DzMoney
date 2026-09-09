@@ -114,11 +114,16 @@ function testSourceBoundaries() {
     ),
   );
   assert(
-    sourceContains(routes, "const providerId = event.rows[0].metadata?.provider_id"),
+    sourceContains(
+      routes,
+      "const providerId = event.rows[0].metadata?.provider_id",
+    ),
   );
   assert(sourceContains(routes, "finalizeGamingAdvertisement"));
   assert(sourceContains(routes, "reward: result.reward || null"));
-  assert(sourceContains(routes, "resourceGranted: result.resourceGranted || null"));
+  assert(
+    sourceContains(routes, "resourceGranted: result.resourceGranted || null"),
+  );
   assert(sourceContains(routes, "progress: result.progress ?? null"));
   assert(!sourceContains(routes, "providerId: 'gigapub'"));
   assert(sourceContains(onclickaRoutes, "const CONTEXTS = new Set(["));
@@ -133,7 +138,9 @@ function testSourceBoundaries() {
   assert(sourceContains(onclickaRoutes, "const context = event.context"));
   assert(sourceContains(adminRoutes, "router.use(adminAuth)"));
   assert(sourceContains(adminRoutes, "router.put('/config'"));
-  assert(sourceContains(adminRoutes, "actorTelegramUserId: req.adminTelegramUserId"));
+  assert(
+    sourceContains(adminRoutes, "actorTelegramUserId: req.adminTelegramUserId"),
+  );
   assert(
     sourceContains(
       server,
@@ -215,20 +222,29 @@ function testGamingFrontendContract() {
   assert(sourceContains(gaming, "<svg"));
   assert(sourceContains(gaming, "data-spin-result"));
   assert(sourceContains(gaming, "DzMoneyAdClient.getProvider(providerId)"));
-  assert(sourceContains(gaming, "formatGamingAdFailure(providerId, stage, error)"));
+  assert(
+    sourceContains(gaming, "formatGamingAdFailure(providerId, stage, error)"),
+  );
   assert(sourceContains(gaming, "let providerId = null;"));
   assert(sourceContains(gaming, "let stage = 'start';"));
   assert(sourceContains(gaming, "stage = 'ready';"));
   assert(sourceContains(gaming, "stage = 'show';"));
   assert(sourceContains(gaming, "stage = 'complete';"));
-  assert(sourceContains(gaming, "if (result === 'extra_spin') return '+1 SPIN'"));
+  assert(
+    sourceContains(gaming, "if (result === 'extra_spin') return '+1 SPIN'"),
+  );
   assert(sourceContains(gaming, "if (result === 'extra_axe') return '+1 AXE'"));
   assert(sourceContains(gaming, "360 * 3 - index * segment"));
   assert(sourceContains(gaming, "const wheelResults = ['coin_100'"));
   assert(sourceContains(gaming, "renderRewardLists"));
   assert(sourceContains(gaming, "gaming-runtime.css"));
   assert(sourceContains(gaming, "assetVersion"));
-  assert(sourceContains(gaming, "const response = await api('/api/gaming/ads/start'"));
+  assert(
+    sourceContains(
+      gaming,
+      "const response = await api('/api/gaming/ads/start'",
+    ),
+  );
   assert(
     sourceContains(
       gaming,
@@ -250,7 +266,10 @@ function testGamingFrontendContract() {
   assert(sourceContains(gaming, "await load();"));
   assert(sourceContains(gaming, "completion.duplicate"));
   assert(
-    sourceContains(app, "function showRewardOutcome(result, fallbackTask = null)"),
+    sourceContains(
+      app,
+      "function showRewardOutcome(result, fallbackTask = null)",
+    ),
   );
   assert(sourceContains(app, "result?.reward"));
   assert(sourceContains(app, "Reward credited"));
@@ -263,13 +282,17 @@ function testGamingFrontendContract() {
   assert(sourceContains(runtimeCss, 'data-spin-wheel-segment="coin_100"'));
   assert(sourceContains(runtimeCss, "transform-origin: 50% 50%"));
   assert(sourceContains(runtimeCss, "translateY(-88px)"));
-  assert(sourceContains(runtimeCss, "rotate(calc(var(--i, 0) * -45deg + 90deg))"));
+  assert(
+    sourceContains(runtimeCss, "rotate(calc(var(--i, 0) * -45deg + 90deg))"),
+  );
   assert(!sourceContains(runtimeCss, "translateX(-74%)"));
   assert(sourceContains(html, "Gaming Ads"));
   assert(sourceContains(html, 'data-gaming-ad="spin"'));
   assert(sourceContains(html, 'data-gaming-ad="digging"'));
   assert(sourceContains(html, "/monetag-adapter-entry.js?v=__ASSET_VERSION__"));
-  assert(!sourceContains(html, "/monetag-adapter.bundle.js?v=__ASSET_VERSION__"));
+  assert(
+    !sourceContains(html, "/monetag-adapter.bundle.js?v=__ASSET_VERSION__"),
+  );
   assert(sourceContains(adClient, "providerAdapters"));
   assert(sourceContains(adClient, "getProvider(providerId)"));
   assert(sourceContains(adClient, "registerOnclicka"));
