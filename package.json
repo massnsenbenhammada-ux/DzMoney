@@ -10,6 +10,11 @@
     "build:monetag": "esbuild public/monetag-adapter-entry.js --bundle --format=iife --platform=browser --outfile=public/monetag-adapter.bundle.js",
     "migrate": "node ./scripts/migrate.js",
     "reconcile:economy": "node ./scripts/reconcile-economy.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:hygiene": "node ./scripts/check-repo-hygiene.js",
     "test:e2e:daily-view-ads": "playwright test tests/e2e/daily-view-ads.spec.js",
     "test:e2e:daily-view-ads:real-monetag": "REAL_MONETAG_E2E=1 playwright test tests/e2e/daily-view-ads-real-monetag.spec.js",
     "test:e2e:daily-view-ads:real-rotation": "REAL_AD_PROVIDER_ROTATION_E2E=1 playwright test tests/e2e/daily-view-ads-real-rotation.spec.js",
@@ -69,7 +74,7 @@
     "test:task-card-creator-scope": "node ./scripts/test-task-card-creator-scope.js",
     "test:task-verification-config": "node ./scripts/test-task-verification-config.js",
     "test:creator-provider-verification-config": "node --test ./tests/creator-provider-verification-config.test.js",
-    "test:game-url-format-match": "node --test ./tests/game-url-format-match.test.js",
+    "test:game-url-format-match": "node ./tests/game-url-format-match.test.js",
     "test:task-trusted-verifier": "node ./scripts/test-task-trusted-verifier.js",
     "test:task-verification-transaction-boundary": "node ./scripts/test-task-verification-transaction-boundary.js",
     "test:telegram-social-verifier": "node ./scripts/test-telegram-social-verifier.js",
@@ -111,5 +116,11 @@
   },
   "engines": { "node": ">=20" },
   "dependencies": { "esbuild": "^0.28.1", "express": "^5.2.1", "pg": "^8.16.3" },
-  "devDependencies": { "@playwright/test": "^1.63.0" }
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.9.6"
+  }
 }
