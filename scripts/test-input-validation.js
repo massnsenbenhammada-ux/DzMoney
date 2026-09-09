@@ -15,19 +15,19 @@ function run() {
   assert.throws(
     () =>
       validate({ title: 'Campaign', target: 1000, idempotencyKey: 'key-1', config: {}, unexpected: true }),
-    /unexpected/
+    /unexpected/,
   );
   assert.throws(
     () => validate({ title: '', target: 1000, idempotencyKey: 'key-1', config: {} }),
-    /title/
+    /title/,
   );
   assert.throws(
     () => validate({ title: 'Campaign', target: 999, idempotencyKey: 'key-1', config: {} }),
-    /target/
+    /target/,
   );
   assert.throws(
     () => validate({ title: 'Campaign', target: 1000, idempotencyKey: '', config: {} }),
-    /idempotencyKey/
+    /idempotencyKey/,
   );
 
   console.log('Strict input validation contract: PASS');
