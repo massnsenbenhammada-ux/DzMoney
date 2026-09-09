@@ -11,8 +11,8 @@ adb shell settings put global animator_duration_scale 0
 echo 'Checking outbound HTTPS connectivity from the Android runtime...'
 adb shell ping -c 1 telegram.org || true
 
-echo 'Installing official Telegram Android APK...'
-curl -fL --retry 8 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 600 -o /tmp/telegram.apk https://telegram.org/dl/android/apk
+echo 'Installing official Telegram Android Beta APK...'
+curl -fL --retry 8 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 600 -o /tmp/telegram.apk https://telegram.org/dl/android/apk-public-beta
 test -s /tmp/telegram.apk
 adb install -r /tmp/telegram.apk
 
@@ -30,15 +30,19 @@ echo "Telegram package: $(cat /tmp/dzmoney-telegram-package)"
 adb shell pm path "$(cat /tmp/dzmoney-telegram-package)"
 adb shell pm list packages | grep -F "package:$(cat /tmp/dzmoney-telegram-package)"
 
-echo 'Launching Telegram Android...'
-adb shell monkey -p "$(cat /tmp/dzmoney-telegram-package)" 1
-sleep 8
-adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
-adb shell dumpsys package "$(cat /tmp/dzmoney-telegram-package)" | head -n 40
-
-echo 'Resolving the actual Telegram activity for the Mini App VIEW intent...'
 TELEGRAM_PACKAGE="$(cat /tmp/dzmoney-telegram-package)"
 test -n "$TELEGRAM_PACKAGE"
+
+echo 'Launching Telegram Android Beta...'
+adb shell monkey -p "$TELEGRAM_PACKAGE" 1
+sleep 8
+adb shell pidof "$TELEGRAM_PACKAGE"
+adb shell dumpsys package "$TELEGRAM_PACKAGE" | head -n 40
+
+echo 'Authenticating the dedicated Telegram Test Environment account...'
+TELEGRAM_PACKAGE="$TELEGRAM_PACKAGE" bash scripts/telegram-android-test-auth.sh
+
+echo 'Resolving the actual Telegram activity for the Mini App VIEW intent...'
 TELEGRAM_ACTIVITY="$(adb shell cmd package resolve-activity --brief -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "$DZ_MONEY_MINI_APP_URL" "$TELEGRAM_PACKAGE" | tail -n 1 | tr -d '\r')"
 test -n "$TELEGRAM_ACTIVITY"
 test "$TELEGRAM_ACTIVITY" != 'No activity found'
@@ -51,7 +55,7 @@ case "$TELEGRAM_ACTIVITY" in
 esac
 echo "Telegram Mini App activity: $TELEGRAM_ACTIVITY"
 
-echo 'Opening the Test Bot Direct Mini App link explicitly inside Telegram...'
+echo 'Opening the Test Bot Direct Mini App link explicitly inside authenticated Telegram...'
 adb shell am start -W -n "$TELEGRAM_ACTIVITY" -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "$DZ_MONEY_MINI_APP_URL"
 sleep 8
 FOREGROUND_STATE="$(adb shell dumpsys activity activities | grep -E 'mResumedActivity|mCurrentFocus' | head -n 5 || true)"
@@ -69,12 +73,9 @@ TELEGRAM_PACKAGE_FILE=/tmp/dzmoney-telegram-package node scripts/telegram-androi
 WEBVIEW_EXIT=$?
 set -e
 cat telegram-webview-runtime.txt
-if [ "$WEBVIEW_EXIT" -ne 0 ] && [ "${TELEGRAM_WEBVIEW_BLOCKING:-false}" = "true" ]; then
-  echo 'Authenticated Telegram WebView gate is blocking: real initData + /api/me evidence is required.'
-  exit "$WEBVIEW_EXIT"
-fi
 if [ "$WEBVIEW_EXIT" -ne 0 ]; then
-  echo 'WebView authentication is not yet a blocking gate; preserving the failure as diagnostic evidence.'
+  echo 'Authenticated Telegram WebView gate failed; preserving the failure as runtime evidence.'
+  exit "$WEBVIEW_EXIT"
 fi
 
 echo 'Capturing Telegram + Mini App launch evidence...'
