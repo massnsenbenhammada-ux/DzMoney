@@ -12,6 +12,19 @@ const tabs = [
 
 const trackedSections = tabs.map(([, , selector]) => selector);
 
+async function visibleTrackedSections(page) {
+  return (
+    await Promise.all(
+      trackedSections.map(async selector => ({
+        selector,
+        visible: await page.locator(selector).isVisible(),
+      })),
+    )
+  )
+    .filter(section => section.visible)
+    .map(section => section.selector);
+}
+
 test.describe('Admin panel tabs', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -25,15 +38,15 @@ test.describe('Admin panel tabs', () => {
       };
     });
 
-    await page.route('**/api/admin/dashboard/stream**', route => route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream',
-      body: 'data: {"ok":false}\n\n',
-    }));
     await page.route('**/api/admin/**', route => route.fulfill({
       status: 401,
       contentType: 'application/json',
       body: JSON.stringify({ error: 'E2E backend bypass' }),
+    }));
+    await page.route('**/api/admin/dashboard/stream**', route => route.fulfill({
+      status: 200,
+      contentType: 'text/event-stream',
+      body: 'data: {"ok":false}\n\n',
     }));
     await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({
       status: 200,
@@ -45,7 +58,7 @@ test.describe('Admin panel tabs', () => {
   });
 
   test('shows exactly one section on initial load', async ({ page }) => {
-    const visibleSections = trackedSections.filter(selector => page.locator(selector).isVisible());
+    const visibleSections = await visibleTrackedSections(page);
     expect(visibleSections).toHaveLength(1);
     await expect(page.locator('#dashboardSection')).toBeVisible();
   });
@@ -60,7 +73,7 @@ test.describe('Admin panel tabs', () => {
         await expect(page.locator(selector)).toBeHidden();
       }
 
-      const visibleSections = trackedSections.filter(selector => page.locator(selector).isVisible());
+      const visibleSections = await visibleTrackedSections(page);
       expect(visibleSections).toHaveLength(1);
     });
   }
