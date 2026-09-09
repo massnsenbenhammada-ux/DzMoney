@@ -1,6 +1,13 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+
+// Isolate this registry contract from the ambient test:all provider matrix.
+process.env.ONCLICKA_ENABLED = 'true';
+process.env.GIGAPUB_ENABLED = 'false';
+process.env.MONETAG_ENABLED = 'false';
+process.env.ADSGRAM_ENABLED = 'false';
+
 const { ONCLICKA_PROVIDER_ID } = require('../src/services/onclicka-adapter');
 const { createOnclickaProvider } = require('../src/services/onclicka-adapter');
 const { ONCLICKA_CONTEXTS } = require('../src/config/onclicka');
