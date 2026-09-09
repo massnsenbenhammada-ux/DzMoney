@@ -52,7 +52,9 @@ test('Share with Friends verifies click proof and credits canonical Economy/Ledg
     const beforeCoin = Number(before.balances?.COIN || 0);
 
     await page.evaluate(() => { window.DzMoneyMonetag = { ready: Promise.resolve(), handler: async () => ({ ok: true }) }; });
-    await page.locator('[data-go="tasks"]').click();
+    const tasksNavigation = page.getByRole('button', { name: '✓ Tasks Earn by completing' });
+    await expect(tasksNavigation).toHaveCount(1);
+    await tasksNavigation.click();
     await page.locator('[data-task-category="daily"]').click();
     const card = page.locator('.task-card--daily').filter({ has: page.locator('[data-system-key="share_with_friends"]') });
     await expect(card).toBeVisible();
