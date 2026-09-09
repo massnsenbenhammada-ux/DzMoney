@@ -24,7 +24,16 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Run Prettier
-        run: npx prettier --write . --ignore-pattern 'package-lock.json' --ignore-pattern '.github/workflows/**'
+        run: |
+          printf '%s\n' '.github/workflows/**' 'package-lock.json' > .baseline-prettierignore
+          npx prettier --write . --ignore-path .baseline-prettierignore
+          rm -f .baseline-prettierignore
+      - name: Verify excluded paths were not modified
+        run: |
+          if git diff --name-only -- '.github/workflows/**' | grep -q .; then
+            echo 'Workflow files were modified by the mechanical formatter.'
+            exit 1
+          fi
       - name: Remove generated lockfile
         run: rm -f package-lock.json
       - name: Commit formatting changes
