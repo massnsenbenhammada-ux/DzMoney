@@ -99,10 +99,7 @@ const qualityRules = {
   complexity: ['error', 10],
   'max-depth': ['error', 4],
   'max-lines': ['error', { max: 400 }],
-  'max-lines-per-function': [
-    'error',
-    { max: 60, skipBlankLines: true, skipComments: true },
-  ],
+  'max-lines-per-function': ['error', { max: 60, skipBlankLines: true, skipComments: true }],
   'max-nested-callbacks': ['error', 4],
   'max-params': ['error', 4],
   'max-statements': ['error', 25],
