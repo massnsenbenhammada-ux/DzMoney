@@ -12,7 +12,7 @@ async function createAttributionPair() {
 }
 
 async function main() {
-  const { referrer, referred } = await createAttributionPair();
+  const { referred } = await createAttributionPair();
   const task = await pool.query(
     `INSERT INTO activity_tasks(task_type,title,reward_coin) VALUES('game','Referral qualification test',1) RETURNING id`
   );
