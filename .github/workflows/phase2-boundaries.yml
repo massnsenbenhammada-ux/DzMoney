@@ -123,6 +123,10 @@ jobs:
           test "$(node -e "const fs=require('fs'); const data=JSON.parse(fs.readFileSync('/tmp/health-db.json','utf8')); process.stdout.write(String(data.ok))")" = "true"
       - name: Run full test suite
         env:
-          GIGAPUB_ENABLED: "false"
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          GIGAPUB_ENABLED: "true"
+          MONETAG_ENABLED: "true"
+          MONETAG_POSTBACK_SECRET: ${{ secrets.MONETAG_POSTBACK_SECRET }}
+          ONCLICKA_ENABLED: "false"
           TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
         run: npm run test:all

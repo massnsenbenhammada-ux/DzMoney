@@ -1,0 +1,98 @@
+name: Phase 14 Real-State CI Runtime
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '.github/workflows/phase14-real-state-ci-runtime.yml'
+      - 'src/**'
+      - 'public/**'
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'server.js'
+      - 'package.json'
+      - 'playwright.config.js'
+  push:
+    branches:
+      - feat/phase14-real-state-ci-runtime
+    paths:
+      - '.github/workflows/phase14-real-state-ci-runtime.yml'
+      - 'src/**'
+      - 'public/**'
+      - 'migrations/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'server.js'
+      - 'package.json'
+      - 'playwright.config.js'
+
+permissions:
+  contents: read
+
+jobs:
+  real-state-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: dzmoney_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dzmoney_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      NODE_ENV: test
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
+      DATABASE_SSL: 'false'
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      TEST_TELEGRAM_USER_ID: '900000000'
+      ADSGRAM_ENABLED: 'false'
+      GIGAPUB_ENABLED: 'true'
+      GIGAPUB_PROJECT_ID: '7958'
+      MONETAG_ENABLED: 'true'
+      MONETAG_POSTBACK_SECRET: test-monetag-secret
+      ONCLICKA_ENABLED: 'false'
+      TON_PAYOUT_ENABLED: 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run migrations
+        run: npm run migrate
+
+      - name: Run real-state registry guard
+        run: |
+          test -f tests/e2e/gaming-real-state.spec.js
+          test -f tests/e2e/share-with-friends-real-state.spec.js
+
+      - name: Run real-state Playwright gates
+        run: |
+          npx playwright test tests/e2e/gaming-real-state.spec.js
+          npx playwright test tests/e2e/share-with-friends-real-state.spec.js
+
+      - name: Runtime diagnostics
+        if: always()
+        run: |
+          curl --silent http://127.0.0.1:3000/health || true
+          curl --silent http://127.0.0.1:3000/health/db || true

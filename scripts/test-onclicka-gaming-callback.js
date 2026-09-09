@@ -2,6 +2,8 @@
 
 process.env.ONCLICKA_ENABLED = 'true';
 process.env.ONCLICKA_SPOT_ID = process.env.ONCLICKA_SPOT_ID || '6134799';
+process.env.GIGAPUB_ENABLED = 'false';
+process.env.MONETAG_ENABLED = 'false';
 
 const assert = require('assert');
 const http = require('http');
