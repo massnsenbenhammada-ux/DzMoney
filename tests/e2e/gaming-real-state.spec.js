@@ -30,6 +30,16 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
   const telegramId = String(BigInt(process.env.TEST_TELEGRAM_USER_ID || '900000000') + BigInt(Date.now() % 1000000));
   const initData = buildInitData(telegramId);
   const db = new Pool({ connectionString: process.env.DATABASE_URL, ssl: false });
+  const browserErrors = [];
+  page.on('pageerror', error => browserErrors.push(`pageerror: ${error.message}`));
+  page.on('console', message => {
+    if (message.type() === 'error' || message.type() === 'warning') browserErrors.push(`console.${message.type()}: ${message.text()}`);
+  });
+  page.on('response', async response => {
+    if (!response.url().endsWith('/api/gaming') || response.request().method() !== 'GET') return;
+    try { console.log(`GAMING_API_RESPONSE ${response.status()} ${JSON.stringify(await response.json())}`); }
+    catch (error) { console.log(`GAMING_API_RESPONSE_BODY_ERROR ${error.message}`); }
+  });
   await page.addInitScript(({ data }) => { window.Telegram = { WebApp: { initData: data, ready() {}, expand() {}, openTelegramLink() {} } }; }, { data: initData });
   await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
   try {
@@ -50,9 +60,16 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     }, { data: initData });
 
     await page.getByRole('button', { name: /🎮 Gaming Spin & Digging/ }).click();
+    console.log(`GAMING_NAV_BEFORE_SPIN ${JSON.stringify(await page.evaluate(() => ({ active: document.querySelector('.page.active')?.dataset.page, home: document.querySelector('[data-gaming-view="home"]')?.className, spin: document.querySelector('[data-gaming-view="spin"]')?.className, buttons: [...document.querySelectorAll('[data-gaming-view-link]')].map(el => ({ text: el.textContent.trim(), link: el.dataset.gamingViewLink })) })))}`);
     await page.getByRole('button', { name: /Spin Use Spins for one server-side result/ }).click();
+    console.log(`GAMING_NAV_AFTER_SPIN ${JSON.stringify(await page.evaluate(() => ({ active: document.querySelector('.page.active')?.dataset.page, home: document.querySelector('[data-gaming-view="home"]')?.className, spin: document.querySelector('[data-gaming-view="spin"]')?.className, ad: document.querySelector('[data-gaming-ad="spin"]')?.className, errors: window.__dzmoneyGamingErrors || [] })))}`);
     const button = page.locator('[data-gaming-ad="spin"]');
-    await expect(button).toBeVisible();
+    try {
+      await expect(button).toBeVisible();
+    } catch (error) {
+      console.log(`GAMING_NAV_FAILURE ${JSON.stringify({ browserErrors, dom: await page.evaluate(() => ({ active: document.querySelector('.page.active')?.dataset.page, home: document.querySelector('[data-gaming-view="home"]')?.className, spin: document.querySelector('[data-gaming-view="spin"]')?.className, ad: document.querySelector('[data-gaming-ad="spin"]')?.className, gamingViews: [...document.querySelectorAll('[data-gaming-view]')].map(el => ({ view: el.dataset.gamingView, className: el.className, hidden: el.hidden, rect: el.getBoundingClientRect().toJSON() })) }))}`);
+      throw error;
+    }
     const startWait = page.waitForResponse(r => r.url().endsWith('/api/gaming/ads/start') && r.request().method() === 'POST');
     const completeWait = page.waitForResponse(r => r.url().endsWith('/api/gaming/ads/complete') && r.request().method() === 'POST');
     await button.click();
