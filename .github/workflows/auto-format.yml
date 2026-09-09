@@ -23,12 +23,12 @@ jobs:
         with:
           ref: ${{ inputs.branch }}
           fetch-depth: 0
-          token: ${{ secrets.FORMATTER_TOKEN }}
+          token: ${{ github.token }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         run: npm install --ignore-scripts --no-package-lock
