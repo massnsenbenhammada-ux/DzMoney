@@ -1,96 +1,145 @@
-const assert = require('assert');
-const { validateMonetagPostback, MONETAG_VERIFICATION_CONTEXT } = require('../src/services/monetag-postback-service');
-const { createMonetagProvider } = require('../src/services/monetag-adapter');
+const assert = require("assert");
+const {
+  validateMonetagPostback,
+  MONETAG_VERIFICATION_CONTEXT,
+} = require("../src/services/monetag-postback-service");
+const { createMonetagProvider } = require("../src/services/monetag-adapter");
 
 function validPayload(overrides = {}) {
   return {
-    telegram_id: '12345',
-    zone_id: '11627577',
-    sub_zone_id: '1',
-    event_type: 'impression',
-    reward_event_type: 'valued',
-    estimated_price: '0.01000',
-    ymid: 'attempt-123',
-    request_var: 'daily_checkin',
-    ...overrides
+    telegram_id: "12345",
+    zone_id: "11627577",
+    sub_zone_id: "1",
+    event_type: "impression",
+    reward_event_type: "valued",
+    estimated_price: "0.01000",
+    ymid: "attempt-123",
+    request_var: "daily_checkin",
+    ...overrides,
   };
 }
 
 function testAcceptsPaidImpression() {
   const result = validateMonetagPostback(validPayload());
   assert.strictEqual(result.eligible, true);
-  assert.strictEqual(result.ymid, 'attempt-123');
-  assert.strictEqual(result.telegramId, '12345');
-  assert.strictEqual(result.rewardEventType, 'valued');
+  assert.strictEqual(result.ymid, "attempt-123");
+  assert.strictEqual(result.telegramId, "12345");
+  assert.strictEqual(result.rewardEventType, "valued");
 }
 
 function testAcceptsPaidClick() {
-  const result = validateMonetagPostback(validPayload({ event_type: 'click' }));
+  const result = validateMonetagPostback(validPayload({ event_type: "click" }));
   assert.strictEqual(result.eligible, true);
-  assert.strictEqual(result.eventType, 'click');
+  assert.strictEqual(result.eventType, "click");
 }
 
 function testAcceptsVerificationContext() {
-  const result = validateMonetagPostback(validPayload({ request_var: MONETAG_VERIFICATION_CONTEXT }));
+  const result = validateMonetagPostback(
+    validPayload({ request_var: MONETAG_VERIFICATION_CONTEXT }),
+  );
   assert.strictEqual(result.eligible, true);
   assert.strictEqual(result.requestVar, MONETAG_VERIFICATION_CONTEXT);
-  assert.throws(() => validateMonetagPostback(validPayload({ request_var: MONETAG_VERIFICATION_CONTEXT }), 'daily_checkin'), /context/i);
-  assert.throws(() => validateMonetagPostback(validPayload(), MONETAG_VERIFICATION_CONTEXT), /context/i);
+  assert.throws(
+    () =>
+      validateMonetagPostback(
+        validPayload({ request_var: MONETAG_VERIFICATION_CONTEXT }),
+        "daily_checkin",
+      ),
+    /context/i,
+  );
+  assert.throws(
+    () => validateMonetagPostback(validPayload(), MONETAG_VERIFICATION_CONTEXT),
+    /context/i,
+  );
 }
 
 function testAcceptsTaskContext() {
-  const result = validateMonetagPostback(validPayload({ request_var: 'task' }), 'task');
+  const result = validateMonetagPostback(
+    validPayload({ request_var: "task" }),
+    "task",
+  );
   assert.strictEqual(result.eligible, true);
-  assert.strictEqual(result.requestVar, 'task');
+  assert.strictEqual(result.requestVar, "task");
 }
 
 async function testMonetagProviderSupportsTrustedTaskAds() {
   const provider = createMonetagProvider();
-  assert.ok(provider.contexts.includes('task'));
-  assert.strictEqual(typeof provider.verifyServerCompletion, 'function');
-  const verification = await provider.verifyServerCompletion(validPayload({ request_var: 'task' }));
+  assert.ok(provider.contexts.includes("task"));
+  assert.strictEqual(typeof provider.verifyServerCompletion, "function");
+  const verification = await provider.verifyServerCompletion(
+    validPayload({ request_var: "task" }),
+  );
   assert.strictEqual(verification.verified, true);
-  assert.strictEqual(verification.reference, 'attempt-123');
-  assert.strictEqual(verification.userId, '12345');
-  assert.strictEqual(verification.providerId, 'monetag');
-  assert.strictEqual(verification.context, 'task');
+  assert.strictEqual(verification.reference, "attempt-123");
+  assert.strictEqual(verification.userId, "12345");
+  assert.strictEqual(verification.providerId, "monetag");
+  assert.strictEqual(verification.context, "task");
 }
 
 function testAcceptsLegacyPaidValueFromCurrentSspUi() {
-  const result = validateMonetagPostback(validPayload({ reward_event_type: 'yes' }));
+  const result = validateMonetagPostback(
+    validPayload({ reward_event_type: "yes" }),
+  );
   assert.strictEqual(result.eligible, true);
-  assert.strictEqual(result.rewardEventType, 'yes');
+  assert.strictEqual(result.rewardEventType, "yes");
 }
 
 function testAcceptsMissingTelegramId() {
-  const result = validateMonetagPostback(validPayload({ telegram_id: '' }));
+  const result = validateMonetagPostback(validPayload({ telegram_id: "" }));
   assert.strictEqual(result.eligible, true);
   assert.strictEqual(result.telegramId, null);
 }
 
 function testRejectsWrongZone() {
-  assert.throws(() => validateMonetagPostback(validPayload({ zone_id: '999' })), /zone/i);
+  assert.throws(
+    () => validateMonetagPostback(validPayload({ zone_id: "999" })),
+    /zone/i,
+  );
 }
 
 function testRejectsUnpaidImpression() {
-  assert.throws(() => validateMonetagPostback(validPayload({ reward_event_type: 'non_valued' })), /reward/i);
-  assert.throws(() => validateMonetagPostback(validPayload({ reward_event_type: 'no' })), /reward/i);
+  assert.throws(
+    () =>
+      validateMonetagPostback(
+        validPayload({ reward_event_type: "non_valued" }),
+      ),
+    /reward/i,
+  );
+  assert.throws(
+    () => validateMonetagPostback(validPayload({ reward_event_type: "no" })),
+    /reward/i,
+  );
 }
 
 function testRejectsUnknownEventType() {
-  assert.throws(() => validateMonetagPostback(validPayload({ event_type: 'complete' })), /event/i);
+  assert.throws(
+    () => validateMonetagPostback(validPayload({ event_type: "complete" })),
+    /event/i,
+  );
 }
 
 function testRejectsWrongContext() {
-  assert.throws(() => validateMonetagPostback(validPayload({ request_var: 'unknown' })), /request/i);
+  assert.throws(
+    () => validateMonetagPostback(validPayload({ request_var: "unknown" })),
+    /request/i,
+  );
 }
 
 function testRequiresYmid() {
-  assert.throws(() => validateMonetagPostback(validPayload({ ymid: '' })), /ymid/i);
+  assert.throws(
+    () => validateMonetagPostback(validPayload({ ymid: "" })),
+    /ymid/i,
+  );
 }
 
 function testRejectsInvalidPrice() {
-  assert.throws(() => validateMonetagPostback(validPayload({ estimated_price: 'not-a-number' })), /price/i);
+  assert.throws(
+    () =>
+      validateMonetagPostback(
+        validPayload({ estimated_price: "not-a-number" }),
+      ),
+    /price/i,
+  );
 }
 
 (async () => {
@@ -108,9 +157,9 @@ function testRejectsInvalidPrice() {
     testRejectsWrongContext();
     testRequiresYmid();
     testRejectsInvalidPrice();
-    console.log('Monetag rewarded postback invariants: PASS');
+    console.log("Monetag rewarded postback invariants: PASS");
   } catch (error) {
-    console.error('Monetag rewarded postback invariants: FAIL');
+    console.error("Monetag rewarded postback invariants: FAIL");
     console.error(error);
     process.exitCode = 1;
   }

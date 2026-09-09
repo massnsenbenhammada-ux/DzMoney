@@ -1,181 +1,417 @@
-const { withTransaction, query } = require('../db/pool');
-const { creditActivityRewardOnClient } = require('./economy-service');
-const referralService = require('./referral-service');
-const { activateOnVerifiedActivity } = require('./squad-membership-service');
-const { startRotatedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
-const { verifyWithProvider } = require('./ad-provider-service');
-const { resolveVerificationConfig } = require('./task-verification-config');
-const { matchesUrlFormat } = require('./game-url-format-match');
-const { isTelegramChannelMember } = require('./telegram-channel-verifier');
+const { withTransaction, query } = require("../db/pool");
+const { creditActivityRewardOnClient } = require("./economy-service");
+const referralService = require("./referral-service");
+const { activateOnVerifiedActivity } = require("./squad-membership-service");
+const {
+  startRotatedAdvertisementEventOnClient,
+  markAdvertisementVerified,
+} = require("./ad-event-service");
+const { verifyWithProvider } = require("./ad-provider-service");
+const { resolveVerificationConfig } = require("./task-verification-config");
+const { matchesUrlFormat } = require("./game-url-format-match");
+const { isTelegramChannelMember } = require("./telegram-channel-verifier");
 
-const TELEGRAM_TASK_CHANNELS = { 'telegram.dzmoney_updates': '@DzMoneyChecking' };
+const TELEGRAM_TASK_CHANNELS = {
+  "telegram.dzmoney_updates": "@DzMoneyChecking",
+};
 
 function requiredId(value, name) {
-  if (value === undefined || value === null || value === '') throw new Error(`${name} is required`);
+  if (value === undefined || value === null || value === "")
+    throw new Error(`${name} is required`);
   return value;
 }
 
 function resolveTelegramTaskChannel(verification) {
-  const configuredChannel = verification?.requirements?.channel || verification?.channel;
+  const configuredChannel =
+    verification?.requirements?.channel || verification?.channel;
   if (configuredChannel !== undefined && configuredChannel !== null) {
-    if (typeof configuredChannel !== 'string' || !/^@[A-Za-z0-9_]{5,32}$/.test(configuredChannel.trim())) throw new Error('Invalid Telegram task verifier channel');
+    if (
+      typeof configuredChannel !== "string" ||
+      !/^@[A-Za-z0-9_]{5,32}$/.test(configuredChannel.trim())
+    )
+      throw new Error("Invalid Telegram task verifier channel");
     return configuredChannel.trim();
   }
   const channel = TELEGRAM_TASK_CHANNELS[verification?.providerConfigRef];
-  if (!channel) throw new Error('Telegram task verifier channel is required');
+  if (!channel) throw new Error("Telegram task verifier channel is required");
   return channel;
 }
 
 function isTelegramMembershipTask(row) {
   const verification = row?.config?.verification || {};
-  return verification.provider === 'telegram_channel' && (!verification.method || verification.method === 'bot_api') && (!verification.event || verification.event === 'channel_membership');
+  return (
+    verification.provider === "telegram_channel" &&
+    (!verification.method || verification.method === "bot_api") &&
+    (!verification.event || verification.event === "channel_membership")
+  );
 }
 
-function resolveTrustedTaskVerifier({ config, userId, telegramUserId, userSubmittedUrl, botToken = process.env.BOT_TOKEN, verifyMembership = isTelegramChannelMember }) {
+function resolveTrustedTaskVerifier({
+  config,
+  userId,
+  telegramUserId,
+  userSubmittedUrl,
+  botToken = process.env.BOT_TOKEN,
+  verifyMembership = isTelegramChannelMember,
+}) {
   const verification = config?.verification || {};
-  if (config?.achievementThreshold !== undefined && config?.achievementThreshold !== null) {
+  if (
+    config?.achievementThreshold !== undefined &&
+    config?.achievementThreshold !== null
+  ) {
     const threshold = Number(config.achievementThreshold);
-    if (!Number.isInteger(threshold) || threshold <= 0) throw new Error('Invalid referral achievement threshold');
-    requiredId(userId, 'userId');
-    return async () => Number(await referralService.getQualifiedReferralCount(userId)) >= threshold;
+    if (!Number.isInteger(threshold) || threshold <= 0)
+      throw new Error("Invalid referral achievement threshold");
+    requiredId(userId, "userId");
+    return async () =>
+      Number(await referralService.getQualifiedReferralCount(userId)) >=
+      threshold;
   }
-  if (config?.dailyMode === 'advertisement') {
+  if (config?.dailyMode === "advertisement") {
     return async ({ attemptId }) => {
-      const result = await query(`SELECT g.status AS gate_status, e.verified AS ad_verified, e.context AS ad_context, e.metadata->>'provider_id' AS provider_id FROM task_verification_gates g JOIN activity_ad_events e ON e.id=g.ad_event_id WHERE g.attempt_id=$1`, [requiredId(attemptId, 'attemptId')]);
-      if (!result.rowCount) throw new Error('Verification gate not found');
+      const result = await query(
+        `SELECT g.status AS gate_status, e.verified AS ad_verified, e.context AS ad_context, e.metadata->>'provider_id' AS provider_id FROM task_verification_gates g JOIN activity_ad_events e ON e.id=g.ad_event_id WHERE g.attempt_id=$1`,
+        [requiredId(attemptId, "attemptId")],
+      );
+      if (!result.rowCount) throw new Error("Verification gate not found");
       const row = result.rows[0];
-      return row.gate_status === 'ad_completed' && row.ad_verified === true && row.ad_context === 'verification' && typeof row.provider_id === 'string' && row.provider_id !== '';
+      return (
+        row.gate_status === "ad_completed" &&
+        row.ad_verified === true &&
+        row.ad_context === "verification" &&
+        typeof row.provider_id === "string" &&
+        row.provider_id !== ""
+      );
     };
   }
-  if (verification.method === 'click_proof') {
+  if (verification.method === "click_proof") {
     return async ({ attemptId }) => {
-      const result = await query('SELECT metadata FROM task_attempts WHERE id=$1', [requiredId(attemptId, 'attemptId')]);
-      if (!result.rowCount) throw new Error('Task attempt not found');
+      const result = await query(
+        "SELECT metadata FROM task_attempts WHERE id=$1",
+        [requiredId(attemptId, "attemptId")],
+      );
+      if (!result.rowCount) throw new Error("Task attempt not found");
       return result.rows[0].metadata?.link_clicked === true;
     };
   }
-  if (verification.method === 'url_format_match') {
+  if (verification.method === "url_format_match") {
     const referenceUrl = config?.campaignUrl;
-    if (typeof referenceUrl !== 'string' || referenceUrl.trim() === '') throw new Error('campaignUrl is required for url_format_match');
+    if (typeof referenceUrl !== "string" || referenceUrl.trim() === "")
+      throw new Error("campaignUrl is required for url_format_match");
     return () => matchesUrlFormat(referenceUrl, userSubmittedUrl);
   }
-  if (!verification.provider) throw new Error('trusted task verifier provider is required');
-  if (verification.provider !== 'telegram_channel') throw new Error(`Unsupported trusted task verifier provider: ${verification.provider}`);
-  if (verification.method && verification.method !== 'bot_api') throw new Error('Unsupported Telegram task verifier method');
-  if (verification.event && verification.event !== 'channel_membership') throw new Error('Unsupported Telegram task verifier event');
+  if (!verification.provider)
+    throw new Error("trusted task verifier provider is required");
+  if (verification.provider !== "telegram_channel")
+    throw new Error(
+      `Unsupported trusted task verifier provider: ${verification.provider}`,
+    );
+  if (verification.method && verification.method !== "bot_api")
+    throw new Error("Unsupported Telegram task verifier method");
+  if (verification.event && verification.event !== "channel_membership")
+    throw new Error("Unsupported Telegram task verifier event");
   const channel = resolveTelegramTaskChannel(verification);
-  requiredId(botToken, 'BOT_TOKEN');
-  requiredId(telegramUserId, 'telegramUserId');
+  requiredId(botToken, "BOT_TOKEN");
+  requiredId(telegramUserId, "telegramUserId");
   return () => verifyMembership({ botToken, channel, userId: telegramUserId });
 }
 
-async function startTaskVerificationAd({ attemptId, idempotencyKey, externalAdId = null, providerRegistry, providerId = null }) {
-  requiredId(attemptId, 'attemptId');
-  requiredId(idempotencyKey, 'idempotencyKey');
-  if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
-  return withTransaction(async client => {
-    const gateResult = await client.query(`SELECT g.*,a.user_id,a.status AS attempt_status FROM task_verification_gates g JOIN task_attempts a ON a.id=g.attempt_id WHERE g.attempt_id=$1 FOR UPDATE`, [attemptId]);
-    if (!gateResult.rowCount) throw new Error('Verification gate not found');
+async function startTaskVerificationAd({
+  attemptId,
+  idempotencyKey,
+  externalAdId = null,
+  providerRegistry,
+  providerId = null,
+}) {
+  requiredId(attemptId, "attemptId");
+  requiredId(idempotencyKey, "idempotencyKey");
+  if (!providerRegistry)
+    throw new Error("A trusted advertisement provider registry is required");
+  return withTransaction(async (client) => {
+    const gateResult = await client.query(
+      `SELECT g.*,a.user_id,a.status AS attempt_status FROM task_verification_gates g JOIN task_attempts a ON a.id=g.attempt_id WHERE g.attempt_id=$1 FOR UPDATE`,
+      [attemptId],
+    );
+    if (!gateResult.rowCount) throw new Error("Verification gate not found");
     const gate = gateResult.rows[0];
-    if (gate.attempt_status !== 'verification_pending') throw new Error('Task attempt is not awaiting verification');
-    const result = await startRotatedAdvertisementEventOnClient(client, { userId: gate.user_id, context: 'verification', idempotencyKey, externalAdId, metadata: { attempt_id: attemptId, required_seconds: gate.required_seconds }, providerRegistry });
-    if (result.duplicate) return { gate, adEvent: result.adEvent, providerId: result.providerId, duplicate: true };
-    await client.query(`UPDATE task_verification_gates SET ad_event_id=$1,metadata=metadata||$2::jsonb WHERE id=$3`, [result.adEvent.id, JSON.stringify({ verification_ad_id: result.adEvent.id, provider_id: result.providerId }), gate.id]);
-    return { gate: { ...gate, ad_event_id: result.adEvent.id }, adEvent: result.adEvent, providerId: result.providerId, duplicate: false };
+    if (gate.attempt_status !== "verification_pending")
+      throw new Error("Task attempt is not awaiting verification");
+    const result = await startRotatedAdvertisementEventOnClient(client, {
+      userId: gate.user_id,
+      context: "verification",
+      idempotencyKey,
+      externalAdId,
+      metadata: {
+        attempt_id: attemptId,
+        required_seconds: gate.required_seconds,
+      },
+      providerRegistry,
+    });
+    if (result.duplicate)
+      return {
+        gate,
+        adEvent: result.adEvent,
+        providerId: result.providerId,
+        duplicate: true,
+      };
+    await client.query(
+      `UPDATE task_verification_gates SET ad_event_id=$1,metadata=metadata||$2::jsonb WHERE id=$3`,
+      [
+        result.adEvent.id,
+        JSON.stringify({
+          verification_ad_id: result.adEvent.id,
+          provider_id: result.providerId,
+        }),
+        gate.id,
+      ],
+    );
+    return {
+      gate: { ...gate, ad_event_id: result.adEvent.id },
+      adEvent: result.adEvent,
+      providerId: result.providerId,
+      duplicate: false,
+    };
   });
 }
 
-async function verifyTaskAdvertisement({ adEventId, providerRegistry, providerId = null, providerPayload }) {
-  requiredId(adEventId, 'adEventId');
-  if (!providerRegistry) throw new Error('A trusted advertisement provider registry is required');
-  const eventResult = await query(`SELECT context,metadata FROM activity_ad_events WHERE id=$1`, [adEventId]);
-  if (!eventResult.rowCount || eventResult.rows[0].context !== 'verification') throw new Error('Verification advertisement event not found');
+async function verifyTaskAdvertisement({
+  adEventId,
+  providerRegistry,
+  providerId = null,
+  providerPayload,
+}) {
+  requiredId(adEventId, "adEventId");
+  if (!providerRegistry)
+    throw new Error("A trusted advertisement provider registry is required");
+  const eventResult = await query(
+    `SELECT context,metadata FROM activity_ad_events WHERE id=$1`,
+    [adEventId],
+  );
+  if (!eventResult.rowCount || eventResult.rows[0].context !== "verification")
+    throw new Error("Verification advertisement event not found");
   const recordedProviderId = eventResult.rows[0].metadata?.provider_id;
-  if (!recordedProviderId) throw new Error('Verification advertisement provider is not recorded');
-  if (providerId && providerId !== recordedProviderId) throw new Error('Advertisement provider does not match the selected provider');
-  const result = await verifyWithProvider(providerRegistry, { context: 'verification', providerId: recordedProviderId, payload: providerPayload });
-  if (!result.verification.verified) throw new Error('Advertisement provider verification failed');
-  const marked = await markAdvertisementVerified({ adEventId, providerReference: result.verification.reference, verificationMetadata: { ...result.verification.metadata, provider_id: result.providerId } });
+  if (!recordedProviderId)
+    throw new Error("Verification advertisement provider is not recorded");
+  if (providerId && providerId !== recordedProviderId)
+    throw new Error(
+      "Advertisement provider does not match the selected provider",
+    );
+  const result = await verifyWithProvider(providerRegistry, {
+    context: "verification",
+    providerId: recordedProviderId,
+    payload: providerPayload,
+  });
+  if (!result.verification.verified)
+    throw new Error("Advertisement provider verification failed");
+  const marked = await markAdvertisementVerified({
+    adEventId,
+    providerReference: result.verification.reference,
+    verificationMetadata: {
+      ...result.verification.metadata,
+      provider_id: result.providerId,
+    },
+  });
   if (marked.duplicate) return marked;
-  await withTransaction(async client => { await client.query(`UPDATE task_verification_gates SET status='ad_completed',ad_completed_at=NOW() WHERE ad_event_id=$1 AND status='pending'`, [adEventId]); });
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE task_verification_gates SET status='ad_completed',ad_completed_at=NOW() WHERE ad_event_id=$1 AND status='pending'`,
+      [adEventId],
+    );
+  });
   return marked;
 }
 
-async function loadTaskVerificationAttempt(attemptId, lock = false, client = null) {
+async function loadTaskVerificationAttempt(
+  attemptId,
+  lock = false,
+  client = null,
+) {
   const runner = client || { query };
-  const suffix = lock ? ' FOR UPDATE' : '';
-  const result = await runner.query(`SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,t.creator_id,t.target,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1${suffix}`, [attemptId]);
-  if (!result.rowCount) throw new Error('Task attempt not found');
+  const suffix = lock ? " FOR UPDATE" : "";
+  const result = await runner.query(
+    `SELECT a.*,u.telegram_user_id,t.task_type,t.reward_coin,t.reward_dzx,t.reward_dzp,t.config,t.creator_id,t.target,g.id AS gate_id,g.status AS gate_status FROM task_attempts a JOIN users u ON u.id=a.user_id JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1${suffix}`,
+    [attemptId],
+  );
+  if (!result.rowCount) throw new Error("Task attempt not found");
   return result.rows[0];
 }
 
 function rewardAmounts(row) {
-  return { coin: Number(row.reward_coin), dzx: Number(row.reward_dzx), dzp: Number(row.reward_dzp) };
+  return {
+    coin: Number(row.reward_coin),
+    dzx: Number(row.reward_dzx),
+    dzp: Number(row.reward_dzp),
+  };
 }
 
 function validateTaskVerificationState(row) {
-  if (row.status === 'verified') return { duplicate: true, status: 'verified', rewarded: true, reward: rewardAmounts(row) };
-  if (row.status === 'rejected' || row.status === 'expired') return { duplicate: false, status: row.status, rewarded: false };
-  if (row.status !== 'verification_pending') throw new Error('Task attempt is not pending verification');
-  if (!isTelegramMembershipTask(row) && row.gate_status !== 'ad_completed') throw new Error('Verification advertisement must be verified first');
+  if (row.status === "verified")
+    return {
+      duplicate: true,
+      status: "verified",
+      rewarded: true,
+      reward: rewardAmounts(row),
+    };
+  if (row.status === "rejected" || row.status === "expired")
+    return { duplicate: false, status: row.status, rewarded: false };
+  if (row.status !== "verification_pending")
+    throw new Error("Task attempt is not pending verification");
+  if (!isTelegramMembershipTask(row) && row.gate_status !== "ad_completed")
+    throw new Error("Verification advertisement must be verified first");
   return null;
 }
 
 async function lockAndValidateCreatorCampaignTarget(client, row) {
-  if (row.creator_id === null || row.creator_id === undefined || row.target === null || row.target === undefined) return { task: row, verifiedCount: null, targetReached: false };
-  const result = await client.query('SELECT id,status,target,creator_id FROM activity_tasks WHERE id=$1 FOR UPDATE', [row.task_id]);
-  if (!result.rowCount) throw new Error('Task not found');
+  if (
+    row.creator_id === null ||
+    row.creator_id === undefined ||
+    row.target === null ||
+    row.target === undefined
+  )
+    return { task: row, verifiedCount: null, targetReached: false };
+  const result = await client.query(
+    "SELECT id,status,target,creator_id FROM activity_tasks WHERE id=$1 FOR UPDATE",
+    [row.task_id],
+  );
+  if (!result.rowCount) throw new Error("Task not found");
   const task = result.rows[0];
-  const countResult = await client.query("SELECT COUNT(*)::int AS verified_count FROM task_attempts WHERE task_id=$1 AND status='verified'", [row.task_id]);
+  const countResult = await client.query(
+    "SELECT COUNT(*)::int AS verified_count FROM task_attempts WHERE task_id=$1 AND status='verified'",
+    [row.task_id],
+  );
   const verifiedCount = Number(countResult.rows[0].verified_count);
-  return { task, verifiedCount, targetReached: verifiedCount >= Number(task.target) };
+  return {
+    task,
+    verifiedCount,
+    targetReached: verifiedCount >= Number(task.target),
+  };
 }
 
-async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmittedUrl, verifyTaskCompletion }) {
-  requiredId(attemptId, 'attemptId');
-  requiredId(idempotencyKey, 'idempotencyKey');
+async function finalizeTaskVerification({
+  attemptId,
+  idempotencyKey,
+  userSubmittedUrl,
+  verifyTaskCompletion,
+}) {
+  requiredId(attemptId, "attemptId");
+  requiredId(idempotencyKey, "idempotencyKey");
   const initialRow = await loadTaskVerificationAttempt(attemptId);
   const initialState = validateTaskVerificationState(initialRow);
   if (initialState) return initialState;
-  const resolvedConfig = resolveVerificationConfig({ taskType: initialRow.task_type, config: initialRow.config });
-  const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, userId: initialRow.user_id, telegramUserId: initialRow.telegram_user_id, userSubmittedUrl });
+  const resolvedConfig = resolveVerificationConfig({
+    taskType: initialRow.task_type,
+    config: initialRow.config,
+  });
+  const verifier =
+    verifyTaskCompletion ||
+    resolveTrustedTaskVerifier({
+      config: resolvedConfig,
+      userId: initialRow.user_id,
+      telegramUserId: initialRow.telegram_user_id,
+      userSubmittedUrl,
+    });
   const verifiedByTaskRule = await verifier({ attemptId, userSubmittedUrl });
-  if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
-  return withTransaction(async client => {
+  if (typeof verifiedByTaskRule !== "boolean")
+    throw new Error("Task verifier must return a boolean");
+  return withTransaction(async (client) => {
     const row = await loadTaskVerificationAttempt(attemptId, true, client);
     const state = validateTaskVerificationState(row);
     if (state) return state;
     if (verifiedByTaskRule !== true) {
-      await client.query(`UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`, [attemptId]);
-      await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
-      return { duplicate: false, status: 'rejected', rewarded: false };
+      await client.query(
+        `UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`,
+        [attemptId],
+      );
+      await client.query(
+        `UPDATE task_verification_gates SET status='rejected' WHERE id=$1`,
+        [row.gate_id],
+      );
+      return { duplicate: false, status: "rejected", rewarded: false };
     }
     const campaign = await lockAndValidateCreatorCampaignTarget(client, row);
     if (campaign.targetReached) {
-      await client.query(`UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`, [attemptId]);
-      await client.query(`UPDATE task_verification_gates SET status='rejected' WHERE id=$1`, [row.gate_id]);
-      return { duplicate: false, status: 'rejected', rewarded: false };
+      await client.query(
+        `UPDATE task_attempts SET status='rejected',rejected_at=NOW() WHERE id=$1`,
+        [attemptId],
+      );
+      await client.query(
+        `UPDATE task_verification_gates SET status='rejected' WHERE id=$1`,
+        [row.gate_id],
+      );
+      return { duplicate: false, status: "rejected", rewarded: false };
     }
     const amounts = rewardAmounts(row);
-    const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, activityType: row.task_type, activityContext: 'task', modifiers: [], qualifyingVerifiedActivity: true });
-    if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
+    const reward = await creditActivityRewardOnClient(client, {
+      idempotencyKey,
+      userId: row.user_id,
+      source: "task",
+      ...amounts,
+      activityType: row.task_type,
+      activityContext: "task",
+      modifiers: [],
+      qualifyingVerifiedActivity: true,
+    });
+    if (!reward.duplicate)
+      await referralService.creditReferralLifetimeOnClient(client, {
+        referredUserId: row.user_id,
+        source: "task",
+        sourceReferenceId: attemptId,
+        idempotencyKey: `referral-lifetime:task:${attemptId}`,
+        baseReward: { coin: amounts.coin, dzx: amounts.dzx },
+      });
     await activateOnVerifiedActivity(client, row.user_id);
-    await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
-    await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
-    if (campaign.verifiedCount !== null && campaign.verifiedCount + 1 >= Number(campaign.task.target)) {
-      await client.query("UPDATE activity_tasks SET status='completed',updated_at=NOW() WHERE id=$1 AND status IN ('active','paused')", [row.task_id]);
+    await client.query(
+      `UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`,
+      [idempotencyKey, attemptId],
+    );
+    await client.query(
+      `UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`,
+      [row.gate_id],
+    );
+    if (
+      campaign.verifiedCount !== null &&
+      campaign.verifiedCount + 1 >= Number(campaign.task.target)
+    ) {
+      await client.query(
+        "UPDATE activity_tasks SET status='completed',updated_at=NOW() WHERE id=$1 AND status IN ('active','paused')",
+        [row.task_id],
+      );
     }
-    return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, transaction: reward.transaction };
+    return {
+      duplicate: false,
+      status: "verified",
+      rewarded: true,
+      reward: amounts,
+      transaction: reward.transaction,
+    };
   });
 }
 
 async function getTaskVerificationStatus({ attemptId, userId }) {
-  requiredId(attemptId, 'attemptId');
-  requiredId(userId, 'userId');
-  const result = await query(`SELECT a.id,a.status,a.metadata,t.reward_coin,t.reward_dzx,t.reward_dzp,g.status AS gate_status,g.ad_event_id,g.ad_completed_at,g.verified_at FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 AND a.user_id=$2`, [attemptId, userId]);
-  if (!result.rowCount) throw new Error('Task attempt not found');
+  requiredId(attemptId, "attemptId");
+  requiredId(userId, "userId");
+  const result = await query(
+    `SELECT a.id,a.status,a.metadata,t.reward_coin,t.reward_dzx,t.reward_dzp,g.status AS gate_status,g.ad_event_id,g.ad_completed_at,g.verified_at FROM task_attempts a JOIN activity_tasks t ON t.id=a.task_id JOIN task_verification_gates g ON g.attempt_id=a.id WHERE a.id=$1 AND a.user_id=$2`,
+    [attemptId, userId],
+  );
+  if (!result.rowCount) throw new Error("Task attempt not found");
   const row = result.rows[0];
-  return { attemptId: row.id, status: row.status, gateStatus: row.gate_status, adEventId: row.ad_event_id, adCompletedAt: row.ad_completed_at, verifiedAt: row.verified_at, linkClicked: row.metadata?.link_clicked === true, reward: row.status === 'verified' ? rewardAmounts(row) : null };
+  return {
+    attemptId: row.id,
+    status: row.status,
+    gateStatus: row.gate_status,
+    adEventId: row.ad_event_id,
+    adCompletedAt: row.ad_completed_at,
+    verifiedAt: row.verified_at,
+    linkClicked: row.metadata?.link_clicked === true,
+    reward: row.status === "verified" ? rewardAmounts(row) : null,
+  };
 }
 
-module.exports = { startTaskVerificationAd, verifyTaskAdvertisement, finalizeTaskVerification, getTaskVerificationStatus, resolveTrustedTaskVerifier };
+module.exports = {
+  startTaskVerificationAd,
+  verifyTaskAdvertisement,
+  finalizeTaskVerification,
+  getTaskVerificationStatus,
+  resolveTrustedTaskVerifier,
+};

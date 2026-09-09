@@ -1,18 +1,20 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('fs');
-const path = require('path');
-const { query, pool } = require('../src/db/pool');
-const walletService = require('../src/services/wallet-service');
-const { getAdminDashboardMetrics } = require('../src/services/admin-dashboard-service');
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("fs");
+const path = require("path");
+const { query, pool } = require("../src/db/pool");
+const walletService = require("../src/services/wallet-service");
+const {
+  getAdminDashboardMetrics,
+} = require("../src/services/admin-dashboard-service");
 
-const root = path.join(__dirname, '..');
+const root = path.join(__dirname, "..");
 
 async function insertAd(userId, suffix, offsetDays) {
   await query(
     `INSERT INTO activity_ad_events(user_id, context, idempotency_key, started_at, completed_at, verified)
      VALUES ($1, 'verification', $2, NOW() - ($3::int * INTERVAL '1 day'), NOW() - ($3::int * INTERVAL '1 day'), TRUE)`,
-    [userId, `admin-dashboard-ad:${suffix}`, offsetDays]
+    [userId, `admin-dashboard-ad:${suffix}`, offsetDays],
   );
 }
 
@@ -20,18 +22,30 @@ async function insertTaskAttempt(userId, taskId, suffix, offsetDays) {
   await query(
     `INSERT INTO task_attempts(task_id, user_id, status, execute_idempotency_key, verify_idempotency_key, executed_at, verified_at)
      VALUES ($1, $2, 'verified', $3, $4, NOW() - ($5::int * INTERVAL '1 day'), NOW() - ($5::int * INTERVAL '1 day'))`,
-    [taskId, userId, `admin-dashboard-exec:${suffix}`, `admin-dashboard-verify:${suffix}`, offsetDays]
+    [
+      taskId,
+      userId,
+      `admin-dashboard-exec:${suffix}`,
+      `admin-dashboard-verify:${suffix}`,
+      offsetDays,
+    ],
   );
 }
 
-test('Admin dashboard API and page preserve the existing admin authentication boundary', () => {
-  const routes = fs.readFileSync(path.join(root, 'src/http/admin-dashboard-routes.js'), 'utf8');
-  const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
-  const page = fs.readFileSync(path.join(root, 'public/admin.js'), 'utf8');
-  const html = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
+test("Admin dashboard API and page preserve the existing admin authentication boundary", () => {
+  const routes = fs.readFileSync(
+    path.join(root, "src/http/admin-dashboard-routes.js"),
+    "utf8",
+  );
+  const server = fs.readFileSync(path.join(root, "server.js"), "utf8");
+  const page = fs.readFileSync(path.join(root, "public/admin.js"), "utf8");
+  const html = fs.readFileSync(path.join(root, "public/admin.html"), "utf8");
   assert.match(routes, /router\.use\(adminAuth\)/);
   assert.match(routes, /router\.use\(createRateLimit/);
-  assert.match(server, /app\.use\('\/api\/admin\/dashboard', createAdminDashboardRouter\(\)\)/);
+  assert.match(
+    server,
+    /app\.use\(["']\/api\/admin\/dashboard["'],\s*createAdminDashboardRouter\(\)\)/,
+  );
   assert.match(page, /X-Telegram-Init-Data/);
   assert.match(html, /membersChart/);
   assert.match(html, /adsChart/);
@@ -41,108 +55,179 @@ test('Admin dashboard API and page preserve the existing admin authentication bo
   assert.match(html, /Top Referrers/);
 });
 
-test('Admin dashboard aggregates members, verified ads, verified tasks and seven UTC+1 days', { skip: !process.env.DATABASE_URL }, async () => {
-  const suffix = `${Date.now()}`;
-  const userIds = [];
-  let taskId;
-  try {
-    const before = await getAdminDashboardMetrics();
-    const user1 = await walletService.createUser({ telegramUserId: `9${suffix}1`, username: `admin_dashboard_${suffix}_1` });
-    const user2 = await walletService.createUser({ telegramUserId: `9${suffix}2`, username: `admin_dashboard_${suffix}_2` });
-    userIds.push(user1.id, user2.id);
+test(
+  "Admin dashboard aggregates members, verified ads, verified tasks and seven UTC+1 days",
+  { skip: !process.env.DATABASE_URL },
+  async () => {
+    const suffix = `${Date.now()}`;
+    const userIds = [];
+    let taskId;
+    try {
+      const before = await getAdminDashboardMetrics();
+      const user1 = await walletService.createUser({
+        telegramUserId: `9${suffix}1`,
+        username: `admin_dashboard_${suffix}_1`,
+      });
+      const user2 = await walletService.createUser({
+        telegramUserId: `9${suffix}2`,
+        username: `admin_dashboard_${suffix}_2`,
+      });
+      userIds.push(user1.id, user2.id);
 
-    const task = await query(
-      `INSERT INTO activity_tasks(task_type, title, reward_coin, reward_dzx, reward_dzp, status)
+      const task = await query(
+        `INSERT INTO activity_tasks(task_type, title, reward_coin, reward_dzx, reward_dzp, status)
        VALUES ('web', $1, 1, 1, 1, 'active') RETURNING id`,
-      [`Admin dashboard task ${suffix}`]
-    );
-    taskId = task.rows[0].id;
+        [`Admin dashboard task ${suffix}`],
+      );
+      taskId = task.rows[0].id;
 
-    await insertAd(user1.id, `${suffix}-today-a`, 0);
-    await insertAd(user2.id, `${suffix}-today-b`, 0);
-    await insertAd(user1.id, `${suffix}-yesterday`, 1);
-    await insertTaskAttempt(user1.id, taskId, `${suffix}-today-a`, 0);
-    await insertTaskAttempt(user2.id, taskId, `${suffix}-today-b`, 0);
-    await insertTaskAttempt(user1.id, taskId, `${suffix}-yesterday`, 1);
+      await insertAd(user1.id, `${suffix}-today-a`, 0);
+      await insertAd(user2.id, `${suffix}-today-b`, 0);
+      await insertAd(user1.id, `${suffix}-yesterday`, 1);
+      await insertTaskAttempt(user1.id, taskId, `${suffix}-today-a`, 0);
+      await insertTaskAttempt(user2.id, taskId, `${suffix}-today-b`, 0);
+      await insertTaskAttempt(user1.id, taskId, `${suffix}-yesterday`, 1);
 
-    const after = await getAdminDashboardMetrics();
-    assert.equal(after.realtime.totalMembers, before.realtime.totalMembers + 2);
-    assert.equal(after.realtime.advertisementsWatched, before.realtime.advertisementsWatched + 3);
-    assert.equal(after.realtime.tasksCompleted, before.realtime.tasksCompleted + 3);
-    assert.equal(after.sevenDay.length, 7);
+      const after = await getAdminDashboardMetrics();
+      assert.equal(
+        after.realtime.totalMembers,
+        before.realtime.totalMembers + 2,
+      );
+      assert.equal(
+        after.realtime.advertisementsWatched,
+        before.realtime.advertisementsWatched + 3,
+      );
+      assert.equal(
+        after.realtime.tasksCompleted,
+        before.realtime.tasksCompleted + 3,
+      );
+      assert.equal(after.sevenDay.length, 7);
 
-    const todayKey = new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 10);
-    const yesterdayKey = new Date(Date.now() - 23 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const beforeToday = before.sevenDay.find(row => row.date === todayKey);
-    const afterToday = after.sevenDay.find(row => row.date === todayKey);
-    const beforeYesterday = before.sevenDay.find(row => row.date === yesterdayKey);
-    const afterYesterday = after.sevenDay.find(row => row.date === yesterdayKey);
+      const todayKey = new Date(Date.now() + 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      const yesterdayKey = new Date(Date.now() - 23 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      const beforeToday = before.sevenDay.find((row) => row.date === todayKey);
+      const afterToday = after.sevenDay.find((row) => row.date === todayKey);
+      const beforeYesterday = before.sevenDay.find(
+        (row) => row.date === yesterdayKey,
+      );
+      const afterYesterday = after.sevenDay.find(
+        (row) => row.date === yesterdayKey,
+      );
 
-    assert.ok(beforeToday && afterToday && beforeYesterday && afterYesterday);
-    assert.equal(afterToday.advertisementsWatched, beforeToday.advertisementsWatched + 2);
-    assert.equal(afterToday.tasksCompleted, beforeToday.tasksCompleted + 2);
-    assert.equal(afterToday.totalMembers, beforeToday.totalMembers + 2);
-    assert.equal(afterYesterday.advertisementsWatched, beforeYesterday.advertisementsWatched + 1);
-    assert.equal(afterYesterday.tasksCompleted, beforeYesterday.tasksCompleted + 1);
-    assert.equal(afterYesterday.totalMembers, beforeYesterday.totalMembers);
-  } finally {
-    if (userIds.length) {
-      await query('DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])', [userIds]);
-      await query('DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])', [userIds]);
-      await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [userIds]);
+      assert.ok(beforeToday && afterToday && beforeYesterday && afterYesterday);
+      assert.equal(
+        afterToday.advertisementsWatched,
+        beforeToday.advertisementsWatched + 2,
+      );
+      assert.equal(afterToday.tasksCompleted, beforeToday.tasksCompleted + 2);
+      assert.equal(afterToday.totalMembers, beforeToday.totalMembers + 2);
+      assert.equal(
+        afterYesterday.advertisementsWatched,
+        beforeYesterday.advertisementsWatched + 1,
+      );
+      assert.equal(
+        afterYesterday.tasksCompleted,
+        beforeYesterday.tasksCompleted + 1,
+      );
+      assert.equal(afterYesterday.totalMembers, beforeYesterday.totalMembers);
+    } finally {
+      if (userIds.length) {
+        await query(
+          "DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])",
+          [userIds],
+        );
+        await query(
+          "DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])",
+          [userIds],
+        );
+        await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
+          userIds,
+        ]);
+      }
+      if (taskId)
+        await query("DELETE FROM activity_tasks WHERE id=$1", [taskId]);
     }
-    if (taskId) await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
-  }
-});
+  },
+);
 
-test('Admin dashboard returns top active members and qualified referrers', { skip: !process.env.DATABASE_URL }, async () => {
-  const suffix = `${Date.now()}`;
-  const userIds = [];
-  let taskId;
-  try {
-    const active = await walletService.createUser({ telegramUserId: `8${suffix}1`, username: `dashboard_active_${suffix}` });
-    const referred = await walletService.createUser({ telegramUserId: `8${suffix}2`, username: `dashboard_referred_${suffix}` });
-    userIds.push(active.id, referred.id);
+test(
+  "Admin dashboard returns top active members and qualified referrers",
+  { skip: !process.env.DATABASE_URL },
+  async () => {
+    const suffix = `${Date.now()}`;
+    const userIds = [];
+    let taskId;
+    try {
+      const active = await walletService.createUser({
+        telegramUserId: `8${suffix}1`,
+        username: `dashboard_active_${suffix}`,
+      });
+      const referred = await walletService.createUser({
+        telegramUserId: `8${suffix}2`,
+        username: `dashboard_referred_${suffix}`,
+      });
+      userIds.push(active.id, referred.id);
 
-    const task = await query(
-      `INSERT INTO activity_tasks(task_type, title, reward_coin, reward_dzx, reward_dzp, status)
+      const task = await query(
+        `INSERT INTO activity_tasks(task_type, title, reward_coin, reward_dzx, reward_dzp, status)
        VALUES ('web', $1, 1, 1, 1, 'active') RETURNING id`,
-      [`Admin dashboard ranking task ${suffix}`]
-    );
-    taskId = task.rows[0].id;
+        [`Admin dashboard ranking task ${suffix}`],
+      );
+      taskId = task.rows[0].id;
 
-    await insertAd(active.id, `${suffix}-rank-ad-1`, 0);
-    await insertAd(active.id, `${suffix}-rank-ad-2`, 0);
-    await insertTaskAttempt(active.id, taskId, `${suffix}-rank-task`, 0);
-    await query(
-      `INSERT INTO referral_attributions(
+      await insertAd(active.id, `${suffix}-rank-ad-1`, 0);
+      await insertAd(active.id, `${suffix}-rank-ad-2`, 0);
+      await insertTaskAttempt(active.id, taskId, `${suffix}-rank-task`, 0);
+      await query(
+        `INSERT INTO referral_attributions(
          referrer_user_id, referred_user_id, status,
          qualified_at, qualification_source, qualification_reference_id
        ) VALUES ($1, $2, 'qualified', NOW(), 'advertisement', $3)`,
-      [active.id, referred.id, 1]
-    );
+        [active.id, referred.id, 1],
+      );
 
-    const dashboard = await getAdminDashboardMetrics();
-    const activeRow = dashboard.topActiveMembers.find(row => String(row.telegramUserId) === String(active.telegram_user_id));
-    const referrerRow = dashboard.topReferrers.find(row => String(row.telegramUserId) === String(active.telegram_user_id));
+      const dashboard = await getAdminDashboardMetrics();
+      const activeRow = dashboard.topActiveMembers.find(
+        (row) => String(row.telegramUserId) === String(active.telegram_user_id),
+      );
+      const referrerRow = dashboard.topReferrers.find(
+        (row) => String(row.telegramUserId) === String(active.telegram_user_id),
+      );
 
-    assert.ok(activeRow);
-    assert.equal(activeRow.activityCount, 3);
-    assert.ok(referrerRow);
-    assert.equal(referrerRow.referralCount, 1);
-    assert.ok(dashboard.topActiveMembers.length <= 10);
-    assert.ok(dashboard.topReferrers.length <= 10);
-  } finally {
-    if (userIds.length) {
-      await query('DELETE FROM referral_attributions WHERE referrer_user_id = ANY($1::bigint[]) OR referred_user_id = ANY($1::bigint[])', [userIds]);
-      await query('DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])', [userIds]);
-      await query('DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])', [userIds]);
-      await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [userIds]);
+      assert.ok(activeRow);
+      assert.equal(activeRow.activityCount, 3);
+      assert.ok(referrerRow);
+      assert.equal(referrerRow.referralCount, 1);
+      assert.ok(dashboard.topActiveMembers.length <= 10);
+      assert.ok(dashboard.topReferrers.length <= 10);
+    } finally {
+      if (userIds.length) {
+        await query(
+          "DELETE FROM referral_attributions WHERE referrer_user_id = ANY($1::bigint[]) OR referred_user_id = ANY($1::bigint[])",
+          [userIds],
+        );
+        await query(
+          "DELETE FROM activity_ad_events WHERE user_id = ANY($1::bigint[])",
+          [userIds],
+        );
+        await query(
+          "DELETE FROM task_attempts WHERE user_id = ANY($1::bigint[])",
+          [userIds],
+        );
+        await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
+          userIds,
+        ]);
+      }
+      if (taskId)
+        await query("DELETE FROM activity_tasks WHERE id=$1", [taskId]);
     }
-    if (taskId) await query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
-  }
-});
+  },
+);
 
 if (require.main === module) {
-  process.on('exit', () => pool.end());
+  process.on("exit", () => pool.end());
 }

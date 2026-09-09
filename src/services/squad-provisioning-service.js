@@ -1,6 +1,8 @@
 async function provisionSquadForUsers(withTransaction) {
-  return withTransaction(async client => {
-    await client.query("SELECT pg_advisory_xact_lock(hashtext('dzmoney:squad-provisioning'))");
+  return withTransaction(async (client) => {
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext('dzmoney:squad-provisioning'))",
+    );
     const users = await client.query(`
       SELECT u.id
       FROM users u
@@ -13,14 +15,14 @@ async function provisionSquadForUsers(withTransaction) {
     if (users.rows.length < 10) return null;
     const ownerUserId = users.rows[0].id;
     const squad = await client.query(
-      'INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id, owner_user_id',
-      [ownerUserId]
+      "INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id, owner_user_id",
+      [ownerUserId],
     );
     const squadId = squad.rows[0].id;
     for (const user of users.rows) {
       await client.query(
-        'INSERT INTO squad_memberships (squad_id, user_id) VALUES ($1, $2)',
-        [squadId, user.id]
+        "INSERT INTO squad_memberships (squad_id, user_id) VALUES ($1, $2)",
+        [squadId, user.id],
       );
     }
     return { squadId, ownerUserId: squad.rows[0].owner_user_id };

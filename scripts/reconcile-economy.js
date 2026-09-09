@@ -1,4 +1,4 @@
-const { query } = require('../src/db/pool');
+const { query } = require("../src/db/pool");
 
 async function main() {
   const negative = await query(`
@@ -62,7 +62,7 @@ async function main() {
       invalidCurrency,
       ledgerBalanceMismatch,
       ledgerChainMismatch,
-    ].every(r => r.rowCount === 0),
+    ].every((r) => r.rowCount === 0),
     negative_wallets: negative.rowCount,
     dzp_source_mismatches: dzpMismatch.rowCount,
     ledger_mismatches: ledgerMismatch.rowCount,
@@ -75,7 +75,7 @@ async function main() {
   if (!report.ok) process.exitCode = 1;
 }
 
-main().catch(error => {
-  console.error('Economy reconciliation failed:', error);
+main().catch((error) => {
+  console.error("Economy reconciliation failed:", error);
   process.exit(1);
 });

@@ -1,12 +1,15 @@
 # ADR-0013: Daily Check-in uses the canonical Daily Task pipeline
 
 ## Status
+
 Accepted.
 
 ## Context
+
 Daily Check-in was exposed directly from Home and executed through a specialized `daily-checkin-service`, while the project contract defines it as the `daily_check_in` Daily System Task subtype. This created a second execution lifecycle beside the canonical Task Catalog → Task Execution → Verification → Economy flow and left the Home button dependent on a separate verification state.
 
 ## Decision
+
 Treat `daily_check_in` as a canonical active `activity_tasks` record and execute it through the existing Daily System Task and Task Verification boundaries.
 
 The existing `daily_checkins` state remains a backward-compatible read during the transition so historical successful Check-ins continue to enforce the rolling 24-hour rule. No new domain service, Economy, Ledger, provider registry, or verifier is introduced.

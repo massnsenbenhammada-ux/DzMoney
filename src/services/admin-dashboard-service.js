@@ -1,6 +1,6 @@
-const { query } = require('../db/pool');
+const { query } = require("../db/pool");
 
-const UTC_PLUS_ONE = 'Etc/GMT-1';
+const UTC_PLUS_ONE = "Etc/GMT-1";
 
 async function getAdminDashboardMetrics({ now = new Date() } = {}) {
   const result = await query(
@@ -108,7 +108,7 @@ async function getAdminDashboardMetrics({ now = new Date() } = {}) {
          'firstName', first_name,
          'referralCount', referral_count
        ) ORDER BY referral_count DESC, id ASC), '[]'::json) FROM top_referrers) AS top_referrers`,
-    [new Date(now)]
+    [new Date(now)],
   );
 
   const row = result.rows[0];

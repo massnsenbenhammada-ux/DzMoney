@@ -31,15 +31,15 @@ The user does not choose a specific Squad. The user chooses only a member-count/
 
 Initial Admin-configurable price tiers:
 
-| Current member count | Initial price |
-|---|---:|
-| 1–10 | 100 DZP |
-| 11–20 | 200 DZP |
-| 21–50 | 500 DZP |
-| 51–100 | 1,000 DZP |
-| 101–200 | 2,000 DZP |
-| 201–300 | 3,000 DZP |
-| … | additional Admin-defined tiers |
+| Current member count |                  Initial price |
+| -------------------- | -----------------------------: |
+| 1–10                 |                        100 DZP |
+| 11–20                |                        200 DZP |
+| 21–50                |                        500 DZP |
+| 51–100               |                      1,000 DZP |
+| 101–200              |                      2,000 DZP |
+| 201–300              |                      3,000 DZP |
+| …                    | additional Admin-defined tiers |
 
 - The purchase price is the price of the selected tier at purchase time.
 - The paid DZP is burned through the existing Economy/Ledger boundary.
@@ -140,11 +140,11 @@ At the end of day D, the Squad calculates its contribution for that day. If the 
 Initial modifier mapping:
 
 | DZP Contribution | Modifier |
-|---:|---:|
-| 1,500 | 15% |
-| 5,000 | 50% |
-| 10,000 | 100% |
-| 15,000 | 100% |
+| ---------------: | -------: |
+|            1,500 |      15% |
+|            5,000 |      50% |
+|           10,000 |     100% |
+|           15,000 |     100% |
 
 Modifier maximum: 100%.
 

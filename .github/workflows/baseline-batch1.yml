@@ -1,0 +1,54 @@
+name: Baseline Cleanup Batch 1
+
+on:
+  push:
+    branches:
+      - chore/baseline-cleanup-batch1
+
+permissions:
+  contents: write
+
+jobs:
+  mechanical-cleanup:
+    name: Mechanical formatting cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install
+      - name: Run Prettier
+        run: |
+          printf '%s\n' '.github/workflows/**' 'package-lock.json' > .baseline-prettierignore
+          npx prettier --write . --ignore-path .baseline-prettierignore
+          rm -f .baseline-prettierignore
+      - name: Verify excluded paths were not modified
+        run: |
+          if git diff --name-only -- '.github/workflows/**' | grep -q .; then
+            echo 'Workflow files were modified by the mechanical formatter.'
+            exit 1
+          fi
+      - name: Verify formatter is idempotent
+        run: |
+          printf '%s\n' '.github/workflows/**' 'package-lock.json' > .baseline-prettierignore
+          npx prettier --check . --ignore-path .baseline-prettierignore
+          rm -f .baseline-prettierignore
+      - name: Remove generated lockfile
+        run: rm -f package-lock.json
+      - name: Commit formatting changes
+        run: |
+          if git diff --quiet; then
+            echo "No formatting changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: apply baseline prettier formatting"
+          git push origin HEAD:chore/baseline-cleanup-batch1

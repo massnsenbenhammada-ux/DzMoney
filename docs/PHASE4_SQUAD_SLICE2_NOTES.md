@@ -1,9 +1,11 @@
 # Phase 4 — Squad Slice 2
 
 ## Scope
+
 Free Squad invitation membership only.
 
 ## Contract
+
 - Owner may invite a user.
 - Invitation is free.
 - Accepted invitation creates `inactive` membership.
@@ -14,6 +16,7 @@ Free Squad invitation membership only.
 - No voluntary leave operation is introduced.
 
 ## API
+
 - `GET /api/squad`
 - `GET /api/squad/invitations`
 - `POST /api/squad/invitations`
@@ -22,4 +25,5 @@ Free Squad invitation membership only.
 The invitee is identified server-side by the existing Telegram user identity (`telegram_user_id`).
 
 ## Non-goals
+
 Paid membership, DZP burn, challenge accounting, daily modifiers, and Squad rewards remain separate slices.
