@@ -37,7 +37,8 @@ async function run() {
 
   assert.throws(() => resolveTrustedTaskVerifier({
     config: { verification: { provider: 'telegram_channel', method: 'bot_api', providerConfigRef: 'telegram.dzmoney_updates' } },
-    telegramUserId: 123
+    telegramUserId: 123,
+    botToken: null
   }), /BOT_TOKEN is required/);
 
   console.log('Trusted task verifier invariants: PASS');
