@@ -135,6 +135,12 @@ module.exports = [
     },
   },
   {
+    files: ['tests/e2e/**/*.js'],
+    languageOptions: {
+      globals: browserGlobals,
+    },
+  },
+  {
     files: ['tests/**', 'scripts/**', '**/*.test.js'],
     rules: {
       'max-lines': 'off',
