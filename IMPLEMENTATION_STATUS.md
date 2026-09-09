@@ -74,7 +74,7 @@ No concrete internal Phase 3 implementation gap remains.
 
 Authoritative documents:
 - `docs/SQUAD_SYSTEM_CONTRACT.md`
-- `docs/ADR-0012-SQUAD.md`
+- `docs/ADR-0019-SQUAD.md`
 - `docs/PHASE4_SQUAD.md`
 
 Implemented and merged slices include system-created Squads, membership invitation/acceptance, paid membership, Daily Squad State, Daily DZP Contribution + Modifier, and Weekly Challenge accounting/settlement with the canonical Economy rounding correction.
