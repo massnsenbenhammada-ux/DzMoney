@@ -4,7 +4,6 @@ This file contains proposed improvements that are intentionally out of scope for
 
 ## Deferred engineering improvements
 
-- Review and upgrade GitHub Actions / setup-node versions and remove the current Node 20 maintenance warning without mixing the change into feature work.
 - Review CI runtime/performance optimizations after the baseline workflow remains stable.
 
 ## Rule

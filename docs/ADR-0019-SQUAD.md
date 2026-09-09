@@ -1,4 +1,4 @@
-# ADR-0012 — Squad Contract and Membership Model
+# ADR-0019 — Squad Contract and Membership Model
 
 **Status:** Accepted — Business Contract Locked  
 **Date:** 2026-08-31

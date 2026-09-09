@@ -1,4 +1,4 @@
-# ADR-0014 — Phase 11 Squad UI Contract Reconciliation
+# ADR-0021 — Phase 11 Squad UI Contract Reconciliation
 
 **Status:** Accepted
 **Date:** 2026-09-07
