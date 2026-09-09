@@ -34,6 +34,11 @@ jobs:
             echo 'Workflow files were modified by the mechanical formatter.'
             exit 1
           fi
+      - name: Verify formatter is idempotent
+        run: |
+          printf '%s\n' '.github/workflows/**' 'package-lock.json' > .baseline-prettierignore
+          npx prettier --check . --ignore-path .baseline-prettierignore
+          rm -f .baseline-prettierignore
       - name: Remove generated lockfile
         run: rm -f package-lock.json
       - name: Commit formatting changes
