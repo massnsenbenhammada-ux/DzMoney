@@ -33,6 +33,7 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
   await page.addInitScript(({ data }) => { window.Telegram = { WebApp: { initData: data, ready() {}, expand() {}, openTelegramLink() {} } }; }, { data: initData });
   await page.route('**://telegram.org/js/telegram-web-app.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
   try {
+    const gamingLoad = page.waitForResponse(response => response.url().endsWith('/api/gaming') && response.request().method() === 'GET');
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.status')).toContainText('Online');
     const before = await request.get(`${baseURL}/api/gaming`, { headers: { 'X-Telegram-Init-Data': initData } });
@@ -42,13 +43,13 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     const me = await request.get(`${baseURL}/api/me`, { headers: { 'X-Telegram-Init-Data': initData } });
     expect(me.ok()).toBeTruthy();
     const userId = (await me.json()).user.id;
+    await gamingLoad;
 
     await page.evaluate(({ data }) => {
       window.DzMoneyAdClient = { getProvider(id) { if (id !== 'gigapub') return null; return { ready: Promise.resolve(), handler: async payload => { const r = await fetch('/api/gaming/ads/complete', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': data }, body: JSON.stringify({ adEventId: payload.adEventId }) }); const b = await r.json(); if (!r.ok) throw new Error(b.error || 'completion failed'); return b; } }; } };
     }, { data: initData });
 
     await page.getByRole('button', { name: /🎮 Gaming Spin & Digging/ }).click();
-    await page.waitForResponse(response => response.url().endsWith('/api/gaming') && response.request().method() === 'GET');
     await page.getByRole('button', { name: /Spin Use Spins for one server-side result/ }).click();
     const button = page.locator('[data-gaming-ad="spin"]');
     await expect(button).toBeVisible();
@@ -73,9 +74,10 @@ test('Gaming WATCH AD credits through UI and canonical Economy/Ledger', async ({
     const duplicate = await request.post(`${baseURL}/api/gaming/ads/complete`, { headers: { 'X-Telegram-Init-Data': initData }, data: { adEventId: startBody.adEventId } });
     expect(duplicate.ok()).toBeTruthy();
     expect((await duplicate.json()).duplicate).toBe(true);
+    const reloadGamingLoad = page.waitForResponse(response => response.url().endsWith('/api/gaming') && response.request().method() === 'GET');
     await page.reload({ waitUntil: 'domcontentloaded' });
+    await reloadGamingLoad;
     await page.getByRole('button', { name: /🎮 Gaming Spin & Digging/ }).click();
-    await page.waitForResponse(response => response.url().endsWith('/api/gaming') && response.request().method() === 'GET');
     await page.getByRole('button', { name: /Spin Use Spins for one server-side result/ }).click();
     await expect(page.locator('[data-spin-balance]')).toHaveText(String(beforeSpins + 1));
   } finally { await db.end(); await cleanup(telegramId); }
