@@ -10,8 +10,8 @@ assert(
 );
 assert(html.includes("/onclicka-sdk-loader.js?v=__ASSET_VERSION__"));
 assert(
-  loader.includes(
-    "document.addEventListener('DOMContentLoaded', preloadOnclicka, { once: true })",
+  /document\.addEventListener\(["']DOMContentLoaded["'],\s*preloadOnclicka,\s*\{\s*once:\s*true\s*\}\)/.test(
+    loader,
   ),
 );
 assert(!loader.includes("setTimeout(preloadOnclicka, 0)"));
