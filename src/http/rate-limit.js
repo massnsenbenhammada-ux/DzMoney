@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 
 const buckets = new Map();
 const MAX_BUCKETS = 10_000;
@@ -10,13 +10,13 @@ function createRateLimit({
   key = (request) =>
     request.telegramUser?.id
       ? `telegram:${request.telegramUser.id}`
-      : request.ip || "unknown",
+      : request.ip || 'unknown',
 }) {
   if (!Number.isInteger(windowMs) || windowMs <= 0)
-    throw new TypeError("windowMs must be a positive integer");
+    throw new TypeError('windowMs must be a positive integer');
   if (!Number.isInteger(max) || max <= 0)
-    throw new TypeError("max must be a positive integer");
-  if (typeof key !== "function") throw new TypeError("key must be a function");
+    throw new TypeError('max must be a positive integer');
+  if (typeof key !== 'function') throw new TypeError('key must be a function');
   const scope = `limiter:${nextLimiterId++}`;
 
   return (req, res, next) => {
@@ -32,21 +32,21 @@ function createRateLimit({
     buckets.set(bucketKey, bucket);
     if (buckets.size > MAX_BUCKETS) pruneExpiredBuckets(now);
 
-    res.setHeader("RateLimit-Limit", String(max));
+    res.setHeader('RateLimit-Limit', String(max));
     res.setHeader(
-      "RateLimit-Remaining",
+      'RateLimit-Remaining',
       String(Math.max(0, max - bucket.count)),
     );
     res.setHeader(
-      "RateLimit-Reset",
+      'RateLimit-Reset',
       String(Math.ceil((bucket.resetAt - now) / 1000)),
     );
 
     if (bucket.count > max) {
-      const error = new Error("Too many requests");
+      const error = new Error('Too many requests');
       error.statusCode = 429;
       error.retryAfterSeconds = Math.ceil((bucket.resetAt - now) / 1000);
-      res.setHeader("Retry-After", String(error.retryAfterSeconds));
+      res.setHeader('Retry-After', String(error.retryAfterSeconds));
       return next(error);
     }
     return next();

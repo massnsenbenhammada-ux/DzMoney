@@ -1,33 +1,33 @@
-const assert = require("assert");
+const assert = require('assert');
 
 const calls = [];
 let transactionActive = false;
 
 const fakeClient = {
   query: async (sql) => {
-    calls.push({ type: "client.query", sql, transactionActive });
-    if (sql.includes("SELECT a.*,u.telegram_user_id")) {
+    calls.push({ type: 'client.query', sql, transactionActive });
+    if (sql.includes('SELECT a.*,u.telegram_user_id')) {
       return {
         rowCount: 1,
         rows: [
           {
             id: 7,
-            status: "verification_pending",
+            status: 'verification_pending',
             user_id: 42,
             telegram_user_id: 123,
-            task_type: "social",
-            reward_coin: "100",
-            reward_dzx: "0",
-            reward_dzp: "0",
+            task_type: 'social',
+            reward_coin: '100',
+            reward_dzx: '0',
+            reward_dzp: '0',
             config: {
-              completion: { mode: "server_verified" },
+              completion: { mode: 'server_verified' },
               verification: {
-                provider: "telegram_channel",
-                providerConfigRef: "telegram.dzmoney_updates",
+                provider: 'telegram_channel',
+                providerConfigRef: 'telegram.dzmoney_updates',
               },
             },
             gate_id: 9,
-            gate_status: "ad_completed",
+            gate_status: 'ad_completed',
           },
         ],
       };
@@ -40,28 +40,28 @@ const fakeClient = {
   },
 };
 
-const dbPath = require.resolve("../src/db/pool");
-const economyPath = require.resolve("../src/services/economy-service");
-const referralPath = require.resolve("../src/services/referral-service");
-const adEventPath = require.resolve("../src/services/ad-event-service");
-const providerPath = require.resolve("../src/services/ad-provider-service");
-const configPath = require.resolve("../src/services/task-verification-config");
+const dbPath = require.resolve('../src/db/pool');
+const economyPath = require.resolve('../src/services/economy-service');
+const referralPath = require.resolve('../src/services/referral-service');
+const adEventPath = require.resolve('../src/services/ad-event-service');
+const providerPath = require.resolve('../src/services/ad-provider-service');
+const configPath = require.resolve('../src/services/task-verification-config');
 const telegramPath =
-  require.resolve("../src/services/telegram-channel-verifier");
+  require.resolve('../src/services/telegram-channel-verifier');
 
 require.cache[dbPath] = {
   exports: {
     query: async (sql) => {
-      calls.push({ type: "query", sql, transactionActive });
+      calls.push({ type: 'query', sql, transactionActive });
       return fakeClient.query(sql);
     },
     withTransaction: async (work) => {
       transactionActive = true;
-      calls.push({ type: "transaction.begin" });
+      calls.push({ type: 'transaction.begin' });
       try {
         return await work(fakeClient);
       } finally {
-        calls.push({ type: "transaction.end" });
+        calls.push({ type: 'transaction.end' });
         transactionActive = false;
       }
     },
@@ -85,7 +85,7 @@ require.cache[adEventPath] = {
 };
 require.cache[providerPath] = {
   exports: {
-    selectProvider: () => ({ id: "test" }),
+    selectProvider: () => ({ id: 'test' }),
     verifyWithProvider: async () => ({ verification: { verified: true } }),
   },
 };
@@ -98,37 +98,37 @@ require.cache[telegramPath] = {
 
 const {
   finalizeTaskVerification,
-} = require("../src/services/task-verification-service");
+} = require('../src/services/task-verification-service');
 
 async function run() {
   const result = await finalizeTaskVerification({
     attemptId: 7,
-    idempotencyKey: "task-verification:7",
+    idempotencyKey: 'task-verification:7',
     verifyTaskCompletion: async () => {
-      calls.push({ type: "external-verifier", transactionActive });
+      calls.push({ type: 'external-verifier', transactionActive });
       assert.strictEqual(
         transactionActive,
         false,
-        "external verification must not run inside a DB transaction",
+        'external verification must not run inside a DB transaction',
       );
       return true;
     },
   });
 
-  assert.strictEqual(result.status, "verified");
+  assert.strictEqual(result.status, 'verified');
   const verifierIndex = calls.findIndex(
-    (call) => call.type === "external-verifier",
+    (call) => call.type === 'external-verifier',
   );
   const transactionIndex = calls.findIndex(
-    (call) => call.type === "transaction.begin",
+    (call) => call.type === 'transaction.begin',
   );
   assert.ok(verifierIndex >= 0);
   assert.ok(transactionIndex > verifierIndex);
-  console.log("Task verification transaction boundary: PASS");
+  console.log('Task verification transaction boundary: PASS');
 }
 
 run().catch((error) => {
-  console.error("Task verification transaction boundary: FAIL");
+  console.error('Task verification transaction boundary: FAIL');
   console.error(error);
   process.exitCode = 1;
 });

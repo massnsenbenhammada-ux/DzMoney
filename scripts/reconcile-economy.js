@@ -1,4 +1,4 @@
-const { query } = require("../src/db/pool");
+const { query } = require('../src/db/pool');
 
 async function main() {
   const negative = await query(`
@@ -76,6 +76,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Economy reconciliation failed:", error);
+  console.error('Economy reconciliation failed:', error);
   process.exit(1);
 });

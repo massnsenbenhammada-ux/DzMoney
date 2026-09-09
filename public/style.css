@@ -284,7 +284,7 @@ button {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14);
 }
 .task-card::before {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   top: 10px;
@@ -828,12 +828,12 @@ button {
 }
 
 /* Invite tasks get a small, consistent visual affordance without changing behavior. */
-.task-card:has(.daily-system-action[data-system-key^="invite_"]) .task-icon {
+.task-card:has(.daily-system-action[data-system-key^='invite_']) .task-icon {
   position: relative;
 }
-.task-card:has(.daily-system-action[data-system-key^="invite_"])
+.task-card:has(.daily-system-action[data-system-key^='invite_'])
   .task-icon::after {
-  content: "+";
+  content: '+';
   position: absolute;
   right: -4px;
   bottom: -4px;

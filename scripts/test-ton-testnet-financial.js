@@ -1,11 +1,11 @@
-"use strict";
+'use strict';
 
-const assert = require("node:assert/strict");
-const { pool, withTransaction } = require("../src/db/pool");
+const assert = require('node:assert/strict');
+const { pool, withTransaction } = require('../src/db/pool');
 const {
   processDeposit,
   confirmDeposit,
-} = require("../src/services/deposit-service");
+} = require('../src/services/deposit-service');
 
 function required(name) {
   const value = process.env[name];
@@ -14,30 +14,30 @@ function required(name) {
 }
 
 async function main() {
-  const txHash = required("TON_TESTNET_TX_HASH").toLowerCase();
-  const tonAmount = required("TON_TESTNET_AMOUNT");
-  const destination = required("TON_TESTNET_DEPOSIT_ADDRESS");
+  const txHash = required('TON_TESTNET_TX_HASH').toLowerCase();
+  const tonAmount = required('TON_TESTNET_AMOUNT');
+  const destination = required('TON_TESTNET_DEPOSIT_ADDRESS');
   const marker = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   let userId;
   let depositId;
   try {
     const user = await pool.query(
-      "INSERT INTO users (telegram_user_id,username,first_name) VALUES ($1,$2,$3) RETURNING id",
-      [`ton_test_${marker}`, `ton_test_${marker}`, "TON Testnet"],
+      'INSERT INTO users (telegram_user_id,username,first_name) VALUES ($1,$2,$3) RETURNING id',
+      [`ton_test_${marker}`, `ton_test_${marker}`, 'TON Testnet'],
     );
     userId = user.rows[0].id;
     await withTransaction(async (client) => {
-      for (const currency of ["COIN", "DZX", "DZP"])
+      for (const currency of ['COIN', 'DZX', 'DZP'])
         await client.query(
-          "INSERT INTO wallet_accounts (user_id,currency) VALUES ($1,$2)",
+          'INSERT INTO wallet_accounts (user_id,currency) VALUES ($1,$2)',
           [userId, currency],
         );
       await client.query(
         "INSERT INTO admin_settings(key,value) VALUES ('deposit.ton.active_network','\"testnet\"'::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
       );
       await client.query(
-        "INSERT INTO admin_settings(key,value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
-        ["deposit.ton.testnet_address", JSON.stringify(destination)],
+        'INSERT INTO admin_settings(key,value) VALUES ($1,$2::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value',
+        ['deposit.ton.testnet_address', JSON.stringify(destination)],
       );
       await client.query(
         "INSERT INTO admin_settings(key,value) VALUES ('deposit.enabled','true'::jsonb) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value",
@@ -55,15 +55,15 @@ async function main() {
       metadata: { test: true },
     });
     depositId = pending.deposit.id;
-    assert.equal(pending.deposit.status, "PENDING");
+    assert.equal(pending.deposit.status, 'PENDING');
 
     const confirmed = await confirmDeposit({
       idempotencyKey: `ton-test:${marker}`,
       metadata: { test: true },
     });
     assert.equal(confirmed.credited, true);
-    assert.equal(confirmed.deposit.status, "CONFIRMED");
-    assert.equal(confirmed.deposit.network, "testnet");
+    assert.equal(confirmed.deposit.status, 'CONFIRMED');
+    assert.equal(confirmed.deposit.network, 'testnet');
     assert.equal(confirmed.deposit.tx_hash, txHash);
 
     const balance = await pool.query(
@@ -89,20 +89,20 @@ async function main() {
     await withTransaction(async (client) => {
       if (userId) {
         await client.query(
-          "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)",
+          'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)',
           [userId],
         );
-        await client.query("DELETE FROM ledger_transactions WHERE user_id=$1", [
+        await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [
           userId,
         ]);
-        await client.query("DELETE FROM deposits WHERE user_id=$1", [userId]);
-        await client.query("DELETE FROM deposit_daily_usage WHERE user_id=$1", [
+        await client.query('DELETE FROM deposits WHERE user_id=$1', [userId]);
+        await client.query('DELETE FROM deposit_daily_usage WHERE user_id=$1', [
           userId,
         ]);
-        await client.query("DELETE FROM wallet_accounts WHERE user_id=$1", [
+        await client.query('DELETE FROM wallet_accounts WHERE user_id=$1', [
           userId,
         ]);
-        await client.query("DELETE FROM users WHERE id=$1", [userId]);
+        await client.query('DELETE FROM users WHERE id=$1', [userId]);
       }
     });
     await pool.end();
@@ -110,7 +110,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("TON testnet financial gate: FAIL");
+  console.error('TON testnet financial gate: FAIL');
   console.error(error);
   process.exit(1);
 });

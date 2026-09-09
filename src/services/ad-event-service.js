@@ -1,18 +1,18 @@
-const { randomUUID } = require("crypto");
-const { withTransaction, query } = require("../db/pool");
-const { selectNextProvider } = require("./ad-provider-service");
+const { randomUUID } = require('crypto');
+const { withTransaction, query } = require('../db/pool');
+const { selectNextProvider } = require('./ad-provider-service');
 
 const AD_CONTEXTS = [
-  "task",
-  "gaming",
-  "daily_checkin",
-  "verification",
-  "squad",
-  "promo",
+  'task',
+  'gaming',
+  'daily_checkin',
+  'verification',
+  'squad',
+  'promo',
 ];
 
 function requiredId(value, name) {
-  if (value === undefined || value === null || value === "")
+  if (value === undefined || value === null || value === '')
     throw new Error(`${name} is required`);
   return value;
 }
@@ -25,10 +25,10 @@ async function startAdvertisementEvent({
   externalAdId = null,
   metadata = {},
 }) {
-  requiredId(userId, "userId");
-  requiredId(idempotencyKey, "idempotencyKey");
+  requiredId(userId, 'userId');
+  requiredId(idempotencyKey, 'idempotencyKey');
   if (!AD_CONTEXTS.includes(context))
-    throw new Error("Invalid advertisement context");
+    throw new Error('Invalid advertisement context');
   const result = await query(
     `INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,metadata)
      VALUES($1,$2,$3,$4,NOW(),$5)
@@ -37,7 +37,7 @@ async function startAdvertisementEvent({
   );
   if (result.rowCount) return { adEvent: result.rows[0], duplicate: false };
   const existing = await query(
-    "SELECT * FROM activity_ad_events WHERE idempotency_key=$1",
+    'SELECT * FROM activity_ad_events WHERE idempotency_key=$1',
     [idempotencyKey],
   );
   return { adEvent: existing.rows[0], duplicate: true };
@@ -55,17 +55,17 @@ async function startRotatedAdvertisementEventOnClient(
     providerRegistry,
   },
 ) {
-  requiredId(userId, "userId");
-  requiredId(idempotencyKey, "idempotencyKey");
+  requiredId(userId, 'userId');
+  requiredId(idempotencyKey, 'idempotencyKey');
   if (!AD_CONTEXTS.includes(context))
-    throw new Error("Invalid advertisement context");
+    throw new Error('Invalid advertisement context');
   if (!providerRegistry)
-    throw new Error("Advertisement provider registry is required");
-  await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+    throw new Error('Advertisement provider registry is required');
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
     `dzmoney:ad-provider-rotation:${context}`,
   ]);
   const existing = await client.query(
-    "SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE",
+    'SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE',
     [idempotencyKey],
   );
   if (existing.rowCount)
@@ -112,13 +112,13 @@ async function startPinnedAdvertisementEventOnClient(
     providerId,
   },
 ) {
-  requiredId(userId, "userId");
-  requiredId(idempotencyKey, "idempotencyKey");
-  requiredId(providerId, "providerId");
+  requiredId(userId, 'userId');
+  requiredId(idempotencyKey, 'idempotencyKey');
+  requiredId(providerId, 'providerId');
   if (!AD_CONTEXTS.includes(context))
-    throw new Error("Invalid advertisement context");
-  if (!providerRegistry || typeof providerRegistry.get !== "function")
-    throw new Error("Advertisement provider registry is required");
+    throw new Error('Invalid advertisement context');
+  if (!providerRegistry || typeof providerRegistry.get !== 'function')
+    throw new Error('Advertisement provider registry is required');
   const provider = providerRegistry.get(providerId);
   if (
     !provider ||
@@ -130,7 +130,7 @@ async function startPinnedAdvertisementEventOnClient(
       `Advertisement provider ${providerId} is not available for ${context}`,
     );
   const existing = await client.query(
-    "SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE",
+    'SELECT * FROM activity_ad_events WHERE idempotency_key=$1 FOR SHARE',
     [idempotencyKey],
   );
   if (existing.rowCount)
@@ -159,14 +159,14 @@ async function markAdvertisementVerified({
   providerReference,
   verificationMetadata = {},
 }) {
-  requiredId(adEventId, "adEventId");
-  requiredId(providerReference, "providerReference");
+  requiredId(adEventId, 'adEventId');
+  requiredId(providerReference, 'providerReference');
   return withTransaction(async (client) => {
     const result = await client.query(
       `SELECT * FROM activity_ad_events WHERE id=$1 FOR UPDATE`,
       [adEventId],
     );
-    if (!result.rowCount) throw new Error("Advertisement event not found");
+    if (!result.rowCount) throw new Error('Advertisement event not found');
     const event = result.rows[0];
     if (event.verified) return { adEvent: event, duplicate: true };
     const updated = await client.query(

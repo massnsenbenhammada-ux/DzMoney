@@ -1,21 +1,21 @@
-const assert = require("assert");
-const { pool, withTransaction } = require("../src/db/pool");
+const assert = require('assert');
+const { pool, withTransaction } = require('../src/db/pool');
 const {
   createTask,
   transitionTaskStatus,
   activateTask,
   executeTask,
-} = require("../src/services/task-service");
-const { AdProviderRegistry } = require("../src/services/ad-provider-service");
+} = require('../src/services/task-service');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const {
   startTaskVerificationAd,
   verifyTaskAdvertisement,
   finalizeTaskVerification,
-} = require("../src/services/task-verification-service");
+} = require('../src/services/task-verification-service');
 
 const testAdsProvider = {
-  id: "test-ads",
-  contexts: ["verification"],
+  id: 'test-ads',
+  contexts: ['verification'],
   async verifyCompletion(payload) {
     if (!payload || payload.accepted !== true) return { verified: false };
     return {
@@ -32,11 +32,11 @@ async function createTestUser() {
   const marker = Date.now();
   const result = await pool.query(
     `INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id`,
-    [String(marker), `phase2_${marker}`, "Phase 2 Test"],
+    [String(marker), `phase2_${marker}`, 'Phase 2 Test'],
   );
   const userId = result.rows[0].id;
   await withTransaction(async (client) => {
-    for (const currency of ["COIN", "DZX", "DZP"])
+    for (const currency of ['COIN', 'DZX', 'DZP'])
       await client.query(
         `INSERT INTO wallet_accounts (user_id, currency) VALUES ($1,$2) ON CONFLICT (user_id,currency) DO NOTHING`,
         [userId, currency],
@@ -47,7 +47,7 @@ async function createTestUser() {
 
 async function balance(userId, currency) {
   const result = await pool.query(
-    "SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency=$2",
+    'SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency=$2',
     [userId, currency],
   );
   return Number(result.rows[0].balance);
@@ -59,23 +59,23 @@ async function cleanupTestData(userId, taskIds) {
       `DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)`,
       [userId],
     );
-    await client.query("DELETE FROM ledger_transactions WHERE user_id=$1", [
+    await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [
       userId,
     ]);
     await client.query(
-      "DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)",
+      'DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)',
       [userId],
     );
-    await client.query("DELETE FROM activity_ad_events WHERE user_id=$1", [
+    await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [
       userId,
     ]);
-    await client.query("DELETE FROM task_attempts WHERE user_id=$1", [userId]);
+    await client.query('DELETE FROM task_attempts WHERE user_id=$1', [userId]);
     if (taskIds.length)
       await client.query(
-        "DELETE FROM activity_tasks WHERE id = ANY($1::bigint[])",
+        'DELETE FROM activity_tasks WHERE id = ANY($1::bigint[])',
         [taskIds],
       );
-    await client.query("DELETE FROM users WHERE id=$1", [userId]);
+    await client.query('DELETE FROM users WHERE id=$1', [userId]);
   });
 }
 
@@ -102,18 +102,18 @@ async function main() {
   try {
     userId = await createTestUser();
     const task = await createTask({
-      taskType: "social",
-      title: "Phase 2 verification test",
+      taskType: 'social',
+      title: 'Phase 2 verification test',
       creatorId: userId,
       target: 1000,
       rewardCoin: 1000,
       rewardDzx: 1,
       rewardDzp: 1,
       verificationAdSeconds: 5,
-      config: { verification: { method: "click_proof" } },
+      config: { verification: { method: 'click_proof' } },
     });
     taskIds.push(task.id);
-    await transitionTaskStatus(task.id, "pending_review");
+    await transitionTaskStatus(task.id, 'pending_review');
     await activateTask(task.id);
 
     const execution = await executeTask({
@@ -121,7 +121,7 @@ async function main() {
       userId,
       idempotencyKey: `phase2-exec-${Date.now()}`,
     });
-    assert.strictEqual(execution.attempt.status, "verification_pending");
+    assert.strictEqual(execution.attempt.status, 'verification_pending');
     assert.strictEqual(execution.gate.required_seconds, 5);
 
     let verifierCallsBeforeAd = 0;
@@ -142,16 +142,16 @@ async function main() {
     const ad = await startVerificationAd(
       execution.attempt.id,
       `phase2-ad-${Date.now()}`,
-      "phase2-test-ad",
+      'phase2-test-ad',
     );
-    assert.strictEqual(ad.providerId, "test-ads");
+    assert.strictEqual(ad.providerId, 'test-ads');
     await assert.rejects(
       () => verifyAd(ad.adEvent.id, { accepted: false }),
       /Advertisement provider verification failed/,
     );
     await verifyAd(ad.adEvent.id, {
       accepted: true,
-      reference: "test-provider-ref-1",
+      reference: 'test-provider-ref-1',
     });
 
     const rejected = await finalizeTaskVerification({
@@ -160,7 +160,7 @@ async function main() {
       verifyTaskCompletion: async () => false,
     });
     assert.strictEqual(rejected.rewarded, false);
-    assert.strictEqual(await balance(userId, "COIN"), 0);
+    assert.strictEqual(await balance(userId, 'COIN'), 0);
 
     const execution3 = await executeTask({
       taskId: task.id,
@@ -170,11 +170,11 @@ async function main() {
     const ad3 = await startVerificationAd(
       execution3.attempt.id,
       `phase2-ad-3-${Date.now()}`,
-      "phase2-test-ad-3",
+      'phase2-test-ad-3',
     );
     await verifyAd(ad3.adEvent.id, {
       accepted: true,
-      reference: "test-provider-ref-3",
+      reference: 'test-provider-ref-3',
     });
     await assert.rejects(
       () =>
@@ -186,10 +186,10 @@ async function main() {
       /Task verifier must return a boolean/,
     );
     const pending = await pool.query(
-      "SELECT status FROM task_attempts WHERE id=$1",
+      'SELECT status FROM task_attempts WHERE id=$1',
       [execution3.attempt.id],
     );
-    assert.strictEqual(pending.rows[0].status, "verification_pending");
+    assert.strictEqual(pending.rows[0].status, 'verification_pending');
     await finalizeTaskVerification({
       attemptId: execution3.attempt.id,
       idempotencyKey: `phase2-rejected-after-contract-${Date.now()}`,
@@ -204,11 +204,11 @@ async function main() {
     const ad2 = await startVerificationAd(
       execution2.attempt.id,
       `phase2-ad-2-${Date.now()}`,
-      "phase2-test-ad-2",
+      'phase2-test-ad-2',
     );
     await verifyAd(ad2.adEvent.id, {
       accepted: true,
-      reference: "test-provider-ref-2",
+      reference: 'test-provider-ref-2',
     });
 
     const verificationKey = `phase2-reward-${Date.now()}`;
@@ -218,9 +218,9 @@ async function main() {
       verifyTaskCompletion: async () => true,
     });
     assert.strictEqual(verified.rewarded, true);
-    assert.strictEqual(await balance(userId, "COIN"), 1000);
-    assert.strictEqual(await balance(userId, "DZX"), 1);
-    assert.strictEqual(await balance(userId, "DZP"), 1);
+    assert.strictEqual(await balance(userId, 'COIN'), 1000);
+    assert.strictEqual(await balance(userId, 'DZX'), 1);
+    assert.strictEqual(await balance(userId, 'DZP'), 1);
 
     const duplicate = await finalizeTaskVerification({
       attemptId: execution2.attempt.id,
@@ -228,15 +228,15 @@ async function main() {
       verifyTaskCompletion: async () => true,
     });
     assert.strictEqual(duplicate.duplicate, true);
-    assert.strictEqual(await balance(userId, "COIN"), 1000);
-    assert.strictEqual(await balance(userId, "DZX"), 1);
-    assert.strictEqual(await balance(userId, "DZP"), 1);
+    assert.strictEqual(await balance(userId, 'COIN'), 1000);
+    assert.strictEqual(await balance(userId, 'DZX'), 1);
+    assert.strictEqual(await balance(userId, 'DZP'), 1);
 
     await assert.rejects(
       () =>
         createTask({
-          taskType: "web",
-          title: "Phase 2 legacy completion rejection",
+          taskType: 'web',
+          title: 'Phase 2 legacy completion rejection',
           creatorId: userId,
           target: 1000,
           rewardCoin: 500,
@@ -244,7 +244,7 @@ async function main() {
           rewardDzp: 0,
           verificationAdSeconds: 5,
           config: {
-            completion: { mode: "open_link", url: "https://example.test/task" },
+            completion: { mode: 'open_link', url: 'https://example.test/task' },
           },
         }),
       /Legacy completion configuration is not supported/,
@@ -256,11 +256,11 @@ async function main() {
     );
     assert.strictEqual(ads.rows.length, 3);
     assert.strictEqual(
-      ads.rows.filter((row) => row.context === "verification").length,
+      ads.rows.filter((row) => row.context === 'verification').length,
       3,
     );
     assert.strictEqual(
-      ads.rows.filter((row) => row.verified && row.provider_id === "test-ads")
+      ads.rows.filter((row) => row.verified && row.provider_id === 'test-ads')
         .length,
       3,
     );
@@ -272,9 +272,9 @@ async function main() {
     );
     assert.strictEqual(ledger.rows[0].count, 3);
 
-    console.log("Phase 2 task verification invariants: PASS");
+    console.log('Phase 2 task verification invariants: PASS');
   } catch (error) {
-    console.error("Phase 2 task verification invariants: FAIL");
+    console.error('Phase 2 task verification invariants: FAIL');
     console.error(error);
     process.exitCode = 1;
   } finally {
@@ -282,7 +282,7 @@ async function main() {
       try {
         await cleanupTestData(userId, taskIds);
       } catch (cleanupError) {
-        console.error("Phase 2 test cleanup: FAIL");
+        console.error('Phase 2 test cleanup: FAIL');
         console.error(cleanupError);
         process.exitCode = 1;
       }
@@ -292,7 +292,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Phase 2 test runner: FAIL");
+  console.error('Phase 2 test runner: FAIL');
   console.error(error);
   process.exit(1);
 });

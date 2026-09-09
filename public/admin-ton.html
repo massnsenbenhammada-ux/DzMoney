@@ -78,50 +78,50 @@
         const tg = window.Telegram?.WebApp;
         tg?.ready();
         tg?.expand();
-        const status = document.getElementById("status");
+        const status = document.getElementById('status');
         const headers = () => ({
-          "Content-Type": "application/json",
-          "X-Telegram-Init-Data": tg?.initData || "",
+          'Content-Type': 'application/json',
+          'X-Telegram-Init-Data': tg?.initData || '',
         });
         async function load() {
-          const response = await fetch("/api/admin/ton/addresses", {
+          const response = await fetch('/api/admin/ton/addresses', {
             headers: headers(),
           });
           const data = await response.json();
           if (!response.ok)
-            throw new Error(data.error || "Unable to load settings");
-          document.getElementById("testnet").value =
-            data.addresses["deposit.ton.testnet_address"]?.address || "";
-          document.getElementById("mainnet").value =
-            data.addresses["deposit.ton.mainnet_address"]?.address || "";
-          status.textContent = "Loaded.";
+            throw new Error(data.error || 'Unable to load settings');
+          document.getElementById('testnet').value =
+            data.addresses['deposit.ton.testnet_address']?.address || '';
+          document.getElementById('mainnet').value =
+            data.addresses['deposit.ton.mainnet_address']?.address || '';
+          status.textContent = 'Loaded.';
         }
         async function save(network) {
           const address = document.getElementById(network).value.trim();
-          const reason = document.getElementById("reason").value.trim();
+          const reason = document.getElementById('reason').value.trim();
           const response = await fetch(`/api/admin/ton/addresses/${network}`, {
-            method: "PUT",
+            method: 'PUT',
             headers: headers(),
             body: JSON.stringify({ address, reason }),
           });
           const data = await response.json();
           if (!response.ok)
-            throw new Error(data.error || "Unable to save address");
+            throw new Error(data.error || 'Unable to save address');
           status.textContent = `Saved ${network}: ${data.address}`;
           await load();
         }
         document
-          .querySelectorAll("button[data-network]")
+          .querySelectorAll('button[data-network]')
           .forEach((button) =>
-            button.addEventListener("click", () =>
+            button.addEventListener('click', () =>
               save(button.dataset.network).catch(
                 (error) => (status.textContent = error.message),
               ),
             ),
           );
         document
-          .getElementById("refresh")
-          .addEventListener("click", () =>
+          .getElementById('refresh')
+          .addEventListener('click', () =>
             load().catch((error) => (status.textContent = error.message)),
           );
         load().catch((error) => (status.textContent = error.message));

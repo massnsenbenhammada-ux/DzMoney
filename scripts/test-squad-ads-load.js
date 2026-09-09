@@ -1,24 +1,24 @@
-"use strict";
+'use strict';
 
-const assert = require("node:assert/strict");
-const { performance } = require("node:perf_hooks");
-const { pool, withTransaction } = require("../src/db/pool");
-const { AdProviderRegistry } = require("../src/services/ad-provider-service");
+const assert = require('node:assert/strict');
+const { performance } = require('node:perf_hooks');
+const { pool, withTransaction } = require('../src/db/pool');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const {
   startTaskAdvertisement,
-} = require("../src/services/task-advertisement-service");
+} = require('../src/services/task-advertisement-service');
 
 const provider = (id) => ({
   id,
-  contexts: ["squad"],
+  contexts: ['squad'],
   async verifyCompletion() {
     return { verified: false };
   },
 });
 const registry = new AdProviderRegistry([
-  provider("monetag"),
-  provider("adsgram"),
-  provider("onclicka"),
+  provider('monetag'),
+  provider('adsgram'),
+  provider('onclicka'),
 ]);
 
 async function main() {
@@ -28,17 +28,17 @@ async function main() {
   try {
     const telegramUserId = String(BigInt(Date.now()) * 10n + 9n);
     const user = await pool.query(
-      "INSERT INTO users (telegram_user_id,username,first_name) VALUES ($1,$2,$3) RETURNING id",
-      [telegramUserId, `squad_load_${marker}`, "Squad Load"],
+      'INSERT INTO users (telegram_user_id,username,first_name) VALUES ($1,$2,$3) RETURNING id',
+      [telegramUserId, `squad_load_${marker}`, 'Squad Load'],
     );
     userId = user.rows[0].id;
     const task = await pool.query(
       `INSERT INTO activity_tasks (task_type,title,reward_coin,reward_dzx,reward_dzp,status,config) VALUES ('daily','Squad Ads load',1000,1,1,'active',$1) RETURNING id`,
       [
         {
-          systemKey: "squad_ads",
+          systemKey: 'squad_ads',
           advertisementTarget: 1000,
-          advertisementContext: "squad",
+          advertisementContext: 'squad',
         },
       ],
     );
@@ -83,23 +83,23 @@ async function main() {
   } finally {
     await withTransaction(async (client) => {
       if (userId)
-        await client.query("DELETE FROM activity_ad_events WHERE user_id=$1", [
+        await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [
           userId,
         ]);
       if (taskId)
-        await client.query("DELETE FROM activity_tasks WHERE id=$1", [taskId]);
+        await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
       if (userId)
-        await client.query("DELETE FROM wallet_accounts WHERE user_id=$1", [
+        await client.query('DELETE FROM wallet_accounts WHERE user_id=$1', [
           userId,
         ]);
-      if (userId) await client.query("DELETE FROM users WHERE id=$1", [userId]);
+      if (userId) await client.query('DELETE FROM users WHERE id=$1', [userId]);
     });
     await pool.end();
   }
 }
 
 main().catch((error) => {
-  console.error("Squad Ads load gate: FAIL");
+  console.error('Squad Ads load gate: FAIL');
   console.error(error);
   process.exit(1);
 });

@@ -1,20 +1,20 @@
-const assert = require("assert");
-const crypto = require("crypto");
-process.env.MONETAG_ENABLED = "true";
-const { pool } = require("../src/db/pool");
-const walletService = require("../src/services/wallet-service");
-const { AdProviderRegistry } = require("../src/services/ad-provider-service");
-const { createMonetagProvider } = require("../src/services/monetag-adapter");
+const assert = require('assert');
+const crypto = require('crypto');
+process.env.MONETAG_ENABLED = 'true';
+const { pool } = require('../src/db/pool');
+const walletService = require('../src/services/wallet-service');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
+const { createMonetagProvider } = require('../src/services/monetag-adapter');
 const {
   startTaskAdvertisement,
   verifyTrustedTaskAdvertisement,
   finalizeTaskAdvertisement,
-} = require("../src/services/task-advertisement-service");
+} = require('../src/services/task-advertisement-service');
 const {
   getSystemTask,
   getAdvertisementProgress,
   executeSystemTask,
-} = require("../src/services/daily-system-task-service");
+} = require('../src/services/daily-system-task-service');
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -31,33 +31,33 @@ const registry = new AdProviderRegistry([provider]);
 function monetagPayload({
   ymid,
   telegramId,
-  eventType = "impression",
-  rewardEventType = "valued",
+  eventType = 'impression',
+  rewardEventType = 'valued',
 }) {
   return {
     ymid,
     telegram_id: telegramId,
-    zone_id: "11627577",
+    zone_id: '11627577',
     event_type: eventType,
     reward_event_type: rewardEventType,
-    request_var: "task",
-    estimated_price: "0.001",
+    request_var: 'task',
+    estimated_price: '0.001',
   };
 }
 
 async function createUser() {
-  const telegramUserId = requireEnv("TEST_TELEGRAM_USER_ID");
+  const telegramUserId = requireEnv('TEST_TELEGRAM_USER_ID');
   const user = await walletService.createUser({
     telegramUserId,
-    username: `phase14_ads_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`,
-    firstName: "Phase 14 Daily View Ads",
+    username: `phase14_ads_${crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`,
+    firstName: 'Phase 14 Daily View Ads',
   });
   return { userId: user.id, telegramUserId: String(user.telegram_user_id) };
 }
 
 async function balance(userId, currency) {
   const result = await pool.query(
-    "SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency=$2",
+    'SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency=$2',
     [userId, currency],
   );
   return Number(result.rows[0]?.balance || 0);
@@ -65,15 +65,15 @@ async function balance(userId, currency) {
 
 async function cleanup(userId) {
   await pool.query(
-    "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)",
+    'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)',
     [userId],
   );
-  await pool.query("DELETE FROM ledger_transactions WHERE user_id=$1", [
+  await pool.query('DELETE FROM ledger_transactions WHERE user_id=$1', [
     userId,
   ]);
-  await pool.query("DELETE FROM activity_ad_events WHERE user_id=$1", [userId]);
-  await pool.query("DELETE FROM wallet_accounts WHERE user_id=$1", [userId]);
-  await pool.query("DELETE FROM users WHERE id=$1", [userId]);
+  await pool.query('DELETE FROM activity_ad_events WHERE user_id=$1', [userId]);
+  await pool.query('DELETE FROM wallet_accounts WHERE user_id=$1', [userId]);
+  await pool.query('DELETE FROM users WHERE id=$1', [userId]);
 }
 
 async function assertFinalInvariants(userId, taskId) {
@@ -99,15 +99,15 @@ async function assertFinalInvariants(userId, taskId) {
   assert.strictEqual(events.rows[0].count, 20);
   assert.strictEqual(rewarded.rows[0].count, 20);
   assert.strictEqual(transactions.rows[0].count, 20);
-  assert.deepStrictEqual(providerIds.rows[0].ids, ["monetag"]);
-  assert.strictEqual(await balance(userId, "COIN"), 20000);
-  assert.strictEqual(await balance(userId, "DZX"), 20);
-  assert.strictEqual(await balance(userId, "DZP"), 20);
+  assert.deepStrictEqual(providerIds.rows[0].ids, ['monetag']);
+  assert.strictEqual(await balance(userId, 'COIN'), 20000);
+  assert.strictEqual(await balance(userId, 'DZX'), 20);
+  assert.strictEqual(await balance(userId, 'DZP'), 20);
   assert.deepStrictEqual(
     await getAdvertisementProgress(
       {
         id: taskId,
-        config: { systemKey: "view_ads", advertisementTarget: 20 },
+        config: { systemKey: 'view_ads', advertisementTarget: 20 },
       },
       userId,
     ),
@@ -118,10 +118,10 @@ async function assertFinalInvariants(userId, taskId) {
 async function main() {
   const { userId, telegramUserId } = await createUser();
   try {
-    const task = await getSystemTask("view_ads");
-    assert.strictEqual(task.status, "active");
-    assert.strictEqual(task.config?.systemKey, "view_ads");
-    assert.strictEqual(task.config?.advertisementProvider, "monetag");
+    const task = await getSystemTask('view_ads');
+    assert.strictEqual(task.status, 'active');
+    assert.strictEqual(task.config?.systemKey, 'view_ads');
+    assert.strictEqual(task.config?.advertisementProvider, 'monetag');
     assert.strictEqual(Number(task.config?.advertisementTarget), 20);
     assert.deepStrictEqual(
       [
@@ -141,16 +141,16 @@ async function main() {
         providerRegistry: registry,
       });
       assert.strictEqual(started.duplicate, false);
-      assert.strictEqual(started.providerId, "monetag");
-      assert.strictEqual(started.adEvent.context, "task");
-      assert.strictEqual(started.adEvent.metadata?.provider_id, "monetag");
+      assert.strictEqual(started.providerId, 'monetag');
+      assert.strictEqual(started.adEvent.context, 'task');
+      assert.strictEqual(started.adEvent.metadata?.provider_id, 'monetag');
       assert.strictEqual(started.adEvent.verified, false);
 
       if (index === 1) {
         await assert.rejects(
           () =>
             verifyTrustedTaskAdvertisement({
-              providerId: "monetag",
+              providerId: 'monetag',
               providerPayload: monetagPayload({
                 ymid: started.adEvent.external_ad_id,
                 telegramId: `${telegramUserId}-wrong`,
@@ -164,11 +164,11 @@ async function main() {
         await assert.rejects(
           () =>
             verifyTrustedTaskAdvertisement({
-              providerId: "monetag",
+              providerId: 'monetag',
               providerPayload: monetagPayload({
                 ymid: started.adEvent.external_ad_id,
                 telegramId: telegramUserId,
-                rewardEventType: "non_valued",
+                rewardEventType: 'non_valued',
               }),
               providerRegistry: registry,
             }),
@@ -185,7 +185,7 @@ async function main() {
       }
 
       const verified = await verifyTrustedTaskAdvertisement({
-        providerId: "monetag",
+        providerId: 'monetag',
         providerPayload: monetagPayload({
           ymid: started.adEvent.external_ad_id,
           telegramId: telegramUserId,
@@ -218,12 +218,12 @@ async function main() {
       assert.strictEqual(rewarded.rewarded, true);
       assert.strictEqual(rewarded.progress.completed, index);
       assert.strictEqual(rewarded.progress.target, 20);
-      assert.strictEqual(await balance(userId, "COIN"), index * 1000);
-      assert.strictEqual(await balance(userId, "DZX"), index);
-      assert.strictEqual(await balance(userId, "DZP"), index);
+      assert.strictEqual(await balance(userId, 'COIN'), index * 1000);
+      assert.strictEqual(await balance(userId, 'DZX'), index);
+      assert.strictEqual(await balance(userId, 'DZP'), index);
 
       const duplicateVerification = await verifyTrustedTaskAdvertisement({
-        providerId: "monetag",
+        providerId: 'monetag',
         providerPayload: monetagPayload({
           ymid: started.adEvent.external_ad_id,
           telegramId: telegramUserId,
@@ -236,7 +236,7 @@ async function main() {
         adEventId: started.adEvent.id,
       });
       assert.strictEqual(duplicateReward.duplicate, true);
-      assert.strictEqual(await balance(userId, "COIN"), index * 1000);
+      assert.strictEqual(await balance(userId, 'COIN'), index * 1000);
 
       if (index < 20)
         assert.deepStrictEqual(await getAdvertisementProgress(task, userId), {
@@ -250,13 +250,13 @@ async function main() {
     await assert.rejects(
       () =>
         executeSystemTask({
-          systemKey: "view_ads",
+          systemKey: 'view_ads',
           userId,
           idempotencyKey: `phase14-view-ads-${userId}-21`,
         }),
       /Daily advertisement target is already complete/,
     );
-    console.log("Phase 14 Daily View Ads 1-to-20 journey: PASS");
+    console.log('Phase 14 Daily View Ads 1-to-20 journey: PASS');
   } finally {
     await cleanup(userId);
     await pool.end();
@@ -264,7 +264,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Phase 14 Daily View Ads 1-to-20 journey: FAIL");
+  console.error('Phase 14 Daily View Ads 1-to-20 journey: FAIL');
   console.error(error);
   process.exit(1);
 });

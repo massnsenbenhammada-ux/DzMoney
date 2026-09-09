@@ -1,14 +1,14 @@
-const assert = require("node:assert/strict");
-const { randomUUID } = require("node:crypto");
-const { spawnSync } = require("node:child_process");
-const { query, withTransaction, pool } = require("../src/db/pool");
-const { createUser } = require("../src/services/wallet-service");
-const { creditActivityReward } = require("../src/services/economy-service");
+const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
+const { spawnSync } = require('node:child_process');
+const { query, withTransaction, pool } = require('../src/db/pool');
+const { createUser } = require('../src/services/wallet-service');
+const { creditActivityReward } = require('../src/services/economy-service');
 
 function runReconciliation() {
-  return spawnSync(process.execPath, ["scripts/reconcile-economy.js"], {
+  return spawnSync(process.execPath, ['scripts/reconcile-economy.js'], {
     cwd: process.cwd(),
-    encoding: "utf8",
+    encoding: 'utf8',
     env: process.env,
   });
 }
@@ -22,12 +22,12 @@ async function main() {
     user = await createUser({
       telegramUserId,
       username: marker,
-      firstName: "Phase 13 Ledger Test",
+      firstName: 'Phase 13 Ledger Test',
     });
     await creditActivityReward({
       idempotencyKey: `${marker}:reward`,
       userId: user.id,
-      source: "advertisement",
+      source: 'advertisement',
       coin: 1000,
       dzx: 2,
       dzp: 1,
@@ -35,7 +35,7 @@ async function main() {
     await creditActivityReward({
       idempotencyKey: `${marker}:reward-2`,
       userId: user.id,
-      source: "advertisement",
+      source: 'advertisement',
       coin: 500,
       dzx: 1,
       dzp: 1,
@@ -60,9 +60,9 @@ async function main() {
         row.ledger_balance,
       ]),
       [
-        ["COIN", "1500.000000000", "1500.000000000"],
-        ["DZP", "2.000000000", "2.000000000"],
-        ["DZX", "3.000000000", "3.000000000"],
+        ['COIN', '1500.000000000', '1500.000000000'],
+        ['DZP', '2.000000000', '2.000000000'],
+        ['DZX', '3.000000000', '3.000000000'],
       ],
     );
 
@@ -138,19 +138,19 @@ async function main() {
     const restored = runReconciliation();
     assert.equal(restored.status, 0, restored.stderr || restored.stdout);
 
-    console.log("Phase 13 ledger integrity: PASS");
+    console.log('Phase 13 ledger integrity: PASS');
   } finally {
     if (user) {
       await withTransaction(async (client) => {
         await client.query(
-          "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)",
+          'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = $1)',
           [user.id],
         );
         await client.query(
-          "DELETE FROM ledger_transactions WHERE user_id = $1",
+          'DELETE FROM ledger_transactions WHERE user_id = $1',
           [user.id],
         );
-        await client.query("DELETE FROM users WHERE id = $1", [user.id]);
+        await client.query('DELETE FROM users WHERE id = $1', [user.id]);
       });
     }
     await pool.end();
@@ -158,7 +158,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Phase 13 ledger integrity: FAIL");
+  console.error('Phase 13 ledger integrity: FAIL');
   console.error(error);
   process.exit(1);
 });

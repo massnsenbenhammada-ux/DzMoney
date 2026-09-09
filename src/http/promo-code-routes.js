@@ -1,9 +1,9 @@
-const express = require("express");
-const walletService = require("../services/wallet-service");
-const promoService = require("../services/promo-code-service");
-const providerRegistryRuntime = require("../services/ad-provider-registry-runtime");
-const { telegramAuth } = require("./telegram-auth");
-const { createRateLimit } = require("./rate-limit");
+const express = require('express');
+const walletService = require('../services/wallet-service');
+const promoService = require('../services/promo-code-service');
+const providerRegistryRuntime = require('../services/ad-provider-registry-runtime');
+const { telegramAuth } = require('./telegram-auth');
+const { createRateLimit } = require('./rate-limit');
 
 function createPromoCodeRouter({
   wallet = walletService,
@@ -27,18 +27,18 @@ function createPromoCodeRouter({
   }
 
   router.post(
-    "/redeem",
+    '/redeem',
     asyncRoute(async (req, res) => {
       const code = req.body?.code;
       const idempotencyKey = req.body?.idempotencyKey;
-      if (typeof code !== "string" || !code.trim())
+      if (typeof code !== 'string' || !code.trim())
         return res
           .status(400)
-          .json({ ok: false, error: "Promo code is required" });
-      if (typeof idempotencyKey !== "string" || !idempotencyKey.trim())
+          .json({ ok: false, error: 'Promo code is required' });
+      if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim())
         return res
           .status(400)
-          .json({ ok: false, error: "idempotencyKey is required" });
+          .json({ ok: false, error: 'idempotencyKey is required' });
       const user = await currentUser(req);
       const result = await promo.redeemPromoCode({
         userId: user.id,
@@ -51,16 +51,14 @@ function createPromoCodeRouter({
   );
 
   router.get(
-    "/redemption/:id",
+    '/redemption/:id',
     asyncRoute(async (req, res) => {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0)
-        return res
-          .status(400)
-          .json({
-            ok: false,
-            error: "redemption id must be a positive integer",
-          });
+        return res.status(400).json({
+          ok: false,
+          error: 'redemption id must be a positive integer',
+        });
       const user = await currentUser(req);
       res.json({
         ok: true,

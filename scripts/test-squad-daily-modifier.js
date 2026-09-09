@@ -1,15 +1,15 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { query, pool, withTransaction } = require("../src/db/pool");
-const walletService = require("../src/services/wallet-service");
-const { creditActivityReward } = require("../src/services/economy-service");
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { query, pool, withTransaction } = require('../src/db/pool');
+const walletService = require('../src/services/wallet-service');
+const { creditActivityReward } = require('../src/services/economy-service');
 const {
   getDailySquadState,
   getApplicableSquadModifierOnClient,
-} = require("../src/services/squad-daily-state-service");
+} = require('../src/services/squad-daily-state-service');
 
 test(
-  "daily modifier is mapped from contribution and applied only to D+1 qualifying activity",
+  'daily modifier is mapped from contribution and applied only to D+1 qualifying activity',
   { skip: !process.env.DATABASE_URL },
   async () => {
     const suffix = `${Date.now()}`;
@@ -26,7 +26,7 @@ test(
         ids.push(user.id);
       }
       const squad = await query(
-        "INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id",
+        'INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id',
         [users[0].id],
       );
       squadId = squad.rows[0].id;
@@ -45,17 +45,17 @@ test(
           users[1].id,
           `verified-a-${suffix}`,
           `verified-a-${suffix}`,
-          JSON.stringify({ task_id: "fixture" }),
+          JSON.stringify({ task_id: 'fixture' }),
           users[2].id,
           `verified-b-${suffix}`,
           `verified-b-${suffix}`,
-          JSON.stringify({ task_id: "fixture" }),
+          JSON.stringify({ task_id: 'fixture' }),
         ],
       );
       await creditActivityReward({
         idempotencyKey: `modifier-a-${suffix}`,
         userId: users[1].id,
-        source: "task",
+        source: 'task',
         coin: 0,
         dzx: 0,
         dzp: 1500,
@@ -64,7 +64,7 @@ test(
       await creditActivityReward({
         idempotencyKey: `modifier-b-${suffix}`,
         userId: users[2].id,
-        source: "task",
+        source: 'task',
         coin: 0,
         dzx: 0,
         dzp: 1,
@@ -93,7 +93,7 @@ test(
       const reward = await creditActivityReward({
         idempotencyKey: `modifier-reward-${suffix}`,
         userId: users[1].id,
-        source: "task",
+        source: 'task',
         coin: 1000,
         dzx: 1,
         dzp: 1,
@@ -103,30 +103,30 @@ test(
       });
       assert.equal(
         Number(
-          reward.entries.find((entry) => entry.currency === "COIN").amount,
+          reward.entries.find((entry) => entry.currency === 'COIN').amount,
         ),
         1150,
       );
       assert.equal(
-        Number(reward.entries.find((entry) => entry.currency === "DZX").amount),
+        Number(reward.entries.find((entry) => entry.currency === 'DZX').amount),
         1.15,
       );
       assert.equal(
-        Number(reward.entries.find((entry) => entry.currency === "DZP").amount),
+        Number(reward.entries.find((entry) => entry.currency === 'DZP').amount),
         1,
       );
     } finally {
-      if (squadId) await query("DELETE FROM squads WHERE id=$1", [squadId]);
+      if (squadId) await query('DELETE FROM squads WHERE id=$1', [squadId]);
       if (ids.length) {
         await query(
-          "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[])) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = ANY($1::bigint[]))",
+          'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[])) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = ANY($1::bigint[]))',
           [ids],
         );
         await query(
-          "DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])",
+          'DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])',
           [ids],
         );
-        await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [ids]);
+        await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [ids]);
       }
     }
     await pool.end();

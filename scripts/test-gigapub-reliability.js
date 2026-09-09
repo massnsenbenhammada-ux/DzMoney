@@ -1,17 +1,17 @@
-const assert = require("assert");
-const fs = require("fs");
-const vm = require("vm");
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
 
-const source = fs.readFileSync("public/gigapub-adapter-entry.js", "utf8");
+const source = fs.readFileSync('public/gigapub-adapter-entry.js', 'utf8');
 
-assert(source.includes("https://ad.gigapub.tech/script?id="));
-assert(source.includes("https://ru-ad.gigapub.tech/script?id="));
-assert(source.includes("setTimeout"));
-assert(source.includes("15000"));
-assert(source.includes("withTimeout"));
-assert(source.includes("GigaPub advertisement display timed out"));
-assert(source.includes("showGiga"));
-assert(source.includes("DzMoneyGamingAd"));
+assert(source.includes('https://ad.gigapub.tech/script?id='));
+assert(source.includes('https://ru-ad.gigapub.tech/script?id='));
+assert(source.includes('setTimeout'));
+assert(source.includes('15000'));
+assert(source.includes('withTimeout'));
+assert(source.includes('GigaPub advertisement display timed out'));
+assert(source.includes('showGiga'));
+assert(source.includes('DzMoneyGamingAd'));
 
 function runLoader(trigger) {
   const scripts = [];
@@ -19,7 +19,7 @@ function runLoader(trigger) {
   const context = {
     window: {
       __DzMoneyAdProviderConfig: {
-        providers: { gigapub: { id: "gigapub", projectId: "test-project" } },
+        providers: { gigapub: { id: 'gigapub', projectId: 'test-project' } },
       },
       Telegram: { WebApp: {} },
     },
@@ -40,7 +40,7 @@ function runLoader(trigger) {
   assert.strictEqual(
     scripts.length,
     1,
-    "primary GigaPub script must be added once",
+    'primary GigaPub script must be added once',
   );
 
   trigger(scripts[0], timers);
@@ -54,11 +54,11 @@ const nativeError = runLoader((primary) => {
 assert.strictEqual(
   nativeError.scripts.length,
   2,
-  "native error must create only one fallback",
+  'native error must create only one fallback',
 );
 assert(
   nativeError.scripts[1].src.includes(
-    "ru-ad.gigapub.tech/script?id=test-project",
+    'ru-ad.gigapub.tech/script?id=test-project',
   ),
 );
 
@@ -70,7 +70,7 @@ const timeout = runLoader((primary, timers) => {
 assert.strictEqual(
   timeout.scripts.length,
   2,
-  "timeout must create only one fallback",
+  'timeout must create only one fallback',
 );
 
-console.log("GigaPub enhanced reliability contract passed.");
+console.log('GigaPub enhanced reliability contract passed.');

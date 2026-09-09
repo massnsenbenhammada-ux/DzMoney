@@ -1,5 +1,5 @@
 function requiredUrl(value, name) {
-  if (typeof value !== "string" || value.trim() === "")
+  if (typeof value !== 'string' || value.trim() === '')
     throw new Error(`${name} is required`);
   return new URL(value.trim());
 }
@@ -13,7 +13,7 @@ function referralValuePattern(value) {
     prefix,
     length: dynamic.length,
     classes: [...dynamic].map((character) =>
-      /[0-9]/.test(character) ? "digit" : "letter",
+      /[0-9]/.test(character) ? 'digit' : 'letter',
     ),
   };
 }
@@ -26,7 +26,7 @@ function matchesReferralValue(referenceValue, candidateValue) {
   if (dynamic.length !== pattern.length) return false;
   return [...dynamic].every(
     (character, index) =>
-      pattern.classes[index] === (/\d/.test(character) ? "digit" : "letter"),
+      pattern.classes[index] === (/\d/.test(character) ? 'digit' : 'letter'),
   );
 }
 
@@ -34,8 +34,8 @@ function matchesUrlFormat(referenceUrl, candidateUrl) {
   let reference;
   let candidate;
   try {
-    reference = requiredUrl(referenceUrl, "referenceUrl");
-    candidate = requiredUrl(candidateUrl, "candidateUrl");
+    reference = requiredUrl(referenceUrl, 'referenceUrl');
+    candidate = requiredUrl(candidateUrl, 'candidateUrl');
   } catch {
     return false;
   }

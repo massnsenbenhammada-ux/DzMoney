@@ -1,7 +1,7 @@
-const assert = require("assert");
-const walletService = require("../src/services/wallet-service");
-const referralService = require("../src/services/referral-service");
-const { pool } = require("../src/db/pool");
+const assert = require('assert');
+const walletService = require('../src/services/wallet-service');
+const referralService = require('../src/services/referral-service');
+const { pool } = require('../src/db/pool');
 
 async function createQualifiedReferral(suffix) {
   const referrer = await walletService.createUser({
@@ -24,7 +24,7 @@ async function createQualifiedReferral(suffix) {
   );
   await referralService.qualifyReferral({
     referredUserId: referred.id,
-    source: "task",
+    source: 'task',
     referenceId: attempt.rows[0].id,
     idempotencyKey: `qualification-${suffix}`,
   });
@@ -80,12 +80,12 @@ async function main() {
   );
   assert.strictEqual(ledger.rows[0].count, 3);
 
-  console.log("Referral activation invariants: PASS");
+  console.log('Referral activation invariants: PASS');
 }
 
 main()
   .catch((error) => {
-    console.error("Referral activation invariants: FAIL");
+    console.error('Referral activation invariants: FAIL');
     console.error(error);
     process.exitCode = 1;
   })

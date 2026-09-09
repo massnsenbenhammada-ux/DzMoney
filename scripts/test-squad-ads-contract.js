@@ -1,51 +1,51 @@
-const assert = require("assert");
-const fs = require("fs");
-const path = require("path");
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 
-const root = path.join(__dirname, "..");
+const root = path.join(__dirname, '..');
 const migration = fs.readFileSync(
-  path.join(root, "migrations/044_squad_ads_task.sql"),
-  "utf8",
+  path.join(root, 'migrations/044_squad_ads_task.sql'),
+  'utf8',
 );
 const contextMigration = fs.readFileSync(
-  path.join(root, "migrations/046_squad_ad_event_context.sql"),
-  "utf8",
+  path.join(root, 'migrations/046_squad_ad_event_context.sql'),
+  'utf8',
 );
 const squadRoutes = fs.readFileSync(
-  path.join(root, "src/http/squad-routes.js"),
-  "utf8",
+  path.join(root, 'src/http/squad-routes.js'),
+  'utf8',
 );
 const squadFrontend = fs.readFileSync(
-  path.join(root, "public/squad.js"),
-  "utf8",
+  path.join(root, 'public/squad.js'),
+  'utf8',
 );
 const adClient = fs.readFileSync(
-  path.join(root, "public/ad-provider-client.js"),
-  "utf8",
+  path.join(root, 'public/ad-provider-client.js'),
+  'utf8',
 );
 const taskRoutes = fs.readFileSync(
-  path.join(root, "src/http/task-routes.js"),
-  "utf8",
+  path.join(root, 'src/http/task-routes.js'),
+  'utf8',
 );
 const advertisementService = fs.readFileSync(
-  path.join(root, "src/services/task-advertisement-service.js"),
-  "utf8",
+  path.join(root, 'src/services/task-advertisement-service.js'),
+  'utf8',
 );
 const correlation = fs.readFileSync(
-  path.join(root, "src/services/adsgram-correlation-service.js"),
-  "utf8",
+  path.join(root, 'src/services/adsgram-correlation-service.js'),
+  'utf8',
 );
 const monetagPostback = fs.readFileSync(
-  path.join(root, "src/http/monetag-postback-routes.js"),
-  "utf8",
+  path.join(root, 'src/http/monetag-postback-routes.js'),
+  'utf8',
 );
 const onclickaPostback = fs.readFileSync(
-  path.join(root, "src/http/onclicka-postback-routes.js"),
-  "utf8",
+  path.join(root, 'src/http/onclicka-postback-routes.js'),
+  'utf8',
 );
 const dailyRoutes = fs.readFileSync(
-  path.join(root, "src/http/daily-system-task-routes.js"),
-  "utf8",
+  path.join(root, 'src/http/daily-system-task-routes.js'),
+  'utf8',
 );
 
 const squadAdsRoute = squadRoutes.slice(
@@ -122,4 +122,4 @@ assert.match(
 assert.doesNotMatch(monetagPostback, /finalizeStandardAdvertisement/);
 assert.doesNotMatch(onclickaPostback, /finalizeStandardAdvertisement/);
 
-console.log("Squad Ads contract: PASS");
+console.log('Squad Ads contract: PASS');

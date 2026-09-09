@@ -1,12 +1,12 @@
-const express = require("express");
-const { query, withTransaction } = require("../db/pool");
-const walletService = require("../services/wallet-service");
-const referralService = require("../services/referral-service");
-const { buildReferralLink } = require("../config/telegram");
-const { telegramAuth } = require("./telegram-auth");
+const express = require('express');
+const { query, withTransaction } = require('../db/pool');
+const walletService = require('../services/wallet-service');
+const referralService = require('../services/referral-service');
+const { buildReferralLink } = require('../config/telegram');
+const { telegramAuth } = require('./telegram-auth');
 const {
   provisionSquadForUsers,
-} = require("../services/squad-provisioning-service");
+} = require('../services/squad-provisioning-service');
 
 const router = express.Router();
 const asyncRoute = (handler) => (req, res, next) =>
@@ -16,7 +16,7 @@ router.use(telegramAuth);
 
 async function findExistingUser(telegramUserId) {
   const result = await query(
-    "SELECT id FROM users WHERE telegram_user_id = $1",
+    'SELECT id FROM users WHERE telegram_user_id = $1',
     [telegramUserId],
   );
   return result.rows[0] || null;
@@ -24,7 +24,7 @@ async function findExistingUser(telegramUserId) {
 
 async function attributeFirstEntry(userId, referralCode) {
   if (!referralCode) return;
-  const result = await query("SELECT id FROM users WHERE referral_code = $1", [
+  const result = await query('SELECT id FROM users WHERE referral_code = $1', [
     referralCode,
   ]);
   const referrer = result.rows[0];
@@ -36,7 +36,7 @@ async function attributeFirstEntry(userId, referralCode) {
 }
 
 router.get(
-  "/",
+  '/',
   asyncRoute(async (req, res) => {
     const telegramUser = req.telegramUser;
     const telegramUserId = String(telegramUser.id);

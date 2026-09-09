@@ -1,10 +1,10 @@
-const assert = require("assert");
-const fs = require("fs");
+const assert = require('assert');
+const fs = require('fs');
 
-const gaming = fs.readFileSync("public/gaming.js", "utf8");
+const gaming = fs.readFileSync('public/gaming.js', 'utf8');
 
 assert(
-  gaming.includes("function formatGamingAdFailure(providerId, stage, error)"),
+  gaming.includes('function formatGamingAdFailure(providerId, stage, error)'),
 );
 assert(gaming.includes("const providerName = providerId || 'unknown';"));
 assert(
@@ -34,15 +34,15 @@ assert(
 );
 assert(
   gaming.includes(
-    "return `${providerName}: the advertisement failed${detail}`;",
+    'return `${providerName}: the advertisement failed${detail}`;',
   ),
 );
-assert(gaming.includes("let providerId = null;"));
+assert(gaming.includes('let providerId = null;'));
 assert(gaming.includes("let stage = 'start';"));
-assert(gaming.includes("providerId = response.providerId;"));
+assert(gaming.includes('providerId = response.providerId;'));
 assert(gaming.includes("stage = 'ready';"));
 assert(gaming.includes("stage = 'show';"));
 assert(gaming.includes("stage = 'complete';"));
-assert(gaming.includes("formatGamingAdFailure(providerId, stage, error)"));
+assert(gaming.includes('formatGamingAdFailure(providerId, stage, error)'));
 
-console.log("Gaming ad failure diagnostics contract: OK");
+console.log('Gaming ad failure diagnostics contract: OK');

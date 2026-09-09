@@ -1,38 +1,38 @@
 const AD_PROVIDER_CONTEXTS = [
-  "task",
-  "gaming",
-  "daily_checkin",
-  "verification",
-  "squad",
-  "promo",
+  'task',
+  'gaming',
+  'daily_checkin',
+  'verification',
+  'squad',
+  'promo',
 ];
-const TASK_PROVIDER_ORDER = ["monetag", "adsgram"];
-const GAMING_PROVIDER_ORDER = ["gigapub", "monetag", "onclicka"];
-const SQUAD_PROVIDER_ORDER = ["monetag", "adsgram", "onclicka"];
+const TASK_PROVIDER_ORDER = ['monetag', 'adsgram'];
+const GAMING_PROVIDER_ORDER = ['gigapub', 'monetag', 'onclicka'];
+const SQUAD_PROVIDER_ORDER = ['monetag', 'adsgram', 'onclicka'];
 
 class ProviderUnavailableError extends Error {
   constructor(message) {
     super(message);
-    this.name = "ProviderUnavailableError";
+    this.name = 'ProviderUnavailableError';
   }
 }
 function validateProvider(provider) {
-  if (!provider || typeof provider.id !== "string" || !provider.id.trim())
-    throw new Error("Advertisement provider id is required");
+  if (!provider || typeof provider.id !== 'string' || !provider.id.trim())
+    throw new Error('Advertisement provider id is required');
   if (!Array.isArray(provider.contexts) || !provider.contexts.length)
-    throw new Error("Advertisement provider contexts are required");
+    throw new Error('Advertisement provider contexts are required');
   if (
     provider.contexts.some((context) => !AD_PROVIDER_CONTEXTS.includes(context))
   )
-    throw new Error("Invalid advertisement context");
-  if (typeof provider.verifyCompletion !== "function")
-    throw new Error("Advertisement provider verifyCompletion is required");
+    throw new Error('Invalid advertisement context');
+  if (typeof provider.verifyCompletion !== 'function')
+    throw new Error('Advertisement provider verifyCompletion is required');
   if (
-    provider.contexts.includes("task") &&
-    typeof provider.verifyServerCompletion !== "function"
+    provider.contexts.includes('task') &&
+    typeof provider.verifyServerCompletion !== 'function'
   )
     throw new Error(
-      "Advertisement provider task context requires a trusted server verification contract",
+      'Advertisement provider task context requires a trusted server verification contract',
     );
 }
 class AdProviderRegistry {
@@ -60,7 +60,7 @@ class AdProviderRegistry {
   }
   setContextEnabled(providerId, context, enabled) {
     if (!AD_PROVIDER_CONTEXTS.includes(context))
-      throw new Error("Invalid advertisement context");
+      throw new Error('Invalid advertisement context');
     const provider = this.get(providerId);
     if (!provider)
       throw new Error(`Unknown advertisement provider: ${providerId}`);
@@ -68,8 +68,8 @@ class AdProviderRegistry {
       throw new Error(
         `Advertisement provider ${providerId} does not support ${context}`,
       );
-    if (typeof enabled !== "boolean")
-      throw new Error("Provider context enabled state must be boolean");
+    if (typeof enabled !== 'boolean')
+      throw new Error('Provider context enabled state must be boolean');
     this.contextEnabled.get(providerId).set(context, enabled);
   }
   isContextEnabled(providerId, context) {
@@ -77,7 +77,7 @@ class AdProviderRegistry {
   }
   listAvailable(context) {
     if (!AD_PROVIDER_CONTEXTS.includes(context))
-      throw new Error("Invalid advertisement context");
+      throw new Error('Invalid advertisement context');
     return [...this.providers.values()].filter(
       (provider) =>
         provider.enabled &&
@@ -89,19 +89,19 @@ class AdProviderRegistry {
 function selectNextProvider(registry, { context, previousProviderId = null }) {
   if (
     !registry ||
-    typeof registry.listAvailable !== "function" ||
-    typeof registry.listRegistered !== "function"
+    typeof registry.listAvailable !== 'function' ||
+    typeof registry.listRegistered !== 'function'
   )
-    throw new Error("Advertisement provider registry is required");
+    throw new Error('Advertisement provider registry is required');
   const available = registry.listAvailable(context);
   if (!available.length)
     throw new Error(`No advertisement provider available for ${context}`);
   const order =
-    context === "task"
+    context === 'task'
       ? TASK_PROVIDER_ORDER
-      : context === "gaming"
+      : context === 'gaming'
         ? GAMING_PROVIDER_ORDER
-        : context === "squad"
+        : context === 'squad'
           ? SQUAD_PROVIDER_ORDER
           : registry.listRegistered();
   if (!previousProviderId)
@@ -123,9 +123,9 @@ function selectNextProvider(registry, { context, previousProviderId = null }) {
   throw new Error(`No advertisement provider available for ${context}`);
 }
 function getProviderForVerification(registry, { context, providerId }) {
-  if (!registry || typeof registry.get !== "function")
-    throw new Error("Advertisement provider registry is required");
-  if (!providerId) throw new Error("Advertisement provider id is required");
+  if (!registry || typeof registry.get !== 'function')
+    throw new Error('Advertisement provider registry is required');
+  if (!providerId) throw new Error('Advertisement provider id is required');
   const provider = registry.get(providerId);
   if (
     !provider ||
@@ -139,16 +139,16 @@ function getProviderForVerification(registry, { context, providerId }) {
   return provider;
 }
 function validateVerificationResult(result) {
-  if (!result || typeof result.verified !== "boolean")
+  if (!result || typeof result.verified !== 'boolean')
     throw new Error(
-      "Advertisement provider returned an invalid verification result",
+      'Advertisement provider returned an invalid verification result',
     );
   if (
     result.verified &&
-    (typeof result.reference !== "string" || !result.reference.trim())
+    (typeof result.reference !== 'string' || !result.reference.trim())
   )
     throw new Error(
-      "Verified advertisement result requires a provider reference",
+      'Verified advertisement result requires a provider reference',
     );
 }
 async function verifyProviderWithTimeout(provider, payload, timeoutMs) {
@@ -177,7 +177,7 @@ async function verifyWithProvider(
   { context, providerId, payload, timeoutMs = 10000 },
 ) {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
-    throw new Error("Advertisement provider timeout must be positive");
+    throw new Error('Advertisement provider timeout must be positive');
   const provider = getProviderForVerification(registry, {
     context,
     providerId,

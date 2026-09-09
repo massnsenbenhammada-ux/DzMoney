@@ -1,5 +1,5 @@
-const { withTransaction, query } = require("../db/pool");
-const { postEconomyTransactionOnClient } = require("./economy-service");
+const { withTransaction, query } = require('../db/pool');
+const { postEconomyTransactionOnClient } = require('./economy-service');
 
 const DEFAULT_PAID_TIERS = [
   { minMembers: 1, maxMembers: 10, price: 100 },
@@ -18,7 +18,7 @@ async function getPaidMembershipTiers(client = null) {
   if (!result.rowCount) return DEFAULT_PAID_TIERS;
   const tiers = result.rows[0].value;
   if (!Array.isArray(tiers))
-    throw new Error("Invalid Squad membership tier configuration");
+    throw new Error('Invalid Squad membership tier configuration');
   const normalized = tiers.map((tier) => ({
     minMembers: Number(tier.minMembers),
     maxMembers: Number(tier.maxMembers),
@@ -36,7 +36,7 @@ async function getPaidMembershipTiers(client = null) {
         tier.price <= 0,
     )
   ) {
-    throw new Error("Invalid Squad membership tier configuration");
+    throw new Error('Invalid Squad membership tier configuration');
   }
   return normalized.sort((a, b) => a.minMembers - b.minMembers);
 }
@@ -44,17 +44,17 @@ async function getPaidMembershipTiers(client = null) {
 async function createInvitation({ squadId, inviterUserId, inviteeUserId }) {
   return withTransaction(async (client) => {
     const owner = await client.query(
-      "SELECT 1 FROM squads WHERE id = $1 AND owner_user_id = $2 FOR UPDATE",
+      'SELECT 1 FROM squads WHERE id = $1 AND owner_user_id = $2 FOR UPDATE',
       [squadId, inviterUserId],
     );
-    if (!owner.rows[0]) throw new Error("Only the squad owner can invite");
+    if (!owner.rows[0]) throw new Error('Only the squad owner can invite');
     const existing = await client.query(
       `SELECT 1 FROM squad_memberships WHERE user_id = $1 AND status <> 'cancelled' UNION ALL SELECT 1 FROM squad_invitations WHERE invitee_user_id = $1 AND status = 'pending' LIMIT 1`,
       [inviteeUserId],
     );
     if (existing.rows[0])
       throw new Error(
-        "User is already assigned to a squad or has a pending invitation",
+        'User is already assigned to a squad or has a pending invitation',
       );
     const result = await client.query(
       `INSERT INTO squad_invitations (squad_id, inviter_user_id, invitee_user_id) VALUES ($1, $2, $3) RETURNING id, squad_id, invitee_user_id, status, created_at`,
@@ -70,13 +70,13 @@ async function acceptInvitation({ invitationId, inviteeUserId }) {
       `SELECT id, squad_id FROM squad_invitations WHERE id = $1 AND invitee_user_id = $2 AND status = 'pending' FOR UPDATE`,
       [invitationId, inviteeUserId],
     );
-    if (!invitation.rows[0]) throw new Error("Invitation is not pending");
+    if (!invitation.rows[0]) throw new Error('Invitation is not pending');
     const existingMembership = await client.query(
       `SELECT 1 FROM squad_memberships WHERE user_id = $1 AND status <> 'cancelled' FOR UPDATE`,
       [inviteeUserId],
     );
     if (existingMembership.rows[0])
-      throw new Error("User already has a squad membership");
+      throw new Error('User already has a squad membership');
     const member = await client.query(
       `INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`,
       [invitation.rows[0].squad_id, inviteeUserId],
@@ -111,17 +111,17 @@ async function selectEligibleSquad(client, tier) {
 }
 
 async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
-  if (!userId) throw new Error("userId is required");
+  if (!userId) throw new Error('userId is required');
   if (!Number.isInteger(maxMembers) || maxMembers <= 0)
-    throw new Error("maxMembers must be a positive integer");
-  if (!idempotencyKey) throw new Error("idempotencyKey is required");
+    throw new Error('maxMembers must be a positive integer');
+  if (!idempotencyKey) throw new Error('idempotencyKey is required');
   return withTransaction(async (client) => {
-    await client.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [
       userId,
     ]);
     const transactionKey = `squad-membership:${userId}:${idempotencyKey}`;
     const existingTransaction = await client.query(
-      "SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE",
+      'SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE',
       [transactionKey],
     );
     if (existingTransaction.rowCount) {
@@ -133,7 +133,7 @@ async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
         Number(metadata.tier?.maxMembers) !== requestedTier.maxMembers
       )
         throw new Error(
-          "Idempotency key is bound to another Squad membership tier",
+          'Idempotency key is bound to another Squad membership tier',
         );
       const membership = await client.query(
         `SELECT id, squad_id, user_id, status FROM squad_memberships WHERE user_id = $1 AND status <> 'cancelled'`,
@@ -144,7 +144,7 @@ async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
         String(metadata.squad_id) !== String(membership.rows[0].squad_id)
       )
         throw new Error(
-          "Existing Squad membership purchase cannot be reconciled",
+          'Existing Squad membership purchase cannot be reconciled',
         );
       return {
         duplicate: true,
@@ -158,22 +158,22 @@ async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
       [userId],
     );
     if (existingMembership.rowCount)
-      throw new Error("User already has an eligible Squad membership");
+      throw new Error('User already has an eligible Squad membership');
     const tier = await selectPaidMembershipTier(client, maxMembers);
     if (!tier)
-      throw new Error("Requested Squad membership tier is unavailable");
+      throw new Error('Requested Squad membership tier is unavailable');
     const squad = await selectEligibleSquad(client, tier);
     if (!squad)
-      throw new Error("No Squad is currently available in the requested tier");
+      throw new Error('No Squad is currently available in the requested tier');
     const economy = await postEconomyTransactionOnClient(client, {
       idempotencyKey: transactionKey,
       userId,
-      type: "SQUAD_MEMBERSHIP_PURCHASE",
+      type: 'SQUAD_MEMBERSHIP_PURCHASE',
       movements: [
-        { currency: "DZP", amount: -tier.price, source: "squad_membership" },
+        { currency: 'DZP', amount: -tier.price, source: 'squad_membership' },
       ],
       metadata: {
-        source: "squad_membership",
+        source: 'squad_membership',
         squad_id: squad.id,
         tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers },
         price: tier.price,
@@ -181,7 +181,7 @@ async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
     });
     if (economy.duplicate)
       throw new Error(
-        "Squad membership purchase transaction unexpectedly duplicated",
+        'Squad membership purchase transaction unexpectedly duplicated',
       );
     const membership = await client.query(
       `INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`,

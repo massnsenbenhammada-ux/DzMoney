@@ -48,33 +48,33 @@ function simulateUser(random, config) {
       spinAds += 1;
       diggingAds += 1;
       const bonus = choice(adBonusWeights, random);
-      if (bonus === "dzx_1") dzx += 1;
+      if (bonus === 'dzx_1') dzx += 1;
       else coin += 100;
       if ((ad + 1) % axeEveryAds === 0) axes += 1;
     }
     while (spins > 0) {
       spins -= 1;
       const result = choice(spinWeights, random);
-      if (result === "coin_100") coin += 100;
-      else if (result === "coin_1000") coin += 1000;
-      else if (result === "dzx_1") dzx += 1;
-      else if (result === "dzx_10") dzx += 10;
-      else if (result === "dzp_1") dzp += 1;
-      else if (result === "dzp_10") dzp += 10;
-      else if (result === "extra_spin") {
+      if (result === 'coin_100') coin += 100;
+      else if (result === 'coin_1000') coin += 1000;
+      else if (result === 'dzx_1') dzx += 1;
+      else if (result === 'dzx_10') dzx += 10;
+      else if (result === 'dzp_1') dzp += 1;
+      else if (result === 'dzp_10') dzp += 10;
+      else if (result === 'extra_spin') {
         spins += 1;
         extraSpins += 1;
       }
     }
     for (let dig = 0; dig < diggingEnergy; dig += 1) {
       const result = choice(diggingWeights, random);
-      if (result === "coin_100") coin += 100;
-      else if (result === "coin_1000") coin += 1000;
-      else if (result === "dzx_1") dzx += 1;
-      else if (result === "dzx_10") dzx += 10;
-      else if (result === "dzp_1") dzp += 1;
-      else if (result === "dzp_10") dzp += 10;
-      else if (result === "extra_axe") {
+      if (result === 'coin_100') coin += 100;
+      else if (result === 'coin_1000') coin += 1000;
+      else if (result === 'dzx_1') dzx += 1;
+      else if (result === 'dzx_10') dzx += 10;
+      else if (result === 'dzp_1') dzp += 1;
+      else if (result === 'dzp_10') dzp += 10;
+      else if (result === 'extra_axe') {
         axes += 1;
         extraAxes += 1;
       }
@@ -97,7 +97,7 @@ function simulateUser(random, config) {
 
 function run(config) {
   if (!config)
-    throw new Error("Gaming configuration is required for economic simulation");
+    throw new Error('Gaming configuration is required for economic simulation');
   const random = rng(54054);
   const users = Array.from({ length: USERS }, () =>
     simulateUser(random, config),

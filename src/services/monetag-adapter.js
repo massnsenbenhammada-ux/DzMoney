@@ -6,10 +6,10 @@ const {
   MONETAG_GAMING_CONTEXT,
   MONETAG_SQUAD_CONTEXT,
   MONETAG_PROMO_CONTEXT,
-} = require("../config/monetag");
-const { validateMonetagPostback } = require("./monetag-postback-service");
+} = require('../config/monetag');
+const { validateMonetagPostback } = require('./monetag-postback-service');
 
-const MONETAG_PROVIDER_ID = "monetag";
+const MONETAG_PROVIDER_ID = 'monetag';
 
 function createMonetagProvider() {
   return {
@@ -22,7 +22,7 @@ function createMonetagProvider() {
       MONETAG_SQUAD_CONTEXT,
       MONETAG_PROMO_CONTEXT,
     ],
-    enabled: process.env.MONETAG_ENABLED === "true",
+    enabled: process.env.MONETAG_ENABLED === 'true',
     async verifyCompletion(payload = {}) {
       const normalized = validateMonetagPostback({
         ...payload,

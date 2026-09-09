@@ -1,12 +1,12 @@
-const assert = require("assert");
-const express = require("express");
+const assert = require('assert');
+const express = require('express');
 
 async function run() {
-  const dbPath = require.resolve("../src/db/pool");
-  const providerPath = require.resolve("../src/services/ad-provider-service");
-  const adEventPath = require.resolve("../src/services/ad-event-service");
+  const dbPath = require.resolve('../src/db/pool');
+  const providerPath = require.resolve('../src/services/ad-provider-service');
+  const adEventPath = require.resolve('../src/services/ad-event-service');
   const verificationPath =
-    require.resolve("../src/services/task-verification-service");
+    require.resolve('../src/services/task-verification-service');
   const originalDb = require(dbPath);
   const originalProvider = require(providerPath);
   const originalAdEvent = require(adEventPath);
@@ -21,10 +21,10 @@ async function run() {
         {
           id: 17,
           user_id: 42,
-          context: "verification",
-          external_ad_id: "verification-ymid-1",
+          context: 'verification',
+          external_ad_id: 'verification-ymid-1',
           verified: false,
-          telegram_user_id: "123",
+          telegram_user_id: '123',
           claim_idempotency_key: null,
           attempt_id: 99,
         },
@@ -34,7 +34,7 @@ async function run() {
   require.cache[providerPath].exports = {
     ...originalProvider,
     verifyWithProvider: async ({ context, providerId }) => ({
-      providerId: providerId || "monetag",
+      providerId: providerId || 'monetag',
       verification: {
         verified: true,
         reference: `${context}-ref`,
@@ -45,62 +45,62 @@ async function run() {
   require.cache[adEventPath].exports = {
     ...originalAdEvent,
     markAdvertisementVerified: async (args) => {
-      calls.push(["verify", args]);
+      calls.push(['verify', args]);
       return { duplicate: false };
     },
   };
   require.cache[verificationPath].exports = {
     ...originalVerification,
     verifyTaskAdvertisement: async (args) => {
-      calls.push(["verifyTaskAdvertisement", args]);
+      calls.push(['verifyTaskAdvertisement', args]);
       return {
         duplicate: false,
         verification: {
           verified: true,
-          reference: "verification-ref",
+          reference: 'verification-ref',
           metadata: {},
         },
       };
     },
     finalizeTaskVerification: async (args) => {
-      calls.push(["finalize", args]);
+      calls.push(['finalize', args]);
       return {
         duplicate: false,
-        status: "verification_pending",
+        status: 'verification_pending',
         rewarded: false,
-        reason: "link_click_required",
+        reason: 'link_click_required',
       };
     },
   };
 
   const {
     createMonetagPostbackRouter,
-  } = require("../src/http/monetag-postback-routes");
+  } = require('../src/http/monetag-postback-routes');
   const app = express();
   app.use(
-    "/api/ads/monetag/postback",
+    '/api/ads/monetag/postback',
     createMonetagPostbackRouter({
       providerRegistry: {},
-      secret: "test-secret",
+      secret: 'test-secret',
     }),
   );
-  const http = require("http");
+  const http = require('http');
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
   const port = server.address().port;
 
   const response = await new Promise((resolve, reject) => {
     const path =
-      "/api/ads/monetag/postback?token=test-secret&telegram_id=123&zone_id=11627577&event_type=impression&reward_event_type=valued&estimated_price=0.01000&ymid=verification-ymid-1&request_var=verification";
+      '/api/ads/monetag/postback?token=test-secret&telegram_id=123&zone_id=11627577&event_type=impression&reward_event_type=valued&estimated_price=0.01000&ymid=verification-ymid-1&request_var=verification';
     http
-      .get({ hostname: "127.0.0.1", port, path }, (res) => {
-        let data = "";
-        res.on("data", (chunk) => {
+      .get({ hostname: '127.0.0.1', port, path }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
           data += chunk;
         });
-        res.on("end", () => resolve({ status: res.statusCode, rawBody: data }));
+        res.on('end', () => resolve({ status: res.statusCode, rawBody: data }));
       })
-      .on("error", reject);
+      .on('error', reject);
   });
 
   assert.strictEqual(
@@ -109,15 +109,15 @@ async function run() {
     `Unexpected response: ${response.rawBody}`,
   );
   const body = JSON.parse(response.rawBody);
-  assert.strictEqual(body.context, "verification");
+  assert.strictEqual(body.context, 'verification');
   assert.strictEqual(body.verified, true);
-  assert.strictEqual(body.status, "verification_pending");
+  assert.strictEqual(body.status, 'verification_pending');
   assert.strictEqual(body.rewarded, false);
-  assert.deepStrictEqual(calls[0][0], "verifyTaskAdvertisement");
+  assert.deepStrictEqual(calls[0][0], 'verifyTaskAdvertisement');
   assert.strictEqual(calls[0][1].adEventId, 17);
   assert.deepStrictEqual(calls[1], [
-    "finalize",
-    { attemptId: 99, idempotencyKey: "task:99" },
+    'finalize',
+    { attemptId: 99, idempotencyKey: 'task:99' },
   ]);
 
   await new Promise((resolve) => server.close(resolve));
@@ -125,7 +125,7 @@ async function run() {
   require.cache[providerPath].exports = originalProvider;
   require.cache[adEventPath].exports = originalAdEvent;
   require.cache[verificationPath].exports = originalVerification;
-  console.log("Task verification postback finalization test passed");
+  console.log('Task verification postback finalization test passed');
 }
 
 run().catch((error) => {

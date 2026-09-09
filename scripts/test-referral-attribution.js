@@ -1,7 +1,7 @@
-const assert = require("assert");
-const walletService = require("../src/services/wallet-service");
-const referralService = require("../src/services/referral-service");
-const { pool } = require("../src/db/pool");
+const assert = require('assert');
+const walletService = require('../src/services/wallet-service');
+const referralService = require('../src/services/referral-service');
+const { pool } = require('../src/db/pool');
 
 async function main() {
   const suffix = `${Date.now()}${Math.floor(Math.random() * 100)}`;
@@ -36,7 +36,7 @@ async function main() {
     Number(first.attribution.referred_user_id),
     Number(referred.id),
   );
-  assert.strictEqual(first.attribution.status, "pending");
+  assert.strictEqual(first.attribution.status, 'pending');
 
   const duplicate = await referralService.createAttribution({
     referrerUserId: referrer.id,
@@ -52,12 +52,12 @@ async function main() {
     /already attributed/,
   );
 
-  console.log("Referral attribution invariants: PASS");
+  console.log('Referral attribution invariants: PASS');
 }
 
 main()
   .catch((error) => {
-    console.error("Referral attribution invariants: FAIL");
+    console.error('Referral attribution invariants: FAIL');
     console.error(error);
     process.exitCode = 1;
   })

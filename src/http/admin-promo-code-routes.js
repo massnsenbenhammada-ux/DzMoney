@@ -1,7 +1,7 @@
-const express = require("express");
-const promoService = require("../services/promo-code-service");
-const { adminAuth } = require("./admin-auth");
-const { createRateLimit } = require("./rate-limit");
+const express = require('express');
+const promoService = require('../services/promo-code-service');
+const { adminAuth } = require('./admin-auth');
+const { createRateLimit } = require('./rate-limit');
 
 function createAdminPromoCodeRouter({ promo = promoService } = {}) {
   const router = express.Router();
@@ -11,14 +11,14 @@ function createAdminPromoCodeRouter({ promo = promoService } = {}) {
   router.use(createRateLimit({ windowMs: 60_000, max: 60 }));
 
   router.get(
-    "/",
+    '/',
     asyncRoute(async (_req, res) => {
       res.json({ ok: true, campaigns: await promo.listPromoCampaigns() });
     }),
   );
 
   router.post(
-    "/",
+    '/',
     asyncRoute(async (req, res) => {
       const result = await promo.createPromoCampaign(req.body || {});
       res.status(201).json({ ok: true, campaign: result });
@@ -26,7 +26,7 @@ function createAdminPromoCodeRouter({ promo = promoService } = {}) {
   );
 
   router.patch(
-    "/:id",
+    '/:id',
     asyncRoute(async (req, res) => {
       const result = await promo.updatePromoCampaign(
         Number(req.params.id),

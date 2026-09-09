@@ -1,9 +1,9 @@
-const fs = require("node:fs");
-const path = require("node:path");
+const fs = require('node:fs');
+const path = require('node:path');
 
 const BASELINE_DUPLICATES = new Set([
-  "npm run test:task-card-creator-scope",
-  "npm run test:creator-panel-scope",
+  'npm run test:task-card-creator-scope',
+  'npm run test:creator-panel-scope',
 ]);
 
 function parseTestAll(command) {
@@ -14,24 +14,24 @@ function parseTestAll(command) {
     .map((entry) => {
       const scriptMatch = entry.match(/^npm run (test:[^\s]+)$/);
       if (scriptMatch) {
-        return { type: "script", name: scriptMatch[1], command: entry };
+        return { type: 'script', name: scriptMatch[1], command: entry };
       }
 
       const fileMatch = entry.match(/^node (?:--test )?(\S+)$/);
       if (fileMatch) {
-        return { type: "file", path: fileMatch[1], command: entry };
+        return { type: 'file', path: fileMatch[1], command: entry };
       }
 
-      return { type: "unknown", command: entry };
+      return { type: 'unknown', command: entry };
     });
 }
 
 function validateTestAll(packageJson, root) {
-  const testAll = packageJson?.scripts?.["test:all"];
-  if (typeof testAll !== "string" || !testAll.trim()) {
+  const testAll = packageJson?.scripts?.['test:all'];
+  if (typeof testAll !== 'string' || !testAll.trim()) {
     return {
       entries: [],
-      errors: ["package.json must define a non-empty test:all script"],
+      errors: ['package.json must define a non-empty test:all script'],
     };
   }
 
@@ -42,10 +42,10 @@ function validateTestAll(packageJson, root) {
   const baselineSeen = new Set();
 
   for (const entry of entries) {
-    if (entry.type === "unknown") continue;
+    if (entry.type === 'unknown') continue;
 
     const key =
-      entry.type === "script" ? `script:${entry.name}` : `file:${entry.path}`;
+      entry.type === 'script' ? `script:${entry.name}` : `file:${entry.path}`;
     if (seen.has(key)) {
       if (
         BASELINE_DUPLICATES.has(entry.command) &&
@@ -58,12 +58,12 @@ function validateTestAll(packageJson, root) {
     }
     seen.add(key);
 
-    if (entry.type === "script") {
+    if (entry.type === 'script') {
       if (!scripts[entry.name]) {
         errors.push(`missing npm script referenced by test:all: ${entry.name}`);
       }
-      if (entry.name === "test:all") {
-        errors.push("test:all must not recursively invoke itself");
+      if (entry.name === 'test:all') {
+        errors.push('test:all must not recursively invoke itself');
       }
       continue;
     }
@@ -78,14 +78,14 @@ function validateTestAll(packageJson, root) {
 }
 
 function run() {
-  const root = path.resolve(__dirname, "..");
+  const root = path.resolve(__dirname, '..');
   const packageJson = JSON.parse(
-    fs.readFileSync(path.join(root, "package.json"), "utf8"),
+    fs.readFileSync(path.join(root, 'package.json'), 'utf8'),
   );
   const result = validateTestAll(packageJson, root);
 
   if (result.errors.length) {
-    console.error("Test Governance FAILED");
+    console.error('Test Governance FAILED');
     result.errors.forEach((error) => console.error(`- ${error}`));
     process.exitCode = 1;
     return;

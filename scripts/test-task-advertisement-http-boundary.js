@@ -1,31 +1,31 @@
-const assert = require("assert");
-const http = require("http");
-const express = require("express");
-const { createTaskRouter } = require("../src/http/task-routes");
+const assert = require('assert');
+const http = require('http');
+const express = require('express');
+const { createTaskRouter } = require('../src/http/task-routes');
 
 function request(app, method, path, body) {
   return new Promise((resolve, reject) => {
-    const server = app.listen(0, "127.0.0.1", () => {
+    const server = app.listen(0, '127.0.0.1', () => {
       const { port } = server.address();
       const payload = JSON.stringify(body || {});
       const req = http.request(
         {
-          hostname: "127.0.0.1",
+          hostname: '127.0.0.1',
           port,
           path,
           method,
           headers: {
-            "content-type": "application/json",
-            "content-length": Buffer.byteLength(payload),
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(payload),
           },
         },
         (res) => {
-          let data = "";
-          res.setEncoding("utf8");
-          res.on("data", (chunk) => {
+          let data = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => {
             data += chunk;
           });
-          res.on("end", () => {
+          res.on('end', () => {
             server.close();
             let parsed = null;
             try {
@@ -35,7 +35,7 @@ function request(app, method, path, body) {
           });
         },
       );
-      req.on("error", (error) => {
+      req.on('error', (error) => {
         server.close();
         reject(error);
       });
@@ -50,24 +50,24 @@ async function main() {
   app.use(express.json());
   const tasks = {
     startTaskAdvertisement: async (input) => {
-      calls.push(["start", input]);
+      calls.push(['start', input]);
       return {
-        adEvent: { id: 1, context: "task", verified: false },
-        providerId: "test-task-ad",
+        adEvent: { id: 1, context: 'task', verified: false },
+        providerId: 'test-task-ad',
         duplicate: false,
       };
     },
     finalizeTaskAdvertisement: async (input) => {
-      calls.push(["finalize", input]);
+      calls.push(['finalize', input]);
       return { rewarded: true, duplicate: false };
     },
   };
   const auth = (req, _res, next) => {
-    req.telegramUser = { id: 12345, username: "test-user" };
+    req.telegramUser = { id: 12345, username: 'test-user' };
     next();
   };
   app.use(
-    "/api/tasks",
+    '/api/tasks',
     createTaskRouter({
       advertisement: tasks,
       auth,
@@ -78,30 +78,30 @@ async function main() {
     res.status(500).json({ ok: false, error: error.message }),
   );
 
-  const start = await request(app, "POST", "/api/tasks/advertisement/start", {
+  const start = await request(app, 'POST', '/api/tasks/advertisement/start', {
     taskId: 42,
-    idempotencyKey: "task-ad-http-1",
+    idempotencyKey: 'task-ad-http-1',
   });
   assert.strictEqual(start.status, 200);
   assert.strictEqual(start.body.ok, true);
   assert.strictEqual(start.body.adEventId, 1);
-  assert.strictEqual(start.body.providerId, "test-task-ad");
+  assert.strictEqual(start.body.providerId, 'test-task-ad');
 
   const clientVerify = await request(
     app,
-    "POST",
-    "/api/tasks/advertisement/verify",
+    'POST',
+    '/api/tasks/advertisement/verify',
     {
       adEventId: 1,
-      providerPayload: { providerReference: "untrusted-client-input" },
+      providerPayload: { providerReference: 'untrusted-client-input' },
     },
   );
   assert.strictEqual(clientVerify.status, 404);
 
   const finalize = await request(
     app,
-    "POST",
-    "/api/tasks/advertisement/finalize",
+    'POST',
+    '/api/tasks/advertisement/finalize',
     { adEventId: 1 },
   );
   assert.strictEqual(finalize.status, 200);
@@ -109,16 +109,16 @@ async function main() {
 
   assert.deepStrictEqual(
     calls.map((call) => call[0]),
-    ["start", "finalize"],
+    ['start', 'finalize'],
   );
   assert.strictEqual(calls[0][1].userId, 77);
   assert.strictEqual(calls[1][1].userId, 77);
 
-  console.log("Task advertisement HTTP boundary invariants: PASS");
+  console.log('Task advertisement HTTP boundary invariants: PASS');
 }
 
 main().catch((error) => {
-  console.error("Task advertisement HTTP boundary invariants: FAIL");
+  console.error('Task advertisement HTTP boundary invariants: FAIL');
   console.error(error);
   process.exit(1);
 });

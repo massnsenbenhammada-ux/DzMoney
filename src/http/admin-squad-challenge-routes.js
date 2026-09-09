@@ -1,22 +1,22 @@
-const express = require("express");
-const { adminAuth } = require("./admin-auth");
-const { createRateLimit } = require("./rate-limit");
+const express = require('express');
+const { adminAuth } = require('./admin-auth');
+const { createRateLimit } = require('./rate-limit');
 const {
   createWeeklyChallenge,
   settleWeeklyChallenge,
   VALID_SCOPES,
-} = require("../services/squad-weekly-challenge-service");
+} = require('../services/squad-weekly-challenge-service');
 const {
   getSquadSettings,
   setSquadSetting,
-} = require("../services/admin-squad-service");
+} = require('../services/admin-squad-service');
 
 function createAdminSquadChallengeRouter() {
   const router = express.Router();
   router.use(adminAuth);
   router.use(createRateLimit({ windowMs: 60_000, max: 60 }));
 
-  router.get("/settings", async (_req, res, next) => {
+  router.get('/settings', async (_req, res, next) => {
     try {
       res.json({ ok: true, ...(await getSquadSettings()) });
     } catch (error) {
@@ -24,7 +24,7 @@ function createAdminSquadChallengeRouter() {
     }
   });
 
-  router.put("/settings/:key", async (req, res, next) => {
+  router.put('/settings/:key', async (req, res, next) => {
     try {
       const result = await setSquadSetting({
         key: req.params.key,
@@ -37,7 +37,7 @@ function createAdminSquadChallengeRouter() {
     }
   });
 
-  router.post("/challenges", async (req, res, next) => {
+  router.post('/challenges', async (req, res, next) => {
     try {
       const {
         squadId,
@@ -64,7 +64,7 @@ function createAdminSquadChallengeRouter() {
     }
   });
 
-  router.post("/challenges/:id/settle", async (req, res, next) => {
+  router.post('/challenges/:id/settle', async (req, res, next) => {
     try {
       const result = await settleWeeklyChallenge({
         challengeId: Number(req.params.id),
@@ -80,7 +80,7 @@ function createAdminSquadChallengeRouter() {
     }
   });
 
-  router.get("/challenges/scopes", (_req, res) =>
+  router.get('/challenges/scopes', (_req, res) =>
     res.json({ ok: true, scopes: VALID_SCOPES }),
   );
   return router;

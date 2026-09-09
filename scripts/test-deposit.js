@@ -1,48 +1,48 @@
-"use strict";
+'use strict';
 
-const assert = require("node:assert/strict");
-const http = require("node:http");
-const { query, withTransaction, pool } = require("../src/db/pool");
+const assert = require('node:assert/strict');
+const http = require('node:http');
+const { query, withTransaction, pool } = require('../src/db/pool');
 const {
   createUser,
   getUserWallets,
   ensureWallets,
-} = require("../src/services/wallet-service");
+} = require('../src/services/wallet-service');
 const {
   processDeposit,
   confirmDeposit,
   getDepositByTxHash,
-} = require("../src/services/deposit-service");
+} = require('../src/services/deposit-service');
 
-const MAINNET = "UQAaRNqn01vjTzDdSaN8LtsWpZRWkhRQZkXCNzfb3z0ZDeI0";
+const MAINNET = 'UQAaRNqn01vjTzDdSaN8LtsWpZRWkhRQZkXCNzfb3z0ZDeI0';
 const RAW_MAINNET =
-  "0:1a44daa7d35be34f30dd49a37c2edb16a594569214506645c23737dbdf3d190d";
+  '0:1a44daa7d35be34f30dd49a37c2edb16a594569214506645c23737dbdf3d190d';
 
 async function setSetting(key, value) {
-  await query("UPDATE admin_settings SET value=$1::jsonb WHERE key=$2", [
+  await query('UPDATE admin_settings SET value=$1::jsonb WHERE key=$2', [
     JSON.stringify(value),
     key,
   ]);
 }
 function makeHash(seed) {
-  return seed.padEnd(64, "0").slice(0, 64);
+  return seed.padEnd(64, '0').slice(0, 64);
 }
 function expectedNanoFor(hash) {
-  if (hash.startsWith("3")) return "10000000";
-  if (hash.startsWith("6")) return "50000000";
-  return "100000000";
+  if (hash.startsWith('3')) return '10000000';
+  if (hash.startsWith('6')) return '50000000';
+  return '100000000';
 }
 function startProvider() {
   const server = http.createServer((req, res) => {
-    const url = new URL(req.url, "http://127.0.0.1");
+    const url = new URL(req.url, 'http://127.0.0.1');
     const hash = (
-      url.searchParams.get("hash") ||
-      url.searchParams.get("tx_hash") ||
-      makeHash("a")
+      url.searchParams.get('hash') ||
+      url.searchParams.get('tx_hash') ||
+      makeHash('a')
     ).toLowerCase();
     const value = expectedNanoFor(hash);
     let payload;
-    if (url.pathname.endsWith("/transactions")) {
+    if (url.pathname.endsWith('/transactions')) {
       payload = {
         transactions: [
           {
@@ -54,22 +54,22 @@ function startProvider() {
           },
         ],
       };
-    } else if (url.pathname.endsWith("/traces")) {
+    } else if (url.pathname.endsWith('/traces')) {
       payload = {
         traces: [{ tx_hash: hash, mc_seqno_end: 123, is_incomplete: false }],
       };
-    } else if (url.pathname.endsWith("/masterchainInfo")) {
+    } else if (url.pathname.endsWith('/masterchainInfo')) {
       payload = { first: { seqno: 0 }, last: { seqno: 130 } };
     } else {
-      res.writeHead(404, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "not found" }));
+      res.writeHead(404, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'not found' }));
       return;
     }
-    res.writeHead(200, { "content-type": "application/json" });
+    res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify(payload));
   });
   return new Promise((resolve) =>
-    server.listen(0, "127.0.0.1", () => resolve(server)),
+    server.listen(0, '127.0.0.1', () => resolve(server)),
   );
 }
 
@@ -89,26 +89,26 @@ async function main() {
     for (const row of settings.rows) originals[row.key] = row.value;
     provider = await startProvider();
     process.env.TONCENTER_API_BASE_URL = `http://127.0.0.1:${provider.address().port}/api/v3`;
-    await setSetting("deposit.ton.active_network", "mainnet");
-    await setSetting("deposit.ton.mainnet_address", {
+    await setSetting('deposit.ton.active_network', 'mainnet');
+    await setSetting('deposit.ton.mainnet_address', {
       address: MAINNET,
-      network: "mainnet",
+      network: 'mainnet',
     });
 
     user = await createUser({
       telegramUserId,
       username: marker,
-      firstName: "Server TON Deposit Test",
+      firstName: 'Server TON Deposit Test',
     });
     assert.equal(
       Number(
-        (await getUserWallets(user.id)).find((w) => w.currency === "DZX")
+        (await getUserWallets(user.id)).find((w) => w.currency === 'DZX')
           .balance,
       ),
       0,
     );
 
-    const validHash = makeHash("1");
+    const validHash = makeHash('1');
     await assert.rejects(
       () =>
         processDeposit({
@@ -128,7 +128,7 @@ async function main() {
       tonAmount: 0.1,
       confirmationCount: 0,
     });
-    assert.equal(fractional.deposit.status, "PENDING");
+    assert.equal(fractional.deposit.status, 'PENDING');
     assert.equal(
       (await confirmDeposit({ idempotencyKey: `${marker}:fractional` }))
         .credited,
@@ -136,7 +136,7 @@ async function main() {
     );
     assert.equal(
       Number(
-        (await getUserWallets(user.id)).find((w) => w.currency === "DZX")
+        (await getUserWallets(user.id)).find((w) => w.currency === 'DZX')
           .balance,
       ),
       1000,
@@ -162,7 +162,7 @@ async function main() {
     await processDeposit({
       idempotencyKey: reuseKey,
       userId: user.id,
-      txHash: makeHash("2"),
+      txHash: makeHash('2'),
       tonAmount: 0.1,
       confirmationCount: 0,
     });
@@ -171,19 +171,19 @@ async function main() {
         processDeposit({
           idempotencyKey: reuseKey,
           userId: user.id,
-          txHash: makeHash("2"),
+          txHash: makeHash('2'),
           tonAmount: 0.2,
           confirmationCount: 0,
         }),
       /Idempotency key was already used with different deposit data/,
     );
 
-    await setSetting("deposit.pending_timeout_hours", 24);
+    await setSetting('deposit.pending_timeout_hours', 24);
     const staleKey = `${marker}:stale`;
     await processDeposit({
       idempotencyKey: staleKey,
       userId: user.id,
-      txHash: makeHash("3"),
+      txHash: makeHash('3'),
       tonAmount: 0.01,
       confirmationCount: 0,
     });
@@ -195,7 +195,7 @@ async function main() {
       idempotencyKey: staleKey,
     });
     assert.equal(staleConfirmation.expired, true);
-    assert.equal(staleConfirmation.deposit.status, "REJECTED");
+    assert.equal(staleConfirmation.deposit.status, 'REJECTED');
     assert.equal(staleConfirmation.credited, false);
 
     // Use a fresh user for the quota race so the user's prior successful deposit
@@ -203,12 +203,12 @@ async function main() {
     concurrencyUser = await createUser({
       telegramUserId: telegramUserId - 2,
       username: `${marker}:concurrency-user`,
-      firstName: "Concurrency Test",
+      firstName: 'Concurrency Test',
     });
-    await setSetting("deposit.daily_limit_ton", 0.15);
+    await setSetting('deposit.daily_limit_ton', 0.15);
     const concurrent = [
-      { key: `${marker}:concurrent-a`, hash: makeHash("4") },
-      { key: `${marker}:concurrent-b`, hash: makeHash("5") },
+      { key: `${marker}:concurrent-a`, hash: makeHash('4') },
+      { key: `${marker}:concurrent-b`, hash: makeHash('5') },
     ];
     for (const item of concurrent)
       await processDeposit({
@@ -222,25 +222,25 @@ async function main() {
       concurrent.map((item) => confirmDeposit({ idempotencyKey: item.key })),
     );
     assert.equal(
-      concurrentResults.filter((r) => r.status === "fulfilled").length,
+      concurrentResults.filter((r) => r.status === 'fulfilled').length,
       1,
     );
     assert.equal(
-      concurrentResults.filter((r) => r.status === "rejected").length,
+      concurrentResults.filter((r) => r.status === 'rejected').length,
       1,
     );
 
-    await setSetting("deposit.daily_limit_ton", 10);
+    await setSetting('deposit.daily_limit_ton', 10);
     rollbackUser = await createUser({
       telegramUserId: rollbackTelegramUserId,
       username: `${marker}:rollback-user`,
-      firstName: "Rollback Test",
+      firstName: 'Rollback Test',
     });
     const rollbackKey = `${marker}:rollback`;
     await processDeposit({
       idempotencyKey: rollbackKey,
       userId: rollbackUser.id,
-      txHash: makeHash("6"),
+      txHash: makeHash('6'),
       tonAmount: 0.05,
       confirmationCount: 0,
     });
@@ -253,10 +253,10 @@ async function main() {
       /Wallet not found|wallet|provision/i,
     );
     const rollbackDeposit = await query(
-      "SELECT status FROM deposits WHERE idempotency_key=$1",
+      'SELECT status FROM deposits WHERE idempotency_key=$1',
       [rollbackKey],
     );
-    assert.equal(rollbackDeposit.rows[0].status, "PENDING");
+    assert.equal(rollbackDeposit.rows[0].status, 'PENDING');
     await withTransaction((client) => ensureWallets(client, rollbackUser.id));
 
     const ledger = await query(
@@ -280,17 +280,17 @@ async function main() {
       Number(ledger.rows[0].count),
       Number(confirmedDeposits.rows[0].count),
     );
-    assert.equal((await getDepositByTxHash(validHash)).status, "CONFIRMED");
+    assert.equal((await getDepositByTxHash(validHash)).status, 'CONFIRMED');
 
-    console.log("Server-side TON deposit evidence gate: PASS");
-    console.log("  ✓ caller confirmation bypass blocked");
-    console.log("  ✓ active network and destination sourced server-side");
-    console.log("  ✓ finalized blockchain evidence required before credit");
-    console.log("  ✓ duplicate TX and idempotency protection");
-    console.log("  ✓ pending timeout and daily limit");
-    console.log("  ✓ economy rollback and ledger audit");
+    console.log('Server-side TON deposit evidence gate: PASS');
+    console.log('  ✓ caller confirmation bypass blocked');
+    console.log('  ✓ active network and destination sourced server-side');
+    console.log('  ✓ finalized blockchain evidence required before credit');
+    console.log('  ✓ duplicate TX and idempotency protection');
+    console.log('  ✓ pending timeout and daily limit');
+    console.log('  ✓ economy rollback and ledger audit');
   } catch (error) {
-    console.error("Server-side TON deposit evidence gate: FAIL");
+    console.error('Server-side TON deposit evidence gate: FAIL');
     throw error;
   } finally {
     if (provider) await new Promise((resolve) => provider.close(resolve));
@@ -301,17 +301,17 @@ async function main() {
     ].filter(Boolean);
     if (testUserIds.length) {
       await query(
-        "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[]))",
+        'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[]))',
         [testUserIds],
       );
       await query(
-        "DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])",
+        'DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])',
         [testUserIds],
       );
-      await query("DELETE FROM deposits WHERE user_id = ANY($1::bigint[])", [
+      await query('DELETE FROM deposits WHERE user_id = ANY($1::bigint[])', [
         testUserIds,
       ]);
-      await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
+      await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [
         testUserIds,
       ]);
     }

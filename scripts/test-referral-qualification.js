@@ -1,7 +1,7 @@
-const assert = require("assert");
-const walletService = require("../src/services/wallet-service");
-const referralService = require("../src/services/referral-service");
-const { pool } = require("../src/db/pool");
+const assert = require('assert');
+const walletService = require('../src/services/wallet-service');
+const referralService = require('../src/services/referral-service');
+const { pool } = require('../src/db/pool');
 
 async function createAttributionPair() {
   const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
@@ -31,13 +31,13 @@ async function main() {
 
   const qualified = await referralService.qualifyReferral({
     referredUserId: referred.id,
-    source: "task",
+    source: 'task',
     referenceId: attempt.rows[0].id,
     idempotencyKey: `qualification-${Date.now()}`,
   });
   assert.strictEqual(qualified.duplicate, false);
-  assert.strictEqual(qualified.attribution.status, "qualified");
-  assert.strictEqual(qualified.attribution.qualification_source, "task");
+  assert.strictEqual(qualified.attribution.status, 'qualified');
+  assert.strictEqual(qualified.attribution.qualification_source, 'task');
   assert.strictEqual(
     String(qualified.attribution.qualification_reference_id),
     String(attempt.rows[0].id),
@@ -49,7 +49,7 @@ async function main() {
 
   const duplicate = await referralService.qualifyReferral({
     referredUserId: referred.id,
-    source: "task",
+    source: 'task',
     referenceId: attempt.rows[0].id,
     idempotencyKey: `qualification-duplicate-${Date.now()}`,
   });
@@ -61,7 +61,7 @@ async function main() {
   await assert.rejects(
     referralService.qualifyReferral({
       referredUserId: unlinkedUser.id,
-      source: "task",
+      source: 'task',
       referenceId: attempt.rows[0].id,
       idempotencyKey: `qualification-unlinked-user-${Date.now()}`,
     }),
@@ -76,7 +76,7 @@ async function main() {
   await assert.rejects(
     referralService.qualifyReferral({
       referredUserId: adPair.referred.id,
-      source: "advertisement",
+      source: 'advertisement',
       referenceId: unverifiedAd.rows[0].id,
       idempotencyKey: `qualification-ad-invalid-${Date.now()}`,
     }),
@@ -91,7 +91,7 @@ async function main() {
   await assert.rejects(
     referralService.qualifyReferral({
       referredUserId: adPair.referred.id,
-      source: "advertisement",
+      source: 'advertisement',
       referenceId: verificationAd.rows[0].id,
       idempotencyKey: `qualification-verification-invalid-${Date.now()}`,
     }),
@@ -106,13 +106,13 @@ async function main() {
   const results = await Promise.all([
     referralService.qualifyReferral({
       referredUserId: adPair.referred.id,
-      source: "advertisement",
+      source: 'advertisement',
       referenceId: verifiedAd.rows[0].id,
       idempotencyKey: `qualification-ad-race-a-${Date.now()}`,
     }),
     referralService.qualifyReferral({
       referredUserId: adPair.referred.id,
-      source: "advertisement",
+      source: 'advertisement',
       referenceId: verifiedAd.rows[0].id,
       idempotencyKey: `qualification-ad-race-b-${Date.now()}`,
     }),
@@ -125,15 +125,15 @@ async function main() {
     results.filter((result) => result.duplicate === true).length,
     1,
   );
-  assert.strictEqual(results[0].attribution.status, "qualified");
-  assert.strictEqual(results[1].attribution.status, "qualified");
+  assert.strictEqual(results[0].attribution.status, 'qualified');
+  assert.strictEqual(results[1].attribution.status, 'qualified');
 
-  console.log("Referral qualification invariants: PASS");
+  console.log('Referral qualification invariants: PASS');
 }
 
 main()
   .catch((error) => {
-    console.error("Referral qualification invariants: FAIL");
+    console.error('Referral qualification invariants: FAIL');
     console.error(error);
     process.exitCode = 1;
   })

@@ -1,24 +1,24 @@
-const express = require("express");
-const walletService = require("../services/wallet-service");
-const taskService = require("../services/task-service");
-const { telegramAuth } = require("./telegram-auth");
+const express = require('express');
+const walletService = require('../services/wallet-service');
+const taskService = require('../services/task-service');
+const { telegramAuth } = require('./telegram-auth');
 const {
   createStrictObjectValidator,
   createValidationMiddleware,
-} = require("./input-validation");
-const { createRateLimit } = require("./rate-limit");
+} = require('./input-validation');
+const { createRateLimit } = require('./rate-limit');
 const {
   CREATOR_TASK_TYPES,
   CREATOR_VERIFICATION_METHODS,
   getCreatorProviderContracts,
   validateCreatorProviderConfiguration,
-} = require("../services/task-verification-config");
+} = require('../services/task-verification-config');
 
 const CREATOR_MIN_TARGET = 1000;
 const CREATOR_TARGET_STEP = 1;
 
 const isNonEmptyString = (value) =>
-  typeof value === "string" && value.trim().length > 0;
+  typeof value === 'string' && value.trim().length > 0;
 const isCreatorTaskType = (value) => CREATOR_TASK_TYPES.includes(value);
 const isValidTarget = (value) =>
   Number.isInteger(value) && value >= CREATOR_MIN_TARGET;
@@ -29,11 +29,11 @@ const isOptionalNonNegativeInteger = (value) =>
 const isCreatorConfig = (value) =>
   Boolean(
     value &&
-    typeof value === "object" &&
+    typeof value === 'object' &&
     !Array.isArray(value) &&
     isNonEmptyString(value.campaignUrl) &&
     value.verification &&
-    typeof value.verification === "object" &&
+    typeof value.verification === 'object' &&
     isNonEmptyString(value.verification.method),
   );
 
@@ -42,7 +42,7 @@ const validateCreatorTaskBody = createStrictObjectValidator({
   title: isNonEmptyString,
   description: {
     validate: (value) =>
-      value === undefined || value === null || typeof value === "string",
+      value === undefined || value === null || typeof value === 'string',
   },
   target: isValidTarget,
   rewardCoin: { validate: isOptionalNonNegativeInteger },
@@ -55,7 +55,7 @@ const validateCreatorTaskBody = createStrictObjectValidator({
 
 function requireTaskType(taskType) {
   if (!CREATOR_TASK_TYPES.includes(taskType)) {
-    const error = new Error("Invalid creator task type");
+    const error = new Error('Invalid creator task type');
     error.statusCode = 400;
     throw error;
   }
@@ -100,14 +100,14 @@ function createCreatorTaskRouter({
   router.use(createRateLimit({ windowMs: 60_000, max: 60 }));
 
   router.get(
-    "/contracts/:taskType",
+    '/contracts/:taskType',
     asyncRoute(async (req, res) => {
       res.json(await contractFor(tasks, req.params.taskType));
     }),
   );
 
   router.post(
-    "/",
+    '/',
     createRateLimit({ windowMs: 60_000, max: 10 }),
     createValidationMiddleware(validateCreatorTaskBody),
     asyncRoute(async (req, res) => {
@@ -134,30 +134,28 @@ function createCreatorTaskRouter({
         config,
         idempotencyKey,
       });
-      res
-        .status(201)
-        .json({
-          ok: true,
-          task: result.task,
-          campaign: {
-            appliedPriceDZX: result.appliedPriceDZX,
-            campaignCostDZX: result.campaignCostDZX,
-            duplicate: result.duplicate,
-          },
-          contract: await contractFor(tasks, taskType),
-        });
+      res.status(201).json({
+        ok: true,
+        task: result.task,
+        campaign: {
+          appliedPriceDZX: result.appliedPriceDZX,
+          campaignCostDZX: result.campaignCostDZX,
+          duplicate: result.duplicate,
+        },
+        contract: await contractFor(tasks, taskType),
+      });
     }),
   );
 
   router.post(
-    "/:taskId/submit",
+    '/:taskId/submit',
     createRateLimit({ windowMs: 60_000, max: 10 }),
     asyncRoute(async (req, res) => {
       const taskId = Number(req.params.taskId);
       if (!Number.isInteger(taskId) || taskId <= 0)
         return res
           .status(400)
-          .json({ ok: false, error: "taskId must be a positive integer" });
+          .json({ ok: false, error: 'taskId must be a positive integer' });
       const user = await wallet.createUser({
         telegramUserId: String(req.telegramUser.id),
         username: req.telegramUser.username || null,

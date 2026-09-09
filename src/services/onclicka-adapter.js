@@ -2,24 +2,24 @@ const {
   ONCLICKA_SPOT_ID,
   ONCLICKA_ENABLED,
   ONCLICKA_CONTEXTS,
-} = require("../config/onclicka");
+} = require('../config/onclicka');
 
-const ONCLICKA_PROVIDER_ID = "onclicka";
+const ONCLICKA_PROVIDER_ID = 'onclicka';
 const ONCLICKA_SCRIPT_URL =
-  "https://js.onclckvd.com/in-stream-ad-admanager/tma.js";
+  'https://js.onclckvd.com/in-stream-ad-admanager/tma.js';
 
 function requiredUserId(value) {
-  if (value === undefined || value === null || value === "")
-    throw new Error("USERID is required");
+  if (value === undefined || value === null || value === '')
+    throw new Error('USERID is required');
   return String(value);
 }
 
 function verifyPostbackPayload(payload, spotId) {
   const userId = requiredUserId(payload.USERID ?? payload.userId);
   if (!payload.confirmedByPostback)
-    throw new Error("Authenticated OnClickA postback is required");
+    throw new Error('Authenticated OnClickA postback is required');
   if (payload.spot_id && String(payload.spot_id) !== spotId)
-    throw new Error("Spot ID mismatch");
+    throw new Error('Spot ID mismatch');
   return {
     verified: true,
     reference: `onclicka:${spotId}:${userId}`,
@@ -49,7 +49,7 @@ function createOnclickaProvider(options = {}) {
         reference,
         userId: String(payload.USERID ?? payload.userId),
         providerId: ONCLICKA_PROVIDER_ID,
-        context: "task",
+        context: 'task',
       };
     },
   };

@@ -1,9 +1,9 @@
 (() => {
   const config = window.__DzMoneyAdProviderConfig?.providers?.gigapub;
-  if (!config || config.id !== "gigapub") return;
+  if (!config || config.id !== 'gigapub') return;
 
   const tg = window.Telegram?.WebApp;
-  const script = document.createElement("script");
+  const script = document.createElement('script');
   let fallbackTimer;
   let fallbackStarted = false;
   let settled = false;
@@ -24,12 +24,12 @@
     const startFallback = () => {
       if (settled || fallbackStarted) return;
       fallbackStarted = true;
-      const fallback = document.createElement("script");
+      const fallback = document.createElement('script');
       fallback.src = `https://ru-ad.gigapub.tech/script?id=${encodeURIComponent(config.projectId)}`;
       fallback.async = true;
       fallback.onload = finish(resolve);
       fallback.onerror = finish(() =>
-        reject(new Error("GigaPub SDK failed to load")),
+        reject(new Error('GigaPub SDK failed to load')),
       );
       document.head.appendChild(fallback);
     };
@@ -45,27 +45,27 @@
   document.head.appendChild(script);
 
   window.DzMoneyGamingAd = {
-    provider: "gigapub",
+    provider: 'gigapub',
     ready: loaded,
     handler: async (payload) => {
-      if (!payload?.adEventId) throw new Error("GigaPub ad event is required");
+      if (!payload?.adEventId) throw new Error('GigaPub ad event is required');
       await loaded;
-      if (typeof window.showGiga !== "function")
-        throw new Error("GigaPub showGiga is unavailable");
+      if (typeof window.showGiga !== 'function')
+        throw new Error('GigaPub showGiga is unavailable');
       await withTimeout(
         Promise.resolve().then(() => window.showGiga()),
-        "GigaPub advertisement display timed out",
+        'GigaPub advertisement display timed out',
       );
-      const headers = { "Content-Type": "application/json" };
-      if (tg?.initData) headers["X-Telegram-Init-Data"] = tg.initData;
-      const response = await fetch("/api/gaming/ads/complete", {
-        method: "POST",
+      const headers = { 'Content-Type': 'application/json' };
+      if (tg?.initData) headers['X-Telegram-Init-Data'] = tg.initData;
+      const response = await fetch('/api/gaming/ads/complete', {
+        method: 'POST',
         headers,
         body: JSON.stringify({ adEventId: payload.adEventId }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok)
-        throw new Error(data.error || "GigaPub reward could not be credited");
+        throw new Error(data.error || 'GigaPub reward could not be credited');
       return data;
     },
   };

@@ -1,21 +1,21 @@
-const { withTransaction, query } = require("../db/pool");
+const { withTransaction, query } = require('../db/pool');
 
 const ACTION_STATUS = Object.freeze({
-  suspend: "suspended",
-  ban: "banned",
-  activate: "active",
+  suspend: 'suspended',
+  ban: 'banned',
+  activate: 'active',
 });
 
 function requireReason(reason) {
-  const value = String(reason || "").trim();
-  if (!value) throw new Error("reason is required");
-  if (value.length > 500) throw new Error("reason is too long");
+  const value = String(reason || '').trim();
+  if (!value) throw new Error('reason is required');
+  if (value.length > 500) throw new Error('reason is too long');
   return value;
 }
 
 function requireAction(action) {
   if (!Object.prototype.hasOwnProperty.call(ACTION_STATUS, action))
-    throw new Error("Unsupported enforcement action");
+    throw new Error('Unsupported enforcement action');
   return action;
 }
 
@@ -27,7 +27,7 @@ async function getEnforcementState(userId) {
      WHERE u.id = $1`,
     [userId],
   );
-  if (!result.rowCount) throw new Error("User not found");
+  if (!result.rowCount) throw new Error('User not found');
   const row = result.rows[0];
   return {
     accountStatus: row.account_status,
@@ -46,41 +46,41 @@ async function setAccountStatus({
 }) {
   const normalizedAction = requireAction(action);
   const normalizedReason = requireReason(reason);
-  const key = String(idempotencyKey || "").trim();
-  if (!key) throw new Error("idempotencyKey is required");
-  if (key.length > 200) throw new Error("idempotencyKey is too long");
-  if (!actorTelegramUserId) throw new Error("actorTelegramUserId is required");
+  const key = String(idempotencyKey || '').trim();
+  if (!key) throw new Error('idempotencyKey is required');
+  if (key.length > 200) throw new Error('idempotencyKey is too long');
+  if (!actorTelegramUserId) throw new Error('actorTelegramUserId is required');
   return withTransaction(async (client) => {
     const user = await client.query(
-      "SELECT id, account_status FROM users WHERE id = $1 FOR UPDATE",
+      'SELECT id, account_status FROM users WHERE id = $1 FOR UPDATE',
       [userId],
     );
-    if (!user.rowCount) throw new Error("User not found");
+    if (!user.rowCount) throw new Error('User not found');
     const targetStatus = ACTION_STATUS[normalizedAction];
     const existing = await client.query(
-      "SELECT response FROM idempotency_records WHERE key = $1 FOR SHARE",
+      'SELECT response FROM idempotency_records WHERE key = $1 FOR SHARE',
       [`admin-account-status:${key}`],
     );
     if (existing.rowCount)
       return { ...(existing.rows[0].response || {}), duplicate: true };
 
     const membership = await client.query(
-      "SELECT id, status FROM squad_memberships WHERE user_id = $1 FOR UPDATE",
+      'SELECT id, status FROM squad_memberships WHERE user_id = $1 FOR UPDATE',
       [userId],
     );
     const membershipStatus =
-      normalizedAction === "ban"
-        ? "cancelled"
-        : normalizedAction === "suspend"
-          ? "suspended"
-          : "active";
+      normalizedAction === 'ban'
+        ? 'cancelled'
+        : normalizedAction === 'suspend'
+          ? 'suspended'
+          : 'active';
     await client.query(
-      "UPDATE users SET account_status = $1, updated_at = NOW() WHERE id = $2",
+      'UPDATE users SET account_status = $1, updated_at = NOW() WHERE id = $2',
       [targetStatus, userId],
     );
     if (membership.rowCount)
       await client.query(
-        "UPDATE squad_memberships SET status = $1 WHERE id = $2",
+        'UPDATE squad_memberships SET status = $1 WHERE id = $2',
         [membershipStatus, membership.rows[0].id],
       );
     const audit = {
@@ -100,7 +100,7 @@ async function setAccountStatus({
       userId: String(userId),
     };
     await client.query(
-      "INSERT INTO idempotency_records(key, response) VALUES ($1, $2::jsonb)",
+      'INSERT INTO idempotency_records(key, response) VALUES ($1, $2::jsonb)',
       [`admin-account-status:${key}`, JSON.stringify(response)],
     );
     await client.query(

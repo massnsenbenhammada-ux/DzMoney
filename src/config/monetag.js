@@ -1,10 +1,10 @@
-const MONETAG_ZONE_ID = "11627577";
-const MONETAG_CONTEXT = "daily_checkin";
-const MONETAG_VERIFICATION_CONTEXT = "verification";
-const MONETAG_TASK_CONTEXT = "task";
-const MONETAG_GAMING_CONTEXT = "gaming";
-const MONETAG_SQUAD_CONTEXT = "squad";
-const MONETAG_PROMO_CONTEXT = "promo";
+const MONETAG_ZONE_ID = '11627577';
+const MONETAG_CONTEXT = 'daily_checkin';
+const MONETAG_VERIFICATION_CONTEXT = 'verification';
+const MONETAG_TASK_CONTEXT = 'task';
+const MONETAG_GAMING_CONTEXT = 'gaming';
+const MONETAG_SQUAD_CONTEXT = 'squad';
+const MONETAG_PROMO_CONTEXT = 'promo';
 
 module.exports = {
   MONETAG_ZONE_ID,

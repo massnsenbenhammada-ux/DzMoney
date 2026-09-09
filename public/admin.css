@@ -4,7 +4,7 @@
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
-    "Segoe UI",
+    'Segoe UI',
     sans-serif;
   color: #eef7f4;
   background: #07110f;
@@ -383,7 +383,7 @@ body {
   color: #7fc9ae;
   font-size: 11px;
 }
-.settings-state[data-state="error"] {
+.settings-state[data-state='error'] {
   color: #ffb0b0;
 }
 .users-toolbar {

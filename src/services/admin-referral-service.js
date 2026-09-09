@@ -1,24 +1,24 @@
-const { query, withTransaction } = require("../db/pool");
+const { query, withTransaction } = require('../db/pool');
 
 const REFERRAL_SETTING_KEYS = new Set([
-  "referral.reward_coin",
-  "referral.reward_dzx",
-  "referral.reward_dzp",
-  "referral.lifetime_percent",
+  'referral.reward_coin',
+  'referral.reward_dzx',
+  'referral.reward_dzp',
+  'referral.lifetime_percent',
 ]);
 
 function normalizeSettingValue(key, value) {
-  if (typeof value === "boolean" || value === null || value === undefined)
-    throw new Error("Referral setting value is invalid");
+  if (typeof value === 'boolean' || value === null || value === undefined)
+    throw new Error('Referral setting value is invalid');
   const text = String(value).trim();
   if (!/^(?:\d+(?:\.\d+)?|\.\d+)$/.test(text) || !Number.isFinite(Number(text)))
-    throw new Error("Referral setting value is invalid");
+    throw new Error('Referral setting value is invalid');
   if (Number(text) < 0)
-    throw new Error("Referral setting value must be non-negative");
-  if (key === "referral.lifetime_percent" && Number(text) > 100)
-    throw new Error("Lifetime percentage must not exceed 100");
-  if (text.replace(/^0+/, "").replace(".", "").length > 21)
-    throw new Error("Referral setting exceeds supported precision");
+    throw new Error('Referral setting value must be non-negative');
+  if (key === 'referral.lifetime_percent' && Number(text) > 100)
+    throw new Error('Lifetime percentage must not exceed 100');
+  if (text.replace(/^0+/, '').replace('.', '').length > 21)
+    throw new Error('Referral setting exceeds supported precision');
   return Number(text);
 }
 
@@ -33,17 +33,17 @@ async function getReferralSettings() {
 
 async function setReferralSetting({ key, value, actorTelegramUserId }) {
   if (!REFERRAL_SETTING_KEYS.has(key))
-    throw new Error("Unsupported referral setting");
-  if (!actorTelegramUserId) throw new Error("Admin actor is required");
+    throw new Error('Unsupported referral setting');
+  if (!actorTelegramUserId) throw new Error('Admin actor is required');
   const normalized = normalizeSettingValue(key, value);
 
   return withTransaction(async (client) => {
     const current = await client.query(
-      "SELECT value FROM admin_settings WHERE key = $1 FOR UPDATE",
+      'SELECT value FROM admin_settings WHERE key = $1 FOR UPDATE',
       [key],
     );
     if (!current.rowCount)
-      throw new Error("Referral setting is not initialized");
+      throw new Error('Referral setting is not initialized');
     const oldValue = current.rows[0].value;
     if (String(oldValue) === String(normalized))
       return { key, value: oldValue, changed: false };

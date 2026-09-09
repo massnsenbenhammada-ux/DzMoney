@@ -1,15 +1,15 @@
-const assert = require("assert");
-const { pool, withTransaction } = require("../src/db/pool");
-const { AdProviderRegistry } = require("../src/services/ad-provider-service");
+const assert = require('assert');
+const { pool, withTransaction } = require('../src/db/pool');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 const {
   startTaskAdvertisement,
   verifyTrustedTaskAdvertisement,
   finalizeTaskAdvertisement,
-} = require("../src/services/task-advertisement-service");
+} = require('../src/services/task-advertisement-service');
 
 function makeProvider(
   id,
-  contexts = ["task"],
+  contexts = ['task'],
   { reportedProviderId = id } = {},
 ) {
   return {
@@ -18,7 +18,7 @@ function makeProvider(
     enabled: true,
     async verifyCompletion() {
       throw new Error(
-        "client verification must never be used for task advertisements",
+        'client verification must never be used for task advertisements',
       );
     },
     async verifyServerCompletion(payload) {
@@ -28,20 +28,20 @@ function makeProvider(
             reference: payload.reference,
             userId: payload.userId,
             providerId: reportedProviderId,
-            context: payload.context || "task",
+            context: payload.context || 'task',
           }
-        : { verified: false, reference: payload?.reference || "rejected" };
+        : { verified: false, reference: payload?.reference || 'rejected' };
     },
   };
 }
 
-const provider = makeProvider("edge-task-provider");
-const otherProvider = makeProvider("other-task-provider");
+const provider = makeProvider('edge-task-provider');
+const otherProvider = makeProvider('other-task-provider');
 const mismatchedIdentityProvider = makeProvider(
-  "mismatched-task-provider",
-  ["task"],
+  'mismatched-task-provider',
+  ['task'],
   {
-    reportedProviderId: "unexpected-provider",
+    reportedProviderId: 'unexpected-provider',
   },
 );
 const registry = new AdProviderRegistry([
@@ -52,15 +52,15 @@ const registry = new AdProviderRegistry([
 
 async function createUser(marker) {
   const result = await pool.query(
-    "INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id, telegram_user_id",
-    [String(marker), `edge_${marker}`, "Edge Test"],
+    'INSERT INTO users (telegram_user_id, username, first_name) VALUES ($1,$2,$3) RETURNING id, telegram_user_id',
+    [String(marker), `edge_${marker}`, 'Edge Test'],
   );
   const userId = result.rows[0].id;
   const telegramUserId = result.rows[0].telegram_user_id;
   await withTransaction(async (client) => {
-    for (const currency of ["COIN", "DZX", "DZP"]) {
+    for (const currency of ['COIN', 'DZX', 'DZP']) {
       await client.query(
-        "INSERT INTO wallet_accounts (user_id, currency) VALUES ($1,$2) ON CONFLICT (user_id,currency) DO NOTHING",
+        'INSERT INTO wallet_accounts (user_id, currency) VALUES ($1,$2) ON CONFLICT (user_id,currency) DO NOTHING',
         [userId, currency],
       );
     }
@@ -83,29 +83,29 @@ async function cleanup(userIds, taskIds) {
   await withTransaction(async (client) => {
     for (const userId of userIds) {
       await client.query(
-        "DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)",
+        'DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)',
         [userId],
       );
-      await client.query("DELETE FROM ledger_transactions WHERE user_id=$1", [
+      await client.query('DELETE FROM ledger_transactions WHERE user_id=$1', [
         userId,
       ]);
-      await client.query("DELETE FROM activity_ad_events WHERE user_id=$1", [
+      await client.query('DELETE FROM activity_ad_events WHERE user_id=$1', [
         userId,
       ]);
       await client.query(
-        "DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)",
+        'DELETE FROM task_verification_gates WHERE attempt_id IN (SELECT id FROM task_attempts WHERE user_id=$1)',
         [userId],
       );
-      await client.query("DELETE FROM task_attempts WHERE user_id=$1", [
+      await client.query('DELETE FROM task_attempts WHERE user_id=$1', [
         userId,
       ]);
-      await client.query("DELETE FROM wallet_accounts WHERE user_id=$1", [
+      await client.query('DELETE FROM wallet_accounts WHERE user_id=$1', [
         userId,
       ]);
-      await client.query("DELETE FROM users WHERE id=$1", [userId]);
+      await client.query('DELETE FROM users WHERE id=$1', [userId]);
     }
     for (const taskId of taskIds) {
-      await client.query("DELETE FROM activity_tasks WHERE id=$1", [taskId]);
+      await client.query('DELETE FROM activity_tasks WHERE id=$1', [taskId]);
     }
   });
 }
@@ -113,8 +113,8 @@ async function cleanup(userIds, taskIds) {
 async function main() {
   const userA = await createUser(`${Date.now()}1`);
   const userB = await createUser(`${Date.now()}2`);
-  const taskA = await createTask("Task advertisement edge A");
-  const taskB = await createTask("Task advertisement edge B");
+  const taskA = await createTask('Task advertisement edge A');
+  const taskB = await createTask('Task advertisement edge B');
   const sharedKey = `edge-shared-${Date.now()}`;
 
   try {
@@ -122,14 +122,14 @@ async function main() {
       userId: userA.userId,
       taskId: taskA,
       idempotencyKey: sharedKey,
-      providerId: "attacker-provider",
-      externalAdId: "attacker-reference",
+      providerId: 'attacker-provider',
+      externalAdId: 'attacker-reference',
       providerRegistry: registry,
     });
     assert.strictEqual(startedA.providerId, provider.id);
     assert.notStrictEqual(
       startedA.adEvent.external_ad_id,
-      "attacker-reference",
+      'attacker-reference',
     );
 
     const duplicateA = await startTaskAdvertisement({
@@ -183,7 +183,7 @@ async function main() {
             accepted: true,
             reference,
             userId: userA.telegramUserId,
-            context: "verification",
+            context: 'verification',
           },
           providerRegistry: registry,
         }),
@@ -275,7 +275,7 @@ async function main() {
     });
     assert.strictEqual(secondFinalize.duplicate, true);
 
-    console.log("Task advertisement edge hardening invariants: PASS");
+    console.log('Task advertisement edge hardening invariants: PASS');
   } finally {
     await cleanup([userA.userId, userB.userId], [taskA, taskB]);
     await pool.end();
@@ -283,7 +283,7 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Task advertisement edge hardening invariants: FAIL");
+  console.error('Task advertisement edge hardening invariants: FAIL');
   console.error(error);
   process.exit(1);
 });

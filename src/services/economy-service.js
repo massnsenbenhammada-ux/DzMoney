@@ -1,7 +1,7 @@
-const { withTransaction, query } = require("../db/pool");
+const { withTransaction, query } = require('../db/pool');
 
-const INTERNAL_CURRENCIES = ["COIN", "DZX", "DZP"];
-const ACTIVITY_REWARD_SOURCES = ["advertisement", "task", "referral", "promo"];
+const INTERNAL_CURRENCIES = ['COIN', 'DZX', 'DZP'];
+const ACTIVITY_REWARD_SOURCES = ['advertisement', 'task', 'referral', 'promo'];
 const TON_DZX = 10000;
 const TON_COIN = 10000000;
 const DZX_COIN = 1000;
@@ -12,16 +12,16 @@ const NUMERIC_SCALE = 9;
 const DECIMAL_SCALE = 1000000000n;
 
 function numericInput(value, name, { allowZero = true } = {}) {
-  if (typeof value === "number") {
+  if (typeof value === 'number') {
     if (!Number.isFinite(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER)
       throw new Error(`${name} must be a finite safe numeric value`);
   }
   const text = String(value).trim();
   if (!NUMERIC_PATTERN.test(text))
     throw new Error(`${name} must be a valid decimal number`);
-  const [integerPart, fractionPart = ""] = text.replace("-", "").split(".");
+  const [integerPart, fractionPart = ''] = text.replace('-', '').split('.');
   if (
-    integerPart.replace(/^0+/, "").length > 21 ||
+    integerPart.replace(/^0+/, '').length > 21 ||
     fractionPart.length > NUMERIC_SCALE
   )
     throw new Error(`${name} exceeds NUMERIC(30,9) precision`);
@@ -39,12 +39,12 @@ function positiveNumber(value, name) {
 
 function decimalToScaled(value, name) {
   const text = numericInput(value, name);
-  const negative = text.startsWith("-");
+  const negative = text.startsWith('-');
   const unsigned = negative ? text.slice(1) : text;
-  const [integerPart, fractionPart = ""] = unsigned.split(".");
-  const fraction = fractionPart.padEnd(NUMERIC_SCALE, "0");
+  const [integerPart, fractionPart = ''] = unsigned.split('.');
+  const fraction = fractionPart.padEnd(NUMERIC_SCALE, '0');
   const scaled =
-    BigInt(integerPart || "0") * DECIMAL_SCALE + BigInt(fraction || "0");
+    BigInt(integerPart || '0') * DECIMAL_SCALE + BigInt(fraction || '0');
   return negative ? -scaled : scaled;
 }
 
@@ -53,9 +53,9 @@ function scaledToDecimal(value) {
   const absolute = negative ? -value : value;
   const integerPart = absolute / DECIMAL_SCALE;
   const fractionPart = String(absolute % DECIMAL_SCALE)
-    .padStart(NUMERIC_SCALE, "0")
-    .replace(/0+$/, "");
-  return `${negative ? "-" : ""}${integerPart}${fractionPart ? `.${fractionPart}` : ""}`;
+    .padStart(NUMERIC_SCALE, '0')
+    .replace(/0+$/, '');
+  return `${negative ? '-' : ''}${integerPart}${fractionPart ? `.${fractionPart}` : ''}`;
 }
 
 function multiplyScaled(left, right) {
@@ -71,7 +71,7 @@ function multiplyScaled(left, right) {
 }
 
 function multiplyRatioScaled(amount, numerator, denominator) {
-  if (denominator <= 0n) throw new Error("Ratio denominator must be positive");
+  if (denominator <= 0n) throw new Error('Ratio denominator must be positive');
   const product = amount * numerator;
   const quotient = product / denominator;
   const remainder = product % denominator;
@@ -85,7 +85,7 @@ function multiplyRatioScaled(amount, numerator, denominator) {
 
 async function settingNumber(client, key, fallback) {
   const result = await client.query(
-    "SELECT value FROM admin_settings WHERE key = $1",
+    'SELECT value FROM admin_settings WHERE key = $1',
     [key],
   );
   if (!result.rowCount) return fallback;
@@ -101,9 +101,9 @@ async function getEconomySettings() {
 }
 
 async function walletForUpdate(client, userId, currency) {
-  if (!userId) throw new Error("userId is required");
+  if (!userId) throw new Error('userId is required');
   if (!INTERNAL_CURRENCIES.includes(currency))
-    throw new Error("Unsupported internal currency");
+    throw new Error('Unsupported internal currency');
   const result = await client.query(
     `SELECT id, balance, earned_dzp, converted_dzp, purchased_dzp FROM wallet_accounts WHERE user_id = $1 AND currency = $2 FOR UPDATE`,
     [userId, currency],
@@ -117,18 +117,18 @@ async function applyMovement(
   { userId, currency, amount, source, dzpBucket = null },
 ) {
   const wallet = await walletForUpdate(client, userId, currency);
-  const delta = numericInput(amount, "amount", { allowZero: false });
-  const updates = ["balance = balance + $1::numeric", "updated_at = NOW()"];
+  const delta = numericInput(amount, 'amount', { allowZero: false });
+  const updates = ['balance = balance + $1::numeric', 'updated_at = NOW()'];
   const params = [delta, wallet.id];
-  let condition = "balance + $1::numeric >= 0";
-  if (currency === "DZP" && dzpBucket) {
-    if (!["earned_dzp", "converted_dzp", "purchased_dzp"].includes(dzpBucket))
-      throw new Error("Invalid DZP source bucket");
+  let condition = 'balance + $1::numeric >= 0';
+  if (currency === 'DZP' && dzpBucket) {
+    if (!['earned_dzp', 'converted_dzp', 'purchased_dzp'].includes(dzpBucket))
+      throw new Error('Invalid DZP source bucket');
     updates.push(`${dzpBucket} = ${dzpBucket} + $1::numeric`);
     condition += ` AND ${dzpBucket} + $1::numeric >= 0`;
   }
   const updated = await client.query(
-    `UPDATE wallet_accounts SET ${updates.join(", ")} WHERE id = $2 AND ${condition} RETURNING balance`,
+    `UPDATE wallet_accounts SET ${updates.join(', ')} WHERE id = $2 AND ${condition} RETURNING balance`,
     params,
   );
   if (!updated.rowCount) throw new Error(`Insufficient ${currency} balance`);
@@ -146,8 +146,8 @@ async function createTransaction(
   client,
   { idempotencyKey, userId, type, metadata },
 ) {
-  if (!idempotencyKey) throw new Error("idempotencyKey is required");
-  if (!userId) throw new Error("userId is required");
+  if (!idempotencyKey) throw new Error('idempotencyKey is required');
+  if (!userId) throw new Error('userId is required');
   const inserted = await client.query(
     `INSERT INTO ledger_transactions (idempotency_key, user_id, transaction_type, metadata) VALUES ($1, $2, $3, $4) ON CONFLICT (idempotency_key) DO NOTHING RETURNING *`,
     [idempotencyKey, userId, type, metadata || {}],
@@ -155,16 +155,16 @@ async function createTransaction(
   if (inserted.rowCount)
     return { transaction: inserted.rows[0], duplicate: false };
   const existing = await client.query(
-    "SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE",
+    'SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE',
     [idempotencyKey],
   );
   if (!existing.rowCount)
-    throw new Error("Unable to resolve idempotent transaction");
+    throw new Error('Unable to resolve idempotent transaction');
   const transaction = existing.rows[0];
   if (String(transaction.user_id) !== String(userId))
-    throw new Error("Idempotency key ownership mismatch");
+    throw new Error('Idempotency key ownership mismatch');
   if (transaction.transaction_type !== type)
-    throw new Error("Idempotency key operation mismatch");
+    throw new Error('Idempotency key operation mismatch');
   return { transaction, duplicate: true };
 }
 
@@ -172,8 +172,8 @@ async function postEconomyTransactionOnClient(
   client,
   { idempotencyKey, userId, type, movements, metadata = {} },
 ) {
-  if (!userId) throw new Error("userId is required");
-  if (!Array.isArray(movements)) throw new Error("movements are required");
+  if (!userId) throw new Error('userId is required');
+  if (!Array.isArray(movements)) throw new Error('movements are required');
   const created = await createTransaction(client, {
     idempotencyKey,
     userId,
@@ -184,8 +184,8 @@ async function postEconomyTransactionOnClient(
   const entries = [];
   for (const movement of movements) {
     if (!INTERNAL_CURRENCIES.includes(movement.currency))
-      throw new Error("Unsupported internal currency");
-    numericInput(movement.amount, "movement amount", { allowZero: false });
+      throw new Error('Unsupported internal currency');
+    numericInput(movement.amount, 'movement amount', { allowZero: false });
     const entry = await applyMovement(client, { userId, ...movement });
     const row = await client.query(
       `INSERT INTO ledger_entries (transaction_id, wallet_account_id, amount, balance_before, balance_after, source, currency) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
@@ -212,11 +212,11 @@ async function postEconomyTransaction(args) {
 
 function normalizeActivityReward({ source, coin, dzx, dzp, modifiers }) {
   if (!ACTIVITY_REWARD_SOURCES.includes(source))
-    throw new Error("Invalid activity reward source");
+    throw new Error('Invalid activity reward source');
   const baseReward = {
-    coin: numericInput(coin, "coin"),
-    dzx: numericInput(dzx, "dzx"),
-    dzp: numericInput(dzp, "dzp"),
+    coin: numericInput(coin, 'coin'),
+    dzx: numericInput(dzx, 'dzx'),
+    dzp: numericInput(dzp, 'dzp'),
   };
   const baseScaled = Object.fromEntries(
     Object.entries(baseReward).map(([currency, amount]) => [
@@ -228,23 +228,23 @@ function normalizeActivityReward({ source, coin, dzx, dzp, modifiers }) {
     if (amount < 0n)
       throw new Error(`${currency} must be a non-negative number`);
   if (baseScaled.coin === 0n && baseScaled.dzx === 0n && baseScaled.dzp === 0n)
-    throw new Error("At least one reward currency is required");
-  if (!Array.isArray(modifiers)) throw new Error("modifiers must be an array");
+    throw new Error('At least one reward currency is required');
+  if (!Array.isArray(modifiers)) throw new Error('modifiers must be an array');
   let multiplier = DECIMAL_SCALE;
   const normalizedModifiers = [];
   for (const modifier of modifiers) {
-    if (!modifier || modifier.type !== "squad")
-      throw new Error("Unsupported reward modifier");
-    const rate = numericInput(modifier.rate, "squad modifier rate");
-    const rateScaled = decimalToScaled(rate, "squad modifier rate");
-    if (rateScaled < 0n) throw new Error("Invalid squad modifier rate");
+    if (!modifier || modifier.type !== 'squad')
+      throw new Error('Unsupported reward modifier');
+    const rate = numericInput(modifier.rate, 'squad modifier rate');
+    const rateScaled = decimalToScaled(rate, 'squad modifier rate');
+    if (rateScaled < 0n) throw new Error('Invalid squad modifier rate');
     multiplier = multiplyScaled(multiplier, DECIMAL_SCALE + rateScaled);
-    normalizedModifiers.push({ type: "squad", rate });
+    normalizedModifiers.push({ type: 'squad', rate });
   }
   const reward = Object.fromEntries(
     Object.entries(baseScaled).map(([currency, amount]) => [
       currency,
-      currency === "dzp"
+      currency === 'dzp'
         ? scaledToDecimal(amount)
         : scaledToDecimal(multiplyScaled(amount, multiplier)),
     ]),
@@ -256,7 +256,7 @@ async function creditActivityRewardOnClient(client, args) {
   const {
     idempotencyKey,
     userId,
-    source = "advertisement",
+    source = 'advertisement',
     coin = 0,
     dzx = 0,
     dzp = 0,
@@ -269,19 +269,19 @@ async function creditActivityRewardOnClient(client, args) {
   let effectiveModifiers = modifiers;
   if (
     qualifyingVerifiedActivity &&
-    !modifiers.some((modifier) => modifier?.type === "squad")
+    !modifiers.some((modifier) => modifier?.type === 'squad')
   ) {
     const {
       getApplicableSquadModifierOnClient,
-    } = require("./squad-daily-state-service");
+    } = require('./squad-daily-state-service');
     const applied = await getApplicableSquadModifierOnClient(client, {
       userId,
       day: activityDay,
     });
-    if (applied.rate !== "0")
+    if (applied.rate !== '0')
       effectiveModifiers = [
         ...modifiers,
-        { type: "squad", rate: applied.rate },
+        { type: 'squad', rate: applied.rate },
       ];
   }
   const { baseReward, reward, normalizedModifiers } = normalizeActivityReward({
@@ -292,21 +292,21 @@ async function creditActivityRewardOnClient(client, args) {
     modifiers: effectiveModifiers,
   });
   const movements = [];
-  if (reward.coin !== "0")
-    movements.push({ currency: "COIN", amount: reward.coin, source });
-  if (reward.dzx !== "0")
-    movements.push({ currency: "DZX", amount: reward.dzx, source });
-  if (reward.dzp !== "0")
+  if (reward.coin !== '0')
+    movements.push({ currency: 'COIN', amount: reward.coin, source });
+  if (reward.dzx !== '0')
+    movements.push({ currency: 'DZX', amount: reward.dzx, source });
+  if (reward.dzp !== '0')
     movements.push({
-      currency: "DZP",
+      currency: 'DZP',
       amount: reward.dzp,
       source,
-      dzpBucket: "earned_dzp",
+      dzpBucket: 'earned_dzp',
     });
   const transaction = await postEconomyTransactionOnClient(client, {
     idempotencyKey,
     userId,
-    type: "REWARD",
+    type: 'REWARD',
     metadata: {
       source,
       ...(activityType ? { activity_type: activityType } : {}),
@@ -318,7 +318,7 @@ async function creditActivityRewardOnClient(client, args) {
     movements,
   });
   if (qualifyingVerifiedActivity && !transaction.duplicate) {
-    const { recordVerifiedActivityOnClient } = require("./gaming-service");
+    const { recordVerifiedActivityOnClient } = require('./gaming-service');
     await recordVerifiedActivityOnClient(client, { userId });
   }
   return transaction;
@@ -331,36 +331,36 @@ async function creditActivityReward(args) {
 }
 
 async function convertCoinToDzp({ idempotencyKey, userId, coin }) {
-  const amount = positiveNumber(coin, "coin");
+  const amount = positiveNumber(coin, 'coin');
   return withTransaction(async (client) => {
     const created = await createTransaction(client, {
       idempotencyKey,
       userId,
-      type: "CONVERSION",
-      metadata: { direction: "COIN_TO_DZP" },
+      type: 'CONVERSION',
+      metadata: { direction: 'COIN_TO_DZP' },
     });
     if (created.duplicate) return created;
-    const rate = await settingNumber(client, "economy.coin_per_dzp", DZP_COIN);
+    const rate = await settingNumber(client, 'economy.coin_per_dzp', DZP_COIN);
     if (amount < rate) throw new Error(`Minimum conversion is ${rate} COIN`);
     const dzp = amount / rate;
     if (!Number.isInteger(dzp))
       throw new Error(
-        "COIN amount must match the configured DZP conversion rate",
+        'COIN amount must match the configured DZP conversion rate',
       );
     const entries = [];
     for (const entry of [
       await applyMovement(client, {
         userId,
-        currency: "COIN",
+        currency: 'COIN',
         amount: -amount,
-        source: "conversion",
+        source: 'conversion',
       }),
       await applyMovement(client, {
         userId,
-        currency: "DZP",
+        currency: 'DZP',
         amount: dzp,
-        source: "conversion",
-        dzpBucket: "converted_dzp",
+        source: 'conversion',
+        dzpBucket: 'converted_dzp',
       }),
     ]) {
       const row = await client.query(
@@ -382,36 +382,36 @@ async function convertCoinToDzp({ idempotencyKey, userId, coin }) {
 }
 
 async function convertDzxToDzp({ idempotencyKey, userId, dzx }) {
-  const amount = positiveNumber(dzx, "dzx");
+  const amount = positiveNumber(dzx, 'dzx');
   return withTransaction(async (client) => {
     const created = await createTransaction(client, {
       idempotencyKey,
       userId,
-      type: "CONVERSION",
-      metadata: { direction: "DZX_TO_DZP" },
+      type: 'CONVERSION',
+      metadata: { direction: 'DZX_TO_DZP' },
     });
     if (created.duplicate) return created;
-    const rate = await settingNumber(client, "economy.dzx_per_dzp", DZP_DZX);
+    const rate = await settingNumber(client, 'economy.dzx_per_dzp', DZP_DZX);
     if (amount < rate) throw new Error(`Minimum conversion is ${rate} DZX`);
     const dzp = amount / rate;
     if (!Number.isInteger(dzp))
       throw new Error(
-        "DZX amount must match the configured DZP conversion rate",
+        'DZX amount must match the configured DZP conversion rate',
       );
     const entries = [];
     for (const entry of [
       await applyMovement(client, {
         userId,
-        currency: "DZX",
+        currency: 'DZX',
         amount: -amount,
-        source: "conversion",
+        source: 'conversion',
       }),
       await applyMovement(client, {
         userId,
-        currency: "DZP",
+        currency: 'DZP',
         amount: dzp,
-        source: "conversion",
-        dzpBucket: "converted_dzp",
+        source: 'conversion',
+        dzpBucket: 'converted_dzp',
       }),
     ]) {
       const row = await client.query(
@@ -433,10 +433,10 @@ async function convertDzxToDzp({ idempotencyKey, userId, dzx }) {
 }
 
 function tonToDZX(ton) {
-  return positiveNumber(ton, "ton") * TON_DZX;
+  return positiveNumber(ton, 'ton') * TON_DZX;
 }
 function dzxToTON(dzx) {
-  return positiveNumber(dzx, "dzx") / TON_DZX;
+  return positiveNumber(dzx, 'dzx') / TON_DZX;
 }
 
 module.exports = {

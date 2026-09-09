@@ -6,24 +6,24 @@ const {
   MONETAG_GAMING_CONTEXT,
   MONETAG_SQUAD_CONTEXT,
   MONETAG_PROMO_CONTEXT,
-} = require("../config/monetag");
+} = require('../config/monetag');
 
 function required(value, name) {
-  if (value === undefined || value === null || value === "")
+  if (value === undefined || value === null || value === '')
     throw new Error(`${name} is required`);
   return String(value);
 }
 
 function validateMonetagPostback(payload = {}, expectedContext = null) {
   const telegramId = payload.telegram_id ? String(payload.telegram_id) : null;
-  const zoneId = required(payload.zone_id, "zone id");
-  const eventType = required(payload.event_type, "event type");
+  const zoneId = required(payload.zone_id, 'zone id');
+  const eventType = required(payload.event_type, 'event type');
   const rewardEventType = required(
     payload.reward_event_type,
-    "reward event type",
+    'reward event type',
   );
-  const ymid = required(payload.ymid, "ymid");
-  const requestVar = required(payload.request_var, "request var");
+  const ymid = required(payload.ymid, 'ymid');
+  const requestVar = required(payload.request_var, 'request var');
   const price = Number(payload.estimated_price);
   const allowedContexts = [
     MONETAG_CONTEXT,
@@ -34,19 +34,19 @@ function validateMonetagPostback(payload = {}, expectedContext = null) {
     MONETAG_PROMO_CONTEXT,
   ];
   if (zoneId !== MONETAG_ZONE_ID)
-    throw new Error("Monetag zone does not match");
-  if (!["impression", "click"].includes(eventType))
-    throw new Error("Monetag event type is unsupported");
-  if (!["valued", "yes"].includes(rewardEventType))
-    throw new Error("Monetag event is not a rewarded event");
+    throw new Error('Monetag zone does not match');
+  if (!['impression', 'click'].includes(eventType))
+    throw new Error('Monetag event type is unsupported');
+  if (!['valued', 'yes'].includes(rewardEventType))
+    throw new Error('Monetag event is not a rewarded event');
   if (!allowedContexts.includes(requestVar))
-    throw new Error("Monetag request context does not match");
+    throw new Error('Monetag request context does not match');
   if (expectedContext && requestVar !== expectedContext)
     throw new Error(
-      "Monetag request context does not match advertisement event",
+      'Monetag request context does not match advertisement event',
     );
   if (!Number.isFinite(price) || price < 0)
-    throw new Error("Monetag estimated price is invalid");
+    throw new Error('Monetag estimated price is invalid');
   return {
     eligible: true,
     telegramId,

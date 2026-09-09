@@ -1,14 +1,14 @@
-const assert = require("assert");
-const { query } = require("../src/db/pool");
-const referralService = require("../src/services/referral-service");
+const assert = require('assert');
+const { query } = require('../src/db/pool');
+const referralService = require('../src/services/referral-service');
 const {
   resolveTrustedTaskVerifier,
-} = require("../src/services/task-verification-service");
+} = require('../src/services/task-verification-service');
 const {
   DAILY_SYSTEM_TASKS,
   REFERRAL_ACHIEVEMENT_THRESHOLDS,
   isReferralAchievementClaimable,
-} = require("../src/services/daily-system-task-contract");
+} = require('../src/services/daily-system-task-contract');
 
 const INVITE_REWARDS = Object.freeze({
   [DAILY_SYSTEM_TASKS.INVITE_1_FRIEND]: { coin: 10000, dzx: 10, dzp: 1 },
@@ -48,7 +48,7 @@ async function testConfiguredInviteRewards() {
   assert.strictEqual(
     result.rowCount,
     keys.length,
-    "All Invite achievement tasks must exist",
+    'All Invite achievement tasks must exist',
   );
   for (const row of result.rows) {
     const expected = INVITE_REWARDS[row.system_key];
@@ -63,7 +63,7 @@ async function testConfiguredInviteRewards() {
     );
     assert.strictEqual(
       row.daily_policy,
-      "permanent",
+      'permanent',
       `${row.system_key} must remain permanent`,
     );
   }
@@ -108,9 +108,9 @@ async function testTrustedInviteVerifier() {
     testEligibilityAndPermanentCompletion();
     await testConfiguredInviteRewards();
     await testTrustedInviteVerifier();
-    console.log("Referral achievement invariants: PASS");
+    console.log('Referral achievement invariants: PASS');
   } catch (error) {
-    console.error("Referral achievement invariants: FAIL");
+    console.error('Referral achievement invariants: FAIL');
     console.error(error);
     process.exitCode = 1;
   }

@@ -1,9 +1,9 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const { query } = require("../src/db/pool");
-const walletService = require("../src/services/wallet-service");
-const promoService = require("../src/services/promo-code-service");
-const { AdProviderRegistry } = require("../src/services/ad-provider-service");
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { query } = require('../src/db/pool');
+const walletService = require('../src/services/wallet-service');
+const promoService = require('../src/services/promo-code-service');
+const { AdProviderRegistry } = require('../src/services/ad-provider-service');
 
 const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const createdCampaigns = [];
@@ -13,7 +13,7 @@ async function createTestUser(label) {
   const user = await walletService.createUser({
     telegramUserId: `${Date.now()}${Math.floor(Math.random() * 1000)}`,
     username: `promo_${label}_${suffix}`,
-    firstName: "Promo Test",
+    firstName: 'Promo Test',
   });
   createdUsers.push(user.id);
   return user;
@@ -21,8 +21,8 @@ async function createTestUser(label) {
 
 const providerRegistry = new AdProviderRegistry([
   {
-    id: "promo-test-provider",
-    contexts: ["promo"],
+    id: 'promo-test-provider',
+    contexts: ['promo'],
     enabled: true,
     async verifyCompletion(payload) {
       return payload?.accepted === true
@@ -39,10 +39,10 @@ const providerRegistry = new AdProviderRegistry([
 async function cleanup() {
   if (createdCampaigns.length) {
     await query(
-      "DELETE FROM promo_redemptions WHERE campaign_id = ANY($1::bigint[])",
+      'DELETE FROM promo_redemptions WHERE campaign_id = ANY($1::bigint[])',
       [createdCampaigns],
     );
-    await query("DELETE FROM promo_campaigns WHERE id = ANY($1::bigint[])", [
+    await query('DELETE FROM promo_campaigns WHERE id = ANY($1::bigint[])', [
       createdCampaigns,
     ]);
   }
@@ -55,7 +55,7 @@ async function cleanup() {
       `DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])`,
       [createdUsers],
     );
-    await query("DELETE FROM users WHERE id = ANY($1::bigint[])", [
+    await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [
       createdUsers,
     ]);
   }
@@ -63,12 +63,12 @@ async function cleanup() {
 
 test.after(cleanup);
 
-test("promo redemption credits COIN without an ad when campaign explicitly disables ad gating", async () => {
-  const user = await createTestUser("coin");
+test('promo redemption credits COIN without an ad when campaign explicitly disables ad gating', async () => {
+  const user = await createTestUser('coin');
   const campaign = await promoService.createPromoCampaign({
     code: `COIN-${suffix}`,
-    rewardCurrency: "COIN",
-    rewardAmount: "1234",
+    rewardCurrency: 'COIN',
+    rewardAmount: '1234',
     maxRedemptions: 1,
     perUserLimit: 1,
     adGated: false,
@@ -84,7 +84,7 @@ test("promo redemption credits COIN without an ad when campaign explicitly disab
     code: campaign.code,
     idempotencyKey: `promo-test:${suffix}:coin`,
   });
-  assert.equal(result.status, "verified");
+  assert.equal(result.status, 'verified');
   const after = await query(
     "SELECT balance FROM wallet_accounts WHERE user_id=$1 AND currency='COIN'",
     [user.id],
@@ -104,12 +104,12 @@ test("promo redemption credits COIN without an ad when campaign explicitly disab
   );
 });
 
-test("ad-gated promo finalization credits DZX exactly once and records promo source", async () => {
-  const user = await createTestUser("dzx");
+test('ad-gated promo finalization credits DZX exactly once and records promo source', async () => {
+  const user = await createTestUser('dzx');
   const campaign = await promoService.createPromoCampaign({
     code: `DZX-${suffix}`,
-    rewardCurrency: "DZX",
-    rewardAmount: "2",
+    rewardCurrency: 'DZX',
+    rewardAmount: '2',
     maxRedemptions: 5,
     perUserLimit: 1,
     adGated: true,
@@ -126,22 +126,22 @@ test("ad-gated promo finalization credits DZX exactly once and records promo sou
     idempotencyKey: `promo-test:${suffix}:dzx`,
     providerRegistry,
   });
-  assert.equal(claim.status, "pending");
+  assert.equal(claim.status, 'pending');
   assert.ok(claim.adEventId);
   const first = await promoService.finalizePromoRedemption({
     userId: user.id,
     adEventId: claim.adEventId,
     providerRegistry,
-    providerId: "promo-test-provider",
+    providerId: 'promo-test-provider',
     providerPayload: { accepted: true, reference: `ref:${suffix}` },
   });
-  assert.equal(first.status, "verified");
+  assert.equal(first.status, 'verified');
   assert.equal(first.rewarded, true);
   const second = await promoService.finalizePromoRedemption({
     userId: user.id,
     adEventId: claim.adEventId,
     providerRegistry,
-    providerId: "promo-test-provider",
+    providerId: 'promo-test-provider',
     providerPayload: { accepted: true, reference: `ref:${suffix}` },
   });
   assert.equal(second.duplicate, true);
@@ -158,20 +158,20 @@ test("ad-gated promo finalization credits DZX exactly once and records promo sou
     [user.id, `promo:reward:${first.id}`],
   );
   assert.equal(ledger.rowCount, 1);
-  assert.equal(ledger.rows[0].source, "promo");
-  assert.equal(ledger.rows[0].currency, "DZX");
+  assert.equal(ledger.rows[0].source, 'promo');
+  assert.equal(ledger.rows[0].currency, 'DZX');
   assert.equal(Number(ledger.rows[0].amount), 2);
 });
 
-test("promo campaign max redemptions is serialized under concurrent claims", async () => {
+test('promo campaign max redemptions is serialized under concurrent claims', async () => {
   const users = await Promise.all([
-    createTestUser("race-a"),
-    createTestUser("race-b"),
+    createTestUser('race-a'),
+    createTestUser('race-b'),
   ]);
   const campaign = await promoService.createPromoCampaign({
     code: `RACE-${suffix}`,
-    rewardCurrency: "COIN",
-    rewardAmount: "5",
+    rewardCurrency: 'COIN',
+    rewardAmount: '5',
     maxRedemptions: 1,
     perUserLimit: 1,
     adGated: false,
@@ -188,11 +188,11 @@ test("promo campaign max redemptions is serialized under concurrent claims", asy
     ),
   );
   assert.equal(
-    results.filter((result) => result.status === "fulfilled").length,
+    results.filter((result) => result.status === 'fulfilled').length,
     1,
   );
   assert.equal(
-    results.filter((result) => result.status === "rejected").length,
+    results.filter((result) => result.status === 'rejected').length,
     1,
   );
 });

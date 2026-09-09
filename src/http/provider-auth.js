@@ -1,12 +1,12 @@
-"use strict";
+'use strict';
 
-const crypto = require("crypto");
+const crypto = require('crypto');
 
 function safeSecretEquals(expected, received) {
   if (
-    typeof expected !== "string" ||
+    typeof expected !== 'string' ||
     expected.length === 0 ||
-    typeof received !== "string" ||
+    typeof received !== 'string' ||
     received.length === 0
   )
     return false;
@@ -18,23 +18,23 @@ function safeSecretEquals(expected, received) {
 
 function getProviderSecret(
   req,
-  queryName = "token",
-  headerName = "x-provider-token",
+  queryName = 'token',
+  headerName = 'x-provider-token',
 ) {
   const headerValue = req.get(headerName);
-  if (typeof headerValue === "string" && headerValue.trim() !== "")
+  if (typeof headerValue === 'string' && headerValue.trim() !== '')
     return headerValue.trim();
   const queryValue = req.query?.[queryName];
-  return typeof queryValue === "string" && queryValue.trim() !== ""
+  return typeof queryValue === 'string' && queryValue.trim() !== ''
     ? queryValue.trim()
     : null;
 }
 
 function assertProviderSecret(req, expectedSecret, options = {}) {
-  const { queryName = "token", headerName = "x-provider-token" } = options;
+  const { queryName = 'token', headerName = 'x-provider-token' } = options;
   const received = getProviderSecret(req, queryName, headerName);
   if (!safeSecretEquals(expectedSecret, received)) {
-    const error = new Error("Unauthorized");
+    const error = new Error('Unauthorized');
     error.statusCode = 401;
     throw error;
   }
