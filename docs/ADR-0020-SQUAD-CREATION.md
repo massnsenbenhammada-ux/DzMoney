@@ -1,4 +1,4 @@
-# ADR-0013 — System-Created Squads and Owner Assignment
+# ADR-0020 — System-Created Squads and Owner Assignment
 
 **Status:** Accepted  
 **Date:** 2026-08-31

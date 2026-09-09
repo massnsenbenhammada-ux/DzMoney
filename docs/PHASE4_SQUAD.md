@@ -6,7 +6,7 @@
 The authoritative Phase 4 business contract is:
 
 - `docs/SQUAD_SYSTEM_CONTRACT.md`
-- `docs/ADR-0012-SQUAD.md`
+- `docs/ADR-0019-SQUAD.md`
 
 These documents supersede all earlier Squad-specific business rules in legacy roadmap material.
 
