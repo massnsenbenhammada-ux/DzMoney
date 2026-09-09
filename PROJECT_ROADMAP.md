@@ -21,12 +21,15 @@
 ## Currencies
 
 ### COIN
+
 Activity/reward currency. Earned from qualifying activity such as tasks and advertisements and from applicable referral or promotional rewards.
 
 ### DZX
+
 **Main internal economic currency.** DZX is the currency used for economic rewards, applicable Promo rewards, deposits after TON conversion, campaign budgets and withdrawal accounting.
 
 **Agreed DZX source model:**
+
 - advertisements;
 - tasks;
 - referral earnings;
@@ -36,9 +39,11 @@ Activity/reward currency. Earned from qualifying activity such as tasks and adve
 **Squad is NOT a direct DZX source.** Squad only modifies an otherwise qualifying base activity reward by the configured percentage. The resulting reward must retain its original economic source and record the Squad modifier separately.
 
 ### DZP
+
 **Package currency and activity indicator.** DZP is used to buy packages and earned activity DZP is used to measure qualifying activity where the product contract explicitly requires an activity measure.
 
 ### TON
+
 External blockchain currency. TON is **not** an internal DzMoney wallet currency. It is used only as the external value/reference for deposits and withdrawals.
 
 ## Fixed economic relationship
@@ -66,16 +71,19 @@ Therefore:
 ## Conversion direction
 
 Allowed:
+
 - COIN → DZP
 - DZX → DZP
 
 Not allowed:
+
 - DZP → COIN
 - DZP → DZX
 
 ## DZP source separation
 
 The ledger must distinguish at least:
+
 - `earned_dzp` — obtained from qualifying activity;
 - `converted_dzp` — obtained through COIN/DZX conversion;
 - `purchased_dzp` — obtained through purchase/package-related acquisition.
@@ -85,6 +93,7 @@ Converted and purchased DZP are not earned activity.
 ## DZX source separation
 
 The ledger must identify DZX by its true source. The agreed source set is:
+
 - advertisements;
 - tasks;
 - referral earnings;
@@ -125,6 +134,7 @@ The Verify action is advertisement-gated where configured: pressing Verify launc
 The reward is issued only after the backend verifies task completion and the verification-ad requirement. Verification must be idempotent and cannot claim the same task reward twice.
 
 This Execute → Verify model applies to:
+
 - Daily Tasks;
 - Game Tasks;
 - Social Tasks;
@@ -138,6 +148,7 @@ This Execute → Verify model applies to:
 Implement verified advertisement completion, reward idempotency, anti-duplicate protection and server-side reward issuance.
 
 Separate:
+
 - Tasks-page advertisements;
 - Gaming advertisements, owned by Phase 5 Gaming;
 - verification advertisements attached to task verification.
@@ -151,6 +162,7 @@ Daily Check-in is advertisement-gated where configured: the user must complete t
 ## Task categories
 
 Strict category separation:
+
 - Daily Tasks
 - Game Tasks
 - Social Tasks
@@ -162,6 +174,7 @@ A task cannot be created or validated under an incompatible category.
 ## User-created tasks
 
 Available to normal users:
+
 - Game
 - Social
 - Web
@@ -191,6 +204,7 @@ Referral is a separate one-level lifetime system and is independent from Squad a
 ## Qualification
 
 A referred user qualifies after entering through the referral link and completing at least one qualifying activity:
+
 - one verified advertisement; OR
 - one verified task.
 
@@ -205,10 +219,12 @@ The 10 DZP is granted once only at referral qualification.
 Referrer receives **20%** from the referred user's qualifying daily base activity rewards.
 
 The 20% applies only to the referred user's qualifying:
+
 - task activity;
 - advertisement activity.
 
 It does NOT apply to:
+
 - Squad modifiers/bonuses;
 - Gaming rewards;
 - Promo rewards;
@@ -287,6 +303,7 @@ Gaming is an independent subsystem and must reuse existing Economy, Ledger, Task
 - Reward weights are simulation inputs until the required economic simulation is completed and approved.
 
 Initial simulation-only reward categories:
+
 - 100 COIN
 - 1,000 COIN
 - 1 DZX
@@ -310,6 +327,7 @@ No final economic weight is locked by this roadmap until simulation results are 
 - The saved board result is authoritative when the user returns later.
 
 Digging reward categories:
+
 - 100 COIN
 - 1 DZX
 - 1 DZP
@@ -347,6 +365,7 @@ Gaming ads are separate from Tasks-page ads and are never silently reclassified 
 ### Ad Bonus
 
 Ad Bonus is independent from the game result and may be:
+
 - 100 COIN; or
 - 1 DZX.
 
@@ -371,18 +390,21 @@ The Admin configures the weights. Ad limits are Admin-configurable; the initial 
 Gaming Admin controls are versioned:
 
 ### General
+
 - daily activity rules;
 - daily ad limit;
 - reset timezone;
 - enabled/disabled.
 
 ### Spin
+
 - reward set;
 - weights;
 - Jackpot configuration;
 - enabled/disabled.
 
 ### Digging
+
 - board size;
 - daily Energy;
 - reward set;
@@ -390,6 +412,7 @@ Gaming Admin controls are versioned:
 - enabled/disabled.
 
 ### Ads
+
 - Spin ad rewards;
 - Digging ad rewards;
 - Ad Bonus weights;
@@ -402,6 +425,7 @@ Historical sessions retain the configuration version under which they started. A
 ## Audit and idempotency
 
 Gaming Session records at minimum:
+
 - user;
 - game;
 - resource consumed;
@@ -412,6 +436,7 @@ Gaming Session records at minimum:
 - completed_at.
 
 Gaming Ad records at minimum:
+
 - user;
 - game;
 - verified ad reference;
@@ -426,6 +451,7 @@ Repeated ad callbacks, Spin requests, tile clicks and Task claims must be idempo
 Gaming Home:
 
 **🎮 GAMING**
+
 - 🎡 SPIN card with Spin resource;
 - ⛏️ DIGGING card with Axe/Energy state.
 
@@ -442,6 +468,7 @@ The UI must remain mobile-first and accessible. Use semantic HTML (`main`, `sect
 ## Economic simulation gate
 
 Before final reward values or weights are locked, simulate at least **1,000 users × 30 days** and measure:
+
 - activities;
 - Spins;
 - Axes;
@@ -502,6 +529,7 @@ Admin defines prices, limits and available purchase options.
 Purchase/deposit-derived balances must be separated from earned activity balances.
 
 Conversion UI must support:
+
 - COIN → DZP
 - DZX → DZP
 
@@ -528,6 +556,7 @@ The deposited TON itself is not credited as TON inside the application; the user
 Deposited DZX is tracked separately from earned DZX and must follow internal withdrawability rules.
 
 Every deposit requires:
+
 - unique blockchain transaction reference;
 - confirmation status;
 - idempotency protection;
@@ -583,6 +612,7 @@ A Promo campaign may reward **COIN or DZX** depending on its configured reward t
 ## Home
 
 Show:
+
 - COIN balance
 - DZX balance
 - DZP balance
@@ -606,6 +636,7 @@ Packages remain on Home.
 A right-to-left drawer/modal covering approximately 85% of the screen.
 
 Show:
+
 - username
 - profile photo
 - three balances
@@ -626,6 +657,7 @@ Explain hierarchy, member count, level, requirements, 50% activity condition, ne
 Gaming Home lets the user choose Spin or Digging.
 
 Spin page contains:
+
 - current Spins;
 - wheel/result area;
 - Spin action;
@@ -634,6 +666,7 @@ Spin page contains:
 - possible rewards.
 
 Digging page contains:
+
 - Axe count;
 - Energy 3/3 state;
 - persisted tile board;
@@ -662,7 +695,9 @@ Admin Panel is an operational control system, not a decorative interface.
 Required sections:
 
 ### Dashboard
+
 Real-time:
+
 - total members;
 - advertisements watched;
 - tasks completed.
@@ -670,10 +705,12 @@ Real-time:
 Seven-day **bar charts**, not line/curve charts, with different colors for the three metrics.
 
 Bottom lists:
+
 - Top 10 most active members;
 - Top 10 members who brought the most referrals.
 
 ### Economy
+
 - TON→DZX reference rate
 - COIN→DZP
 - DZX→DZP
@@ -683,6 +720,7 @@ Bottom lists:
 - withdrawal economic value
 
 ### Users
+
 - search
 - user profile
 - balances
@@ -692,17 +730,20 @@ Bottom lists:
 - explicit DZX source separation
 
 ### Referral
+
 - qualification
 - activation reward
 - lifetime percentage
 
 ### Squad
+
 - 10 level member requirements
 - 10 bonus percentages
 - 50% activity requirement
 - modifier behavior and source-attribution rules
 
 ### Gaming
+
 - general Gaming enable/disable and daily rules;
 - daily ad limits;
 - reset timezone;
@@ -715,6 +756,7 @@ Bottom lists:
 - configuration Version history.
 
 ### Packages
+
 - six durations
 - names
 - colors
@@ -723,6 +765,7 @@ Bottom lists:
 - availability/status
 
 ### Tasks
+
 - category management
 - default rewards
 - Execute/Verify behavior
@@ -734,6 +777,7 @@ Bottom lists:
 - Partner/Special workflow
 
 ### Promo
+
 - promo code
 - reward currency: COIN or DZX
 - reward amount
@@ -743,6 +787,7 @@ Bottom lists:
 - advertisement gating
 
 ### Wallet
+
 - deposit configuration
 - TON→DZX conversion rate
 - withdrawal minimum TON reference value
@@ -759,6 +804,7 @@ No obsolete BUX terminology. No Reward Pool settings or pages. No unexplained em
 All financial/activity events must be auditable.
 
 Separate accounting for:
+
 - earned COIN;
 - earned DZX;
 - purchased/deposited DZX;
@@ -781,6 +827,7 @@ Separate accounting for:
 - TON external settlement references.
 
 Implement:
+
 - atomic transactions;
 - idempotency keys;
 - duplicate reward protection;
