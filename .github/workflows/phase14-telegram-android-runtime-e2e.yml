@@ -19,6 +19,7 @@ on:
     paths:
       - '.github/workflows/phase14-telegram-android-runtime-e2e.yml'
       - 'scripts/telegram-android-runtime-bootstrap.sh'
+      - 'scripts/telegram-android-test-auth.sh'
       - 'scripts/telegram-android-webview-runtime.js'
       - 'tests/e2e/**'
       - 'public/**'
@@ -37,13 +38,17 @@ jobs:
   android-runtime:
     name: Android Emulator + Telegram runtime harness
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       ANDROID_API_LEVEL: 30
       ANDROID_TARGET: google_apis
       ANDROID_ARCH: x86
       AVD_NAME: dzmoney-api30
       DZ_MONEY_MINI_APP_URL: https://t.me/DzMoneyCITestBot/DzMoney
+      TELEGRAM_TEST_BOT_TOKEN: ${{ secrets.TELEGRAM_TEST_BOT_TOKEN }}
+      TELEGRAM_TEST_USER_ID: ${{ secrets.TELEGRAM_TEST_USER_ID }}
+      TELEGRAM_TEST_PHONE: ${{ secrets.TELEGRAM_TEST_PHONE }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,6 +60,22 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Validate Telegram Test credentials
+        run: |
+          set -euo pipefail
+          test -n "$TELEGRAM_TEST_BOT_TOKEN"
+          test -n "$TELEGRAM_TEST_USER_ID"
+          test -n "$TELEGRAM_TEST_PHONE"
+          case "$TELEGRAM_TEST_USER_ID" in
+            ''|*[!0-9]*) echo 'TELEGRAM_TEST_USER_ID must be numeric'; exit 1 ;;
+          esac
+          echo "TELEGRAM_TEST_USER_ID configured: yes"
+          echo "TELEGRAM_TEST_PHONE configured: yes"
+          BOT_JSON="$(curl -fsS --retry 5 --retry-all-errors --retry-delay 2 "https://api.telegram.org/bot${TELEGRAM_TEST_BOT_TOKEN}/test/getMe")"
+          echo "$BOT_JSON" | grep -F '"ok":true'
+          echo "$BOT_JSON" | grep -F '"username":"DzMoneyCITestBot"'
+          echo 'TELEGRAM_TEST_BOT_TOKEN: Test Bot API authentication passed.'
 
       - name: Enable KVM
         run: |
@@ -93,14 +114,14 @@ jobs:
             telegram-mini-app-runtime.png
             telegram-mini-app-logcat.txt
             telegram-webview-runtime.txt
+            telegram-auth-ui.xml
           if-no-files-found: ignore
 
       - name: Real provider gate preflight
         if: ${{ inputs.run_real_provider }}
         run: |
           echo 'Real-provider execution was requested.'
-          echo 'This preflight intentionally does not fabricate Telegram authentication or ad callbacks.'
-          echo 'A real authenticated Telegram test account and provider credentials are required before this becomes a release gate.'
-          test -n "${{ secrets.TELEGRAM_TEST_USER_ID }}"
-          test -n "${{ secrets.BOT_TOKEN }}"
+          echo 'Provider callbacks remain real-state only; this workflow does not fabricate ad completion.'
+          test -n "$TELEGRAM_TEST_USER_ID"
+          test -n "$TELEGRAM_TEST_BOT_TOKEN"
           test -n "${{ secrets.REAL_AD_PROVIDER_TEST_CONFIG }}"
