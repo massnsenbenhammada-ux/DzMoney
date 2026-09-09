@@ -9,7 +9,7 @@ const dashboardRoutes = fs.readFileSync(
 const entry = fs.readFileSync("public/admin-entry.js", "utf8");
 
 assert(
-  dashboardRoutes.includes("router.get('/access'"),
+  /router\.get\(["']\/access["']/.test(dashboardRoutes),
   "Admin access endpoint must exist",
 );
 assert(
@@ -17,12 +17,14 @@ assert(
   "Admin access must reuse adminAuth",
 );
 assert(
-  dashboardRoutes.includes("res.json({ ok: true, admin: true })"),
+  /res\.json\(\{\s*ok:\s*true,\s*admin:\s*true\s*\}\)/.test(
+    dashboardRoutes,
+  ),
   "Admin access must return an explicit admin result",
 );
 assert(
-  server.includes(
-    "app.use('/api/admin/dashboard', createAdminDashboardRouter())",
+  /app\.use\(["']\/api\/admin\/dashboard["']\s*,\s*createAdminDashboardRouter\(\)\)/.test(
+    server,
   ),
   "Admin dashboard router must remain mounted",
 );
@@ -39,7 +41,7 @@ assert(
   "Admin entry must use the protected access endpoint",
 );
 assert(
-  entry.includes("window.location.href = '/admin.html'"),
+  /window\.location\.href\s*=\s*["']\/admin\.html["']/.test(entry),
   "Authorized admin must open the existing Admin Panel",
 );
 assert(
