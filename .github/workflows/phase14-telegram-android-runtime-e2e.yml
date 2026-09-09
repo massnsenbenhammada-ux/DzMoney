@@ -119,7 +119,7 @@ jobs:
             adb shell dumpsys package "$(cat /tmp/dzmoney-telegram-package)" | head -n 40
 
             echo 'Resolving Telegram launcher activity for explicit Mini App intent routing...'
-            TELEGRAM_PACKAGE="$(tr -d '\r\n' < /tmp/dzmoney-telegram-package)"
+            TELEGRAM_PACKAGE="$(cat /tmp/dzmoney-telegram-package)"
             test -n "$TELEGRAM_PACKAGE"
             TELEGRAM_ACTIVITY="$(adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER "$TELEGRAM_PACKAGE" | tail -n 1 | tr -d '\r')"
             test -n "$TELEGRAM_ACTIVITY"
