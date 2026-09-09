@@ -70,6 +70,6 @@ assert.equal((navMatch[0].match(/class="nav-item/g) || []).length, 5);
 const nav = navMatch[0];
 assert.ok(nav.indexOf('data-go="tasks"') < nav.indexOf('data-go="squad"'));
 assert.ok(nav.indexOf('data-go="squad"') < nav.indexOf('data-go="friends"'));
-assert.match(squadCss, /\.phase11-squad-nav\{[^}]*transform\s*:\s*translateY\(-8px\)/);
+assert.match(squadCss, /\.phase11-squad-nav\s*\{[^}]*transform\s*:\s*translateY\(-8px\)/);
 
 console.log('Phase 11 UI contract checks passed.');
