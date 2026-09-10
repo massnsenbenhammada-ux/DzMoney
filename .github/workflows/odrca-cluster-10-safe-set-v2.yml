@@ -1,0 +1,40 @@
+name: ODRCA Cluster 10 Safe Set v2
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --ignore-scripts
+      - name: Format script-test candidates in memory and verify
+        shell: bash
+        run: |
+          set -o pipefail
+          npx prettier . --list-different > /tmp/all-offenders.txt || true
+          awk '/^scripts\/test-.*\.js$/' /tmp/all-offenders.txt > /tmp/candidates.txt
+          echo "PRETTIER_VERSION=$(npx prettier --version)"
+          echo "CANDIDATE_COUNT=$(wc -l < /tmp/candidates.txt | tr -d ' ')"
+          cat /tmp/candidates.txt
+          if [ -s /tmp/candidates.txt ]; then
+            xargs npx prettier --write < /tmp/candidates.txt
+          fi
+          echo '--- DIFF CHECK ---'
+          git diff --check
+          echo '--- DIFF FILES ---'
+          git diff --name-only
+          echo '--- DIFF STAT ---'
+          git diff --stat
+          echo '--- FULL TEST SUITE ---'
+          npm run test:all
+          echo '--- FINAL DIFF FILES ---'
+          git diff --name-only
