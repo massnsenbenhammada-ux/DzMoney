@@ -8,7 +8,7 @@ const { purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier } = requ
 async function createSquad(ownerId, memberIds = []) {
   const squad = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [ownerId]);
   const squadId = squad.rows[0].id;
-  const values = [squadId, ownerId, ...memberIds];
+  const values = [squadId, ownerId, ...memberIds.map(member => member.id ?? member)];
   const placeholders = values.slice(1).map((_, index) => `($1,$${index + 2},'active')`).join(',');
   await query(`INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ${placeholders}`, values);
   return squadId;
@@ -72,6 +72,7 @@ test('Squad switch and upgrade preserve atomic financial and membership invarian
     if (ids.length) {
       await query('DELETE FROM ledger_entries WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id = ANY($1::bigint[])) OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id = ANY($1::bigint[]))', [ids]);
       await query('DELETE FROM ledger_transactions WHERE user_id = ANY($1::bigint[])', [ids]);
+      await query('DELETE FROM squad_memberships WHERE user_id = ANY($1::bigint[])', [ids]);
     }
     if (squadIds.length) await query('DELETE FROM squads WHERE id = ANY($1::bigint[])', [squadIds]);
     if (ids.length) await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [ids]);
