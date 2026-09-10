@@ -1,0 +1,51 @@
+name: ODRCA Cluster 10 Low Risk Format
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - name: Format exact Cluster 10 low-risk set
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            scripts/test-check-for-update-navigation-regression.js
+            scripts/test-phase7-conversion-boundary.js
+            scripts/test-referral-attribution.js
+            scripts/test-referral-bootstrap-foundation.js
+            scripts/test-referral-link.js
+            scripts/test-referral-telegram-bootstrap.js
+            scripts/test-task-execution.js
+            scripts/test-task-lifecycle.js
+            scripts/test-task-card-creator-scope.js
+            scripts/test-creator-panel-scope.js
+          )
+          npx prettier --write "${files[@]}"
+          git diff --check
+          npx prettier --check "${files[@]}"
+          npm run test:all
+          if git diff --quiet; then
+            echo 'No formatting diff produced.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "${files[@]}"
+          git commit -m 'chore(odrca): format Cluster 10 low-risk test set'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
