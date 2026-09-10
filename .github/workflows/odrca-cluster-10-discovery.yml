@@ -1,0 +1,36 @@
+name: ODRCA Cluster 10 Discovery
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Measure exact formatter baseline
+        shell: bash
+        run: |
+          set -o pipefail
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "PRETTIER_VERSION=$(npx prettier --version)"
+          npx prettier . --list-different > /tmp/prettier-offenders.txt || true
+          count=$(wc -l < /tmp/prettier-offenders.txt | tr -d ' ')
+          echo "PRETTIER_OFFENDER_COUNT=$count"
+          echo "--- ALL OFFENDERS ---"
+          cat /tmp/prettier-offenders.txt
+          echo "--- LOW-RISK PATH CANDIDATES ---"
+          awk '/^(docs\/|scripts\/test-)/ || /^scripts\/(simulate-|reconcile-)/ {print}' /tmp/prettier-offenders.txt
+          echo "--- NON-RUNTIME CONFIG CANDIDATES ---"
+          awk '/^(README|CHANGELOG|CONTRIBUTING|SECURITY|CODE_OF_CONDUCT|LICENSE|ADR|PROJECT_ROADMAP|IMPLEMENTATION_STATUS|TODO|DEVELOPMENT_LOG|CONTEXT_SUMMARY)/ || /^(\.prettierrc|\.prettierignore|eslint\.config|package\.json)/' /tmp/prettier-offenders.txt
