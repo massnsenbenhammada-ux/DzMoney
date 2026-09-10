@@ -14,8 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: 24
       - run: npm install --ignore-scripts
       - name: Generate exact Prettier patch and commit Cluster 9
         shell: bash
@@ -30,8 +28,6 @@ jobs:
           echo "FORMATTING_DIFF_LINES=$(git diff --numstat -- . ':!package-lock.json' | awk '{a+=$1; d+=$2} END {print a+d}')"
           git restore --staged . 2>/dev/null || true
           git add -- \
-            .github/workflows/phase10-promo.yml \
-            .github/workflows/phase2-boundaries.yml \
             IMPLEMENTATION_STATUS.md \
             public/admin-tabs.js \
             public/admin-enforcement.js \
