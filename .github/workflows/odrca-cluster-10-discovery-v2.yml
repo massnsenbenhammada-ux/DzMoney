@@ -1,0 +1,43 @@
+name: ODRCA Cluster 10 Discovery V2
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --ignore-scripts
+      - name: Classify
+        shell: bash
+        run: |
+          set -o pipefail
+          npx prettier . --list-different > /tmp/p || true
+          echo "PRETTIER_VERSION=$(npx prettier --version)"
+          echo "PRETTIER_OFFENDER_COUNT=$(wc -l < /tmp/p | tr -d ' ')"
+          echo '--- FORMAT-SAFE TEST/SCRIPT CANDIDATES ---'
+          while IFS= read -r f; do
+            case "$f" in
+              scripts/test-*.js|scripts/simulate-*.js|scripts/reconcile-*.js|tests/*.js|tests/**/*.js)
+                if ! grep -Eq "readFileSync|readFile\(|createReadStream|src/|public/|migrations/|server\.js|\.html|\.css|\.js['\"]" "$f"; then echo "$f"; fi
+                ;;
+            esac
+          done < /tmp/p
+          echo '--- SOURCE-INSPECTION / RUNTIME-COUPLED ---'
+          while IFS= read -r f; do
+            case "$f" in
+              scripts/test-*.js|scripts/simulate-*.js|scripts/reconcile-*.js|tests/*.js|tests/**/*.js)
+                if grep -Eq "readFileSync|readFile\(|createReadStream|src/|public/|migrations/|server\.js|\.html|\.css|\.js['\"]" "$f"; then echo "$f"; fi
+                ;;
+            esac
+          done < /tmp/p
+          echo '--- OTHER OFFENDERS ---'
+          grep -Ev '^(scripts/test-|scripts/simulate-|scripts/reconcile-|tests/)' /tmp/p || true
