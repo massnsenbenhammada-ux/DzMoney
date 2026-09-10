@@ -44,7 +44,7 @@ router.get('/ads', asyncRoute(async (req, res) => {
     const reward = rewarded ? { coin: Number(metadata.reward_coin || 0), dzx: Number(metadata.reward_dzx || 0), dzp: Number(metadata.reward_dzp || 0) } : null;
     return res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target }, event: { id: Number(event.rows[0].id), verified: event.rows[0].verified === true, rewarded, reward, completedAt: event.rows[0].completed_at } });
   }
-  res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target, available: completed < target });
+  res.json({ ok: true, task: { id: Number(task.id), title: task.title, description: task.description, completed, target, available: completed < target } });
 }));
 
 router.get('/membership-tiers', asyncRoute(async (req, res) => { const tiers = await getPaidMembershipTiers({ query: (...args) => query(...args) }); res.json({ ok: true, tiers }); }));
