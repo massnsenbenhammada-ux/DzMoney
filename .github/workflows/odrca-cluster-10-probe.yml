@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 24
       - run: npm install --ignore-scripts
-      - name: Format-only probe of script/test offenders
+      - name: Format-only probe of script test offenders
         shell: bash
         run: |
           set -o pipefail
@@ -27,9 +27,13 @@ jobs:
           echo "SCRIPT_TEST_CANDIDATE_COUNT=${#files[@]}"
           printf '%s\n' "${files[@]}"
           if [ "${#files[@]}" -gt 0 ]; then
-            npx prettier --write "${files[@]}"
+            printf '%s\n' "${files[@]}" | xargs npx prettier --write
           fi
           echo "--- DIFF CHECK ---"
           git diff --check
           echo "--- TEST SUITE AFTER FORMAT-ONLY PROBE ---"
           npm run test:all
+          echo "--- FORMATTED FILES ---"
+          git diff --name-only
+          echo "--- DIFF STAT ---"
+          git diff --stat
