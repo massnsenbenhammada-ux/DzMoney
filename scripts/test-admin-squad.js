@@ -4,7 +4,15 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const test = (name, fn) => { try { fn(); console.log(`✓ ${name}`); } catch (error) { console.error(`✗ ${name}`); throw error; } };
+const test = (name, fn) => {
+  try {
+    fn();
+    console.log(`✓ ${name}`);
+  } catch (error) {
+    console.error(`✗ ${name}`);
+    throw error;
+  }
+};
 
 test('admin squad exposes locked contract settings and challenge controls', () => {
   const route = read('src/http/admin-squad-challenge-routes.js');

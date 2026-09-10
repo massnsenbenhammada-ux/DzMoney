@@ -11,8 +11,13 @@ const js = fs.readFileSync(path.join(root, 'public/admin.js'), 'utf8');
 const packageJson = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 
 function test(name, fn) {
-  try { fn(); console.log(`✓ ${name}`); }
-  catch (error) { console.error(`✗ ${name}`); throw error; }
+  try {
+    fn();
+    console.log(`✓ ${name}`);
+  } catch (error) {
+    console.error(`✗ ${name}`);
+    throw error;
+  }
 }
 
 test('economy route reuses adminAuth', () => {
@@ -21,7 +26,8 @@ test('economy route reuses adminAuth', () => {
 });
 
 test('economy service exposes only canonical Phase 12 rates', () => {
-  for (const key of ['economy.dzx_per_ton', 'economy.coin_per_dzp', 'economy.dzx_per_dzp']) assert.match(service, new RegExp(key.replaceAll('.', '\\.')));
+  for (const key of ['economy.dzx_per_ton', 'economy.coin_per_dzp', 'economy.dzx_per_dzp'])
+    assert.match(service, new RegExp(key.replaceAll('.', '\\.')));
   assert.doesNotMatch(service, /reward_pool\./);
 });
 
@@ -38,7 +44,8 @@ test('server mounts the admin economy router', () => {
 
 test('admin UI contains economy controls', () => {
   assert.match(html, /economySection/);
-  for (const id of ['economyDZXPerTon', 'economyCoinPerDZP', 'economyDZXPerDZP']) assert.match(html, new RegExp(id));
+  for (const id of ['economyDZXPerTon', 'economyCoinPerDZP', 'economyDZXPerDZP'])
+    assert.match(html, new RegExp(id));
   assert.match(js, /\/api\/admin\/economy/);
 });
 

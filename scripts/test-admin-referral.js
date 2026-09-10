@@ -3,10 +3,17 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-function read(file) { return fs.readFileSync(path.join(root, file), 'utf8'); }
+function read(file) {
+  return fs.readFileSync(path.join(root, file), 'utf8');
+}
 function test(name, fn) {
-  try { fn(); console.log(`✓ ${name}`); }
-  catch (error) { console.error(`✗ ${name}`); throw error; }
+  try {
+    fn();
+    console.log(`✓ ${name}`);
+  } catch (error) {
+    console.error(`✗ ${name}`);
+    throw error;
+  }
 }
 
 test('admin referral route reuses adminAuth and rate limiting', () => {

@@ -4,10 +4,17 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 
-function read(file) { return fs.readFileSync(path.join(root, file), 'utf8'); }
+function read(file) {
+  return fs.readFileSync(path.join(root, file), 'utf8');
+}
 function test(name, fn) {
-  try { fn(); console.log(`✓ ${name}`); }
-  catch (error) { console.error(`✗ ${name}`); throw error; }
+  try {
+    fn();
+    console.log(`✓ ${name}`);
+  } catch (error) {
+    console.error(`✗ ${name}`);
+    throw error;
+  }
 }
 
 test('admin users route reuses adminAuth and rate limiting', () => {

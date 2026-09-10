@@ -1,8 +1,5 @@
 const assert = require('assert');
-const {
-  AdProviderRegistry,
-  selectNextProvider
-} = require('../src/services/ad-provider-service');
+const { AdProviderRegistry, selectNextProvider } = require('../src/services/ad-provider-service');
 const { startRotatedAdvertisementEventOnClient } = require('../src/services/ad-event-service');
 
 function provider(id, contexts = ['gaming']) {
@@ -10,7 +7,7 @@ function provider(id, contexts = ['gaming']) {
     id,
     contexts,
     enabled: true,
-    verifyCompletion: async () => ({ verified: true, reference: `${id}-ref` })
+    verifyCompletion: async () => ({ verified: true, reference: `${id}-ref` }),
   };
   if (contexts.includes('task')) {
     result.verifyServerCompletion = async () => ({
@@ -18,7 +15,7 @@ function provider(id, contexts = ['gaming']) {
       reference: `${id}-ref`,
       userId: 1,
       providerId: id,
-      context: 'task'
+      context: 'task',
     });
   }
   return result;
@@ -27,39 +24,66 @@ function provider(id, contexts = ['gaming']) {
 const registry = new AdProviderRegistry([
   provider('gigapub'),
   provider('onclicka'),
-  provider('monetag')
+  provider('monetag'),
 ]);
 
 assert.deepStrictEqual(
   registry.listAvailable('gaming').map(item => item.id),
-  ['gigapub', 'onclicka', 'monetag']
+  ['gigapub', 'onclicka', 'monetag'],
 );
 
 assert.strictEqual(selectNextProvider(registry, { context: 'gaming' }).id, 'gigapub');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'gigapub' }).id, 'monetag');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'monetag' }).id, 'onclicka');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'onclicka' }).id, 'gigapub');
+assert.strictEqual(
+  selectNextProvider(registry, { context: 'gaming', previousProviderId: 'gigapub' }).id,
+  'monetag',
+);
+assert.strictEqual(
+  selectNextProvider(registry, { context: 'gaming', previousProviderId: 'monetag' }).id,
+  'onclicka',
+);
+assert.strictEqual(
+  selectNextProvider(registry, { context: 'gaming', previousProviderId: 'onclicka' }).id,
+  'gigapub',
+);
 
 registry.get('onclicka').enabled = false;
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'gigapub' }).id, 'monetag');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'onclicka' }).id, 'gigapub');
-assert.strictEqual(selectNextProvider(registry, { context: 'gaming', previousProviderId: 'monetag' }).id, 'gigapub');
+assert.strictEqual(
+  selectNextProvider(registry, { context: 'gaming', previousProviderId: 'gigapub' }).id,
+  'monetag',
+);
+assert.strictEqual(
+  selectNextProvider(registry, { context: 'gaming', previousProviderId: 'onclicka' }).id,
+  'gigapub',
+);
+assert.strictEqual(
+  selectNextProvider(registry, { context: 'gaming', previousProviderId: 'monetag' }).id,
+  'gigapub',
+);
 
 assert.throws(
   () => selectNextProvider(registry, { context: 'gaming', previousProviderId: 'unknown' }),
-  /Unknown previous advertisement provider/
+  /Unknown previous advertisement provider/,
 );
 
 const taskRegistry = new AdProviderRegistry([
   provider('monetag', ['task']),
-  provider('adsgram', ['task'])
+  provider('adsgram', ['task']),
 ]);
 assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task' }).id, 'monetag');
-assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'monetag' }).id, 'adsgram');
-assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'adsgram' }).id, 'monetag');
+assert.strictEqual(
+  selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'monetag' }).id,
+  'adsgram',
+);
+assert.strictEqual(
+  selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'adsgram' }).id,
+  'monetag',
+);
 
 taskRegistry.get('adsgram').enabled = false;
-assert.strictEqual(selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'monetag' }).id, 'monetag');
+assert.strictEqual(
+  selectNextProvider(taskRegistry, { context: 'task', previousProviderId: 'monetag' }).id,
+  'monetag',
+);
 taskRegistry.get('adsgram').enabled = true;
 
 function fakeClient() {
@@ -73,8 +97,18 @@ function fakeClient() {
         return { rowCount: row ? 1 : 0, rows: row ? [row] : [] };
       }
       if (sql.includes("metadata->>'provider_id' AS provider_id")) {
-        const row = [...events].reverse().find(event => event.user_id === params[0] && event.context === params[1] && event.metadata.provider_id);
-        return { rowCount: row ? 1 : 0, rows: row ? [{ provider_id: row.metadata.provider_id }] : [] };
+        const row = [...events]
+          .reverse()
+          .find(
+            event =>
+              event.user_id === params[0] &&
+              event.context === params[1] &&
+              event.metadata.provider_id,
+          );
+        return {
+          rowCount: row ? 1 : 0,
+          rows: row ? [{ provider_id: row.metadata.provider_id }] : [],
+        };
       }
       if (sql.includes('INSERT INTO activity_ad_events')) {
         const event = {
@@ -83,13 +117,13 @@ function fakeClient() {
           context: params[1],
           external_ad_id: params[2],
           idempotency_key: params[3],
-          metadata: params[4]
+          metadata: params[4],
         };
         events.push(event);
         return { rowCount: 1, rows: [event] };
       }
       throw new Error(`Unexpected SQL in rotation test: ${sql}`);
-    }
+    },
   };
 }
 
@@ -101,7 +135,7 @@ function fakeClient() {
     context: 'gaming',
     idempotencyKey: 'ad-1',
     metadata: { game: 'spin' },
-    providerRegistry: registry
+    providerRegistry: registry,
   });
   assert.strictEqual(first.providerId, 'gigapub');
 
@@ -110,7 +144,7 @@ function fakeClient() {
     context: 'gaming',
     idempotencyKey: 'ad-2',
     metadata: { game: 'spin' },
-    providerRegistry: registry
+    providerRegistry: registry,
   });
   assert.strictEqual(otherUserFirst.providerId, 'gigapub');
 
@@ -119,7 +153,7 @@ function fakeClient() {
     context: 'gaming',
     idempotencyKey: 'ad-1',
     metadata: { game: 'spin' },
-    providerRegistry: registry
+    providerRegistry: registry,
   });
   assert.strictEqual(duplicate.providerId, 'gigapub');
   assert.strictEqual(duplicate.duplicate, true);
@@ -130,7 +164,7 @@ function fakeClient() {
     context: 'gaming',
     idempotencyKey: 'ad-3',
     metadata: { game: 'digging' },
-    providerRegistry: registry
+    providerRegistry: registry,
   });
   assert.strictEqual(second.providerId, 'monetag');
 
@@ -139,7 +173,7 @@ function fakeClient() {
     context: 'gaming',
     idempotencyKey: 'ad-4',
     metadata: { game: 'spin' },
-    providerRegistry: registry
+    providerRegistry: registry,
   });
   assert.strictEqual(third.providerId, 'onclicka');
 
@@ -148,7 +182,7 @@ function fakeClient() {
     context: 'gaming',
     idempotencyKey: 'ad-5',
     metadata: { game: 'digging' },
-    providerRegistry: registry
+    providerRegistry: registry,
   });
   assert.strictEqual(fourth.providerId, 'gigapub');
   assert.strictEqual(client.events.length, 5);
