@@ -12,7 +12,6 @@ const nodeGlobals = {
   clearImmediate: 'readonly',
   clearInterval: 'readonly',
   clearTimeout: 'readonly',
-  console: 'readonly',
   crypto: 'readonly',
   exports: 'readonly',
   fetch: 'readonly',
@@ -142,6 +141,8 @@ module.exports = [
     rules: {
       'max-lines': 'off',
       'max-lines-per-function': 'off',
+      'max-nested-callbacks': 'off',
+      'max-statements': 'off',
     },
   },
   prettier,

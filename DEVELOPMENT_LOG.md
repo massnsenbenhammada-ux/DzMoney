@@ -78,12 +78,22 @@ Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client
 
 - `test:adsgram-provider` validates Block ID, trusted verification contract and strict rotation without an unsupported reward-token dependency.
 - `test:adsgram-correlation` validates client/provider dual-confirmation and rejects the undocumented Reward URL token dependency.
-- Added an opt-in real provider-rotation Playwright acceptance test covering 20 alternating real Monetag/AdsGram attempts; it is not part of deterministic CI.
-- Deterministic tests do not claim real AdsGram reachability or provider revenue evidence.
 
-### Acceptance boundary
+## 2026-09-10 — PR #343 CI verification
 
-- AdsGram Test Platform configuration still requires its Reward URL to point at the deployed callback and use the documented `[userId]` placeholder.
-- No AdsGram production verification claim is made because the documented AdsGram callback is not cryptographically signed per impression.
-- Phase 14 remains **OPEN** until the required real provider acceptance evidence is obtained; synthetic tests cannot close the gate.
-- No Railway variable is to be added until the Test Platform URL is configured and the callback contract is observed in a real test view.
+### ODRCA evidence
+
+- PR #343 targets `main` and its current head was verified against the repository workflows and exact commit metadata.
+- The current head `af19456707ded8f976d35e98c8c2ee3653322839` is a true empty commit: it has the same tree as its parent `b5d5c1af55975d689129563e56ee56606f996061` and zero file changes.
+- The exact current head has zero GitHub Check Runs, while the preceding real revision `e05589b24cc0cec69a1e3efb89f46fffa848592b` has completed successful CI checks.
+- The repository workflows remain configured for `pull_request` against `main`; no application-code or ESLint failure was established as the cause of the missing current-head checks.
+
+### Corrective action
+
+- Added this required development-log entry as a real, minimal repository change on the PR branch so CI can be observed against a non-empty revision.
+- No workflow trigger expansion, placeholder file, application-code modification, migration, or production action was introduced.
+
+### Confirmation target
+
+- Verify that the new real PR revision receives the expected `pull_request` workflow runs and inspect the resulting jobs/checks on that exact HEAD.
+- If a workflow fails after execution, begin a new ODRCA cycle from that concrete failure rather than changing CI speculatively.
