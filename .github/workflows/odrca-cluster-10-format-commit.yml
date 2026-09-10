@@ -15,6 +15,7 @@ jobs:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/dzmoney_test
       DATABASE_SSL: "false"
+      TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
     services:
       postgres:
         image: postgres:16
