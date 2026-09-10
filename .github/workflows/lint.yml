@@ -67,3 +67,11 @@ jobs:
           console.log(`ESLINT_WARNING_COUNT=${warnings}`);
           console.log(`ESLINT_AFFECTED_FILE_COUNT=${files}`);
           NODE
+      - name: Upload ESLint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eslint-report-${{ github.run_id }}
+          path: eslint-report.json
+          if-no-files-found: error
+          retention-days: 7
