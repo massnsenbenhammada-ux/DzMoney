@@ -42,7 +42,7 @@ jobs:
           fi
 
   complexity-gate:
-    name: ESLint baseline measurement
+    name: ESLint monotonic gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -53,17 +53,18 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: npm install --ignore-scripts
-      - name: Measure ESLint baseline
+      - name: Run ESLint and enforce baseline
         shell: bash
         run: |
-          npx eslint . --format json > eslint-report.json || true
-          node <<'NODE'
-          const fs = require('fs');
-          const report = JSON.parse(fs.readFileSync('eslint-report.json', 'utf8'));
-          const errors = report.reduce((sum, file) => sum + file.errorCount, 0);
-          const warnings = report.reduce((sum, file) => sum + file.warningCount, 0);
-          const files = report.filter((file) => file.messages.length > 0).length;
-          console.log(`ESLINT_ERROR_COUNT=${errors}`);
-          console.log(`ESLINT_WARNING_COUNT=${warnings}`);
-          console.log(`ESLINT_AFFECTED_FILE_COUNT=${files}`);
-          NODE
+          set +e
+          npx eslint . --format json > eslint-report.json
+          eslint_status=$?
+          set -e
+          node scripts/enforce-eslint-baseline.js
+          baseline_status=$?
+          if [ "$baseline_status" -ne 0 ]; then
+            exit "$baseline_status"
+          fi
+          if [ "$eslint_status" -ne 0 ]; then
+            echo "ESLINT_EXIT_STATUS=$eslint_status (existing baseline violations are permitted)"
+          fi
