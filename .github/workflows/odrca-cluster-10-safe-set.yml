@@ -1,0 +1,40 @@
+name: ODRCA Cluster 10 Safe Set
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --ignore-scripts
+      - name: Classify script test formatter set
+        shell: bash
+        run: |
+          set -o pipefail
+          npx prettier . --list-different > /tmp/all-offenders.txt || true
+          awk '/^scripts\/test-.*\.js$/' /tmp/all-offenders.txt > /tmp/script-test-offenders.txt
+          echo "PRETTIER_VERSION=$(npx prettier --version)"
+          echo "SCRIPT_TEST_OFFENDER_COUNT=$(wc -l < /tmp/script-test-offenders.txt | tr -d ' ')"
+          cat /tmp/script-test-offenders.txt
+          if [ -s /tmp/script-test-offenders.txt ]; then
+            xargs npx prettier --write < /tmp/script-test-offenders.txt
+          fi
+          echo '--- DIFF STAT ---'
+          git diff --stat
+          echo '--- DIFF CHECK ---'
+          git diff --check
+          echo '--- FULL TEST SUITE ---'
+          npm run test:all
+          echo '--- POST-TEST DIFF FILES ---'
+          git diff --name-only
+          echo '--- POST-TEST DIFF NUMSTAT ---'
+          git diff --numstat
