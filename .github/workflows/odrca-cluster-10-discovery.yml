@@ -19,7 +19,7 @@ jobs:
           node-version: 24
       - name: Install dependencies
         run: npm install --ignore-scripts
-      - name: Measure exact formatter baseline
+      - name: Measure and classify formatter baseline
         shell: bash
         run: |
           set -o pipefail
@@ -30,7 +30,27 @@ jobs:
           echo "PRETTIER_OFFENDER_COUNT=$count"
           echo "--- ALL OFFENDERS ---"
           cat /tmp/prettier-offenders.txt
-          echo "--- LOW-RISK PATH CANDIDATES ---"
-          awk '/^(docs\/|scripts\/test-)/ || /^scripts\/(simulate-|reconcile-)/ {print}' /tmp/prettier-offenders.txt
-          echo "--- NON-RUNTIME CONFIG CANDIDATES ---"
-          awk '/^(README|CHANGELOG|CONTRIBUTING|SECURITY|CODE_OF_CONDUCT|LICENSE|ADR|PROJECT_ROADMAP|IMPLEMENTATION_STATUS|TODO|DEVELOPMENT_LOG|CONTEXT_SUMMARY)/ || /^(\.prettierrc|\.prettierignore|eslint\.config|package\.json)/' /tmp/prettier-offenders.txt
+          echo "--- FORMAT-SAFE SCRIPT CANDIDATES: no source-file reads/inspection markers ---"
+          while IFS= read -r file; do
+            case "$file" in
+              scripts/test-*.js|scripts/simulate-*.js|scripts/reconcile-*.js|tests/*.js|tests/**/*.js)
+                if ! grep -Eq "readFileSync|readFile\(|createReadStream|src/|public/|migrations/|server\.js|\.html|\.css|\.js['\"]" "$file"; then
+                  echo "$file"
+                fi
+                ;;
+            esac
+          done < /tmp/prettier-offenders.txt
+          echo "--- EXCLUDED SCRIPT CANDIDATES: source inspection / runtime coupling markers ---"
+          while IFS= read -r file; do
+            case "$file" in
+              scripts/test-*.js|scripts/simulate-*.js|scripts/reconcile-*.js|tests/*.js|tests/**/*.js)
+                if grep -Eq "readFileSync|readFile\(|createReadStream|src/|public/|migrations/|server\.js|\.html|\.css|\.js['\"]" "$file"; then
+                  echo "$file"
+                fi
+                ;;
+            esac
+          done < /tmp/prettier-offenders.txt
+          echo "--- DOCUMENTATION OFFENDERS ---"
+          awk '/^docs\// || /^(README|PROJECT_ROADMAP|IMPLEMENTATION_STATUS|TODO|DEVELOPMENT_LOG|CONTEXT_SUMMARY|ADR)/ {print}' /tmp/prettier-offenders.txt
+          echo "--- RUNTIME OFFENDERS (not candidates for a formatting-only cluster without file-level audit) ---"
+          awk '/^(public\/|src\/|server\.js$|\.github\/workflows\/)/ {print}' /tmp/prettier-offenders.txt
