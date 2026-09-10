@@ -163,9 +163,9 @@ async function upgradeSquadTier({ userId, newMaxMembers, idempotencyKey }) {
     if (tier.maxMembers <= snapshot.tier.maxMembers) throw new Error('Upgrade tier must be higher than the current membership tier');
     const target = await selectEligibleSquad(client, tier);
     if (!target) throw new Error('No Squad is currently available in the requested tier');
+    await client.query(`UPDATE squad_memberships SET status = 'cancelled' WHERE id = $1`, [current.id]);
     const replacement = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`, [target.id, userId]);
     const economy = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId, type: 'SQUAD_MEMBERSHIP_UPGRADE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership_upgrade' }], metadata: { source: 'squad_membership_upgrade', membership: membershipResponse(replacement.rows[0]), old_membership_id: current.id, old_squad_id: current.squad_id, new_squad_id: target.id, price: tier.price, tier } });
-    await client.query(`UPDATE squad_memberships SET status = 'cancelled' WHERE id = $1`, [current.id]);
     return { duplicate: false, membership: replacement.rows[0], price: tier.price, tier, transaction: economy.transaction };
   });
 }
