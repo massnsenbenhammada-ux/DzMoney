@@ -5,7 +5,8 @@ const creatorCss = fs.readFileSync('public/creator-task.css', 'utf8');
 
 const categoriesStart = app.indexOf('function renderTaskCategories()');
 const categoriesEnd = app.indexOf('\nfunction sortDailyTasks', categoriesStart);
-if (categoriesStart < 0 || categoriesEnd <= categoriesStart) throw new Error('Task category renderer not found');
+if (categoriesStart < 0 || categoriesEnd <= categoriesStart)
+  throw new Error('Task category renderer not found');
 const categoriesBody = app.slice(categoriesStart, categoriesEnd);
 
 if (!categoriesBody.includes('setTaskModeTabsVisible(true)')) {
@@ -20,7 +21,8 @@ if (categoriesBody.includes('creatorPanel.hidden = false')) {
 
 const categoryStart = app.indexOf('function renderTaskCategory(categoryKey)');
 const categoryEnd = app.indexOf('\nfunction renderTasks()', categoryStart);
-if (categoryStart < 0 || categoryEnd <= categoryStart) throw new Error('Task category renderer not found');
+if (categoryStart < 0 || categoryEnd <= categoryStart)
+  throw new Error('Task category renderer not found');
 const categoryBody = app.slice(categoryStart, categoryEnd);
 if (!categoryBody.includes('creatorPanel.hidden = true')) {
   throw new Error('Creator panel must be hidden inside a specific task category');
