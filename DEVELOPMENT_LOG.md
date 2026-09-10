@@ -87,3 +87,23 @@ Inspected the current Phase 14 branch, PR #294, exact-head CI, Daily View client
 - No AdsGram production verification claim is made because the documented AdsGram callback is not cryptographically signed per impression.
 - Phase 14 remains **OPEN** until the required real provider acceptance evidence is obtained; synthetic tests cannot close the gate.
 - No Railway variable is to be added until the Test Platform URL is configured and the callback contract is observed in a real test view.
+
+## 2026-09-10 — PR #343 CI ODRCA correction
+
+### Observed
+
+- PR #343 head `f1378400089c123457fdc87de58bdecce25b0dd2` had zero Check Runs after a real repository change was added.
+- GitHub reports the PR as `mergeable=false`, `rebaseable=false`, and `mergeable_state=dirty`.
+- The PR base was stale at `7e9879b5173215a88da0ca672947c1b3a96cc517`, while current `main` is `b206d06adb3786668297d763d24cadc3f2067f5a`.
+
+### Diagnose
+
+The missing current-head PR checks are caused by the stale/conflicting PR branch state, not by an application test failure or provider failure. The earlier empty-commit hypothesis is rejected because the real change at `f137840...` also received zero current-head Check Runs while GitHub simultaneously reported the PR as dirty/non-rebaseable.
+
+### Corrective action
+
+A clean feature branch is rebuilt from the current `main` tree and the already-reviewed PR #343 final file changes are applied without carrying forward unrelated historical commits or overwriting current-main changes. No production/Railway action, migration execution, or main-branch mutation is performed.
+
+### Confirmation target
+
+The replacement PR must first show `mergeable_state` no longer dirty and must receive pull-request CI on its exact HEAD. Any subsequent job failure is a new ODRCA incident and must be diagnosed from its concrete CI evidence.
