@@ -142,6 +142,8 @@ module.exports = [
     rules: {
       'max-lines': 'off',
       'max-lines-per-function': 'off',
+      'max-nested-callbacks': 'off',
+      'max-statements': 'off',
     },
   },
   prettier,
