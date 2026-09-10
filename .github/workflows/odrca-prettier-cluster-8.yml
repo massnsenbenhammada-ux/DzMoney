@@ -1,0 +1,62 @@
+name: ODRCA Prettier Cluster 8
+
+on:
+  push:
+    branches:
+      - odrca/prettier-cluster-8
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+      - name: Run exact repository Prettier
+        run: |
+          npx --no-install prettier --version
+          npx --no-install prettier --write \
+            eslint.config.js \
+            playwright.config.js \
+            scripts/test-ad-provider-rotation.js \
+            scripts/test-ad-provider-system.js \
+            scripts/test-admin-dashboard.js \
+            scripts/test-admin-economy.js \
+            scripts/test-admin-referral.js \
+            scripts/test-admin-squad.js \
+            scripts/test-admin-task-campaign.js \
+            scripts/test-admin-telegram-entry.js \
+            scripts/test-admin-users.js \
+            scripts/test-adsgram-correlation-contract.js
+      - name: Commit formatter output
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- . ':!.github/workflows/odrca-prettier-cluster-8.yml'; then
+            echo "No Prettier changes detected."
+            exit 0
+          fi
+          git add \
+            eslint.config.js \
+            playwright.config.js \
+            scripts/test-ad-provider-rotation.js \
+            scripts/test-ad-provider-system.js \
+            scripts/test-admin-dashboard.js \
+            scripts/test-admin-economy.js \
+            scripts/test-admin-referral.js \
+            scripts/test-admin-squad.js \
+            scripts/test-admin-task-campaign.js \
+            scripts/test-admin-telegram-entry.js \
+            scripts/test-admin-users.js \
+            scripts/test-adsgram-correlation-contract.js
+          git commit -m "chore(odrca): format Cluster 8"
+          git push
