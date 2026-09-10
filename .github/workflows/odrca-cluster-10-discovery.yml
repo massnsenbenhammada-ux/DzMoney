@@ -28,9 +28,7 @@ jobs:
           npx prettier . --list-different > /tmp/prettier-offenders.txt || true
           count=$(wc -l < /tmp/prettier-offenders.txt | tr -d ' ')
           echo "PRETTIER_OFFENDER_COUNT=$count"
-          echo "--- ALL OFFENDERS ---"
-          cat /tmp/prettier-offenders.txt
-          echo "--- FORMAT-SAFE SCRIPT CANDIDATES: no source-file reads/inspection markers ---"
+          echo "--- FORMAT-SAFE SCRIPT CANDIDATES ---"
           while IFS= read -r file; do
             case "$file" in
               scripts/test-*.js|scripts/simulate-*.js|scripts/reconcile-*.js|tests/*.js|tests/**/*.js)
@@ -40,7 +38,7 @@ jobs:
                 ;;
             esac
           done < /tmp/prettier-offenders.txt
-          echo "--- EXCLUDED SCRIPT CANDIDATES: source inspection / runtime coupling markers ---"
+          echo "--- SOURCE-INSPECTION / RUNTIME-COUPLED SCRIPT OFFENDERS ---"
           while IFS= read -r file; do
             case "$file" in
               scripts/test-*.js|scripts/simulate-*.js|scripts/reconcile-*.js|tests/*.js|tests/**/*.js)
@@ -50,7 +48,5 @@ jobs:
                 ;;
             esac
           done < /tmp/prettier-offenders.txt
-          echo "--- DOCUMENTATION OFFENDERS ---"
-          awk '/^docs\// || /^(README|PROJECT_ROADMAP|IMPLEMENTATION_STATUS|TODO|DEVELOPMENT_LOG|CONTEXT_SUMMARY|ADR)/ {print}' /tmp/prettier-offenders.txt
-          echo "--- RUNTIME OFFENDERS (not candidates for a formatting-only cluster without file-level audit) ---"
-          awk '/^(public\/|src\/|server\.js$|\.github\/workflows\/)/ {print}' /tmp/prettier-offenders.txt
+          echo "--- NON-SCRIPT OFFENDERS ---"
+          grep -Ev '^(scripts/test-|scripts/simulate-|scripts/reconcile-|tests/)' /tmp/prettier-offenders.txt || true
