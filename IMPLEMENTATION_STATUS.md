@@ -55,7 +55,6 @@ The existing Task Catalog → Task Execution → Verification → Reward boundar
 🟢 **Closed / Complete for the accepted Referral contract.**
 
 Implemented and validated:
-
 - attribution;
 - server-side qualification;
 - activation reward;
@@ -74,7 +73,6 @@ No concrete internal Phase 3 implementation gap remains.
 🟢 **Closed for the locked Squad implementation currently authorized.**
 
 Authoritative documents:
-
 - `docs/SQUAD_SYSTEM_CONTRACT.md`
 - `docs/ADR-0019-SQUAD.md`
 - `docs/PHASE4_SQUAD.md`
@@ -90,12 +88,10 @@ The remaining App-Ban control surface is intentionally not a Phase 4 runtime bou
 The product decision is final for the current roadmap: **Phase 5 is Gaming. Reward Pool is removed from the product scope and is not assigned another phase.**
 
 Canonical contract:
-
 - `docs/PHASE5_GAMING.md`
 - `PROJECT_ROADMAP.md` Phase 5 section
 
 Validated implementation:
-
 - persistent Spin and Digging resources;
 - server-side Spin rolls and idempotent results;
 - persistent server-generated Digging boards;
@@ -115,7 +111,6 @@ Validated implementation:
 Simulation result: average 1,023.665 DZX-equivalent Gaming economic cost per user over 30 days, below the 1,200 DZX-equivalent guardrail. The deterministic 1,000-user run observed a 708.3–1,565.7 DZX-equivalent per-user range and jackpot frequency below 1%.
 
 Validation evidence:
-
 - Phase 5 implementation and subsequent runtime corrections were merged through the existing PR workflow.
 - Exact-head Phase 2 boundary CI passed on the final Gaming implementation lineage, including migrations, Gaming invariants/economic simulation, provider contracts, TON boundaries, isolated runtime health and the full test suite.
 - Security CI passed after PR #257 corrected the repository's npm-cache mismatch; CodeQL and dependency audit are green.
@@ -150,10 +145,9 @@ Packages remain unopened by explicit product scope. No package purchasing UI, pa
 
 🟢 **CLOSED / COMPLETE for the currently defined UI contract.**
 
-Implemented in PR #263 (`feat(ui): complete Phase 11 user app surfaces), merged into `main`at commit`6bbef07517992041ce894a90a3b1ed0e919ef3b8`.
+Implemented in PR #263 (`feat(ui): complete Phase 11 user app surfaces), merged into `main` at commit `6bbef07517992041ce894a90a3b1ed0e919ef3b8`.
 
 Validated scope:
-
 - Home Squad/Gaming status surfaces and Daily Activity;
 - package placeholder only, with Packages still deferred;
 - Coming Soon surface without speculative backend behavior;
@@ -166,14 +160,12 @@ Validated scope:
 - Phase 11 static UI contract tests integrated into the frontend test command.
 
 Architecture validation:
-
 - no new Economy, Ledger, Task, Verification, Advertisement, Squad, Gaming, Promo, or backend source of truth;
 - no package purchasing behavior activated;
 - no unrelated backend business-rule changes;
 - no silent product/navigation decision on the existing five-item Bottom Nav conflict; the current Home / Tasks / Squad / Friends / Wallet navigation remains unchanged.
 
 CI/deployment evidence:
-
 - PR #263 merged with the existing repository CI gates passing.
 - Railway deployment `b15be93d-5757-48a2-aa6b-6645f930bd86` completed successfully from the merged `main` lineage.
 - Post-deployment logs show `DzMoney migrations: OK` and `DzMoney 2.0 listening on 8080`.
@@ -182,7 +174,6 @@ CI/deployment evidence:
 - The existing Railway build warning about the absent `package-lock.json` and npm's `--omit=dev` wording are non-blocking hygiene warnings; the deployment itself completed successfully and npm reported zero package vulnerabilities during install.
 
 Remaining limitation:
-
 - The visual UI has been runtime-served and HTTP-validated, but pixel-level/manual Telegram-client visual acceptance is not replaced by these server-side checks. Any later visual correction must remain within the existing Phase 11 contract and undergo the same pre-change audit.
 
 ## Phase 12 — Admin Panel
@@ -192,7 +183,6 @@ Remaining limitation:
 Phase 12 owns the administrative control surface, including the Squad App-Ban warning/review/enforcement workflow. No automatic ban boundary is authorized.
 
 Validated administrative surfaces:
-
 - Dashboard foundation and rankings;
 - Telegram Admin entry;
 - Economy controls using the canonical `admin_settings` source;
@@ -208,7 +198,6 @@ Validated administrative surfaces:
 Creator Task/Campaign review reuses the canonical `activity_tasks` + `task-service.js` lifecycle and existing Economy/Ledger refund/tax behavior. No new task engine, verification/reward service, campaign accounting table, pricing source, or lifecycle state was introduced.
 
 Validation evidence:
-
 - PR #278 merged at `f35ab969e4e8f981080a192b2116f8edc379ac62` after exact-head CI passed: Test Governance, Security/CodeQL, Phase 10 Promo Codes, and Phase 2 boundaries/full `test:all` all succeeded for the exact validated head.
 - The first exact-head full-suite attempt failed only because the new contract test asserted `approve`/`reject` literals in the HTTP route instead of the service boundary. The test was corrected; the subsequent exact-head full-suite run passed.
 - Railway deployment `b4febab1-3212-4b42-9f37-0e99a57df4a1` completed successfully from merge commit `f35ab969e4e8f981080a192b2116f8edc379ac62`.
@@ -220,7 +209,6 @@ Validation evidence:
 🟢 **CLOSED / COMPLETE for the current ledger-integrity contract.**
 
 Implemented and validated in PR #280, merged at `24d22c083f2982901ab978ad3483032528c58aee`:
-
 - reconciliation now validates wallet-vs-ledger equality for each canonical wallet account;
 - reconciliation validates the consecutive balance chain within each wallet account instead of treating different currencies as one ledger chain;
 - the unused parallel `src/services/ledger-service.js` implementation was removed after reference audit; `src/services/economy-service.js` remains the canonical Economy/Ledger write boundary;
@@ -228,7 +216,6 @@ Implemented and validated in PR #280, merged at `24d22c083f2982901ab978ad3483032
 - the focused Phase 13 test uses cryptographically strong UUID generation rather than `Math.random()`.
 
 Validation evidence:
-
 - Exact-head CI for the pre-merge head `05efc614b296a098e5e3a82aa81cc5f1ef94dc99` passed Test Governance, Security/CodeQL, Phase 10 Promo Codes, Phase 2 boundaries/full `test:all`, migrations, Gaming invariants/economic simulation, provider contracts and isolated runtime health.
 - The Phase 13 continuity assertion was corrected to group ledger entries by wallet account, matching the actual per-currency ledger chains. The correction was test-only and did not alter production economic behavior.
 - CodeQL's insecure `Math.random()` finding in the Phase 13 test was removed by replacing it with `crypto.randomUUID()`; the subsequent Security workflow passed.
@@ -267,7 +254,6 @@ No remaining implementation gap was found inside the current Phase 13 ledger-int
 ## Update Rule
 
 After every validated milestone, update this file with:
-
 1. What was implemented.
 2. What was actually tested.
 3. Commit/reference used.
