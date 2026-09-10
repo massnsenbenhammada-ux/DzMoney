@@ -20,7 +20,7 @@ test('Squad switch and upgrade preserve atomic financial and membership invarian
   const squadIds = [];
   try {
     const users = [];
-    for (let index = 0; index < 14; index += 1) {
+    for (let index = 0; index < 15; index += 1) {
       const user = await walletService.createUser({ telegramUserId: `7${Date.now()}${index}`, username: `squad_membership_${suffix.slice(0, 8)}_${index}` });
       users.push(user);
       ids.push(user.id);
@@ -54,7 +54,7 @@ test('Squad switch and upgrade preserve atomic financial and membership invarian
     assert.equal(String(unchanged.rows[0].squad_id), String(switched.membership.squad_id));
     assert.equal(unchanged.rows[0].status, 'active');
 
-    const higherTierSquad = await createSquad(users[3].id, users.slice(4, 13));
+    const higherTierSquad = await createSquad(users[3].id, [...users.slice(4, 13), users[14]]);
     squadIds.push(higherTierSquad);
     await query("UPDATE wallet_accounts SET balance = 1000 WHERE user_id = $1 AND currency = 'DZP'", [users[13].id]);
     const beforeUpgrade = await query("SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZP'", [users[13].id]);
