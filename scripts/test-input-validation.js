@@ -10,11 +10,22 @@ function run() {
   });
 
   const valid = validate({ title: 'Campaign', target: 1000, idempotencyKey: 'key-1', config: {} });
-  assert.deepStrictEqual(valid, { title: 'Campaign', target: 1000, idempotencyKey: 'key-1', config: {} });
+  assert.deepStrictEqual(valid, {
+    title: 'Campaign',
+    target: 1000,
+    idempotencyKey: 'key-1',
+    config: {},
+  });
 
   assert.throws(
     () =>
-      validate({ title: 'Campaign', target: 1000, idempotencyKey: 'key-1', config: {}, unexpected: true }),
+      validate({
+        title: 'Campaign',
+        target: 1000,
+        idempotencyKey: 'key-1',
+        config: {},
+        unexpected: true,
+      }),
     /unexpected/,
   );
   assert.throws(

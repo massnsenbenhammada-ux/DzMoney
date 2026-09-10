@@ -5,7 +5,7 @@ const adminTabSections = {
   referral: 'referralSection',
   squad: 'squadSection',
   enforcement: 'enforcementSection',
-  campaigns: 'adminTaskCampaignSection'
+  campaigns: 'adminTaskCampaignSection',
 };
 
 function setActiveAdminTab(tabName) {
@@ -36,7 +36,7 @@ function loadAdminTab(tabName) {
     referral: loadReferralSettings,
     squad: loadSquadSettings,
     enforcement: loadEnforcementState,
-    campaigns: loadAdminTasks
+    campaigns: loadAdminTasks,
   };
   const loader = loaders[tabName];
   if (!loader) return;
@@ -50,7 +50,8 @@ function loadAdminTab(tabName) {
 function openAdminTab(tabName) {
   if (!adminTabSections[tabName]) return;
   setActiveAdminTab(tabName);
-  if (typeof closeDashboardStream === 'function' && tabName !== 'dashboard') closeDashboardStream('paused');
+  if (typeof closeDashboardStream === 'function' && tabName !== 'dashboard')
+    closeDashboardStream('paused');
   loadAdminTab(tabName);
   if (tabName === 'dashboard' && typeof openDashboardStream === 'function') openDashboardStream();
 }
@@ -76,4 +77,5 @@ const savedAdminTab = sessionStorage.getItem('dzmoney-admin-active-tab');
 const initialAdminTab = adminTabSections[savedAdminTab] ? savedAdminTab : 'dashboard';
 setActiveAdminTab(initialAdminTab);
 loadAdminTab(initialAdminTab);
-if (initialAdminTab === 'dashboard' && typeof openDashboardStream === 'function') openDashboardStream();
+if (initialAdminTab === 'dashboard' && typeof openDashboardStream === 'function')
+  openDashboardStream();

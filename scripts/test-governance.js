@@ -3,15 +3,15 @@ const path = require('node:path');
 
 const BASELINE_DUPLICATES = new Set([
   'npm run test:task-card-creator-scope',
-  'npm run test:creator-panel-scope'
+  'npm run test:creator-panel-scope',
 ]);
 
 function parseTestAll(command) {
   return command
     .split(/&&|\n/)
-    .map((part) => part.trim())
+    .map(part => part.trim())
     .filter(Boolean)
-    .map((entry) => {
+    .map(entry => {
       const scriptMatch = entry.match(/^npm run (test:[^\s]+)$/);
       if (scriptMatch) {
         return { type: 'script', name: scriptMatch[1], command: entry };
@@ -77,7 +77,7 @@ function run() {
 
   if (result.errors.length) {
     console.error('Test Governance FAILED');
-    result.errors.forEach((error) => console.error(`- ${error}`));
+    result.errors.forEach(error => console.error(`- ${error}`));
     process.exitCode = 1;
     return;
   }
