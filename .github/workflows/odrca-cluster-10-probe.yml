@@ -1,0 +1,35 @@
+name: ODRCA Cluster 10 Probe
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --ignore-scripts
+      - name: Format-only probe of script/test offenders
+        shell: bash
+        run: |
+          set -o pipefail
+          npx prettier . --list-different > /tmp/offenders.txt || true
+          echo "PRETTIER_VERSION=$(npx prettier --version)"
+          echo "PRETTIER_OFFENDER_COUNT=$(wc -l < /tmp/offenders.txt | tr -d ' ')"
+          mapfile -t files < <(grep -E '^(scripts/test-.*\.js|tests/.*\.js)$' /tmp/offenders.txt || true)
+          echo "SCRIPT_TEST_CANDIDATE_COUNT=${#files[@]}"
+          printf '%s\n' "${files[@]}"
+          if [ "${#files[@]}" -gt 0 ]; then
+            npx prettier --write "${files[@]}"
+          fi
+          echo "--- DIFF CHECK ---"
+          git diff --check
+          echo "--- TEST SUITE AFTER FORMAT-ONLY PROBE ---"
+          npm run test:all
