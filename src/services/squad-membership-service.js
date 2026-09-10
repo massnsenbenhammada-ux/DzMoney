@@ -1,5 +1,12 @@
 const { withTransaction, query } = require('../db/pool');
-const { postEconomyTransactionOnClient } = require('./economy-service');
+const {
+  DZP_DZX,
+  decimalToScaled,
+  multiplyRatioScaled,
+  multiplyScaled,
+  scaledToDecimal,
+  postEconomyTransactionOnClient
+} = require('./economy-service');
 
 const DEFAULT_PAID_TIERS = [
   { minMembers: 1, maxMembers: 10, price: 100 },
@@ -60,9 +67,107 @@ async function selectPaidMembershipTier(client, maxMembers) {
   return tiers.find(tier => tier.maxMembers === maxMembers) || null;
 }
 
-async function selectEligibleSquad(client, tier) {
-  const result = await client.query(`SELECT s.id FROM squads s WHERE s.id = (SELECT candidate.id FROM (SELECT s2.id, COUNT(sm.id)::int AS member_count FROM squads s2 LEFT JOIN squad_memberships sm ON sm.squad_id = s2.id AND sm.status <> 'cancelled' GROUP BY s2.id HAVING COUNT(sm.id) BETWEEN $1 AND $2 ORDER BY COUNT(sm.id) ASC, s2.id ASC LIMIT 1) candidate) FOR UPDATE`, [tier.minMembers, tier.maxMembers]);
+async function selectEligibleSquad(client, tier, excludedSquadId = null) {
+  const result = await client.query(`SELECT s.id, COUNT(sm.id)::int AS member_count FROM squads s LEFT JOIN squad_memberships sm ON sm.squad_id = s.id AND sm.status <> 'cancelled' WHERE ($3::bigint IS NULL OR s.id <> $3) GROUP BY s.id HAVING COUNT(sm.id) BETWEEN $1 AND $2 ORDER BY COUNT(sm.id) ASC, s.id ASC`, [tier.minMembers, tier.maxMembers, excludedSquadId]);
+  for (const candidate of result.rows) {
+    const locked = await client.query('SELECT id FROM squads WHERE id = $1 FOR UPDATE SKIP LOCKED', [candidate.id]);
+    if (!locked.rowCount) continue;
+    const count = await client.query(`SELECT COUNT(*)::int AS member_count FROM squad_memberships WHERE squad_id = $1 AND status <> 'cancelled'`, [candidate.id]);
+    const memberCount = Number(count.rows[0]?.member_count || 0);
+    if (memberCount >= tier.minMembers && memberCount <= tier.maxMembers) return locked.rows[0];
+  }
+  return null;
+}
+
+async function getCurrentMembership(client, userId) {
+  const result = await client.query(`SELECT id, squad_id, user_id, status, joined_at FROM squad_memberships WHERE user_id = $1 AND status <> 'cancelled' FOR UPDATE`, [userId]);
   return result.rows[0] || null;
+}
+
+async function getMembershipPurchase(client, userId, joinedAt) {
+  const result = await client.query(`SELECT id, metadata FROM ledger_transactions WHERE user_id = $1 AND transaction_type IN ('SQUAD_MEMBERSHIP_PURCHASE', 'SQUAD_MEMBERSHIP_UPGRADE') AND created_at >= $2 ORDER BY created_at ASC, id ASC LIMIT 1 FOR SHARE`, [userId, joinedAt]);
+  return result.rows[0] || null;
+}
+
+function getPurchaseSnapshot(transaction) {
+  const metadata = transaction?.metadata || {};
+  const tier = metadata.tier || {};
+  const price = Number(metadata.price);
+  if (!Number.isInteger(tier.minMembers) || !Number.isInteger(tier.maxMembers) || tier.minMembers < 1 || tier.maxMembers < tier.minMembers || !Number.isFinite(price) || price <= 0) throw new Error('Current Squad membership purchase metadata is invalid');
+  return { price, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers } };
+}
+
+async function calculateSquadSwitchTax(client, originalPrice) {
+  const result = await client.query("SELECT value FROM admin_settings WHERE key = 'economy.dzx_per_dzp'");
+  const rate = result.rows[0]?.value ?? DZP_DZX;
+  const originalPriceScaled = decimalToScaled(originalPrice, 'original Squad membership price');
+  const rateScaled = decimalToScaled(rate, 'economy.dzx_per_dzp');
+  if (rateScaled <= 0n) throw new Error('Invalid economy.dzx_per_dzp configuration');
+  const taxDzpScaled = multiplyRatioScaled(originalPriceScaled, 1n, 10n);
+  return scaledToDecimal(multiplyScaled(taxDzpScaled, rateScaled));
+}
+
+function validateMembershipOperationInput({ userId, idempotencyKey }) {
+  if (!userId) throw new Error('userId is required');
+  if (!idempotencyKey) throw new Error('idempotencyKey is required');
+}
+
+async function getExistingOperation(client, transactionKey, type) {
+  const result = await client.query('SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE', [transactionKey]);
+  if (!result.rowCount) return null;
+  const transaction = result.rows[0];
+  if (transaction.transaction_type !== type) throw new Error('Idempotency key operation mismatch');
+  return transaction.metadata || {};
+}
+
+function membershipResponse(membership) {
+  return { id: membership.id, squad_id: membership.squad_id, user_id: membership.user_id, status: membership.status };
+}
+
+async function switchSquadWithinTier({ userId, idempotencyKey }) {
+  validateMembershipOperationInput({ userId, idempotencyKey });
+  return withTransaction(async client => {
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const transactionKey = `squad-membership-switch:${userId}:${idempotencyKey}`;
+    const duplicate = await getExistingOperation(client, transactionKey, 'SQUAD_MEMBERSHIP_SWITCH');
+    if (duplicate) return { duplicate: true, membership: duplicate.membership, taxDzx: duplicate.tax_dzx, tier: duplicate.tier };
+    const current = await getCurrentMembership(client, userId);
+    if (!current || !['active', 'inactive'].includes(current.status)) throw new Error('Active or inactive Squad membership is required to switch Squads');
+    const purchase = await getMembershipPurchase(client, userId, current.joined_at);
+    if (!purchase) throw new Error('Current Squad membership has no paid purchase record');
+    const snapshot = getPurchaseSnapshot(purchase);
+    const taxDzx = await calculateSquadSwitchTax(client, snapshot.price);
+    const target = await selectEligibleSquad(client, snapshot.tier, current.squad_id);
+    if (!target) throw new Error('No other Squad is currently available in your membership tier');
+    const membership = await client.query(`UPDATE squad_memberships SET squad_id = $1 WHERE id = $2 RETURNING id, squad_id, user_id, status`, [target.id, current.id]);
+    const economy = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId, type: 'SQUAD_MEMBERSHIP_SWITCH', movements: [{ currency: 'DZX', amount: `-${taxDzx}`, source: 'squad_membership_switch' }], metadata: { source: 'squad_membership_switch', membership: membershipResponse(membership.rows[0]), old_squad_id: current.squad_id, new_squad_id: target.id, tax_dzx: taxDzx, tax_dzp: scaledToDecimal(multiplyRatioScaled(decimalToScaled(snapshot.price, 'original Squad membership price'), 1n, 10n)), tier: snapshot.tier } });
+    return { duplicate: false, membership: membership.rows[0], taxDzx, tier: snapshot.tier, transaction: economy.transaction };
+  });
+}
+
+async function upgradeSquadTier({ userId, newMaxMembers, idempotencyKey }) {
+  validateMembershipOperationInput({ userId, idempotencyKey });
+  if (!Number.isInteger(newMaxMembers) || newMaxMembers <= 0) throw new Error('newMaxMembers must be a positive integer');
+  return withTransaction(async client => {
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const transactionKey = `squad-membership-upgrade:${userId}:${idempotencyKey}`;
+    const duplicate = await getExistingOperation(client, transactionKey, 'SQUAD_MEMBERSHIP_UPGRADE');
+    if (duplicate) return { duplicate: true, membership: duplicate.membership, price: duplicate.price, tier: duplicate.tier };
+    const current = await getCurrentMembership(client, userId);
+    if (!current || !['active', 'inactive'].includes(current.status)) throw new Error('Active or inactive Squad membership is required to upgrade');
+    const purchase = await getMembershipPurchase(client, userId, current.joined_at);
+    if (!purchase) throw new Error('Current Squad membership has no paid purchase record');
+    const snapshot = getPurchaseSnapshot(purchase);
+    const tier = await selectPaidMembershipTier(client, newMaxMembers);
+    if (!tier) throw new Error('Requested Squad membership tier is unavailable');
+    if (tier.maxMembers <= snapshot.tier.maxMembers) throw new Error('Upgrade tier must be higher than the current membership tier');
+    const target = await selectEligibleSquad(client, tier);
+    if (!target) throw new Error('No Squad is currently available in the requested tier');
+    await client.query(`UPDATE squad_memberships SET status = 'cancelled' WHERE id = $1`, [current.id]);
+    const replacement = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`, [target.id, userId]);
+    const economy = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId, type: 'SQUAD_MEMBERSHIP_UPGRADE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership_upgrade' }], metadata: { source: 'squad_membership_upgrade', membership: membershipResponse(replacement.rows[0]), old_membership_id: current.id, old_squad_id: current.squad_id, new_squad_id: target.id, price: tier.price, tier } });
+    return { duplicate: false, membership: replacement.rows[0], price: tier.price, tier, transaction: economy.transaction };
+  });
 }
 
 async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
@@ -100,4 +205,4 @@ async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
   });
 }
 
-module.exports = { createInvitation, acceptInvitation, activateOnVerifiedActivity, getPaidMembershipTiers, purchasePaidMembership };
+module.exports = { createInvitation, acceptInvitation, activateOnVerifiedActivity, getPaidMembershipTiers, purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier };

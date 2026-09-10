@@ -25,7 +25,7 @@ A user can belong to only one Squad.
 
 ### Paid membership
 
-A user may purchase membership only when the user does not currently have an eligible Squad membership.
+A user may purchase membership only when the user does not currently have an eligible Squad membership, except for the higher-tier upgrade path defined in the 2026-09-10 membership lifecycle amendment below.
 
 The user does not choose a specific Squad. The user chooses only a member-count/price tier. The backend selects the eligible Squad with the lowest current member count within that tier.
 
@@ -66,20 +66,23 @@ Example: a 100-member Squad may accept another selected member and become a 101-
 
 ### Leaving and suspension
 
-- A member cannot voluntarily leave a Squad.
+- A member cannot voluntarily leave a Squad, except through the paid same-tier Squad switch defined in the 2026-09-10 membership lifecycle amendment below.
 - App Ban is the exception that can terminate the membership.
 - A revoked/cancelled membership does not receive Challenge rewards.
 - `squad_membership.status = suspended` represents suspension.
 - Suspension/activation is distinct from the Squad's daily ACTIVE/RISK state.
 - A suspended member is not made active merely by hypothetical activity while suspended; the membership must first be valid for activity to count.
 
-### App Ban enforcement boundary
+### 2026-09-10 membership lifecycle amendment
 
-- App Ban is an **administrative enforcement action**, not an automatic Squad or activity action.
-- The system may generate an administrative warning when available evidence indicates that a user should be suspended/banned.
-- An authorized Admin reviews the warning/evidence and explicitly decides whether to suspend/ban the user.
-- Ignoring a warning performs no membership mutation.
-- The Admin warning/review/enforcement control surface belongs to the later Admin Panel phase. Phase 4 must not invent a duplicate Admin service, route, or enforcement system.
+The following membership lifecycle rules are now part of the locked Squad contract and supersede the conflicting limitations above:
+
+1. **Same-tier Switch:** A user with an active or inactive paid Squad membership may switch to a different eligible Squad within the exact member-count tier originally purchased. The current Squad is excluded from selection. The backend reuses the smallest-eligible-Squad selection rule and locks the selected target Squad before the membership mutation. No cooldown or switch-count limit is imposed; the DZX tax is the intended friction.
+2. **Switch tax:** The tax is 10% of the DZP price recorded in the purchase/upgrade transaction that established the user's current membership. That DZP-equivalent amount is converted to DZX using the current `economy.dzx_per_dzp` setting. The tax is deducted only from DZX through the existing Economy/Ledger transaction boundary. Insufficient DZX or lack of another eligible Squad causes the entire operation to fail without a charge.
+3. **Switch status:** Switching preserves the user's existing membership status (`active` remains `active`; `inactive` remains `inactive`). It does not invoke an additional activation penalty.
+4. **Upgrade:** A user with an active or inactive paid membership may select only a strictly higher configured tier. The full price of the new tier is paid in DZP through the existing Economy/Ledger boundary. No value, discount, credit, or carry-over from the old membership is applied.
+5. **Upgrade replacement:** The old `squad_memberships` row is changed to `cancelled`, and exactly one replacement row is created for the new membership. The replacement starts `inactive`, following the existing paid-membership activation contract. No two non-cancelled memberships may remain for the user.
+6. **Idempotency:** Both operations use dedicated idempotency keys and persist their operation result in the existing ledger transaction metadata so retries do not repeat the financial mutation.
 
 ## 3. Daily Squad state
 
