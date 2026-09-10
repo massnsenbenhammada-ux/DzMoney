@@ -12,6 +12,7 @@ const nodeGlobals = {
   clearImmediate: 'readonly',
   clearInterval: 'readonly',
   clearTimeout: 'readonly',
+  console: 'readonly',
   crypto: 'readonly',
   exports: 'readonly',
   fetch: 'readonly',
