@@ -16,6 +16,7 @@ jobs:
       DATABASE_SSL: "false"
       ONCLICKA_ENABLED: "true"
       ONCLICKA_SPOT_ID: "6134799"
+      TEST_TELEGRAM_USER_ID: ${{ secrets.TEST_TELEGRAM_USER_ID }}
     services:
       postgres:
         image: postgres:16
