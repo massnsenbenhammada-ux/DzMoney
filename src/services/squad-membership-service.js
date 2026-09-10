@@ -85,7 +85,7 @@ async function getCurrentMembership(client, userId) {
 }
 
 async function getMembershipPurchase(client, userId, joinedAt) {
-  const result = await client.query(`SELECT id, metadata FROM ledger_transactions WHERE user_id = $1 AND transaction_type = 'SQUAD_MEMBERSHIP_PURCHASE' AND created_at <= $2 ORDER BY created_at DESC, id DESC LIMIT 1 FOR SHARE`, [userId, joinedAt]);
+  const result = await client.query(`SELECT id, metadata FROM ledger_transactions WHERE user_id = $1 AND transaction_type IN ('SQUAD_MEMBERSHIP_PURCHASE', 'SQUAD_MEMBERSHIP_UPGRADE') AND created_at <= $2 ORDER BY created_at DESC, id DESC LIMIT 1 FOR SHARE`, [userId, joinedAt]);
   return result.rows[0] || null;
 }
 
