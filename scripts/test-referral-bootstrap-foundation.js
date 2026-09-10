@@ -14,7 +14,7 @@ async function main() {
 
   const result = await pool.query(
     'SELECT COUNT(*)::integer AS count FROM users WHERE referral_code = $1',
-    [created.referral_code]
+    [created.referral_code],
   );
   assert.strictEqual(Number(result.rows[0].count), 1);
 

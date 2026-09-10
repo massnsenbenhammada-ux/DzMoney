@@ -7,10 +7,13 @@ function buildInitData({ user, startParam, authDate = Math.floor(Date.now() / 10
   const params = new URLSearchParams({
     auth_date: String(authDate),
     start_param: startParam,
-    user: JSON.stringify(user)
+    user: JSON.stringify(user),
   });
   const secret = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN).digest();
-  const dataCheckString = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join('\n');
+  const dataCheckString = [...params.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n');
   const calculated = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
   params.set('hash', hash || calculated);
   return params.toString();
@@ -34,7 +37,7 @@ async function testFirstEntryAttribution() {
     id: authPath,
     filename: authPath,
     loaded: true,
-    exports: { telegramAuth: (req, _res, next) => next() }
+    exports: { telegramAuth: (req, _res, next) => next() },
   };
 
   const walletService = require('../src/services/wallet-service');
@@ -53,14 +56,19 @@ async function testFirstEntryAttribution() {
         url: '/',
         originalUrl: '/',
         telegramUser: { id: referredTelegramId, first_name: 'New' },
-        telegramStartParam: startParam
+        telegramStartParam: startParam,
       };
       const res = {
         statusCode: 200,
-        status(code) { this.statusCode = code; return this; },
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
         setHeader() {},
         getHeader() {},
-        json(payload) { resolve({ statusCode: this.statusCode, payload }); }
+        json(payload) {
+          resolve({ statusCode: this.statusCode, payload });
+        },
       };
       router.handle(req, res, reject);
     });
@@ -68,17 +76,31 @@ async function testFirstEntryAttribution() {
 
   try {
     await callMe(referrer.referral_code);
-    const attributed = await query('SELECT * FROM referral_attributions WHERE referred_user_id = (SELECT id FROM users WHERE telegram_user_id = $1)', [referredTelegramId]);
+    const attributed = await query(
+      'SELECT * FROM referral_attributions WHERE referred_user_id = (SELECT id FROM users WHERE telegram_user_id = $1)',
+      [referredTelegramId],
+    );
     assert.strictEqual(attributed.rows.length, 1);
     assert.strictEqual(Number(attributed.rows[0].referrer_user_id), Number(referrer.id));
 
     await callMe('DIFFERENT1');
-    const unchanged = await referralService.getReferralByReferredUser(attributed.rows[0].referred_user_id);
+    const unchanged = await referralService.getReferralByReferredUser(
+      attributed.rows[0].referred_user_id,
+    );
     assert.strictEqual(Number(unchanged.referrer_user_id), Number(referrer.id));
   } finally {
-    await query('DELETE FROM referral_attributions WHERE referrer_user_id = $1 OR referred_user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($2, $3))', [referrer.id, referredTelegramId, referrerTelegramId]);
-    await query('DELETE FROM wallet_accounts WHERE user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($1, $2))', [referredTelegramId, referrerTelegramId]);
-    await query('DELETE FROM users WHERE telegram_user_id IN ($1, $2)', [referredTelegramId, referrerTelegramId]);
+    await query(
+      'DELETE FROM referral_attributions WHERE referrer_user_id = $1 OR referred_user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($2, $3))',
+      [referrer.id, referredTelegramId, referrerTelegramId],
+    );
+    await query(
+      'DELETE FROM wallet_accounts WHERE user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($1, $2))',
+      [referredTelegramId, referrerTelegramId],
+    );
+    await query('DELETE FROM users WHERE telegram_user_id IN ($1, $2)', [
+      referredTelegramId,
+      referrerTelegramId,
+    ]);
     await pool.end();
   }
 }

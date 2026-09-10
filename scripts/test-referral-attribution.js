@@ -11,7 +11,7 @@ async function main() {
 
   await assert.rejects(
     referralService.createAttribution({ referrerUserId: referrer.id, referredUserId: referrer.id }),
-    /Self referral/
+    /Self referral/,
   );
 
   const first = await referralService.createAttribution({
@@ -34,7 +34,7 @@ async function main() {
       referrerUserId: other.id,
       referredUserId: referred.id,
     }),
-    /already attributed/
+    /already attributed/,
   );
 
   console.log('Referral attribution invariants: PASS');

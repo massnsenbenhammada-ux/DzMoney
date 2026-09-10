@@ -48,7 +48,7 @@ test('Phase 7 conversion exposes explicit success and failure outcome states', (
 test('Phase 7 conversion refreshes balances before showing success and resets for the next conversion', () => {
   const source = fs.readFileSync('public/conversion.js', 'utf8');
   const refreshIndex = source.indexOf('await loadMe();');
-  const successIndex = source.indexOf("showConversionOutcome({ success: true", refreshIndex);
+  const successIndex = source.indexOf('showConversionOutcome({ success: true', refreshIndex);
   const resetIndex = source.indexOf('resetConversionForm();', successIndex);
   assert.ok(refreshIndex >= 0);
   assert.ok(successIndex > refreshIndex);

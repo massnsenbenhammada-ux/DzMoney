@@ -15,15 +15,34 @@ function run() {
     ['completed', 'closed'],
     ['completed', 'refunded'],
     ['expired', 'closed'],
-    ['expired', 'refunded']
+    ['expired', 'refunded'],
   ];
 
-  assert.deepStrictEqual(TASK_STATUSES, ['draft', 'pending_review', 'active', 'paused', 'completed', 'expired', 'closed', 'refunded']);
-  for (const [from, to] of allowed) assert.strictEqual(canTransitionTaskStatus(from, to), true, `${from} -> ${to} should be allowed`);
+  assert.deepStrictEqual(TASK_STATUSES, [
+    'draft',
+    'pending_review',
+    'active',
+    'paused',
+    'completed',
+    'expired',
+    'closed',
+    'refunded',
+  ]);
+  for (const [from, to] of allowed)
+    assert.strictEqual(
+      canTransitionTaskStatus(from, to),
+      true,
+      `${from} -> ${to} should be allowed`,
+    );
 
   for (const from of TASK_STATUSES) {
     for (const to of TASK_STATUSES) {
-      if (from === to) assert.strictEqual(canTransitionTaskStatus(from, to), false, `${from} -> itself should be rejected`);
+      if (from === to)
+        assert.strictEqual(
+          canTransitionTaskStatus(from, to),
+          false,
+          `${from} -> itself should be rejected`,
+        );
     }
   }
 
@@ -38,9 +57,14 @@ function run() {
     ['closed', 'active'],
     ['closed', 'refunded'],
     ['refunded', 'active'],
-    ['refunded', 'closed']
+    ['refunded', 'closed'],
   ];
-  for (const [from, to] of forbidden) assert.strictEqual(canTransitionTaskStatus(from, to), false, `${from} -> ${to} should be rejected`);
+  for (const [from, to] of forbidden)
+    assert.strictEqual(
+      canTransitionTaskStatus(from, to),
+      false,
+      `${from} -> ${to} should be rejected`,
+    );
 
   assert.strictEqual(canTransitionTaskStatus('unknown', 'active'), false);
   assert.strictEqual(canTransitionTaskStatus('active', 'unknown'), false);
