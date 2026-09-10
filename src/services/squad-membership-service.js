@@ -145,6 +145,14 @@ async function switchSquadWithinTier({ userId, idempotencyKey }) {
   });
 }
 
+function validateUpgradeContext(current, purchase, tier) {
+  if (!current || !['active', 'inactive'].includes(current.status)) throw new Error('Active or inactive Squad membership is required to upgrade');
+  if (!purchase) throw new Error('Current Squad membership has no paid purchase record');
+  const snapshot = getPurchaseSnapshot(purchase);
+  if (tier.maxMembers <= snapshot.tier.maxMembers) throw new Error('Upgrade tier must be higher than the current membership tier');
+  return snapshot;
+}
+
 async function upgradeSquadTier({ userId, newMaxMembers, idempotencyKey }) {
   validateMembershipOperationInput({ userId, idempotencyKey });
   if (!Number.isInteger(newMaxMembers) || newMaxMembers <= 0) throw new Error('newMaxMembers must be a positive integer');
@@ -154,13 +162,10 @@ async function upgradeSquadTier({ userId, newMaxMembers, idempotencyKey }) {
     const duplicate = await getExistingOperation(client, transactionKey, 'SQUAD_MEMBERSHIP_UPGRADE');
     if (duplicate) return { duplicate: true, membership: duplicate.membership, price: duplicate.price, tier: duplicate.tier };
     const current = await getCurrentMembership(client, userId);
-    if (!current || !['active', 'inactive'].includes(current.status)) throw new Error('Active or inactive Squad membership is required to upgrade');
-    const purchase = await getMembershipPurchase(client, userId, current.joined_at);
-    if (!purchase) throw new Error('Current Squad membership has no paid purchase record');
-    const snapshot = getPurchaseSnapshot(purchase);
+    const purchase = current ? await getMembershipPurchase(client, userId, current.joined_at) : null;
     const tier = await selectPaidMembershipTier(client, newMaxMembers);
     if (!tier) throw new Error('Requested Squad membership tier is unavailable');
-    if (tier.maxMembers <= snapshot.tier.maxMembers) throw new Error('Upgrade tier must be higher than the current membership tier');
+    const snapshot = validateUpgradeContext(current, purchase, tier);
     const target = await selectEligibleSquad(client, tier);
     if (!target) throw new Error('No Squad is currently available in the requested tier');
     await client.query(`UPDATE squad_memberships SET status = 'cancelled' WHERE id = $1`, [current.id]);
