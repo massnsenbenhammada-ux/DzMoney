@@ -9,7 +9,7 @@ let sdkLoadPromise = null;
 function withTimeout(promise, message) {
   return Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ONCLICKA_TIMEOUT_MS))
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ONCLICKA_TIMEOUT_MS)),
   ]);
 }
 
@@ -21,7 +21,9 @@ function loadOnclickaSdkFallback() {
     const fail = message => reject(new Error(message));
     if (existing) {
       existing.addEventListener('load', resolve, { once: true });
-      existing.addEventListener('error', () => fail('OnClickA TMA SDK script failed to load'), { once: true });
+      existing.addEventListener('error', () => fail('OnClickA TMA SDK script failed to load'), {
+        once: true,
+      });
       return;
     }
     const script = document.createElement('script');
@@ -59,7 +61,7 @@ async function ensureOnclickaReady(spotId) {
   initializedSpotId = String(spotId);
   showPromise = withTimeout(
     Promise.resolve().then(() => window.initCdTma({ id: Number(spotId) })),
-    'OnClickA initialization timed out'
+    'OnClickA initialization timed out',
   ).catch(error => {
     initializedSpotId = null;
     showPromise = null;
@@ -73,10 +75,11 @@ window.DzMoneyOnclicka = {
   prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId),
   show: async ({ spotId } = {}) => {
     const show = await ensureOnclickaReady(spotId);
-    if (typeof show !== 'function') throw new Error('OnClickA show method is unavailable after initialization');
+    if (typeof show !== 'function')
+      throw new Error('OnClickA show method is unavailable after initialization');
     return withTimeout(
       Promise.resolve().then(() => show()),
-      'OnClickA advertisement display timed out'
+      'OnClickA advertisement display timed out',
     );
-  }
+  },
 };

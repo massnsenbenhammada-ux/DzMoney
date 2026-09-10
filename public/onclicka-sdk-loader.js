@@ -13,7 +13,11 @@ function loadOnclickaSdk() {
   if (existing) {
     window.__DzMoneyOnclickaSdkLoadPromise = new Promise((resolve, reject) => {
       existing.addEventListener('load', resolve, { once: true });
-      existing.addEventListener('error', () => reject(new Error('OnClickA TMA SDK failed to load')), { once: true });
+      existing.addEventListener(
+        'error',
+        () => reject(new Error('OnClickA TMA SDK failed to load')),
+        { once: true },
+      );
     });
     return window.__DzMoneyOnclickaSdkLoadPromise;
   }
