@@ -1,0 +1,36 @@
+name: ODRCA Cluster 9 exact formatting discovery
+
+on:
+  push:
+    branches:
+      - odrca/discovery-cluster-9-exact
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --ignore-scripts
+      - name: Generate exact Prettier patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx prettier --version
+          npx prettier . --write
+          git diff --binary -- . ':!package-lock.json' > /tmp/cluster9-prettier.patch
+          git diff --numstat -- . ':!package-lock.json' > /tmp/cluster9-numstat.txt
+          git diff --name-only -- . ':!package-lock.json' > /tmp/cluster9-files.txt
+          echo "FORMATTING_DIFF_FILES=$(wc -l < /tmp/cluster9-files.txt | tr -d ' ')"
+          echo "FORMATTING_DIFF_LINES=$(git diff --numstat -- . ':!package-lock.json' | awk '{a+=$1; d+=$2} END {print a+d}')"
+      - name: Upload exact patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: odrca-cluster9-exact-prettier-patch
+          path: |
+            /tmp/cluster9-prettier.patch
+            /tmp/cluster9-numstat.txt
+            /tmp/cluster9-files.txt
+          if-no-files-found: error
