@@ -16,6 +16,7 @@ jobs:
       DATABASE_SSL: "false"
       ONCLICKA_ENABLED: "true"
       ONCLICKA_SPOT_ID: "6134799"
+      TEST_TELEGRAM_USER_ID: "999999999"
     services:
       postgres:
         image: postgres:16
@@ -39,41 +40,21 @@ jobs:
           node-version: 24
       - run: npm install --no-audit --no-fund
       - run: npm run migrate
-      - name: Format script-test candidates and classify by self-test
+      - name: Format script-test candidates and verify full suite
         shell: bash
         run: |
-          set -uo pipefail
+          set -o pipefail
           npx prettier . --list-different > /tmp/all-offenders.txt || true
-          awk '/^scripts\/test-.*\.js$/' /tmp/all-offenders.txt \
-            | grep -Ev '^(scripts/test-check-for-update-real-telegram\.js|scripts/test-daily-view-ads-20-journey\.js|scripts/test-ton-testnet-financial\.js)$' \
-            > /tmp/candidates.txt
+          awk '/^scripts\/test-.*\.js$/' /tmp/all-offenders.txt > /tmp/candidates.txt
           echo "PRETTIER_VERSION=$(npx prettier --version)"
-          echo "VALIDATABLE_CANDIDATE_COUNT=$(wc -l < /tmp/candidates.txt | tr -d ' ')"
+          echo "CANDIDATE_COUNT=$(wc -l < /tmp/candidates.txt | tr -d ' ')"
           cat /tmp/candidates.txt
           if [ -s /tmp/candidates.txt ]; then
             xargs npx prettier --write < /tmp/candidates.txt
           fi
           git diff --check
-          : > /tmp/failed-tests.txt
-          while IFS= read -r file; do
-            echo "=== SELF TEST: $file ==="
-            if ! timeout 45s node "$file" > "/tmp/test-output.log" 2>&1; then
-              echo "$file" | tee -a /tmp/failed-tests.txt
-              tail -80 /tmp/test-output.log || true
-            else
-              echo "PASS: $file"
-            fi
-          done < /tmp/candidates.txt
-          echo '--- SELF-TEST FAILURES ---'
-          cat /tmp/failed-tests.txt
-          echo '--- DIFF FILES ---'
+          npm run test:all
+          echo '--- FINAL DIFF FILES ---'
           git diff --name-only
-          echo '--- DIFF STAT ---'
+          echo '--- FINAL DIFF STAT ---'
           git diff --stat
-          echo '--- RESULT ---'
-          if [ -s /tmp/failed-tests.txt ]; then
-            echo 'FORMAT_SELF_TEST_FAILURES_PRESENT=1'
-            exit 1
-          else
-            echo 'FORMAT_SELF_TEST_FAILURES_PRESENT=0'
-          fi
