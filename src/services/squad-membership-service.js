@@ -62,6 +62,72 @@ async function activateOnVerifiedActivity(client, userId) {
   return result.rows[0] || null;
 }
 
+async function ensureReferralSquadFormation({ referrerUserId, referredUserId }) {
+  const referrer = Number(referrerUserId);
+  const referred = Number(referredUserId);
+  if (!Number.isInteger(referrer) || referrer <= 0) throw new Error('referrerUserId must be a positive integer');
+  if (!Number.isInteger(referred) || referred <= 0) throw new Error('referredUserId must be a positive integer');
+  if (referrer === referred) throw new Error('Self referral is not allowed');
+
+  return withTransaction(async client => {
+    const firstUserId = Math.min(referrer, referred);
+    const secondUserId = Math.max(referrer, referred);
+    const users = await client.query(
+      'SELECT id FROM users WHERE id IN ($1, $2) ORDER BY id FOR UPDATE',
+      [firstUserId, secondUserId]
+    );
+    if (users.rowCount !== 2) throw new Error('Referral Squad formation requires both users to exist');
+
+    const memberships = await client.query(
+      `SELECT user_id, squad_id, status
+       FROM squad_memberships
+       WHERE user_id IN ($1, $2) AND status <> 'cancelled'
+       ORDER BY user_id
+       FOR UPDATE`,
+      [firstUserId, secondUserId]
+    );
+    const byUserId = new Map(memberships.rows.map(row => [Number(row.user_id), row]));
+    const referrerMembership = byUserId.get(referrer) || null;
+    const referredMembership = byUserId.get(referred) || null;
+
+    if (referrerMembership && referredMembership) {
+      if (String(referrerMembership.squad_id) === String(referredMembership.squad_id)) {
+        return { formed: false, joined: false, rejected: false, squadId: referrerMembership.squad_id, reason: 'already_same_squad' };
+      }
+      return { formed: false, joined: false, rejected: true, squadId: null, reason: 'different_squads' };
+    }
+
+    if (!referrerMembership && referredMembership) {
+      return { formed: false, joined: false, rejected: true, squadId: null, reason: 'referrer_without_squad_referred_with_squad' };
+    }
+
+    if (referrerMembership) {
+      const member = await client.query(
+        `INSERT INTO squad_memberships (squad_id, user_id, status)
+         VALUES ($1, $2, 'inactive')
+         RETURNING id, squad_id, user_id, status`,
+        [referrerMembership.squad_id, referred]
+      );
+      return { formed: false, joined: true, rejected: false, squadId: member.rows[0].squad_id, membership: member.rows[0], reason: 'joined_referrer_squad' };
+    }
+
+    const squad = await client.query(
+      `INSERT INTO squads (owner_user_id)
+       VALUES ($1)
+       RETURNING id, owner_user_id`,
+      [referrer]
+    );
+    const squadId = squad.rows[0].id;
+    const members = await client.query(
+      `INSERT INTO squad_memberships (squad_id, user_id, status)
+       VALUES ($1, $2, 'inactive'), ($1, $3, 'inactive')
+       RETURNING id, squad_id, user_id, status`,
+      [squadId, referrer, referred]
+    );
+    return { formed: true, joined: false, rejected: false, squadId, ownerUserId: referrer, memberships: members.rows, reason: 'created_for_referral' };
+  });
+}
+
 async function selectPaidMembershipTier(client, maxMembers) {
   const tiers = await getPaidMembershipTiers(client);
   return tiers.find(tier => tier.maxMembers === maxMembers) || null;
@@ -210,4 +276,4 @@ async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
   });
 }
 
-module.exports = { createInvitation, acceptInvitation, activateOnVerifiedActivity, getPaidMembershipTiers, purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier };
+module.exports = { createInvitation, acceptInvitation, activateOnVerifiedActivity, ensureReferralSquadFormation, getPaidMembershipTiers, purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier };
