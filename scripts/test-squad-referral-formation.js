@@ -81,8 +81,12 @@ test('Phase 2: first referral between two unassigned users creates one Squad and
     assert.equal(result.ownerUserId, 1);
     assert.equal(result.squadId, 77);
     assert.equal(result.memberships.length, 2);
-    assert.match(harness.queries.find(({ sql }) => /INSERT INTO squads/i).sql, /owner_user_id/);
-    assert.match(harness.queries.find(({ sql }) => /INSERT INTO squad_memberships/i).sql, /'inactive'/);
+    const squadInsert = harness.queries.findLast(({ sql }) => /INSERT INTO squads/i.test(sql));
+    const membershipInsert = harness.queries.findLast(({ sql }) => /INSERT INTO squad_memberships/i.test(sql));
+    assert.ok(squadInsert, 'expected a Squad INSERT query');
+    assert.ok(membershipInsert, 'expected a membership INSERT query');
+    assert.match(squadInsert.sql, /owner_user_id/);
+    assert.match(membershipInsert.sql, /'inactive'/);
   } finally {
     harness.restore();
   }
