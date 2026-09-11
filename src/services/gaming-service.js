@@ -99,13 +99,19 @@ async function spin({ userId, idempotencyKey }) {
 
 function buildBoard(config) { return Array.from({ length: Number(config.digging.boardSize) }, (_, i) => ({ id: i + 1, revealed: false, result: diggingReward(config).result, reward: {} })); }
 
+async function expireStaleDiggingSession(client, userId) {
+  const result = await client.query(`UPDATE gaming_sessions SET status='expired',completed_at=COALESCE(completed_at,NOW()) WHERE user_id=$1 AND status='active' AND (created_at AT TIME ZONE 'UTC' + INTERVAL '1 hour')::date<>${gamingDaySql} RETURNING *`, [userId]);
+  return result.rows[0] || null;
+}
+
 async function startDigging({ userId }) {
   requiredId(userId, 'userId');
   return withTransaction(async client => {
     const configRow = await getConfig(client), config = configRow.config;
     if (!config.enabled) throw new Error('Gaming is disabled');
     const account = await ensureAccount(client, userId, config);
-    const existing = await client.query("SELECT * FROM gaming_sessions WHERE user_id=$1 AND status='active'", [userId]);
+    await expireStaleDiggingSession(client, userId);
+    const existing = await client.query("SELECT * FROM gaming_sessions WHERE user_id=$1 AND status='active' FOR UPDATE", [userId]);
     if (existing.rowCount) return { duplicate: true, session: existing.rows[0], account };
     if (account.axes < 1) throw new Error('No Axes available');
     await client.query('UPDATE gaming_accounts SET axes=axes-1,updated_at=NOW() WHERE user_id=$1', [userId]);
@@ -189,6 +195,7 @@ async function getGamingState({ userId }) {
   requiredId(userId, 'userId');
   return withTransaction(async client => {
     const configRow = await getConfig(client), account = await ensureAccount(client, userId, configRow.config);
+    await expireStaleDiggingSession(client, userId);
     const active = await client.query("SELECT * FROM gaming_sessions WHERE user_id=$1 AND status='active'", [userId]);
     const ads = await client.query(`SELECT metadata->>'game' AS game,COUNT(*)::int AS count FROM activity_ad_events WHERE user_id=$1 AND context='gaming' AND verified=TRUE AND (completed_at + INTERVAL '1 hour')::date=${gamingDaySql} GROUP BY metadata->>'game'`, [userId]);
     return { configVersion: configRow.version, account, activeSession: active.rows[0] || null, adCounts: Object.fromEntries(ads.rows.map(row => [row.game, row.count])), config: configRow.config };

@@ -3,7 +3,6 @@
   const root = document.querySelector('[data-page="gaming"]');
   if (!root) return;
   const state = { gaming: null, view: 'home', busy: false };
-  const assetVersion = new URL(document.currentScript?.src || '', window.location.href).searchParams.get('v') || 'runtime';
 
   const api = async (path, options = {}) => {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
@@ -15,11 +14,30 @@
   };
 
   const idempotencyKey = prefix => `${prefix}:${crypto.randomUUID()}`;
+  const wheelResults = ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'none'];
+  const wheelLabels = { coin_100:'100 COIN', coin_1000:'1K COIN', dzx_1:'1 DZX', dzx_10:'10 DZX', dzp_1:'1 DZP', dzp_10:'10 DZP', extra_spin:'+1 SPIN', none:'NO REWARD' };
+  const rewardUnits = { coin:'COIN', dzx:'DZX', dzp:'DZP' };
+
   const formatReward = (reward, result) => {
-    if (result === 'extra_spin') return '+1 SPIN';
-    if (result === 'extra_axe') return '+1 AXE';
-    return Object.entries(reward || {}).map(([key, value]) => `${value} ${key.toUpperCase()}`).join(' + ') || 'No Reward';
+    if (result === 'extra_spin') return '+1 Spin.';
+    if (result === 'extra_axe') return '+1 Axe.';
+    if (result === 'none') return 'No reward this time.';
+    const entries = Object.entries(reward || {});
+    if (!entries.length) return 'No reward this time.';
+    return entries.map(([key, value]) => `${value} ${rewardUnits[key] || key.toUpperCase()} won!`).join(' + ');
   };
+
+  const formatSpinResult = (result, reward) => formatReward(reward, result);
+
+  const formatDiggingStatus = (account = {}, session = null) => {
+    if (!session) return 'Use an Axe to start today\'s board.';
+    const board = Array.isArray(session.board) ? session.board : [];
+    const revealed = board.filter(tile => tile.revealed).length;
+    const energy = Number(account.energy_remaining ?? 0);
+    if (energy <= 0) return 'No more digs today — come back tomorrow.';
+    return `Today\'s board: ${revealed}/${board.length || 16} revealed — ${energy} energy left.`;
+  };
+
   const toast = message => { if (typeof window.showToast === 'function') window.showToast(message); else console.info(message); };
   const setAll = (selector, value) => root.querySelectorAll(selector).forEach(el => { el.textContent = value; });
   function formatGamingAdFailure(providerId, stage, error) {
@@ -32,20 +50,7 @@
     return `${providerName}: the advertisement failed${detail}`;
   }
 
-  const wheelResults = ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin', 'none'];
-  const wheelLabels = { coin_100:'100 COIN', coin_1000:'1K COIN', dzx_1:'1 DZX', dzx_10:'10 DZX', dzp_1:'1 DZP', dzp_10:'10 DZP', extra_spin:'+1 SPIN', none:'NO REWARD' };
-
-  function ensureGamingRuntimeStyles() {
-    if (document.querySelector('link[data-dzmoney-gaming-runtime-css]')) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = `/gaming-runtime.css?v=${encodeURIComponent(assetVersion)}`;
-    link.dataset.dzmoneyGamingRuntimeCss = 'true';
-    document.head.appendChild(link);
-  }
-
   function ensureSpinWheel() {
-    ensureGamingRuntimeStyles();
     const card = root.querySelector('[data-spin-wheel-host]') || root.querySelector('[data-spin-result]')?.parentElement;
     if (!card || card.querySelector('[data-spin-wheel]')) return;
     const host = document.createElement('div');
@@ -75,6 +80,8 @@
     setAll('[data-energy]', `${account.energy_remaining ?? 0}/${gaming.config?.digging?.energy ?? 3}`);
     setAll('[data-spin-ad-count]', `${gaming.adCounts?.spin || 0}/${dailyAdLimit}`);
     setAll('[data-dig-ad-count]', `${gaming.adCounts?.digging || 0}/${dailyAdLimit}`);
+    setAll('[data-spin-result]', account.spins < 1 ? 'No spins left — watch an ad or complete a task to get more.' : 'Ready to spin.');
+    setAll('[data-dig-result]', formatDiggingStatus(account, gaming.activeSession));
     root.querySelectorAll('[data-spin-ad-bar]').forEach(bar => { bar.style.width = `${Math.min(100, ((gaming.adCounts?.spin || 0) / dailyAdLimit) * 100)}%`; });
     root.querySelectorAll('[data-dig-ad-bar]').forEach(bar => { bar.style.width = `${Math.min(100, ((gaming.adCounts?.digging || 0) / dailyAdLimit) * 100)}%`; });
     root.querySelectorAll('[data-gaming-view]').forEach(el => el.classList.toggle('gaming-hidden', el.dataset.gamingView !== state.view));
@@ -135,7 +142,8 @@
     if (!wheel) return Promise.resolve();
     const index = Math.max(0, wheelResults.indexOf(result));
     const segment = 360 / wheelResults.length;
-    const rotation = 360 * 3 - index * segment - segment / 2;
+    const labelAngle = index * segment - 90;
+    const rotation = 360 * 3 - labelAngle;
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     wheel.style.setProperty('--wheel-rotation', `${rotation}deg`);
     wheel.classList.remove('is-winner', 'is-spinning');
@@ -167,7 +175,7 @@
     try {
       const response = await api('/api/gaming/spin', { method: 'POST', body: JSON.stringify({ idempotencyKey: idempotencyKey('gaming-spin') }) });
       await animateWheel(response.result.result);
-      resultEl.textContent = `${response.result.result.replace(/_/g, ' ')}: ${formatReward(response.result.reward, response.result.result)}`;
+      resultEl.textContent = formatSpinResult(response.result.result, response.result.reward);
       resultEl.classList.add('gaming-result-flash');
       setTimeout(() => resultEl.classList.remove('gaming-result-flash'), 700);
       await load();
@@ -190,8 +198,8 @@
     try {
       const session = state.gaming.activeSession;
       const response = await api('/api/gaming/digging/reveal', { method: 'POST', body: JSON.stringify({ sessionId: session.id, tileId }) });
-      root.querySelector('[data-dig-result]').textContent = formatReward(response.tile.reward, response.tile.result);
       await load();
+      root.querySelector('[data-dig-result]').textContent = formatReward(response.tile.reward, response.tile.result);
     } catch (error) { toast(error.message); }
     finally { setBusy(false); render(); }
   }
@@ -256,6 +264,5 @@
     if ((event.key === 'Enter' || event.key === ' ') && event.target.closest('[data-spin-wheel]')) { event.preventDefault(); spin(); }
   });
 
-  ensureGamingRuntimeStyles();
   load().catch(error => toast(error.message));
 })();

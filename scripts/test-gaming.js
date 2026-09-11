@@ -13,6 +13,10 @@ function testProviderContext() {
 
 function testConfigContract() {
   const migration = fs.readFileSync(require.resolve('../migrations/038_gaming.sql'), 'utf8');
+  const resetMigration = fs.readFileSync(
+    require.resolve('../migrations/043_gaming_daily_board_reset.sql'),
+    'utf8',
+  );
   const correction = fs.readFileSync(
     require.resolve('../migrations/042_gaming_activity_contract.sql'),
     'utf8',
@@ -26,6 +30,8 @@ function testConfigContract() {
   assert(correction.includes('RENAME COLUMN activity_claimed TO verified_activity_count'));
   assert(correction.includes("status='closed'"));
   assert(correction.includes("'diggingAxeEveryAds'"));
+  assert(resetMigration.includes("'active','completed','expired'"));
+  assert(resetMigration.includes('gaming_sessions_status_check'));
 }
 
 function testGamingTaskContract() {
@@ -76,6 +82,10 @@ function testSourceBoundaries() {
   assert(service.includes('recordVerifiedActivityOnClient'));
   assert(service.includes('startRotatedAdvertisementEventOnClient'));
   assert(!service.includes('selectProvider'));
+  assert(service.includes("const gamingDaySql = \"(NOW() AT TIME ZONE 'UTC' + INTERVAL '1 hour')::date\""));
+  assert(service.includes("status='expired'"));
+  assert(service.includes('expireStaleDiggingSession'));
+  assert(service.includes("created_at AT TIME ZONE 'UTC' + INTERVAL '1 hour'"));
   assert(!verification.includes('grantGamingResourceOnClient'));
   assert(!verification.includes('row.config.gamingResource'));
   assert(routes.includes('function publicSession(session)'));
@@ -120,7 +130,6 @@ function testGamingFrontendContract() {
   const gaming = fs.readFileSync('public/gaming.js', 'utf8');
   const app = fs.readFileSync('public/app.js', 'utf8');
   const css = fs.readFileSync('public/gaming.css', 'utf8');
-  const runtimeCss = fs.readFileSync('public/gaming-runtime.css', 'utf8');
   const html = fs.readFileSync('public/index.html', 'utf8');
   const adClient = fs.readFileSync('public/ad-provider-client.js', 'utf8');
   const monetagEntry = fs.readFileSync('public/monetag-adapter-entry.js', 'utf8');
@@ -139,13 +148,19 @@ function testGamingFrontendContract() {
   assert(gaming.includes("stage = 'ready';"));
   assert(gaming.includes("stage = 'show';"));
   assert(gaming.includes("stage = 'complete';"));
-  assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
-  assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
-  assert(gaming.includes('360 * 3 - index * segment'));
-  assert(gaming.includes("const wheelResults = ['coin_100'"));
+  assert(gaming.includes('const labelAngle = index * segment - 90;'));
+  assert(gaming.includes('const rotation = 360 * 3 - labelAngle;'));
+  assert(!gaming.includes('360 * 3 - index * segment - segment / 2'));
+  assert(gaming.includes('formatDiggingStatus'));
+  assert(gaming.includes('No spins left — watch an ad or complete a task to get more.'));
+  assert(gaming.includes("Use an Axe to start today\\'s board."));
+  assert(gaming.includes("No more digs today — come back tomorrow."));
+  assert(gaming.includes("Today\\'s board:"));
+  assert(!gaming.includes('gaming-runtime.css'));
+  assert(!gaming.includes('ensureGamingRuntimeStyles'));
+  assert(gaming.includes("if (result === 'none') return 'No reward this time.'"));
+  assert(gaming.includes("if (result === 'extra_spin') return '+1 Spin.'"));
   assert(gaming.includes('renderRewardLists'));
-  assert(gaming.includes('gaming-runtime.css'));
-  assert(gaming.includes('assetVersion'));
   assert(gaming.includes("const response = await api('/api/gaming/ads/start'"));
   assert(
     gaming.includes(
@@ -170,15 +185,12 @@ function testGamingFrontendContract() {
   assert(app.includes('Reward credited'));
   assert(app.includes('Reward not credited'));
   assert(css.includes('conic-gradient'));
+  assert(css.includes('color-mix(in srgb,var(--primary)'));
   assert(css.includes('45deg'));
   assert(css.includes('@container'));
   assert(css.includes(':has('));
-  assert(runtimeCss.includes('dzmoney-wheel-three-turns'));
-  assert(/data-spin-wheel-segment=['"]coin_100['"]/.test(runtimeCss));
-  assert(runtimeCss.includes('transform-origin: 50% 50%'));
-  assert(runtimeCss.includes('translateY(-88px)'));
-  assert(runtimeCss.includes('rotate(calc(var(--i, 0) * -45deg + 90deg))'));
-  assert(!runtimeCss.includes('translateX(-74%)'));
+  assert(css.includes('min-height:32px'));
+  assert(!fs.existsSync('public/gaming-runtime.css'));
   assert(html.includes('Gaming Ads'));
   assert(html.includes('data-gaming-ad="spin"'));
   assert(html.includes('data-gaming-ad="digging"'));
@@ -258,6 +270,7 @@ async function run() {
   console.log('Gaming provider/context invariants: PASS');
   console.log('Gaming canonical Economy/Ledger reward contract: PASS');
   console.log('Gaming reward popup + balance synchronization contract: PASS');
+  console.log('Gaming canonical wheel/daily-board contract: PASS');
   console.log('Gaming economic configuration simulation: PASS');
 
   const integration = spawnSync(
@@ -266,7 +279,14 @@ async function run() {
     { stdio: 'inherit', env: process.env },
   );
   assert.strictEqual(integration.status, 0, 'Gaming provider/economic integration test must pass');
+  const dailyReset = spawnSync(
+    process.execPath,
+    [require.resolve('./test-gaming-daily-reset.js')],
+    { stdio: 'inherit', env: process.env },
+  );
+  assert.strictEqual(dailyReset.status, 0, 'Gaming daily reset integration test must pass');
   console.log('Gaming provider/economic integration: PASS');
+  console.log('Gaming daily-board reset integration: PASS');
 }
 
 run().catch(error => {
