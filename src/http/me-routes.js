@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/pool');
 const walletService = require('../services/wallet-service');
 const referralService = require('../services/referral-service');
+const squadMembershipService = require('../services/squad-membership-service');
 const { buildReferralLink } = require('../config/telegram');
 const { telegramAuth } = require('./telegram-auth');
 
@@ -21,6 +22,7 @@ async function attributeFirstEntry(userId, referralCode) {
   const referrer = result.rows[0];
   if (!referrer || Number(referrer.id) === Number(userId)) return;
   await referralService.createAttribution({ referrerUserId: referrer.id, referredUserId: userId });
+  await squadMembershipService.ensureReferralSquadFormation({ referrerUserId: referrer.id, referredUserId: userId });
 }
 
 router.get('/', asyncRoute(async (req, res) => {
