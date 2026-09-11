@@ -22,6 +22,7 @@ test('Phase 1: /api/me bootstrap performs no Squad creation work even with ten o
   const routePath = require.resolve('../src/http/me-routes.js');
   const originalLoad = Module._load;
   const queries = [];
+  const unassignedUsers = Array.from({ length: 11 }, (_, index) => ({ id: index + 10 }));
   let registeredHandler;
   let walletCreateCalls = 0;
 
@@ -42,6 +43,7 @@ test('Phase 1: /api/me bootstrap performs no Squad creation work even with ten o
       return {
         async query(sql, params) {
           queries.push({ sql, params });
+          if (/squad_memberships/i.test(sql)) return { rows: unassignedUsers };
           return { rows: [{ id: 1 }] };
         }
       };
@@ -99,6 +101,7 @@ test('Phase 1: /api/me bootstrap performs no Squad creation work even with ten o
     );
 
     assert.equal(walletCreateCalls, 1);
+    assert.equal(unassignedUsers.length, 11);
     assert.equal(response.ok, true);
     assert.equal(queries.some(({ sql }) => /squad_memberships|INSERT INTO squads|squad-provisioning/i.test(sql)), false);
   } finally {
