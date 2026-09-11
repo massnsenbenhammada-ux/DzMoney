@@ -6,12 +6,15 @@ This is the release gate for validating the AdsGram provider in a genuine Telegr
 
 The existing Playwright browser test is **not** a release gate for AdsGram because headless Chromium is not a Telegram launch environment and AdsGram may reject it before the provider flow starts.
 
+The broader moderation-readiness record is maintained in `docs/ADSGRAM_MODERATION_READINESS.md`. That document is the checklist for moderation evidence, production/runtime verification, dashboard configuration, payout proof, reward economics, and UX safety.
+
 ## Preconditions
 
 - Phase 14 automated gates are green.
 - Do not change Railway configuration solely to make this test pass.
 - Use the controlled Telegram test account and the current production deployment.
 - Keep the existing provider verification and correlation flow unchanged.
+- Production AdsGram must not run in debug mode.
 
 ## Manual procedure
 
@@ -64,5 +67,20 @@ For a passing manual gate, record:
 - final Squad Ads progress
 - confirmation that the test was performed inside Telegram
 - Railway request/log evidence for the two events where available
+- production deployment commit evidence where available
 
 Do not record bot tokens, provider secrets, or other credentials in the repository.
+
+## Moderation checklist reference
+
+Before requesting AdsGram moderation, also complete every unresolved item in `docs/ADSGRAM_MODERATION_READINESS.md`, especially:
+
+- public proof of reward payouts;
+- exact production-head/runtime verification;
+- direct AdsGram dashboard configuration verification;
+- production `debug=false` verification;
+- reward-economics review;
+- clear non-mandatory ad UX for core functionality;
+- clear and verifiable Squad Ads placement.
+
+Passing this E2E document alone does **not** close Phase 14 or establish moderation approval.
