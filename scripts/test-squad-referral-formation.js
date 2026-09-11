@@ -21,22 +21,23 @@ function loadFormationService(membershipRows, squadId = 77) {
       if (/SELECT id FROM users WHERE id IN/i.test(sql)) {
         return { rowCount: 2, rows: [{ id: 1 }, { id: 2 }] };
       }
-      if (/FROM squad_memberships/i.test(sql)) {
-        return { rowCount: membershipRows.length, rows: membershipRows };
-      }
       if (/INSERT INTO squads/i.test(sql)) {
         return { rowCount: 1, rows: [{ id: squadId, owner_user_id: 1 }] };
       }
       if (/INSERT INTO squad_memberships/i.test(sql)) {
+        const createsTwo = /VALUES \(\$1, \$2, 'inactive'\), \(\$1, \$3, 'inactive'\)/i.test(sql);
         return {
-          rowCount: /VALUES \(\$1, \$2, 'inactive'\), \(\$1, \$3, 'inactive'\)/i.test(sql) ? 2 : 1,
-          rows: /VALUES \(\$1, \$2, 'inactive'\), \(\$1, \$3, 'inactive'\)/i.test(sql)
+          rowCount: createsTwo ? 2 : 1,
+          rows: createsTwo
             ? [
                 { id: 101, squad_id: squadId, user_id: 1, status: 'inactive' },
                 { id: 102, squad_id: squadId, user_id: 2, status: 'inactive' }
               ]
             : [{ id: 102, squad_id: squadId, user_id: 2, status: 'inactive' }]
         };
+      }
+      if (/FROM squad_memberships/i.test(sql)) {
+        return { rowCount: membershipRows.length, rows: membershipRows };
       }
       throw new Error(`Unexpected SQL in formation test: ${sql}`);
     }
