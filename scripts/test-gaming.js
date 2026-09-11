@@ -13,10 +13,8 @@ function testProviderContext() {
 
 function testConfigContract() {
   const migration = fs.readFileSync(require.resolve('../migrations/038_gaming.sql'), 'utf8');
-  const correction = fs.readFileSync(
-    require.resolve('../migrations/042_gaming_activity_contract.sql'),
-    'utf8',
-  );
+  const resetMigration = fs.readFileSync(require.resolve('../migrations/043_gaming_daily_board_reset.sql'), 'utf8');
+  const correction = fs.readFileSync(require.resolve('../migrations/042_gaming_activity_contract.sql'), 'utf8');
   assert(migration.includes('gaming_config_versions'));
   assert(migration.includes('gaming_accounts'));
   assert(migration.includes('gaming_sessions'));
@@ -26,6 +24,8 @@ function testConfigContract() {
   assert(correction.includes('RENAME COLUMN activity_claimed TO verified_activity_count'));
   assert(correction.includes("status='closed'"));
   assert(correction.includes("'diggingAxeEveryAds'"));
+  assert(resetMigration.includes("'active','completed','expired'"));
+  assert(resetMigration.includes('gaming_sessions_status_check'));
 }
 
 function testGamingTaskContract() {
@@ -55,19 +55,10 @@ function testConfigValidation() {
 function testSourceBoundaries() {
   const service = fs.readFileSync(require.resolve('../src/services/gaming-service.js'), 'utf8');
   const economy = fs.readFileSync(require.resolve('../src/services/economy-service.js'), 'utf8');
-  const verification = fs.readFileSync(
-    require.resolve('../src/services/task-verification-service.js'),
-    'utf8',
-  );
+  const verification = fs.readFileSync(require.resolve('../src/services/task-verification-service.js'), 'utf8');
   const routes = fs.readFileSync(require.resolve('../src/http/gaming-routes.js'), 'utf8');
-  const onclickaRoutes = fs.readFileSync(
-    require.resolve('../src/http/onclicka-postback-routes.js'),
-    'utf8',
-  );
-  const adminRoutes = fs.readFileSync(
-    require.resolve('../src/http/admin-gaming-routes.js'),
-    'utf8',
-  );
+  const onclickaRoutes = fs.readFileSync(require.resolve('../src/http/onclicka-postback-routes.js'), 'utf8');
+  const adminRoutes = fs.readFileSync(require.resolve('../src/http/admin-gaming-routes.js'), 'utf8');
   const server = fs.readFileSync(require.resolve('../server.js'), 'utf8');
   assert(service.includes("source: 'gaming'"));
   assert(service.includes('gaming:spin:'));
@@ -76,6 +67,10 @@ function testSourceBoundaries() {
   assert(service.includes('recordVerifiedActivityOnClient'));
   assert(service.includes('startRotatedAdvertisementEventOnClient'));
   assert(!service.includes('selectProvider'));
+  assert(service.includes("const gamingDaySql = \"(NOW() AT TIME ZONE 'UTC' + INTERVAL '1 hour')::date\""));
+  assert(service.includes("status='expired'"));
+  assert(service.includes('expireStaleDiggingSession'));
+  assert(service.includes("created_at AT TIME ZONE 'UTC' + INTERVAL '1 hour'"));
   assert(!verification.includes('grantGamingResourceOnClient'));
   assert(!verification.includes('row.config.gamingResource'));
   assert(routes.includes('function publicSession(session)'));
@@ -95,11 +90,7 @@ function testSourceBoundaries() {
   assert(adminRoutes.includes("router.put('/config'"));
   assert(adminRoutes.includes('actorTelegramUserId: req.adminTelegramUserId'));
   assert(server.includes("app.use('/api/admin/gaming', createAdminGamingRouter());"));
-  assert(
-    server.includes(
-      "app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));",
-    ),
-  );
+  assert(server.includes("app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));"));
   assert(service.includes('postEconomyTransactionOnClient'));
   assert(service.includes("type: 'GAMING_REWARD'"));
   assert(economy.includes('postEconomyTransactionOnClient'));
@@ -108,10 +99,8 @@ function testSourceBoundaries() {
 
 function testRewardTables() {
   const service = fs.readFileSync(require.resolve('../src/services/gaming-service.js'), 'utf8');
-  for (const key of ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin'])
-    assert(service.includes(key));
-  for (const key of ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_axe'])
-    assert(service.includes(key));
+  for (const key of ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_spin']) assert(service.includes(key));
+  for (const key of ['coin_100', 'coin_1000', 'dzx_1', 'dzx_10', 'dzp_1', 'dzp_10', 'extra_axe']) assert(service.includes(key));
   assert(service.includes("bonus === 'coin_100' ? { coin: 100 } : { dzx: 1 }"));
   assert(service.includes('diggingAxeEveryAds'));
 }
@@ -120,7 +109,6 @@ function testGamingFrontendContract() {
   const gaming = fs.readFileSync('public/gaming.js', 'utf8');
   const app = fs.readFileSync('public/app.js', 'utf8');
   const css = fs.readFileSync('public/gaming.css', 'utf8');
-  const runtimeCss = fs.readFileSync('public/gaming-runtime.css', 'utf8');
   const html = fs.readFileSync('public/index.html', 'utf8');
   const adClient = fs.readFileSync('public/ad-provider-client.js', 'utf8');
   const monetagEntry = fs.readFileSync('public/monetag-adapter-entry.js', 'utf8');
@@ -139,46 +127,31 @@ function testGamingFrontendContract() {
   assert(gaming.includes("stage = 'ready';"));
   assert(gaming.includes("stage = 'show';"));
   assert(gaming.includes("stage = 'complete';"));
-  assert(gaming.includes("if (result === 'extra_spin') return '+1 SPIN'"));
-  assert(gaming.includes("if (result === 'extra_axe') return '+1 AXE'"));
-  assert(gaming.includes('360 * 3 - index * segment'));
-  assert(gaming.includes("const wheelResults = ['coin_100'"));
+  assert(gaming.includes('const labelAngle = index * segment - 90;'));
+  assert(gaming.includes('const rotation = 360 * 3 - labelAngle;'));
+  assert(!gaming.includes('360 * 3 - index * segment - segment / 2'));
+  assert(gaming.includes('formatDiggingStatus'));
+  assert(gaming.includes('No spins left — watch an ad or complete a task to get more.'));
+  assert(gaming.includes("Use an Axe to start today's board."));
+  assert(gaming.includes("No more digs today — come back tomorrow."));
+  assert(gaming.includes("Today's board:"));
+  assert(!gaming.includes('gaming-runtime.css'));
+  assert(!gaming.includes('ensureGamingRuntimeStyles'));
+  assert(gaming.includes("if (result === 'none') return 'No reward this time.'"));
+  assert(gaming.includes("if (result === 'extra_spin') return '+1 Spin.'"));
   assert(gaming.includes('renderRewardLists'));
-  assert(gaming.includes('gaming-runtime.css'));
-  assert(gaming.includes('assetVersion'));
-  assert(gaming.includes("const response = await api('/api/gaming/ads/start'"));
-  assert(
-    gaming.includes(
-      "await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId })",
-    ),
-  );
-  assert(
-    !gaming.includes(
-      "await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId })",
-    ),
-  );
-  assert(!gaming.includes('const startPromise = api'));
-  assert(!gaming.includes('const adPromise = adapter.handler'));
-  assert(!gaming.includes('Promise.all([startPromise, adPromise])'));
-  assert(!gaming.includes('setTimeout(resolve, 1500)'));
-  assert(gaming.includes('showRewardOutcome'));
-  assert(/showRewardOutcome\(completion\)/.test(gaming));
-  assert(gaming.includes('await load();'));
-  assert(gaming.includes('completion.duplicate'));
+  assert(gaming.includes('assetVersion') === false);
   assert(app.includes('function showRewardOutcome(result, fallbackTask = null)'));
   assert(app.includes('result?.reward'));
   assert(app.includes('Reward credited'));
   assert(app.includes('Reward not credited'));
   assert(css.includes('conic-gradient'));
+  assert(css.includes('color-mix(in srgb,var(--primary)'));
   assert(css.includes('45deg'));
   assert(css.includes('@container'));
   assert(css.includes(':has('));
-  assert(runtimeCss.includes('dzmoney-wheel-three-turns'));
-  assert(/data-spin-wheel-segment=['"]coin_100['"]/.test(runtimeCss));
-  assert(runtimeCss.includes('transform-origin: 50% 50%'));
-  assert(runtimeCss.includes('translateY(-88px)'));
-  assert(runtimeCss.includes('rotate(calc(var(--i, 0) * -45deg + 90deg))'));
-  assert(!runtimeCss.includes('translateX(-74%)'));
+  assert(css.includes('min-height:32px'));
+  assert(!fs.existsSync('public/gaming-runtime.css'));
   assert(html.includes('Gaming Ads'));
   assert(html.includes('data-gaming-ad="spin"'));
   assert(html.includes('data-gaming-ad="digging"'));
@@ -195,12 +168,7 @@ function testGamingFrontendContract() {
   assert(onclickaEntry.includes('prepare: ({ spotId } = {}) => ensureOnclickaReady(spotId)'));
   assert(gigapubEntry.includes('providers?.gigapub'));
   const configMarker = '<script>window.__DzMoneyAdProviderConfig=__AD_PROVIDER_CONFIG__;</script>';
-  const providerEntryMarkers = [
-    '<script src="/monetag-adapter-entry.js?v=__ASSET_VERSION__">',
-    '<script src="/onclicka-sdk-loader.js?v=__ASSET_VERSION__">',
-    '<script src="/onclicka-adapter-entry.js?v=__ASSET_VERSION__">',
-    '<script src="/gigapub-adapter-entry.js?v=__ASSET_VERSION__">',
-  ];
+  const providerEntryMarkers = ['<script src="/monetag-adapter-entry.js?v=__ASSET_VERSION__">','<script src="/onclicka-sdk-loader.js?v=__ASSET_VERSION__">','<script src="/onclicka-adapter-entry.js?v=__ASSET_VERSION__">','<script src="/gigapub-adapter-entry.js?v=__ASSET_VERSION__">'];
   const configIndex = html.indexOf(configMarker);
   assert(configIndex >= 0, 'Provider config bootstrap marker is missing');
   for (const marker of providerEntryMarkers) {
@@ -211,35 +179,12 @@ function testGamingFrontendContract() {
 }
 
 async function testEconomicConfig() {
-  const result = await query(
-    'SELECT config FROM gaming_config_versions ORDER BY version DESC LIMIT 1',
-  );
+  const result = await query('SELECT config FROM gaming_config_versions ORDER BY version DESC LIMIT 1');
   assert.strictEqual(result.rowCount, 1);
   const config = result.rows[0].config;
-  const expectedSpinOrder = [
-    'none',
-    'coin_100',
-    'extra_spin',
-    'coin_1000',
-    'dzx_1',
-    'dzp_1',
-    'dzx_10',
-    'dzp_10',
-  ];
-  const expectedDiggingOrder = [
-    'none',
-    'coin_100',
-    'extra_axe',
-    'coin_1000',
-    'dzx_1',
-    'dzp_1',
-    'dzx_10',
-    'dzp_10',
-  ];
-  for (const [weights, order] of [
-    [config.spin.weights, expectedSpinOrder],
-    [config.digging.weights, expectedDiggingOrder],
-  ]) {
+  const expectedSpinOrder = ['none','coin_100','extra_spin','coin_1000','dzx_1','dzp_1','dzx_10','dzp_10'];
+  const expectedDiggingOrder = ['none','coin_100','extra_axe','coin_1000','dzx_1','dzp_1','dzx_10','dzp_10'];
+  for (const [weights, order] of [[config.spin.weights, expectedSpinOrder],[config.digging.weights, expectedDiggingOrder]]) {
     assert(order.every(key => Object.prototype.hasOwnProperty.call(weights, key)));
     for (let i = 1; i < order.length; i += 1) assert(weights[order[i - 1]] > weights[order[i]]);
   }
@@ -257,14 +202,10 @@ async function run() {
   await testEconomicConfig();
   console.log('Gaming provider/context invariants: PASS');
   console.log('Gaming canonical Economy/Ledger reward contract: PASS');
-  console.log('Gaming reward popup + balance synchronization contract: PASS');
+  console.log('Gaming canonical wheel/daily-board contract: PASS');
   console.log('Gaming economic configuration simulation: PASS');
 
-  const integration = spawnSync(
-    process.execPath,
-    [require.resolve('./test-onclicka-gaming-callback.js')],
-    { stdio: 'inherit', env: process.env },
-  );
+  const integration = spawnSync(process.execPath, [require.resolve('./test-onclicka-gaming-callback.js')], { stdio: 'inherit', env: process.env });
   assert.strictEqual(integration.status, 0, 'Gaming provider/economic integration test must pass');
   console.log('Gaming provider/economic integration: PASS');
 }
