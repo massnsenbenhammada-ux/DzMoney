@@ -71,13 +71,17 @@ The Spin and Digging ad counters are independent.
 ## Digging
 
 - 1 Axe starts one Digging session.
-- A session creates its board server-side once and persists it.
+- A session creates its board server-side once and remains active across app closes/reopens during its current Gaming Day.
+- A Gaming Day is the existing canonical UTC+1 day used by the Gaming service: `(NOW() AT TIME ZONE 'UTC' + INTERVAL '1 hour')::date`.
+- At the next Gaming Day boundary, an unfinished `active` session expires and its board is forfeited.
+- Starting or reopening Digging on a new Gaming Day exposes a fresh board; the previous unfinished board is never carried forward.
 - Initial board target: 16 tiles.
 - A session starts with 3 Energy.
 - One tile reveal consumes one Energy.
-- The Axe is not consumed per tile.
+- The Axe is consumed once when the new daily board is started, not per tile.
 - A revealed tile always returns its persisted result; it is never randomized again.
-- Leaving the app does not destroy the active session.
+- An expired board is not treated as completed and remains auditable with session status `expired`.
+- The daily reset does not grant a free Axe.
 
 ### Energy
 
@@ -206,3 +210,7 @@ The simulation must consume the current versioned Gaming configuration rather th
 The existing 1,200-DZX average-cost guardrail remains unchanged.
 
 No simulation result is to be treated as a final economic contract until reviewed.
+
+## Decision record
+
+The daily-board lifecycle change is governed by `ADR-0022-digging-daily-board-reset.md`. That ADR supersedes the former persistence-across-days behavior while preserving persistence across app closes/reopens within the same Gaming Day.
