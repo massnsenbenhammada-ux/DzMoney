@@ -155,7 +155,7 @@ function testGamingFrontendContract() {
   assert(gaming.includes('No spins left — watch an ad or complete a task to get more.'));
   assert(gaming.includes("Use an Axe to start today\\'s board."));
   assert(gaming.includes("No more digs today — come back tomorrow."));
-  assert(gaming.includes("Today's board:"));
+  assert(gaming.includes("Today\\'s board:"));
   assert(!gaming.includes('gaming-runtime.css'));
   assert(!gaming.includes('ensureGamingRuntimeStyles'));
   assert(gaming.includes("if (result === 'none') return 'No reward this time.'"));
