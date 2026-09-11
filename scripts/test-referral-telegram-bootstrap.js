@@ -94,6 +94,11 @@ async function testFirstEntryAttribution() {
       [referrer.id, referredTelegramId, referrerTelegramId],
     );
     await query(
+      'DELETE FROM squad_memberships WHERE squad_id IN (SELECT id FROM squads WHERE owner_user_id = $1) OR user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($2, $3))',
+      [referrer.id, referredTelegramId, referrerTelegramId],
+    );
+    await query('DELETE FROM squads WHERE owner_user_id = $1', [referrer.id]);
+    await query(
       'DELETE FROM wallet_accounts WHERE user_id IN (SELECT id FROM users WHERE telegram_user_id IN ($1, $2))',
       [referredTelegramId, referrerTelegramId],
     );
