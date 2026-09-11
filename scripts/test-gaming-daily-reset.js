@@ -35,6 +35,13 @@ async function main() {
 
     console.log('Gaming daily Digging board reset integration: PASS');
   } finally {
+    await query(
+      `DELETE FROM ledger_entries
+       WHERE transaction_id IN (SELECT id FROM ledger_transactions WHERE user_id=$1)
+          OR wallet_account_id IN (SELECT id FROM wallet_accounts WHERE user_id=$1)`,
+      [userId],
+    );
+    await query('DELETE FROM ledger_transactions WHERE user_id=$1', [userId]);
     await query('DELETE FROM users WHERE id=$1', [userId]);
     await pool.end();
   }
