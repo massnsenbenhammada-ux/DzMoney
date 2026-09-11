@@ -42,6 +42,6 @@ test('Spin wheel aligns every server result with the pointer', async ({ page }) 
       return (degrees + 360) % 360;
     });
 
-    expect(Math.min(angle, 360 - angle)).toBeLessThanOrEqual(2);
+    expect(Math.min(angle, 360 - angle), `result=${result}, pointerAngle=${angle}`).toBeLessThanOrEqual(2);
   }
 });
