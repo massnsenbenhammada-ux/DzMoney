@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:e2e:daily-view-ads": "playwright test tests/e2e/daily-view-ads.spec.js",
+    "test:e2e:gaming-wheel-geometry": "playwright test tests/e2e/gaming-wheel-geometry.spec.js",
     "test:e2e:daily-view-ads:real-monetag": "REAL_MONETAG_E2E=1 playwright test tests/e2e/daily-view-ads-real-monetag.spec.js",
     "test:e2e:daily-view-ads:real-rotation": "REAL_AD_PROVIDER_ROTATION_E2E=1 playwright test tests/e2e/daily-view-ads-real-rotation.spec.js",
     "test:load:daily-view-ads": "node ./scripts/test-daily-view-ads-load.js",
