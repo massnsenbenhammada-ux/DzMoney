@@ -88,7 +88,7 @@ A new user has **no Squad by default**. The previous automatic `provisionSquadFo
 
 ### 3.3 Owner-direct invitation
 
-` s quad_invitations` is retained as a **third, separate, optional free formation/join path** alongside Referral-based formation and paid membership.
+`squad_invitations` is retained as a **third, separate, optional free formation/join path** alongside Referral-based formation and paid membership.
 
 - Owner-direct invitation is not replaced by Referral formation.
 - It remains Owner-gated.
