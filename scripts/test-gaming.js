@@ -161,7 +161,25 @@ function testGamingFrontendContract() {
   assert(gaming.includes("if (result === 'none') return 'No reward this time.'"));
   assert(gaming.includes("if (result === 'extra_spin') return '+1 Spin.'"));
   assert(gaming.includes('renderRewardLists'));
-  assert(!gaming.includes('const wheelResults ='));
+  assert(gaming.includes("const response = await api('/api/gaming/ads/start'"));
+  assert(
+    gaming.includes(
+      "await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId, ymid: response.externalAdId })",
+    ),
+  );
+  assert(
+    !gaming.includes(
+      "await adapter.handler({ requestVar: 'gaming', adEventId: response.adEventId })",
+    ),
+  );
+  assert(!gaming.includes('const startPromise = api'));
+  assert(!gaming.includes('const adPromise = adapter.handler'));
+  assert(!gaming.includes('Promise.all([startPromise, adPromise])'));
+  assert(!gaming.includes('setTimeout(resolve, 1500)'));
+  assert(gaming.includes('showRewardOutcome'));
+  assert(/showRewardOutcome\(completion\)/.test(gaming));
+  assert(gaming.includes('await load();'));
+  assert(gaming.includes('completion.duplicate'));
   assert(app.includes('function showRewardOutcome(result, fallbackTask = null)'));
   assert(app.includes('result?.reward'));
   assert(app.includes('Reward credited'));
@@ -255,16 +273,20 @@ async function run() {
   console.log('Gaming canonical wheel/daily-board contract: PASS');
   console.log('Gaming economic configuration simulation: PASS');
 
-  const integrations = ['./test-onclicka-gaming-callback.js', './test-gaming-daily-reset.js'];
-  for (const script of integrations) {
-    const integration = spawnSync(
-      process.execPath,
-      [require.resolve(script)],
-      { stdio: 'inherit', env: process.env },
-    );
-    assert.strictEqual(integration.status, 0, `${script} must pass`);
-  }
-  console.log('Gaming provider/economic/daily-reset integrations: PASS');
+  const integration = spawnSync(
+    process.execPath,
+    [require.resolve('./test-onclicka-gaming-callback.js')],
+    { stdio: 'inherit', env: process.env },
+  );
+  assert.strictEqual(integration.status, 0, 'Gaming provider/economic integration test must pass');
+  const dailyReset = spawnSync(
+    process.execPath,
+    [require.resolve('./test-gaming-daily-reset.js')],
+    { stdio: 'inherit', env: process.env },
+  );
+  assert.strictEqual(dailyReset.status, 0, 'Gaming daily reset integration test must pass');
+  console.log('Gaming provider/economic integration: PASS');
+  console.log('Gaming daily-board reset integration: PASS');
 }
 
 run().catch(error => {
