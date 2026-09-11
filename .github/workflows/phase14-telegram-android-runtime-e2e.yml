@@ -1,0 +1,138 @@
+name: Phase 14 Telegram Android Runtime E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_real_provider:
+        description: 'Run the real-provider Telegram Mini App flow (requires authenticated test account secrets)'
+        required: true
+        default: false
+        type: boolean
+  push:
+    branches:
+      - feat/phase14-telegram-android-runtime-e2e
+    paths:
+      - '.github/workflows/phase14-telegram-android-runtime-e2e.yml'
+      - 'tests/e2e/**'
+      - 'public/**'
+      - 'src/**'
+      - 'server.js'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  android-runtime:
+    name: Android Emulator + Telegram runtime harness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      ANDROID_API_LEVEL: 30
+      ANDROID_TARGET: google_apis
+      ANDROID_ARCH: x86
+      AVD_NAME: dzmoney-api30
+      DZ_MONEY_MINI_APP_URL: https://t.me/DzaMoneybot/DzMoney
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Enable KVM
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-kvm
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-dzmoney-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sudo chmod 666 /dev/kvm
+          ls -l /dev/kvm
+
+      - name: Start Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86
+          profile: pixel_2
+          cores: 2
+          ram-size: 1536M
+          heap-size: 256M
+          force-avd-creation: false
+          emulator-boot-timeout: 240
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-save
+          disable-animations: true
+          script: |
+            set -eu
+            adb wait-for-device
+            adb shell getprop ro.build.version.sdk
+            adb shell getprop ro.product.model
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
+
+            echo 'Checking outbound HTTPS connectivity from the Android runtime...'
+            adb shell ping -c 1 telegram.org || true
+
+            echo 'Installing official Telegram Android APK...'
+            curl -fL --retry 8 --retry-all-errors --retry-delay 3 --connect-timeout 30 --max-time 600 -o /tmp/telegram.apk https://telegram.org/dl/android/apk
+            test -s /tmp/telegram.apk
+            adb install -r /tmp/telegram.apk
+
+            echo 'Locating Android SDK build-tools aapt2...'
+            find /usr/local/lib/android/sdk/build-tools -type f -name aapt2 -print -quit > /tmp/dzmoney-aapt2
+            test -s /tmp/dzmoney-aapt2
+            echo "Android SDK root: /usr/local/lib/android/sdk"
+            echo "Using aapt2 candidate: $(cat /tmp/dzmoney-aapt2)"
+            test -x "$(cat /tmp/dzmoney-aapt2)"
+
+            echo 'Discovering the installed Telegram package from the APK itself...'
+            $(cat /tmp/dzmoney-aapt2) dump badging /tmp/telegram.apk | sed -n "s/^package: name='\([^']*\)'.*/\1/p" | head -n 1 > /tmp/dzmoney-telegram-package
+            test -s /tmp/dzmoney-telegram-package
+            echo "Telegram package: $(cat /tmp/dzmoney-telegram-package)"
+            adb shell pm path "$(cat /tmp/dzmoney-telegram-package)"
+            adb shell pm list packages | grep -F "package:$(cat /tmp/dzmoney-telegram-package)"
+
+            echo 'Launching Telegram Android...'
+            adb shell monkey -p "$(cat /tmp/dzmoney-telegram-package)" 1
+            sleep 8
+            adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
+            adb shell dumpsys package "$(cat /tmp/dzmoney-telegram-package)" | head -n 40
+
+            echo 'Opening the canonical DzMoney Direct Mini App link...'
+            adb shell am start -a android.intent.action.VIEW -d "$DZ_MONEY_MINI_APP_URL"
+            sleep 8
+            adb shell dumpsys activity activities | grep -E 'mResumedActivity|mCurrentFocus' | head -n 5
+            adb shell pidof "$(cat /tmp/dzmoney-telegram-package)"
+
+            echo 'Capturing Telegram + Mini App launch evidence...'
+            adb exec-out screencap -p > telegram-mini-app-runtime.png
+            adb logcat -d -t 500 > telegram-mini-app-logcat.txt
+
+      - name: Upload Android runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-android-runtime-evidence
+          path: |
+            telegram-mini-app-runtime.png
+            telegram-mini-app-logcat.txt
+          if-no-files-found: ignore
+
+      - name: Real provider gate preflight
+        if: ${{ inputs.run_real_provider }}
+        run: |
+          echo 'Real-provider execution was requested.'
+          echo 'This preflight intentionally does not fabricate Telegram authentication or ad callbacks.'
+          echo 'A real authenticated Telegram test account and provider credentials are required before this becomes a release gate.'
+          test -n "${{ secrets.TELEGRAM_TEST_USER_ID }}"
+          test -n "${{ secrets.BOT_TOKEN }}"
+          test -n "${{ secrets.REAL_AD_PROVIDER_TEST_CONFIG }}"
