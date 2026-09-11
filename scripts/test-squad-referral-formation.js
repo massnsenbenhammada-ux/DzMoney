@@ -18,9 +18,6 @@ function loadFormationService(membershipRows, squadId = 77) {
   const client = {
     async query(sql, params) {
       queries.push({ sql, params });
-      if (/SELECT id FROM users WHERE id IN/i.test(sql)) {
-        return { rowCount: 2, rows: [{ id: 1 }, { id: 2 }] };
-      }
       if (/INSERT INTO squads/i.test(sql)) {
         return { rowCount: 1, rows: [{ id: squadId, owner_user_id: 1 }] };
       }
@@ -35,6 +32,9 @@ function loadFormationService(membershipRows, squadId = 77) {
               ]
             : [{ id: 102, squad_id: squadId, user_id: 2, status: 'inactive' }]
         };
+      }
+      if (/SELECT id FROM users WHERE id IN/i.test(sql)) {
+        return { rowCount: 2, rows: [{ id: 1 }, { id: 2 }] };
       }
       if (/FROM squad_memberships/i.test(sql)) {
         return { rowCount: membershipRows.length, rows: membershipRows };
