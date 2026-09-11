@@ -2,44 +2,116 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { provisionSquadForUsers } = require('../src/services/squad-provisioning-service');
+const Module = require('node:module');
 
-function fakeDb(rows) {
-  const calls = [];
-  return {
-    calls,
-    async transaction(work) {
-      return work({ query: async (sql, params) => {
-        calls.push({ sql, params });
-        if (/SELECT pg_advisory_xact_lock/.test(sql)) return { rows: [] };
-        if (/FROM users/.test(sql)) return { rows };
-        if (/INSERT INTO squads/.test(sql)) return { rows: [{ id: 1, owner_user_id: rows[0].id }] };
-        return { rows: [] };
-      } });
-    }
-  };
+function read(relativePath) {
+  return fs.readFileSync(path.join(__dirname, '..', relativePath), 'utf8');
 }
 
-test('provisions a Squad from the oldest ten unassigned users and assigns the oldest as owner', async () => {
-  const users = Array.from({ length: 10 }, (_, index) => ({ id: index + 10 }));
-  const db = fakeDb(users);
-  const result = await provisionSquadForUsers(db.transaction.bind(db));
-  assert.deepEqual(result, { squadId: 1, ownerUserId: 10 });
-  const selection = db.calls.find(call => /FROM users/.test(call.sql));
-  assert.match(selection.sql, /ORDER BY u\.created_at ASC, u\.id ASC/);
-  assert.match(selection.sql, /LIMIT 10/);
+test('Phase 1: automatic Squad provisioning service is removed and no runtime reference remains', () => {
+  const servicePath = path.join(__dirname, '../src/services/squad-provisioning-service.js');
+  assert.equal(fs.existsSync(servicePath), false);
+
+  const meRoute = read('src/http/me-routes.js');
+  assert.doesNotMatch(meRoute, /squad-provisioning-service/);
+  assert.doesNotMatch(meRoute, /provisionSquadForUsers/);
+  assert.doesNotMatch(meRoute, /withTransaction/);
 });
 
-test('returns null when fewer than ten unassigned users exist', async () => {
-  const db = fakeDb([{ id: 1 }]);
-  assert.equal(await provisionSquadForUsers(db.transaction.bind(db)), null);
+test('Phase 1: /api/me bootstrap performs no Squad creation work even with ten or more unassigned users', async () => {
+  const routePath = require.resolve('../src/http/me-routes.js');
+  const originalLoad = Module._load;
+  const queries = [];
+  let registeredHandler;
+  let walletCreateCalls = 0;
+
+  Module._load = function load(request, parent, isMain) {
+    if (request === 'express') {
+      return {
+        Router() {
+          return {
+            use() {},
+            get(_path, handler) {
+              registeredHandler = handler;
+            }
+          };
+        }
+      };
+    }
+    if (request === '../db/pool') {
+      return {
+        async query(sql, params) {
+          queries.push({ sql, params });
+          return { rows: [{ id: 1 }] };
+        }
+      };
+    }
+    if (request === '../services/wallet-service') {
+      return {
+        async createUser() {
+          walletCreateCalls += 1;
+          return {
+            id: 1,
+            telegram_user_id: 'telegram-1',
+            username: 'test-user',
+            first_name: 'Test',
+            photo_url: null,
+            referral_code: 'REF1'
+          };
+        },
+        async getUserWallets() {
+          return [];
+        }
+      };
+    }
+    if (request === '../services/referral-service') {
+      return { async createAttribution() {} };
+    }
+    if (request === '../config/telegram') {
+      return { buildReferralLink: code => `https://t.me/example?start=${code}` };
+    }
+    if (request === './telegram-auth') {
+      return { telegramAuth: (_req, _res, next) => next() };
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  try {
+    delete require.cache[routePath];
+    require(routePath);
+    assert.equal(typeof registeredHandler, 'function');
+
+    const response = {};
+    await registeredHandler(
+      {
+        telegramUser: {
+          id: 'telegram-1',
+          username: 'test-user',
+          first_name: 'Test'
+        },
+        telegramStartParam: null
+      },
+      {
+        json(payload) {
+          Object.assign(response, payload);
+        }
+      }
+    );
+
+    assert.equal(walletCreateCalls, 1);
+    assert.equal(response.ok, true);
+    assert.equal(queries.some(({ sql }) => /squad_memberships|INSERT INTO squads|squad-provisioning/i.test(sql)), false);
+  } finally {
+    Module._load = originalLoad;
+    delete require.cache[routePath];
+  }
 });
 
-test('Squad read route does not provision and user bootstrap does', () => {
-  const squadRoute = fs.readFileSync(path.join(__dirname, '../src/http/squad-routes.js'), 'utf8');
-  const meRoute = fs.readFileSync(path.join(__dirname, '../src/http/me-routes.js'), 'utf8');
+test('Squad read route does not contain the removed automatic provisioning hook', () => {
+  const squadRoute = read('src/http/squad-routes.js');
+  const meRoute = read('src/http/me-routes.js');
   assert.doesNotMatch(squadRoute, /provisionSquadForUsers/);
-  assert.match(meRoute, /provisionSquadForUsers\(withTransaction\)/);
+  assert.doesNotMatch(meRoute, /provisionSquadForUsers/);
 });
 
 require('./test-squad-membership-invite.js');
