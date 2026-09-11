@@ -30,7 +30,7 @@ test('Spin wheel aligns every server result with the pointer', async ({ page }) 
     await page.locator('[data-spin-action]').click();
     await expect(page.locator('[data-spin-wheel]')).toHaveClass(/is-winner/);
 
-    const angle = await page.locator(`[data-spin-wheel-segment="${result}"]`).evaluate(element => {
+    const geometry = await page.locator(`[data-spin-wheel-segment="${result}"]`).evaluate(element => {
       const wheel = element.closest('[data-spin-wheel]');
       const wheelBox = wheel.getBoundingClientRect();
       const labelBox = element.getBoundingClientRect();
@@ -39,9 +39,16 @@ test('Spin wheel aligns every server result with the pointer', async ({ page }) 
       const lx = labelBox.left + labelBox.width / 2;
       const ly = labelBox.top + labelBox.height / 2;
       const degrees = Math.atan2(lx - cx, cy - ly) * 180 / Math.PI;
-      return (degrees + 360) % 360;
+      return {
+        angle: (degrees + 360) % 360,
+        index: Number(element.style.getPropertyValue('--i')),
+        wheelRotation: getComputedStyle(wheel).transform,
+        labelTransform: getComputedStyle(element).transform,
+        wheelRect: { x: wheelBox.x, y: wheelBox.y, width: wheelBox.width, height: wheelBox.height },
+        labelRect: { x: labelBox.x, y: labelBox.y, width: labelBox.width, height: labelBox.height },
+      };
     });
 
-    expect(Math.min(angle, 360 - angle), `result=${result}, pointerAngle=${angle}`).toBeLessThanOrEqual(2);
+    expect(Math.min(geometry.angle, 360 - geometry.angle), `result=${result}, geometry=${JSON.stringify(geometry)}`).toBeLessThanOrEqual(2);
   }
 });
