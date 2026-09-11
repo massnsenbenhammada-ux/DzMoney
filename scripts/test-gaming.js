@@ -153,7 +153,7 @@ function testGamingFrontendContract() {
   assert(!gaming.includes('360 * 3 - index * segment - segment / 2'));
   assert(gaming.includes('formatDiggingStatus'));
   assert(gaming.includes('No spins left — watch an ad or complete a task to get more.'));
-  assert(gaming.includes("Use an Axe to start today's board."));
+  assert(gaming.includes("Use an Axe to start today\\'s board."));
   assert(gaming.includes("No more digs today — come back tomorrow."));
   assert(gaming.includes("Today's board:"));
   assert(!gaming.includes('gaming-runtime.css'));
