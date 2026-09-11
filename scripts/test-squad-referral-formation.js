@@ -101,6 +101,18 @@ test('Phase 2: referred user joins referrer Squad when referrer already has one'
   }
 });
 
+test('Phase 2: defensive Case C rejects a referred user that already has a Squad while referrer has none', async () => {
+  const harness = loadFormationService([{ user_id: 2, squad_id: 66, status: 'active' }]);
+  try {
+    const result = await harness.service.ensureReferralSquadFormation({ referrerUserId: 1, referredUserId: 2 });
+    assert.equal(result.reason, 'referrer_without_squad_referred_with_squad');
+    assert.equal(result.rejected, true);
+    assert.equal(harness.queries.some(({ sql }) => /INSERT INTO squads|INSERT INTO squad_memberships/i.test(sql)), false);
+  } finally {
+    harness.restore();
+  }
+});
+
 test('Phase 2: referral into the same existing Squad is idempotent no-op', async () => {
   const harness = loadFormationService([
     { user_id: 1, squad_id: 55, status: 'inactive' },
