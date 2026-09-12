@@ -42,12 +42,14 @@ test('Phase 3 leaves no gap and never treats T10 null as a numeric cap', () => {
   assert.equal(getCurrentSquadTier(0, TIERS), null);
 });
 
-test('admin tier normalization accepts only an unbounded final tier', () => {
+test('admin tier normalization accepts only the canonical ten-tier range', () => {
   const normalized = normalizeSetting('squad.membership_tiers', TIERS);
+  assert.equal(normalized.length, 10);
   assert.equal(normalized.at(-1).maxMembers, null);
   assert.equal(normalized.at(-1).minMembers, 1001);
-  assert.throws(() => normalizeSetting('squad.membership_tiers', [...TIERS.slice(0, -1), { ...TIERS.at(-1), maxMembers: 2000 }]), /unbounded/);
-  assert.throws(() => normalizeSetting('squad.membership_tiers', [...TIERS.slice(0, -1), { ...TIERS.at(-1), minMembers: 1002 }]), /contiguous/);
+  assert.throws(() => normalizeSetting('squad.membership_tiers', TIERS.slice(0, -1)), /exactly ten/);
+  assert.throws(() => normalizeSetting('squad.membership_tiers', [...TIERS.slice(0, -1), { ...TIERS.at(-1), maxMembers: 2000 }]), /cover T1-T10/);
+  assert.throws(() => normalizeSetting('squad.membership_tiers', [...TIERS.slice(0, -1), { ...TIERS.at(-1), minMembers: 1002 }]), /cover T1-T10|contiguous/);
 });
 
 test('paid membership keeps activation separate from payment', () => {
