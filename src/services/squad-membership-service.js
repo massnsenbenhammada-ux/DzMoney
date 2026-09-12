@@ -14,8 +14,37 @@ const DEFAULT_PAID_TIERS = [
   { minMembers: 21, maxMembers: 50, price: 500 },
   { minMembers: 51, maxMembers: 100, price: 1000 },
   { minMembers: 101, maxMembers: 200, price: 2000 },
-  { minMembers: 201, maxMembers: 300, price: 3000 }
+  { minMembers: 201, maxMembers: 300, price: 3000 },
+  { minMembers: 301, maxMembers: 400, price: 4000 },
+  { minMembers: 401, maxMembers: 500, price: 5000 },
+  { minMembers: 501, maxMembers: 1000, price: 7500 },
+  { minMembers: 1001, maxMembers: null, price: 10000 }
 ];
+
+function normalizeTier(tier) {
+  const minMembers = Number(tier.minMembers);
+  const maxMembers = tier.maxMembers === null ? null : Number(tier.maxMembers);
+  const price = Number(tier.price);
+  return { minMembers, maxMembers, price };
+}
+
+function validateTierConfiguration(tiers) {
+  if (!Array.isArray(tiers) || !tiers.length) return false;
+  for (let index = 0; index < tiers.length; index += 1) {
+    const tier = tiers[index];
+    if (!Number.isInteger(tier.minMembers) || tier.minMembers < 1 || !Number.isInteger(tier.price) || tier.price <= 0) return false;
+    if (index < tiers.length - 1) {
+      if (!Number.isInteger(tier.maxMembers) || tier.maxMembers < tier.minMembers) return false;
+    } else if (tier.maxMembers !== null && (!Number.isInteger(tier.maxMembers) || tier.maxMembers < tier.minMembers)) {
+      return false;
+    }
+    if (index > 0) {
+      const previous = tiers[index - 1];
+      if (previous.maxMembers === null || tier.minMembers !== previous.maxMembers + 1) return false;
+    }
+  }
+  return tiers[tiers.length - 1].maxMembers === null;
+}
 
 async function getPaidMembershipTiers(client = null) {
   const execute = client ? client.query.bind(client) : query;
@@ -23,15 +52,16 @@ async function getPaidMembershipTiers(client = null) {
   if (!result.rowCount) return DEFAULT_PAID_TIERS;
   const tiers = result.rows[0].value;
   if (!Array.isArray(tiers)) throw new Error('Invalid Squad membership tier configuration');
-  const normalized = tiers.map(tier => ({
-    minMembers: Number(tier.minMembers),
-    maxMembers: Number(tier.maxMembers),
-    price: Number(tier.price)
-  }));
-  if (!normalized.length || normalized.some(tier => !Number.isInteger(tier.minMembers) || !Number.isInteger(tier.maxMembers) || tier.minMembers < 1 || tier.maxMembers < tier.minMembers || !Number.isInteger(tier.price) || tier.price <= 0)) {
-    throw new Error('Invalid Squad membership tier configuration');
-  }
-  return normalized.sort((a, b) => a.minMembers - b.minMembers);
+  const normalized = tiers.map(normalizeTier).sort((a, b) => a.minMembers - b.minMembers);
+  if (!validateTierConfiguration(normalized)) throw new Error('Invalid Squad membership tier configuration');
+  return normalized;
+}
+
+function getCurrentSquadTier(memberCount, tiers) {
+  const count = Number(memberCount);
+  if (!Number.isInteger(count) || count < 1) return null;
+  const configuredTiers = Array.isArray(tiers) ? tiers : DEFAULT_PAID_TIERS;
+  return configuredTiers.find(tier => count >= tier.minMembers && (tier.maxMembers === null || count <= tier.maxMembers)) || null;
 }
 
 async function createInvitation({ squadId, inviterUserId, inviteeUserId }) {
@@ -72,58 +102,24 @@ async function ensureReferralSquadFormation({ referrerUserId, referredUserId }) 
   return withTransaction(async client => {
     const firstUserId = Math.min(referrer, referred);
     const secondUserId = Math.max(referrer, referred);
-    const users = await client.query(
-      'SELECT id FROM users WHERE id IN ($1, $2) ORDER BY id FOR UPDATE',
-      [firstUserId, secondUserId]
-    );
+    const users = await client.query('SELECT id FROM users WHERE id IN ($1, $2) ORDER BY id FOR UPDATE', [firstUserId, secondUserId]);
     if (users.rowCount !== 2) throw new Error('Referral Squad formation requires both users to exist');
-
-    const memberships = await client.query(
-      `SELECT user_id, squad_id, status
-       FROM squad_memberships
-       WHERE user_id IN ($1, $2) AND status IN ('active', 'inactive', 'suspended')
-       ORDER BY user_id
-       FOR UPDATE`,
-      [firstUserId, secondUserId]
-    );
+    const memberships = await client.query(`SELECT user_id, squad_id, status FROM squad_memberships WHERE user_id IN ($1, $2) AND status IN ('active', 'inactive', 'suspended') ORDER BY user_id FOR UPDATE`, [firstUserId, secondUserId]);
     const byUserId = new Map(memberships.rows.map(row => [Number(row.user_id), row]));
     const referrerMembership = byUserId.get(referrer) || null;
     const referredMembership = byUserId.get(referred) || null;
-
     if (referrerMembership && referredMembership) {
-      if (String(referrerMembership.squad_id) === String(referredMembership.squad_id)) {
-        return { formed: false, joined: false, rejected: false, squadId: referrerMembership.squad_id, reason: 'already_same_squad' };
-      }
+      if (String(referrerMembership.squad_id) === String(referredMembership.squad_id)) return { formed: false, joined: false, rejected: false, squadId: referrerMembership.squad_id, reason: 'already_same_squad' };
       return { formed: false, joined: false, rejected: true, squadId: null, reason: 'different_squads' };
     }
-
-    if (!referrerMembership && referredMembership) {
-      return { formed: false, joined: false, rejected: true, squadId: null, reason: 'referrer_without_squad_referred_with_squad' };
-    }
-
+    if (!referrerMembership && referredMembership) return { formed: false, joined: false, rejected: true, squadId: null, reason: 'referrer_without_squad_referred_with_squad' };
     if (referrerMembership) {
-      const member = await client.query(
-        `INSERT INTO squad_memberships (squad_id, user_id, status)
-         VALUES ($1, $2, 'inactive')
-         RETURNING id, squad_id, user_id, status`,
-        [referrerMembership.squad_id, referred]
-      );
+      const member = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`, [referrerMembership.squad_id, referred]);
       return { formed: false, joined: true, rejected: false, squadId: member.rows[0].squad_id, membership: member.rows[0], reason: 'joined_referrer_squad' };
     }
-
-    const squad = await client.query(
-      `INSERT INTO squads (owner_user_id)
-       VALUES ($1)
-       RETURNING id, owner_user_id`,
-      [referrer]
-    );
+    const squad = await client.query(`INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id, owner_user_id`, [referrer]);
     const squadId = squad.rows[0].id;
-    const members = await client.query(
-      `INSERT INTO squad_memberships (squad_id, user_id, status)
-       VALUES ($1, $2, 'inactive'), ($1, $3, 'inactive')
-       RETURNING id, squad_id, user_id, status`,
-      [squadId, referrer, referred]
-    );
+    const members = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive'), ($1, $3, 'inactive') RETURNING id, squad_id, user_id, status`, [squadId, referrer, referred]);
     return { formed: true, joined: false, rejected: false, squadId, ownerUserId: referrer, memberships: members.rows, reason: 'created_for_referral' };
   });
 }
@@ -159,7 +155,7 @@ function getPurchaseSnapshot(transaction) {
   const metadata = transaction?.metadata || {};
   const tier = metadata.tier || {};
   const price = Number(metadata.price);
-  if (!Number.isInteger(tier.minMembers) || !Number.isInteger(tier.maxMembers) || tier.minMembers < 1 || tier.maxMembers < tier.minMembers || !Number.isFinite(price) || price <= 0) throw new Error('Current Squad membership purchase metadata is invalid');
+  if (!Number.isInteger(tier.minMembers) || (!Number.isInteger(tier.maxMembers) && tier.maxMembers !== null) || tier.minMembers < 1 || (tier.maxMembers !== null && tier.maxMembers < tier.minMembers) || !Number.isFinite(price) || price <= 0) throw new Error('Current Squad membership purchase metadata is invalid');
   return { price, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers } };
 }
 
@@ -215,7 +211,8 @@ function validateUpgradeContext(current, purchase, tier) {
   if (!current || !['active', 'inactive'].includes(current.status)) throw new Error('Active or inactive Squad membership is required to upgrade');
   if (!purchase) throw new Error('Current Squad membership has no paid purchase record');
   const snapshot = getPurchaseSnapshot(purchase);
-  if (tier.maxMembers <= snapshot.tier.maxMembers) throw new Error('Upgrade tier must be higher than the current membership tier');
+  if (tier.maxMembers !== null && snapshot.tier.maxMembers !== null && tier.maxMembers <= snapshot.tier.maxMembers) throw new Error('Upgrade tier must be higher than the current membership tier');
+  if (tier.maxMembers === snapshot.tier.maxMembers) throw new Error('Upgrade tier must be higher than the current membership tier');
   return snapshot;
 }
 
@@ -263,17 +260,11 @@ async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
     if (!tier) throw new Error('Requested Squad membership tier is unavailable');
     const squad = await selectEligibleSquad(client, tier);
     if (!squad) throw new Error('No Squad is currently available in the requested tier');
-    const economy = await postEconomyTransactionOnClient(client, {
-      idempotencyKey: transactionKey,
-      userId,
-      type: 'SQUAD_MEMBERSHIP_PURCHASE',
-      movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership' }],
-      metadata: { source: 'squad_membership', squad_id: squad.id, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers }, price: tier.price }
-    });
+    const economy = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId, type: 'SQUAD_MEMBERSHIP_PURCHASE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership' }], metadata: { source: 'squad_membership', squad_id: squad.id, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers }, price: tier.price } });
     if (economy.duplicate) throw new Error('Squad membership purchase transaction unexpectedly duplicated');
     const membership = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`, [squad.id, userId]);
     return { duplicate: false, membership: membership.rows[0], price: tier.price, tier, transaction: economy.transaction };
   });
 }
 
-module.exports = { createInvitation, acceptInvitation, activateOnVerifiedActivity, ensureReferralSquadFormation, getPaidMembershipTiers, purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier };
+module.exports = { createInvitation, acceptInvitation, activateOnVerifiedActivity, ensureReferralSquadFormation, getPaidMembershipTiers, getCurrentSquadTier, purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier };
