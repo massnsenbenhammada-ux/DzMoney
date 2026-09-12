@@ -1,7 +1,7 @@
 const express = require('express');
 const { query } = require('../db/pool');
 const { telegramAuth } = require('./telegram-auth');
-const { createInvitation, acceptInvitation, getPaidMembershipTiers, purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier } = require('../services/squad-membership-service');
+const { createInvitation, acceptInvitation, getPaidMembershipTiers, getCurrentSquadTier, purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier } = require('../services/squad-membership-service');
 const { getCurrentUserSquadState } = require('../services/squad-daily-state-service');
 
 const router = express.Router();
@@ -19,11 +19,12 @@ router.get('/', asyncRoute(async (req, res) => {
   const row = membership.rows[0];
   const memberCount = Number(row.member_count);
   const tiers = await getPaidMembershipTiers({ query: (...args) => query(...args) });
-  const tierIndex = tiers.findIndex(tier => memberCount >= tier.minMembers && memberCount <= tier.maxMembers);
-  const tier = tierIndex >= 0 ? tiers[tierIndex] : null;
-  const requiredMembers = tier ? tier.maxMembers : null;
+  const tier = getCurrentSquadTier(memberCount, tiers);
+  const tierLevel = tier ? tiers.findIndex(candidate => candidate.minMembers === tier.minMembers) + 1 : null;
+  const isUnbounded = tier?.maxMembers === null;
+  const requiredMembers = tier && !isUnbounded ? tier.maxMembers : null;
   const progressPercent = requiredMembers ? Math.min(100, Math.round((memberCount / requiredMembers) * 100)) : null;
-  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount, membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId), tierLevel: tierIndex >= 0 ? tierIndex : null, requiredMembers, progressPercent } });
+  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount, membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId), tierLevel, currentTier: tier ? { minMembers: tier.minMembers, maxMembers: tier.maxMembers, unbounded: isUnbounded } : null, requiredMembers, progressPercent } });
 }));
 
 router.get('/daily-state', asyncRoute(async (req, res) => { const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' }); const state = await getCurrentUserSquadState({ userId }); res.json({ ok: true, state }); }));
