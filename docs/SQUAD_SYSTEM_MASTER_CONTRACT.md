@@ -377,7 +377,187 @@ and:
 
 No implementation starts from an assumption. Ambiguity requires inspection of implementation, tests, schema/migrations, callers, and documentation. Economy, Ledger, Reward, Verification, TON, and other protected systems must not be modified by routine cleanup.
 
----
+## 19. Phase 8 — Squad UX Contract (Design Only)
+
+Phase 8 is a **design gate only**. It defines how the already-approved Squad contract is presented to users. It does not authorize runtime business-logic changes.
+
+### UX objectives
+
+The Squad UI must make the user's state understandable without conflating live classification, purchased commercial state, or a pending request.
+
+The design must cover:
+
+- Squad entry/navigation and discovery;
+- Current Squad Tier;
+- current live member count;
+- Squad Owner;
+- membership state;
+- Purchased Tier;
+- Requested Tier when an operation is pending;
+- contribution/activity;
+- approved Modifier and reward presentation;
+- pending purchase/interest state;
+- Switch and Upgrade actions;
+- referral-created Squad state;
+- Owner-direct invitation state;
+- no-Squad, empty, loading, success, unavailable, already-member, and error states;
+- settlement and notification states.
+
+### Tier presentation rules
+
+- Show T1–T10 consistently with the canonical classification table.
+- T10 must be presented as `1000+`, never as a finite capacity.
+- The upper number of a tier must never be presented as a hard membership cap.
+- A live classification increase must not be presented as a purchase or charge.
+- Current Tier, Purchased Tier, and Requested Tier must have distinct labels and meanings.
+
+### Purchase and pending UX
+
+The UI must distinguish:
+
+1. immediately matched paid membership;
+2. pending T1 purchase;
+3. Tier 2+ interest request;
+4. pending Switch/Upgrade where applicable;
+5. completed settlement.
+
+Pending states must clearly communicate **zero charge before settlement** and must not imply that payment has already been consumed.
+
+Paid membership must not display Owner approval as a prerequisite.
+
+### Switch and Upgrade UX
+
+Switch and Upgrade must be visibly distinct from automatic classification growth.
+
+- A higher Current Squad Tier is not an automatic Purchased Tier upgrade.
+- Upgrade is explicitly paid.
+- When no eligible target exists, the UI presents the persistent pending/interest state rather than a false immediate rejection.
+- Confirmation screens must clearly state the requested operation and applicable price before settlement.
+
+### Economy transparency
+
+The UI may display server-provided reward, modifier, price, contribution, and settlement information, but it must never calculate or authorize financial truth independently.
+
+No frontend-only balance, reward, verification, eligibility, or payment state is authoritative.
+
+### Telegram Mini App constraints
+
+The design must remain compatible with the existing vanilla HTML/CSS/JavaScript Telegram Mini App architecture. Phase 8 must not introduce a framework, service, database table, or parallel state system merely for presentation.
+
+### Phase 8 acceptance criteria
+
+Phase 8 is accepted only when:
+
+- all required Squad states have an explicit UX representation;
+- Current/Purchased/Requested Tier cannot be confused;
+- tier boundaries are not described as hard caps;
+- T10 is clearly unbounded/1000+;
+- pending states clearly communicate zero-charge-before-settlement;
+- paid membership does not imply Owner approval;
+- Switch and Upgrade are clearly distinguished from free classification growth;
+- loading/empty/error/success/pending states are defined;
+- the design maps directly to existing backend contracts without inventing new business rules;
+- no runtime implementation is performed merely by completing the design gate.
+
+## 20. Phase 9 — Squad UI Implementation Gate
+
+Phase 9 begins only after Phase 8 design acceptance.
+
+Implementation rules:
+
+- implement the approved Phase 8 UX only;
+- use the existing vanilla HTML/CSS/JavaScript architecture;
+- do not introduce a new frontend framework for Squad;
+- do not introduce a new service, table, notification system, or economic source of truth;
+- keep all reward, balance, verification, eligibility, membership, and settlement authority on the server;
+- consume existing APIs/contracts rather than silently changing their business semantics;
+- no Economy/Ledger/Reward/Verification/TON changes unless a separately approved contract requires them;
+- preserve Telegram WebApp behavior;
+- use minimal diffs and avoid unrelated cleanup.
+
+### Phase 9 behavioral requirement
+
+Route existence or source-text assertions are insufficient. UI implementation must be verified through realistic behavior, including state transitions, user interaction, backend responses, pending states, errors, and successful settlement where applicable.
+
+### Phase 9 acceptance criteria
+
+- every approved Phase 8 state is reachable through the actual UI;
+- user actions produce the expected server interaction;
+- displayed state reflects server responses rather than frontend assumptions;
+- pending operations remain pending until the backend confirms settlement;
+- financial values cannot be fabricated or mutated client-side;
+- Telegram Mini App interaction remains functional;
+- no unrelated API/schema/business behavior changes are introduced;
+- tests cover behavioral paths, not merely route/source existence.
+
+## 21. Phase 10 — Investigation and Validation Gate
+
+Phase 10 is the formal validation stage after UI implementation. It is an investigation gate, not a license to patch failures without diagnosis.
+
+### Validation model
+
+Use ODRCA:
+
+1. **Observe** — collect actual UI, API, database, logs, CI, and provider/runtime evidence.
+2. **Correlate** — connect user-visible behavior to the exact backend path, state, contract, and data mutation.
+3. **Diagnose** — identify the root cause before changing code.
+4. **Repair** — apply the smallest justified repair within the active phase.
+5. **Confirm** — rerun the same scenario on the exact repair HEAD and verify no new failure was introduced.
+
+### Realistic user-experience simulation
+
+Validation must simulate the user's actual journey rather than stopping at route existence or string matching.
+
+At minimum validate:
+
+- referral formation A/B/C/D/E;
+- no-Squad and existing-Squad states;
+- paid purchase with an eligible match;
+- paid purchase with no eligible T1 match and persistent pending state;
+- Tier 2+ interest request and later availability;
+- Current/Purchased/Requested Tier presentation;
+- classification boundary transitions;
+- T10 / 1000+ presentation;
+- contribution and Modifier display;
+- Switch behavior;
+- Upgrade behavior;
+- pending Upgrade/interest behavior when no eligible target exists;
+- notifications using the existing mechanism;
+- success, loading, empty, unavailable, and error states;
+- server-authoritative balance/reward/eligibility behavior;
+- duplicate/retry/idempotency scenarios for sensitive operations.
+
+### Runtime versus CI
+
+CI PASS is necessary but does not by itself prove Telegram/provider/runtime correctness. Where behavior depends on Telegram WebApp or external advertisement/provider runtime, validate the actual runtime path separately.
+
+### Phase 10 stop conditions
+
+Stop rather than patch when:
+
+- the active branch or exact HEAD is unclear;
+- implementation and contract lineage disagree;
+- test lineage is unknown;
+- schema/migration semantics are unclear;
+- the failure crosses a protected Economy/Ledger/Verification/TON boundary without an approved contract;
+- the minimal repair would require unrelated business logic changes;
+- CI is running against a different HEAD from the repair;
+- provider/runtime truth is unavailable for a claim that depends on it.
+
+## 22. Complete phase-gate order
+
+The Squad roadmap is sequential at the contract/implementation gate level:
+
+**Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7 → Phase 8 → Phase 9 → Phase 10**
+
+Rules:
+
+- Do not begin implementation of Phase N+1 while Phase N acceptance remains unresolved.
+- Phase 8 is design-only until the applicable business contracts are locked/reconciled.
+- Phase 9 starts only after Phase 8 acceptance.
+- Phase 10 validates Phase 9 and does not authorize unrelated future-phase implementation.
+- Documentation of a future phase does not mean that phase has been implemented.
+- Any contradiction between this contract and current implementation must be resolved through Contract Lineage before runtime changes.
 
 ## Change record
 
@@ -385,3 +565,4 @@ No implementation starts from an assumption. Ambiguity requires inspection of im
 - **Design direction:** organic referral formation + optional Owner-direct invitation + paid matching; ten live classification tiers; persistent pending/interest; distinct live/purchased/requested tiers; diminishing-returns modifier.
 - **Modifier decision recorded here:** `sqrt(TotalContributionDZP)`.
 - **Multiplier equation:** intentionally left dependent on proven existing contract/implementation; no assumption is made here.
+- **Phase 8–10 addition:** UX design, UI implementation gate, and realistic investigation/validation are explicitly part of the master roadmap and remain gated; documentation does not imply implementation.
