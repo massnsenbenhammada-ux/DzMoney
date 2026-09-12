@@ -31,12 +31,23 @@ async function getSquadSettings() {
 function normalizeSetting(key, value) {
   if (key === 'squad.membership_tiers') {
     if (!Array.isArray(value) || !value.length) throw new Error('Membership tiers must be a non-empty array');
-    const tiers = value.map(tier => ({ minMembers: Number(tier.minMembers), maxMembers: Number(tier.maxMembers), price: Number(tier.price) }));
-    if (tiers.some(tier => !Number.isInteger(tier.minMembers) || !Number.isInteger(tier.maxMembers) || tier.minMembers < 1 || tier.maxMembers < tier.minMembers || !Number.isFinite(tier.price) || tier.price <= 0)) {
+    const tiers = value.map(tier => ({
+      minMembers: Number(tier.minMembers),
+      maxMembers: tier.maxMembers === null ? null : Number(tier.maxMembers),
+      price: Number(tier.price),
+    }));
+    if (tiers.some((tier, index) => {
+      const validMax = index === tiers.length - 1
+        ? tier.maxMembers === null || (Number.isInteger(tier.maxMembers) && tier.maxMembers >= tier.minMembers)
+        : Number.isInteger(tier.maxMembers) && tier.maxMembers >= tier.minMembers;
+      return !Number.isInteger(tier.minMembers) || tier.minMembers < 1 || !validMax || !Number.isInteger(tier.price) || tier.price <= 0;
+    })) {
       throw new Error('Invalid Squad membership tier configuration');
     }
+    if (tiers[tiers.length - 1].maxMembers !== null) throw new Error('Final Squad membership tier must be unbounded');
     for (let index = 1; index < tiers.length; index += 1) {
-      if (tiers[index].minMembers !== tiers[index - 1].maxMembers + 1) throw new Error('Squad membership tiers must be contiguous');
+      const previous = tiers[index - 1];
+      if (previous.maxMembers === null || tiers[index].minMembers !== previous.maxMembers + 1) throw new Error('Squad membership tiers must be contiguous');
     }
     return tiers;
   }
