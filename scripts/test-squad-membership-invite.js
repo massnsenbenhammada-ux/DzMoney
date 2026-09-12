@@ -19,7 +19,7 @@ test('membership migration supports inactive invitation membership without a sec
 
 test('invitation service enforces owner, one-membership and inactive acceptance rules', () => {
   assert.match(membership, /Only the squad owner can invite/);
-  assert.match(membership, /status <> 'cancelled'/);
+  assert.match(membership, /status IN \('active', 'inactive', 'suspended'\)/);
   assert.match(membership, /status = 'pending'/);
   assert.match(membership, /VALUES \(\$1, \$2, 'inactive'\)/);
   assert.match(membership, /User already has a squad membership/);
