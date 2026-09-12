@@ -105,6 +105,20 @@ test('Phase 2: referred user joins referrer Squad when referrer already has one'
   }
 });
 
+test('Phase 2: suspended membership is a live Squad relationship and blocks new formation', async () => {
+  const harness = loadFormationService([{ user_id: 1, squad_id: 88, status: 'suspended' }], 88);
+  try {
+    const result = await harness.service.ensureReferralSquadFormation({ referrerUserId: 1, referredUserId: 2 });
+    assert.equal(result.joined, true);
+    assert.equal(result.rejected, false);
+    assert.equal(result.formed, false);
+    assert.equal(result.squadId, 88);
+    assert.equal(harness.queries.some(({ sql }) => /INSERT INTO squads/i.test(sql)), false);
+  } finally {
+    harness.restore();
+  }
+});
+
 test('Phase 2: defensive Case C rejects a referred user that already has a Squad while referrer has none', async () => {
   const harness = loadFormationService([{ user_id: 2, squad_id: 66, status: 'active' }]);
   try {
@@ -155,9 +169,11 @@ test('Phase 2: /api/me performs formation synchronously after successful attribu
   assert.ok(formationIndex > attributionIndex);
 });
 
-test('Phase 2: formation uses only bounded database work and no external or background mechanism', () => {
+test('Phase 2: formation uses explicit live membership statuses and no external or background mechanism', () => {
   const service = read('src/services/squad-membership-service.js');
   assert.doesNotMatch(service, /fetch\(|axios|https\.request|setTimeout|setInterval|queue|bull|agenda/i);
   assert.match(service, /SELECT id FROM users WHERE id IN/);
+  assert.match(service, /status IN \('active', 'inactive', 'suspended'\)/);
+  assert.doesNotMatch(service, /status <> 'cancelled'/);
   assert.match(service, /FOR UPDATE/);
 });
