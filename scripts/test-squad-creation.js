@@ -18,7 +18,7 @@ test('Phase 1: automatic Squad provisioning service is removed and no runtime re
   assert.doesNotMatch(meRoute, /withTransaction/);
 });
 
-test('Phase 1: /api/me bootstrap performs no Squad creation work even with ten or more unassigned users', async () => {
+test('Phase 1: /api/me bootstrap performs no Squad creation work without a referral', async () => {
   const routePath = require.resolve('../src/http/me-routes.js');
   const originalLoad = Module._load;
   const queries = [];
@@ -69,6 +69,9 @@ test('Phase 1: /api/me bootstrap performs no Squad creation work even with ten o
     if (request === '../services/referral-service') {
       return { async createAttribution() {} };
     }
+    if (request === '../services/squad-membership-service') {
+      return { async ensureReferralSquadFormation() {} };
+    }
     if (request === '../config/telegram') {
       return { buildReferralLink: code => `https://t.me/example?start=${code}` };
     }
@@ -118,3 +121,4 @@ test('Squad read route does not contain the removed automatic provisioning hook'
 });
 
 require('./test-squad-membership-invite.js');
+require('./test-squad-referral-formation.js');
