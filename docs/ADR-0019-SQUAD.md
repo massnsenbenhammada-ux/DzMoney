@@ -1,54 +1,134 @@
 # ADR-0019 — Squad Contract and Membership Model
 
 **Status:** Accepted — Business Contract Locked  
-**Date:** 2026-08-31
+**Original Date:** 2026-08-31  
+**Latest Amendment:** 2026-09-12 — Ten-tier pricing and uncapped activity-derived Squad Modifier
 
 ## Context
 
-Earlier Squad material described a hierarchical ten-level model and a daily activation rule requiring both a member target and 50% activity. That design is obsolete. The current Squad contract must remain the only business source of truth before and during Phase 4 runtime work.
+Earlier Squad material described a hierarchical ten-level model and a daily activation rule requiring both a member target and 50% activity. That design is obsolete. The current Squad contract must remain the only business source of truth before and during runtime implementation work.
 
 ## Decision
 
-The complete locked Squad business contract is defined in `docs/SQUAD_SYSTEM_CONTRACT.md`.
+The complete locked Squad business contract is defined in `docs/SQUAD_SYSTEM_CONTRACT.md`. This ADR records the pricing and Modifier amendment at ADR level and is authoritative with that contract.
 
-Authoritative decisions include:
+### A. Final ten-tier pricing
 
-1. Squad is independent from Referral and Reward Pool and reuses existing Verified Activity, Economy, Ledger, configuration and rounding boundaries.
-2. A user belongs to at most one Squad.
-3. Free membership uses Owner invitation → user acceptance → one Verified Activity → ACTIVE membership.
-4. A user without an eligible Squad may purchase membership by selecting only a member-count/price tier; the backend selects the lowest-current-member-count Squad in that tier.
-5. Initial prices are 100 DZP for 1–10, 200 for 11–20, 500 for 21–50, 1,000 for 51–100, 2,000 for 101–200, and 3,000 for 201–300; further tiers are Admin-defined.
-6. Paid membership burns the selected-tier DZP through the existing Economy/Ledger path. It never pays the Owner. Payment alone does not activate membership; one Verified Activity is required after purchase.
-7. Squad tier is derived from current member count. A member may move the Squad across a tier boundary; there is no artificial global member cap.
-8. Squads are created by the system. Users cannot create Squads or self-assign ownership. The system assigns the Squad Owner server-side and idempotently. Owner assignment must be deterministic and must not create another identity source of truth.
-9. Members cannot voluntarily leave. App Ban may terminate membership. Cancelled/revoked membership receives no Challenge reward.
-10. Member `inactive/active` state is distinct from Squad `ACTIVE/RISK` state.
-11. The default daily verified Squad ad target is 10 per new UTC+1 day and is Admin-configurable.
-12. Daily Squad activation is Target reached OR at least 50% Active among Eligible Squad Members. The result applies to the following day.
-13. Daily target uses that day's eligible-member count and is not retroactively recomputed.
-14. Daily accounting counts all members active that day, not only Contributors.
-15. `1 DZP earned = 1 DZP Contribution`; contribution is accounting only.
-16. Challenge scope distinguishes activity types. Matching activities may contribute to multiple matching Challenges, but the underlying activity reward is never paid twice because of multiple Challenges.
-17. Each day produces an independent Modifier for the next day and never compounds old modifiers.
-18. Modifier mapping is 1,500 DZP → 15%, 5,000 → 50%, 10,000 → 100%, 15,000 → 100%, maximum 100%.
-19. The daily Modifier applies only to members who contributed to activation of that day's Squad condition.
-20. The Modifier applies to all qualifying Verified Activity reward currencies except DZP. `1000 COIN + 1 DZX + 1 DZP` at 15% becomes `1150 COIN + 1.15 DZX + 1 DZP`.
-21. Weekly Challenge is an achievement system, not Reward Pool. Multiple Challenges may coexist.
-22. Each Challenge cycle lasts exactly seven consecutive days, starts at 00:00 UTC+1, ends at 23:59:59 UTC+1 on day 7, and has independent accounting.
-23. Challenge configuration is fixed for the current cycle; Admin changes apply to a new cycle.
-24. Admin Challenge scopes are ALL TASKS, Type Tasks, Verified Ad, Verified Task, Verified Squad AdView, and All Activity Verified.
-25. Challenge rewards use the existing Economy/Ledger and credit users' existing balances.
-26. Distribution uses only current-cycle DZP Contribution; historical Challenge points never carry forward.
-27. User must remain eligible at settlement to receive Challenge rewards.
-28. Existing project rounding is canonical.
-29. Membership activation, purchase/burn, daily calculations, Modifier generation and Challenge settlement are server-authoritative and idempotent.
-30. App Ban is an administrative enforcement action, not an automatic Squad or activity action. The system may issue an administrative warning when evidence indicates that a user should be suspended/banned. An authorized Admin reviews that warning/evidence and explicitly decides whether to suspend/ban; ignoring the warning performs no membership mutation.
-31. The Admin warning/review/enforcement control surface belongs to the later Admin Panel phase. Phase 4 must not invent a duplicate Admin service, route, or enforcement system merely to satisfy the Squad membership dependency.
+The six-tier pricing table is superseded by the following final ten-tier classification/pricing table:
 
-## Obsolete decisions
+| Tier | Current member count | Price |
+| --- | ---: | ---: |
+| T1 | 1–10 | 100 DZP |
+| T2 | 11–20 | 200 DZP |
+| T3 | 21–50 | 500 DZP |
+| T4 | 51–100 | 1,000 DZP |
+| T5 | 101–200 | 2,000 DZP |
+| T6 | 201–300 | 3,000 DZP |
+| T7 | 301–400 | 4,000 DZP |
+| T8 | 401–500 | 5,000 DZP |
+| T9 | 501–1000 | 7,500 DZP |
+| T10 | 1000+ | 10,000 DZP |
 
-Do not implement the old hierarchical ten-level model, AND activation rule, Risk-as-member-state, separate Squad economic/reward/verification systems, cross-cycle Challenge accounting, DZP modification, Owner payment from membership purchase, direct Squad selection, user-created Squads, self-assigned ownership, or automatic App Ban from Squad/activity logic.
+T10 has no upper member ceiling. `1000+` is a floor. These are classification/pricing tiers, not hard global member caps.
+
+The selected tier price is the price at purchase time. Paid DZP continues to be burned through the existing Economy/Ledger boundary and is not paid to the Squad Owner.
+
+### B. Squad Modifier formula
+
+The previous fixed-threshold Modifier mapping is replaced by a continuous activity-derived formula.
+
+**Total Contribution DZP** is the sum of the RAW, pre-Modifier DZP value of all qualifying Verified Activity across all eligible members of the Squad for that day.
+
+The Modifier is:
+
+`Modifier % = Total Contribution DZP / 100`
+
+The Modifier is **UNCAPPED**. No maximum percentage is imposed.
+
+The Modifier is justified by genuine verified activity and is not an independent issuance source. It is calculated independently for each day and does not compound prior Modifier values.
+
+### C. Contribution DZP vs Earned DZP — protected separation
+
+The implementation must preserve a strict distinction:
+
+- **Contribution DZP:** raw, pre-Modifier verified-activity value. This is the only value used for the Squad Target and Modifier calculation.
+- **Earned DZP:** actual DZP credited to a user's wallet after the Modifier is applied.
+
+Earned DZP after Modifier application must never feed back into Contribution DZP for the same user, the aggregate Squad, or any later day. This is an explicit anti-feedback/economic-safety requirement.
+
+Before implementation code is changed, the existing Economy schema and Ledger/Reward paths must be inspected to determine whether the existing wallet fields (`earned_dzp`, `converted_dzp`, `purchased_dzp`) provide a clean reusable separation. If they do not represent an aggregate Squad-level raw contribution cleanly, the implementation design must report the least-state alternative before introducing any new state. No new ledger primitive may be invented merely for Squad.
+
+### D. Activation condition
+
+For a Squad's Modifier to be active for the following day, **at least one** of these conditions must hold for the current day:
+
+1. At least **50% of eligible Squad members** performed qualifying Verified Activity that day; OR
+2. The **Squad Target** is reached, where:
+   `Squad Target = eligible Squad Members × 10`
+   and the target is measured using raw Contribution DZP.
+
+The two conditions are alternatives, not cumulative requirements.
+
+### E. Per-member eligibility for the Modifier benefit
+
+Squad-level activation and member-level benefit eligibility are separate.
+
+Once the Modifier is active, only a member who performed qualifying Verified Activity on that same day and therefore has actual base earnings receives the Modifier benefit on that member's own qualifying earnings.
+
+A member with zero verified activity that day receives **no Modifier bonus**. Other members' activity may activate the Squad Modifier, but it never creates a bonus for an inactive member.
+
+### F. Modifier scope
+
+The Modifier applies to **all three currencies**:
+
+- COIN
+- DZX
+- DZP
+
+For example, a 150% Modifier applied to a qualifying base reward of `1000 COIN + 1 DZX + 1 DZP` results in `2500 COIN + 2.5 DZX + 2.5 DZP`.
+
+This explicitly reverses the earlier rule that excluded DZP from Modifier application.
+
+## Superseded decisions / changelog
+
+### Superseded: old six-tier table
+
+The former six-tier initial table ending at 201–300 members and describing further tiers as Admin-defined is superseded by the final locked ten-tier table in this amendment.
+
+### Superseded: fixed Modifier thresholds
+
+The former fixed mapping:
+
+- 1,500 DZP → 15%
+- 5,000 DZP → 50%
+- 10,000 DZP → 100%
+- 15,000 DZP → 100%
+- maximum 100%
+
+is **fully replaced** by `Modifier % = Total Contribution DZP / 100`, with **no cap**.
+
+### Superseded: DZP excluded from Modifier
+
+The former rule that Squad Modifier applied to qualifying reward currencies **except DZP** is explicitly reversed. DZP is now included alongside COIN and DZX.
+
+### Superseded: earned-to-contribution equivalence for Modifier accounting
+
+Any prior wording that treats post-Modifier Earned DZP as the same value as Modifier Contribution DZP is superseded. Modifier accounting must use raw pre-Modifier Contribution DZP only.
+
+### Superseded: contributor-only activation interpretation
+
+The Squad activation condition is Squad-wide and may be satisfied by either 50% active members OR the raw DZP Squad Target. Once activated, the benefit is then evaluated per member. A member need not personally cause activation, but must have qualifying activity and actual base earnings to receive the benefit.
+
+## Existing locked decisions retained
+
+All other accepted Squad decisions remain unchanged unless explicitly superseded above, including system-created Squads, one-Squad membership, server-authoritative Verified Activity, existing Economy/Ledger as economic source of truth, paid membership burn, activation after Verified Activity, same-tier switch, upgrade lifecycle, daily UTC+1 accounting, Challenge separation, canonical rounding, and idempotency.
 
 ## Consequences
 
-Phase 4 runtime reuses existing identity, Verified Activity, Economy, Ledger, configuration, rounding and membership primitives. The existing membership model can represent suspended/cancelled membership, while the later Admin phase owns the warning/review/enforcement control surface. Legacy migration 008 must not be resurrected as runtime design.
+1. Phase implementation must replace the legacy fixed Modifier thresholds with the formula above.
+2. Contribution accounting must be demonstrably protected from post-Modifier Earned DZP feedback.
+3. Modifier application must include COIN, DZX, and DZP.
+4. The 50%-active and Squad Target conditions are OR conditions.
+5. Inactive members receive no Modifier benefit even when the Squad as a whole is activated.
+6. T10 is unbounded above and must be represented without an artificial maximum member count.
+7. **No economy/reward implementation is authorized by this documentation amendment itself.** Implementation follows the Constitution 54 sequence: Contract → ADR/Documentation → Implementation → Tests → CI → Verify.
