@@ -1,17 +1,23 @@
 # ADR-0019 — Squad Contract and Membership Model
 
-**Status:** Accepted — Business Contract Locked  
+**Status:** Accepted — Historical Contract Reference; superseded for the redesigned Squad model by `docs/SQUAD_SYSTEM_MASTER_CONTRACT.md`  
 **Date:** 2026-08-31
 
-## Context
+## Authority
 
-Earlier Squad material described a hierarchical ten-level model and a daily activation rule requiring both a member target and 50% activity. That design is obsolete. The current Squad contract must remain the only business source of truth before and during Phase 4 runtime work.
+For the redesigned Squad model, the current business/design source of truth is `docs/SQUAD_SYSTEM_MASTER_CONTRACT.md`.
 
-## Decision
+This ADR is retained as historical contract lineage. It must not be used to reintroduce rules that conflict with the master contract.
 
-The complete locked Squad business contract is defined in `docs/SQUAD_SYSTEM_CONTRACT.md`.
+The implemented runtime, database schema, and tests remain authoritative for behavior that has already been implemented; they do not silently redefine the locked future-phase business contract.
 
-Authoritative decisions include:
+## Historical Context
+
+Earlier Squad material described a hierarchical ten-level model and a daily activation rule requiring both a member target and 50% activity. That design was later superseded by the reconciled Squad redesign documented in the master contract.
+
+The historical rules below are preserved for traceability only. They are not current authority where they conflict with the master contract.
+
+## Historical Decision Record
 
 1. Squad is independent from Referral and Reward Pool and reuses existing Verified Activity, Economy, Ledger, configuration and rounding boundaries.
 2. A user belongs to at most one Squad.
@@ -30,25 +36,27 @@ Authoritative decisions include:
 15. `1 DZP earned = 1 DZP Contribution`; contribution is accounting only.
 16. Challenge scope distinguishes activity types. Matching activities may contribute to multiple matching Challenges, but the underlying activity reward is never paid twice because of multiple Challenges.
 17. Each day produces an independent Modifier for the next day and never compounds old modifiers.
-18. Modifier mapping is 1,500 DZP → 15%, 5,000 → 50%, 10,000 → 100%, 15,000 → 100%, maximum 100%.
-19. The daily Modifier applies only to members who contributed to activation of that day's Squad condition.
-20. The Modifier applies to all qualifying Verified Activity reward currencies except DZP. `1000 COIN + 1 DZX + 1 DZP` at 15% becomes `1150 COIN + 1.15 DZX + 1 DZP`.
-21. Weekly Challenge is an achievement system, not Reward Pool. Multiple Challenges may coexist.
-22. Each Challenge cycle lasts exactly seven consecutive days, starts at 00:00 UTC+1, ends at 23:59:59 UTC+1 on day 7, and has independent accounting.
-23. Challenge configuration is fixed for the current cycle; Admin changes apply to a new cycle.
-24. Admin Challenge scopes are ALL TASKS, Type Tasks, Verified Ad, Verified Task, Verified Squad AdView, and All Activity Verified.
-25. Challenge rewards use the existing Economy/Ledger and credit users' existing balances.
-26. Distribution uses only current-cycle DZP Contribution; historical Challenge points never carry forward.
-27. User must remain eligible at settlement to receive Challenge rewards.
-28. Existing project rounding is canonical.
-29. Membership activation, purchase/burn, daily calculations, Modifier generation and Challenge settlement are server-authoritative and idempotent.
-30. App Ban is an administrative enforcement action, not an automatic Squad or activity action. The system may issue an administrative warning when evidence indicates that a user should be suspended/banned. An authorized Admin reviews that warning/evidence and explicitly decides whether to suspend/ban; ignoring the warning performs no membership mutation.
-31. The Admin warning/review/enforcement control surface belongs to the later Admin Panel phase. Phase 4 must not invent a duplicate Admin service, route, or enforcement system merely to satisfy the Squad membership dependency.
+18. The historical modifier mapping was 1,500 DZP → 15%, 5,000 → 50%, 10,000 → 100%, 15,000 → 100%, maximum 100%. This historical rule is superseded by the redesigned contract.
+19. The historical daily Modifier applied only to members who contributed to activation of that day's Squad condition.
+20. The historical Modifier applied to qualifying Verified Activity reward currencies except DZP. This historical behavior is superseded where the master contract defines the redesigned economic model.
+21. Weekly Challenge was an achievement system, not Reward Pool.
+22. Challenge cycles were independently accounted in UTC+1.
+23. Challenge configuration was fixed for the current cycle; Admin changes applied to a new cycle.
+24. Historical Admin Challenge scopes included ALL TASKS, Type Tasks, Verified Ad, Verified Task, Verified Squad AdView, and All Activity Verified.
+25. Challenge rewards used the existing Economy/Ledger and credited users' existing balances.
+26. Distribution used current-cycle DZP Contribution; historical Challenge points did not carry forward.
+27. User eligibility was checked at settlement.
+28. Existing project rounding was canonical.
+29. Membership activation, purchase/burn, daily calculations, Modifier generation and Challenge settlement were server-authoritative and idempotent.
+30. App Ban was an administrative enforcement action rather than an automatic Squad/activity action.
+31. The Admin warning/review/enforcement control surface belonged to the later Admin Panel phase.
 
-## Obsolete decisions
+## Obsolete Decisions
 
-Do not implement the old hierarchical ten-level model, AND activation rule, Risk-as-member-state, separate Squad economic/reward/verification systems, cross-cycle Challenge accounting, DZP modification, Owner payment from membership purchase, direct Squad selection, user-created Squads, self-assigned ownership, or automatic App Ban from Squad/activity logic.
+Do not implement the historical hierarchical model, historical AND activation semantics, Risk-as-member-state, separate Squad economic/reward/verification systems, cross-cycle Challenge accounting, DZP modification, Owner payment from membership purchase, direct Squad selection, user-created Squads, self-assigned ownership, or automatic App Ban from Squad/activity logic. For the redesigned model, consult `docs/SQUAD_SYSTEM_MASTER_CONTRACT.md`.
 
 ## Consequences
 
-Phase 4 runtime reuses existing identity, Verified Activity, Economy, Ledger, configuration, rounding and membership primitives. The existing membership model can represent suspended/cancelled membership, while the later Admin phase owns the warning/review/enforcement control surface. Legacy migration 008 must not be resurrected as runtime design.
+Phase-gated Squad redesign work must follow the master contract and its explicit phase order. No later phase may be started until the current phase acceptance criteria and contract lineage are verified.
+
+Any apparent contradiction between this historical ADR and the master contract must be resolved in favor of the master contract for the redesigned Squad model, while preserving this ADR as historical lineage.
