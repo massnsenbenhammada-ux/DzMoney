@@ -29,17 +29,22 @@ A user may purchase membership only when the user does not currently have an eli
 
 The user does not choose a specific Squad. The user chooses only a member-count/price tier. The backend selects the eligible Squad with the lowest current member count within that tier.
 
-Initial Admin-configurable price tiers:
+Final locked price tiers:
 
-| Current member count |                  Initial price |
-| -------------------- | -----------------------------: |
-| 1–10                 |                        100 DZP |
-| 11–20                |                        200 DZP |
-| 21–50                |                        500 DZP |
-| 51–100               |                      1,000 DZP |
-| 101–200              |                      2,000 DZP |
-| 201–300              |                      3,000 DZP |
-| …                    | additional Admin-defined tiers |
+| Tier | Current member count | Price |
+| --- | ---: | ---: |
+| T1 | 1–10 | 100 DZP |
+| T2 | 11–20 | 200 DZP |
+| T3 | 21–50 | 500 DZP |
+| T4 | 51–100 | 1,000 DZP |
+| T5 | 101–200 | 2,000 DZP |
+| T6 | 201–300 | 3,000 DZP |
+| T7 | 301–400 | 4,000 DZP |
+| T8 | 401–500 | 5,000 DZP |
+| T9 | 501–1000 | 7,500 DZP |
+| T10 | 1000+ | 10,000 DZP |
+
+T10 is unbounded above: `1000+` is a floor, not a finite range. These tiers are classification/pricing tiers, not hard global membership caps.
 
 - The purchase price is the price of the selected tier at purchase time.
 - The paid DZP is burned through the existing Economy/Ledger boundary.
@@ -53,8 +58,6 @@ Initial Admin-configurable price tiers:
 A Squad's tier is derived from its current member count. It is not an independent source of truth.
 
 Adding a member may move a Squad into the next tier. There is no artificial global member cap.
-
-Example: a 100-member Squad may accept another selected member and become a 101-member Squad in the 101–200 tier.
 
 ### System-created Squads and Owner assignment
 
@@ -102,12 +105,12 @@ The target is evaluated for the current day and must not be retroactively recomp
 
 ### Activation rule
 
-A Squad is ACTIVE for the following day if either condition is satisfied:
+A Squad's Modifier is active for the next day if **at least one** of the following conditions is satisfied for the current day:
 
-1. Daily Target is reached; OR
-2. at least 50% of Eligible Squad Members were Active during the day.
+1. At least 50% of eligible Squad Members performed qualifying Verified Activity during the day; OR
+2. The Squad Target is reached, where `Squad Target = eligible Squad Members × 10` and the target is measured in raw Contribution DZP.
 
-If neither condition is satisfied, the Squad state is RISK.
+If neither condition is satisfied, the Squad's Modifier is not active for the next day.
 
 `RISK` is a state of the Squad, not a member state.
 
@@ -126,50 +129,54 @@ The default is 10 verified advertisements per new UTC+1 day. The value is Admin-
 
 Verified Activity produces the normal activity reward through the existing Economy/Ledger path.
 
-**1 DZP earned = 1 DZP Contribution.**
+For Modifier accounting, the system must distinguish the following two values:
 
-Contribution is accounting only and does not mint additional DZP.
+- **Contribution DZP:** the RAW, pre-modifier DZP value of verified activity, recorded exactly as the activity's earned value before any Squad Modifier is applied. This is the only DZP value used to calculate the Squad Modifier and Squad Target.
+- **Earned DZP:** the actual DZP credited to a user's wallet after the Squad Modifier is applied.
+
+Contribution DZP is an accounting measure and does not mint additional DZP.
+
+**Critical anti-feedback rule:** Earned DZP after Modifier application must never feed back into Contribution DZP, whether for the same user, the aggregate Squad total, or any later day. Contribution must always be based on raw pre-modifier verified-activity value.
 
 The system distinguishes activity types when a Challenge scope requires it. An advertisement Challenge does not count task-completion DZP, and a task Challenge does not count advertisement DZP.
 
 A verified activity may contribute to multiple matching Challenges, but the underlying activity reward is never paid twice merely because multiple Challenges match it.
 
-## 5. Contributors and daily Modifier
+## 5. Squad Modifier
 
 The Squad Modifier is produced independently for each day.
 
-At the end of day D, the Squad calculates its contribution for that day. If the Squad is activated by either daily condition, it produces a Modifier for day D+1.
+At the end of day D, the Squad calculates **Total Contribution DZP**, defined as the sum of raw, pre-modifier Contribution DZP from all qualifying Verified Activity across all eligible Squad members for that day.
 
-Initial modifier mapping:
+If the Squad activation condition is satisfied by either the 50%-active condition or the Squad Target condition, the resulting Modifier is active for day D+1.
 
-| DZP Contribution | Modifier |
-| ---------------: | -------: |
-|            1,500 |      15% |
-|            5,000 |      50% |
-|           10,000 |     100% |
-|           15,000 |     100% |
+### Modifier formula
 
-Modifier maximum: 100%.
+`Modifier % = Total Contribution DZP / 100`
 
-The modifier is independent for each day and is never carried forward cumulatively.
+The formula is continuous and **UNCAPPED**. There is no maximum Modifier percentage.
 
-### Contributor eligibility
+Examples are illustrative only: 1,400 DZP → 14%; 1,500 DZP → 15%; 10,000 DZP → 100%; 15,000 DZP → 150%.
 
-The daily Modifier applies only to members who contributed to the activation of that day's Squad condition.
+The Modifier is independent for each day and is not compounded from prior Modifier values.
 
-A member who was merely active but did not contribute to activation does not receive that Modifier.
+### Per-member eligibility
+
+Squad-level activation and per-member benefit eligibility are separate rules.
+
+Once the Squad Modifier is active for a day, **only members who performed qualifying Verified Activity on that same day and therefore have actual base earnings receive the Modifier benefit**.
+
+A member with zero verified activity on that day receives **no Modifier bonus whatsoever**. The member does not receive a bonus merely because other Squad members generated enough activity to activate the Squad Modifier.
+
+The Squad's aggregate Contribution DZP may include activity from every qualifying member, but the Modifier benefit is applied only to each active member's own qualifying base earnings.
 
 ### Modifier application
 
-The Modifier applies to all qualifying Verified Activity rewards for eligible contributors on D+1.
+The Modifier applies to all qualifying Verified Activity rewards for eligible members on the applicable day.
 
-It modifies all reward currencies except DZP.
+It applies to **all three reward currencies: COIN, DZX, and DZP**.
 
-With a base reward of `1000 COIN + 1 DZX + 1 DZP` and a 15% Modifier:
-
-`1150 COIN + 1.15 DZX + 1 DZP`.
-
-DZP is never increased by the Squad Modifier.
+Example: with a 150% Modifier, a qualifying member's base reward of `1000 COIN + 1 DZX + 1 DZP` becomes `2500 COIN + 2.5 DZX + 2.5 DZP`.
 
 The original reward source remains immutable. Squad is metadata/modifier information and is not a new economic source.
 
@@ -231,10 +238,13 @@ The following earlier Squad assumptions are obsolete and must not be implemented
 
 - hierarchical 10-level Squad bonuses;
 - requiring both Daily Target and 50% Active;
+- fixed Modifier thresholds of 1,500 DZP → 15%, 5,000 DZP → 50%, 10,000 DZP → 100%, or 15,000 DZP → 100%;
+- any 100% maximum/cap on the Modifier;
+- treating Earned DZP after Modifier as Contribution DZP;
 - treating Risk as a member state;
 - a separate Squad Economy/Ledger/Reward/Verification service;
 - carrying Challenge points into a later cycle;
-- modifying DZP with the Squad percentage;
+- excluding DZP from Modifier application;
 - paying membership purchase DZP to the Squad Owner;
 - allowing users to select a specific Squad directly;
 - allowing users to create Squads or self-assign ownership;
