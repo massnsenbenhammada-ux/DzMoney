@@ -30,7 +30,7 @@ async function getSquadSettings() {
 
 function normalizeSetting(key, value) {
   if (key === 'squad.membership_tiers') {
-    if (!Array.isArray(value) || !value.length) throw new Error('Membership tiers must be a non-empty array');
+    if (!Array.isArray(value) || value.length !== 10) throw new Error('Squad membership tiers must contain exactly ten tiers');
     const tiers = value.map(tier => ({
       minMembers: Number(tier.minMembers),
       maxMembers: tier.maxMembers === null ? null : Number(tier.maxMembers),
@@ -38,13 +38,13 @@ function normalizeSetting(key, value) {
     }));
     if (tiers.some((tier, index) => {
       const validMax = index === tiers.length - 1
-        ? tier.maxMembers === null || (Number.isInteger(tier.maxMembers) && tier.maxMembers >= tier.minMembers)
+        ? tier.maxMembers === null
         : Number.isInteger(tier.maxMembers) && tier.maxMembers >= tier.minMembers;
       return !Number.isInteger(tier.minMembers) || tier.minMembers < 1 || !validMax || !Number.isInteger(tier.price) || tier.price <= 0;
     })) {
       throw new Error('Invalid Squad membership tier configuration');
     }
-    if (tiers[tiers.length - 1].maxMembers !== null) throw new Error('Final Squad membership tier must be unbounded');
+    if (tiers[0].minMembers !== 1 || tiers.at(-1).minMembers !== 1001 || tiers.at(-1).maxMembers !== null) throw new Error('Squad membership tiers must cover T1-T10 with T10 unbounded');
     for (let index = 1; index < tiers.length; index += 1) {
       const previous = tiers[index - 1];
       if (previous.maxMembers === null || tiers[index].minMembers !== previous.maxMembers + 1) throw new Error('Squad membership tiers must be contiguous');
