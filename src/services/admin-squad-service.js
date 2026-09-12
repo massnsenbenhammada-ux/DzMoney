@@ -6,13 +6,6 @@ const SQUAD_SETTING_KEYS = new Set([
   'squad.daily_verified_ad_target',
 ]);
 
-const MODIFIER_MAPPING = [
-  { contribution: 1500, modifier: 0.15 },
-  { contribution: 5000, modifier: 0.5 },
-  { contribution: 10000, modifier: 1 },
-  { contribution: 15000, modifier: 1 },
-];
-
 async function getSquadSettings() {
   const result = await query(
     `SELECT key, value FROM admin_settings
@@ -21,9 +14,9 @@ async function getSquadSettings() {
   );
   return {
     settings: Object.fromEntries(result.rows.map(row => [row.key, row.value])),
-    modifierMapping: MODIFIER_MAPPING,
-    modifierCurrencies: ['COIN', 'DZX'],
-    dzpModifierExcluded: true,
+    modifierFormula: 'Total raw verified activity contribution DZP / 100',
+    modifierCurrencies: ['COIN', 'DZX', 'DZP'],
+    modifierCapped: false,
     source: 'Verified Activity',
   };
 }
@@ -31,12 +24,17 @@ async function getSquadSettings() {
 function normalizeSetting(key, value) {
   if (key === 'squad.membership_tiers') {
     if (!Array.isArray(value) || !value.length) throw new Error('Membership tiers must be a non-empty array');
-    const tiers = value.map(tier => ({ minMembers: Number(tier.minMembers), maxMembers: Number(tier.maxMembers), price: Number(tier.price) }));
-    if (tiers.some(tier => !Number.isInteger(tier.minMembers) || !Number.isInteger(tier.maxMembers) || tier.minMembers < 1 || tier.maxMembers < tier.minMembers || !Number.isFinite(tier.price) || tier.price <= 0)) {
+    const tiers = value.map(tier => ({
+      minMembers: Number(tier.minMembers),
+      maxMembers: tier.maxMembers == null ? null : Number(tier.maxMembers),
+      price: Number(tier.price),
+    }));
+    if (tiers.some(tier => !Number.isInteger(tier.minMembers) || tier.minMembers < 1 || (tier.maxMembers !== null && (!Number.isInteger(tier.maxMembers) || tier.maxMembers < tier.minMembers)) || !Number.isFinite(tier.price) || tier.price <= 0)) {
       throw new Error('Invalid Squad membership tier configuration');
     }
     for (let index = 1; index < tiers.length; index += 1) {
-      if (tiers[index].minMembers !== tiers[index - 1].maxMembers + 1) throw new Error('Squad membership tiers must be contiguous');
+      const previous = tiers[index - 1];
+      if (previous.maxMembers === null || tiers[index].minMembers !== previous.maxMembers + 1) throw new Error('Squad membership tiers must be contiguous');
     }
     return tiers;
   }
@@ -65,4 +63,4 @@ async function setSquadSetting({ key, value, actorTelegramUserId }) {
   });
 }
 
-module.exports = { getSquadSettings, setSquadSetting, normalizeSetting, MODIFIER_MAPPING };
+module.exports = { getSquadSettings, setSquadSetting, normalizeSetting };
