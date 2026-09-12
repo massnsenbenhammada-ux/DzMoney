@@ -48,8 +48,14 @@ test('admin tier normalization accepts only the canonical ten-tier range', () =>
   assert.equal(normalized.at(-1).maxMembers, null);
   assert.equal(normalized.at(-1).minMembers, 1001);
   assert.throws(() => normalizeSetting('squad.membership_tiers', TIERS.slice(0, -1)), /exactly ten/);
-  assert.throws(() => normalizeSetting('squad.membership_tiers', [...TIERS.slice(0, -1), { ...TIERS.at(-1), maxMembers: 2000 }]), /cover T1-T10/);
-  assert.throws(() => normalizeSetting('squad.membership_tiers', [...TIERS.slice(0, -1), { ...TIERS.at(-1), minMembers: 1002 }]), /cover T1-T10|contiguous/);
+  assert.throws(
+    () => normalizeSetting('squad.membership_tiers', [...TIERS.slice(0, -1), { ...TIERS.at(-1), maxMembers: 2000 }]),
+    /cover T1-T10|Invalid Squad membership tier configuration/
+  );
+  assert.throws(
+    () => normalizeSetting('squad.membership_tiers', [...TIERS.slice(0, -1), { ...TIERS.at(-1), minMembers: 1002 }]),
+    /cover T1-T10|Invalid Squad membership tier configuration/
+  );
 });
 
 test('paid membership keeps activation separate from payment', () => {
