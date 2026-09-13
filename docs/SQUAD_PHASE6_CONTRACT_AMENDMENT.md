@@ -54,11 +54,23 @@ When invalidation is detected:
 - no replacement membership is created;
 - no old membership is cancelled by the deferred Upgrade settlement;
 - the request is marked `invalidated` and is not eligible for future settlement;
-- the successful-match notification is not sent.
+- an invalidation notification is sent using the existing ADR-0023 notification mechanism as a best-effort, post-commit side effect.
 
 `invalidated` is distinct from `cancelled`: it records that a valid deferred Upgrade request can no longer be fulfilled because its required source context ceased to be valid.
 
-## 6. Valid deferred settlement
+## 6. Invalidation notification
+
+Invalidation is **not silent**. The user is informed because they explicitly requested an Upgrade and may otherwise reasonably believe the request is still pending.
+
+The notification is sent only after the invalidation transaction commits, uses the existing Telegram notification primitive, and is best-effort with no delivery guarantee. Notification failure must not roll back or alter the committed invalidation.
+
+**Locked Phase 6 invalidation notification text:**
+
+`Your pending Squad upgrade could not be completed because your current membership status changed. Please check your current Squad status and submit a new upgrade request if needed.`
+
+The notification is informational only. It does not create a new request, charge the user, or change membership state.
+
+## 7. Valid deferred settlement
 
 If the source membership remains valid and an eligible target Squad later becomes available, the Upgrade may settle atomically using the existing Economy/Ledger and membership primitives.
 
@@ -66,7 +78,7 @@ The settlement must verify the recorded source membership and target eligibility
 
 After a successful commit, the existing notification mechanism is used as a post-commit side effect.
 
-## 7. Explicit non-rule
+## 8. Explicit non-rule
 
 Do **not** use the broad predicate `status != 'active'` or any equivalent shortcut for Upgrade invalidation.
 
@@ -74,22 +86,22 @@ Do **not** use the broad predicate `status != 'active'` or any equivalent shortc
 
 This decision must not globally rewrite membership status predicates elsewhere in the system.
 
-## 8. Phase 6 acceptance criteria
+## 9. Phase 6 acceptance criteria
 
 The implementation is accepted only when tests demonstrate at minimum:
 
 - pending Upgrade remains uncharged while source membership is `active`;
 - pending Upgrade remains uncharged while source membership is `inactive`;
-- `suspended` source invalidates the request without charging or replacement;
+- `suspended` source invalidates the request without charging or replacement and attempts the invalidation notification after commit;
 - `cancelled` source invalidates the request without charging or replacement;
 - deleted/missing source invalidates the request without charging or replacement;
 - changed `squad_id` invalidates the request without charging or replacement;
 - a different replacement membership does not get silently upgraded;
 - a still-valid source settles exactly once when an eligible target becomes available;
 - settlement remains atomic and idempotent;
-- notification occurs only after successful commit.
+- notification occurs only after successful commit and notification failure does not change business outcome.
 
-## 9. Governance
+## 10. Governance
 
 This amendment is governed by ODRCA + Constitution 54:
 
