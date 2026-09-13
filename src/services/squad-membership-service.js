@@ -3,6 +3,7 @@ const { notifyUser } = require('./telegram-notification-service');
 const { DZP_DZX, decimalToScaled, multiplyRatioScaled, multiplyScaled, scaledToDecimal, postEconomyTransactionOnClient } = require('./economy-service');
 
 const PHASE5_NOTIFICATION = '🎉 Good news! Your pending Squad membership request has been matched. Your membership is now active.';
+const PHASE6_INVALIDATION_NOTIFICATION = 'Your pending Squad upgrade could not be completed because your current membership status changed. Please check your current Squad status and submit a new upgrade request if needed.';
 
 const DEFAULT_PAID_TIERS = [
   { minMembers: 1, maxMembers: 10, price: 100 },
@@ -289,6 +290,7 @@ async function settlePendingRequestsForSquad(client, squadId) {
       const validSource = source.rowCount && String(source.rows[0].user_id) === String(request.user_id) && String(source.rows[0].squad_id) === String(request.current_squad_id) && ['active', 'inactive'].includes(source.rows[0].status);
       if (!validSource) {
         await client.query(`UPDATE squad_membership_purchase_requests SET status = 'invalidated', settled_at = NOW() WHERE id = $1`, [request.id]);
+        notifications.push({ userId: request.user_id, message: PHASE6_INVALIDATION_NOTIFICATION, metadata: { feature: 'squad_deferred_upgrade_invalidation', request_id: request.id } });
         continue;
       }
       const balance = await getDzpBalanceForUpdate(client, request.user_id);
@@ -297,7 +299,7 @@ async function settlePendingRequestsForSquad(client, squadId) {
       const economy = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId: request.user_id, type: 'SQUAD_MEMBERSHIP_UPGRADE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership_upgrade' }], metadata: { source: 'squad_membership_upgrade', old_membership_id: source.rows[0].id, old_squad_id: source.rows[0].squad_id, new_squad_id: squadId, price: tier.price, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers }, purchase_request_id: request.id } });
       if (economy.duplicate) throw new Error('Deferred Squad membership upgrade transaction unexpectedly duplicated');
       await client.query(`UPDATE squad_memberships SET status = 'cancelled' WHERE id = $1`, [source.rows[0].id]);
-      const replacement = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`, [squadId, request.user_id]);
+      await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive')`, [squadId, request.user_id]);
       await client.query(`UPDATE squad_membership_purchase_requests SET status = 'settled', settled_at = NOW() WHERE id = $1`, [request.id]);
       notifications.push(request.user_id);
       settledCount += 1;
@@ -318,8 +320,15 @@ async function settlePendingRequestsForSquad(client, squadId) {
   return notifications;
 }
 
-async function notifyDeferredMemberships(userIds) {
-  for (const userId of [...new Set(userIds || [])]) await notifyUser({ userId, message: PHASE5_NOTIFICATION, metadata: { feature: 'squad_deferred_settlement' } });
+async function notifyDeferredMemberships(notifications) {
+  const normalized = (notifications || []).map(item => typeof item === 'object' ? item : { userId: item, message: PHASE5_NOTIFICATION, metadata: { feature: 'squad_deferred_settlement' } });
+  const seen = new Set();
+  for (const notification of normalized) {
+    const key = `${notification.userId}:${notification.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    await notifyUser(notification);
+  }
 }
 
 async function settlePaidMembershipRequest(client, request, tier, transactionKey, squadId = null) {
