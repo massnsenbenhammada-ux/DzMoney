@@ -22,6 +22,14 @@ The Constitution is the mandatory project governance contract. Do not proceed by
 8. Perform a final diff/audit before merge.
 9. After merge, verify `main` and post-merge CI.
 
+### Post-merge GitHub Actions verification limitation
+
+`fetch_commit_workflow_runs` is currently scoped to pull-request-triggered workflow runs. It can therefore return an empty result for a merged `main` commit even when the repository's `push`-triggered post-merge workflows have run successfully.
+
+For post-merge CI verification on `main`, do not treat an empty SHA-direct `fetch_commit_workflow_runs` result as evidence that CI is absent. Check GitHub Actions through the `main` branch + `push` event path (and, when needed, the Check Runs API) and correlate every run/check to the exact merge SHA.
+
+This limitation has caused false "no post-merge CI evidence" conclusions in PR #344, PR #349, and PR #360. The alternate Actions-by-branch/push path is therefore the required first fallback for future post-merge verification.
+
 ## Hard prohibitions
 
 - No guessing.
