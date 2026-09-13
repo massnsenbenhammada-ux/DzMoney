@@ -94,14 +94,13 @@ test('Phase 4 paid membership: smallest eligible Squad wins with deterministic i
   const squadIds = [];
   try {
     for (let index = 1; index <= 6; index += 1) users.push(await createUser(suffix, index, index === 6 ? 100 : 0));
-    const a = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [users[0].id]);
-    const b = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [users[1].id]);
-    squadIds.push(a.rows[0].id, b.rows[0].id);
-    await query("INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ($1,$2,'active'),($2,$3,'active'),($3,$4,'active')", [squadIds[0], users[0].id, users[1].id, users[2].id]).catch(() => {});
-    await query("INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ($1,$2,'active'),($1,$3,'active')", [squadIds[1], users[3].id, users[4].id]);
+    const firstSquad = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [users[0].id]);
+    const secondSquad = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [users[1].id]);
+    squadIds.push(firstSquad.rows[0].id, secondSquad.rows[0].id);
+    await query("INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ($1,$2,'active'),($1,$3,'active'),($2,$4,'active'),($2,$5,'active')", [squadIds[0], users[0].id, users[1].id, users[2].id, users[3].id]);
     const result = await purchasePaidMembership({ userId: users[5].id, maxMembers: 10, idempotencyKey: 'smallest' });
     assert.equal(result.status, 'settled');
-    assert.equal(String(result.membership.squad_id), String(squadIds[1]));
+    assert.equal(String(result.membership.squad_id), String(squadIds[0] < squadIds[1] ? squadIds[0] : squadIds[1]));
   } finally {
     await cleanup({ userIds: users.map(user => user.id), squadIds });
   }
