@@ -314,7 +314,12 @@ async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
       return { duplicate: false, status: 'settled', membership: membership.rows[0], price: tier.price, tier, transaction: economy.transaction };
     }
 
-    const pending = await client.query(`SELECT id, user_id, min_members, max_members, price, status, created_at, settled_at FROM squad_membership_purchase_requests WHERE min_members = $1 AND max_members IS NOT DISTINCT FROM $2 AND status = 'pending' ORDER BY created_at ASC, id ASC LIMIT 1 FOR UPDATE`, [tier.minMembers, tier.maxMembers]);
+    if (tier.maxMembers !== 10) {
+      const created = await client.query(`INSERT INTO squad_membership_purchase_requests (user_id, idempotency_key, min_members, max_members, price, status) VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id, created_at`, [userId, idempotencyKey, tier.minMembers, tier.maxMembers, tier.price]);
+      return { duplicate: false, status: 'pending', request: created.rows[0], price: tier.price, tier };
+    }
+
+    const pending = await client.query(`SELECT id, user_id, min_members, max_members, price, status, created_at, settled_at, idempotency_key FROM squad_membership_purchase_requests WHERE min_members = $1 AND max_members IS NOT DISTINCT FROM $2 AND status = 'pending' ORDER BY created_at ASC, id ASC LIMIT 1 FOR UPDATE`, [tier.minMembers, tier.maxMembers]);
     if (!pending.rows[0]) {
       const created = await client.query(`INSERT INTO squad_membership_purchase_requests (user_id, idempotency_key, min_members, max_members, price, status) VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id, created_at`, [userId, idempotencyKey, tier.minMembers, tier.maxMembers, tier.price]);
       return { duplicate: false, status: 'pending', request: created.rows[0], price: tier.price, tier };
