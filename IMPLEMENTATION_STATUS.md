@@ -1,16 +1,16 @@
 # DzMoney — Implementation Status
 
-> **Authoritative baseline:** `main` after the merged Phase 4 implementation milestones through PR #355, with later merged changes reconciled separately. This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
+> **Authoritative baseline:** `main` after the merged Phase 4 implementation milestones through PR #207, with later merged changes reconciled separately. This document is maintained through the normal branch → PR → CI → review → merge workflow. Open Issues/PRs are not proof of missing implementation; status is determined from merged code, tests, CI evidence, and governing documents.
 
 ## Current state
 
-- **Current phase:** Project Phase 4 — Hierarchical Squad System is **IN PROGRESS**. The currently validated Squad internal Phase 4 slice is complete, but the Squad contract continues through internal Phases 5–10.
+- **Current phase:** Phase 13 — Ledger/Security hardening is **implemented / validated for the current ledger-integrity contract** after PR #280, exact-head CI validation, and successful Railway deployment.
 - **Reward Pool:** **REMOVED FROM PRODUCT SCOPE.** Historical Reward Pool PRs/commits remain Git history only. No Reward Pool runtime, roadmap phase, or replacement phase is authorized.
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
 - **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract.
-- **Project Phase 4 — Squad:** 🟡 **IN PROGRESS**. Squad internal Phase 4 is closed; internal Phases 5–10 remain independently gated inside Project Phase 4.
-- **Project Phase 5 — Gaming:** 🟢 **CLOSED / COMPLETE** for its separately validated product contract. Its status does not authorize skipping the remaining Squad internal gates within Project Phase 4.
+- **Phase 4:** 🟡 **IN PROGRESS** at the Project Phase level. Squad internal Phase 4 — Paid Purchase + Tier-1 Waiting / Option B is closed; internal Squad Phases 5–10 remain independently gated inside Project Phase 4.
+- **Phase 5:** 🟢 **CLOSED / COMPLETE** for the locked Gaming contract.
 - **Phase 6:** ⏸️ **DEFERRED**. Packages remain unopened; no package purchasing UI/backend activation is authorized.
 - **Phase 7:** 🟢 Existing conversion-flow implementation is present in `main`; full later-phase contract status remains governed by its own validation evidence.
 - **Phase 8:** 🟡 Audited implementation milestone exists; production acceptance remains separately gated.
@@ -18,14 +18,11 @@
 - **Phase 10:** 🟢 Backend Promo Code implementation is merged; Admin operational UI is now covered by the later Admin Panel lineage.
 - **Phase 11:** 🟢 **CLOSED / COMPLETE for the current UI contract.** PR #263 is merged at commit `6bbef07517992041ce894a90a3b1ed0e919ef3b8`.
 - **Phase 12:** 🟢 **IMPLEMENTED / OPERATIONAL for the currently validated administrative contract.** PR #278 is merged at `f35ab969e4e8f981080a192b2116f8edc379ac62`.
-- **Phase 13:** 🟢 **CLOSED / COMPLETE for the current ledger-integrity hardening contract.** PR #280 is merged at `24d22c083f2982901ab978ad3483032528c58aee` after exact-head CI validation. Railway deployment `fd21466c-2253-4d52-a6bf-4a8146ff39df` is successful from that merge commit.
-- **Latest validated Squad internal Phase 4 implementation:** PR #355, merge commit `a5956497c3fb7cc13225a8b767d0e51de5d71f63`.
+- **Phase 13:** 🟢 **CLOSED / COMPLETE for the current ledger-integrity hardening contract.** PR #280 is merged at `24d22c083f2982901ab978ad3483032528c58aee` after exact-head CI validation.
 
 ## Phase 0 — Specification Lock
 
 🟢 Completed.
-
-Economic and architectural rules remain those defined by the roadmap, architecture rules, ADRs, Constitution 54, and phase-specific contracts.
 
 ## Phase 1 — Economy & Currency Core
 
@@ -43,25 +40,15 @@ Economic and architectural rules remain those defined by the roadmap, architectu
 
 🟡 **IN PROGRESS at the Project Phase level.**
 
-Project Phase 4 is the product-level **Hierarchical Squad System** milestone. It contains the internal Squad phase sequence defined by the governing Squad contract. The internal phase numbers must not be conflated with the product-level roadmap phases.
+Project Phase 4 is the product-level **Hierarchical Squad System** milestone. The locked Squad redesign also contains internal Squad Phases 0–10. These internal phase numbers must not be conflated with the product-level roadmap phases.
 
 ### Squad internal Phase 4 — Paid Purchase + Tier-1 Waiting / Option B
 
 🟢 **CLOSED / COMPLETE.**
 
-PR #355 established and validated the locked Option B scope:
-- eligible existing Squad first;
-- pending only as fallback;
-- T1 may pair the first two pending requests to form exactly one Squad, with earliest request as Owner;
-- T2–T10 never pair pending requests and never create a Squad from pending requests;
-- pending creation is zero-charge until actual settlement;
-- Economy/Ledger reconciliation passed with no negative wallets or ledger mismatches.
-
-Exact-head CI for the validated PR #355 implementation passed the repository's relevant validation workflows.
+PR #355 established and validated the locked Option B scope. Its exact-head CI and Economy/Ledger reconciliation passed.
 
 ### Remaining Squad internal gates
-
-The Squad contract continues after internal Phase 4:
 
 - **Internal Phase 5 — Persistent Interest Requests**
 - **Internal Phase 6 — Switch and Upgrade Semantic Gate**
@@ -70,23 +57,19 @@ The Squad contract continues after internal Phase 4:
 - **Internal Phase 9 — Squad UI Implementation Gate**
 - **Internal Phase 10 — Investigation and Validation Gate**
 
-These internal phases remain **NOT CLOSED** until each is independently audited and accepted through implementation, tests, schema/migrations, callers, CI, documentation, and runtime evidence where applicable.
-
-**Phase-boundary rule:** completion of Squad internal Phase 4 does not close Project Phase 4 and does not authorize skipping to Project Phase 5 work.
+These internal phases remain **NOT CLOSED** until independently audited and accepted. Completion of Squad internal Phase 4 does not close Project Phase 4 and does not authorize skipping to Project Phase 5 work.
 
 ## Phase 5 — Gaming
 
-🟢 **CLOSED / COMPLETE** for the separately defined product-level Gaming contract. This product-level status is independent of the remaining Squad internal phases inside Project Phase 4.
+🟢 **CLOSED / COMPLETE** for the separately defined product-level Gaming contract. This status is independent of the remaining Squad internal phases inside Project Phase 4.
 
 ## Phase 6 — Packages
 
 ⏸️ **DEFERRED / NOT STARTED.**
 
-Packages remain unopened by explicit product scope.
-
 ## Phase 7 — Buying Points & Conversion UI
 
-🟢 Existing merged conversion-flow code is present in `main`; the presence of that code does not imply every later-phase economic acceptance criterion is complete.
+🟢 Existing merged conversion-flow code is present in `main`; full later-phase acceptance remains governed by its own evidence.
 
 ## Phase 8 — Deposit
 
@@ -98,7 +81,7 @@ Packages remain unopened by explicit product scope.
 
 ## Phase 10 — Promo Codes
 
-🟢 Backend Promo Code implementation is merged and validated. Admin operational UI is covered by the later Admin Panel scope.
+🟢 Backend Promo Code implementation is merged and validated.
 
 ## Phase 11 — User App UI
 
@@ -122,12 +105,12 @@ Packages remain unopened by explicit product scope.
 - Work already present in merged `main` must be reconciled rather than reimplemented.
 - Historical Reward Pool PRs/commits are evidence of prior work and revert history only; they are not current product scope.
 
-## Update Rule
+## Next authorized work
 
-After every validated milestone, update this file with:
-1. What was implemented.
-2. What was actually tested.
-3. Commit/reference used.
-4. Remaining limitations.
-
-Never mark unvalidated work as completed.
+1. Project Phase 4 — Squad remains open until its remaining internal Squad gates are independently accepted.
+2. Squad internal Phase 5 is the next authorized Squad slice; do not jump to Project Phase 5 Gaming merely because internal Phase 4 is complete.
+3. Phase 6 Packages remains explicitly deferred.
+4. Before every change, run the Constitution 54 pre-change audit.
+5. Reuse the existing Task, Verification, Advertisement, Activity and Economy/Ledger boundaries.
+6. Do not resurrect Reward Pool runtime code, roadmap scope, configuration, tables or services.
+7. Never mark unvalidated work as completed.
