@@ -77,12 +77,17 @@ test('Squad switch and upgrade preserve atomic financial and membership invarian
     ids.push(targetMemberA.id, targetMemberB.id);
     const deferredTargetSquad = await createSquad(users[3].id, [users[4].id, users[5].id, users[6].id, users[7].id, users[8].id, users[9].id, users[12].id, users[14].id, targetMemberA.id, targetMemberB.id]);
     squadIds.push(deferredTargetSquad);
-    await withTransaction(client => settlePendingRequestsForSquad(client, deferredTargetSquad));
+
+    await query(`INSERT INTO squad_membership_purchase_requests (user_id, idempotency_key, min_members, max_members, price, status, operation_type) VALUES ($1, $2, 11, 20, 200, 'pending', 'purchase')`, [users[12].id, `guarded-purchase-${suffix}`]);
+    const settlementNotifications = await withTransaction(client => settlePendingRequestsForSquad(client, deferredTargetSquad));
 
     const deferredRequest = await query("SELECT status FROM squad_membership_purchase_requests WHERE user_id = $1 AND idempotency_key = $2", [users[10].id, `deferred-upgrade-${suffix}`]);
     const invalidatedRequest = await query("SELECT status FROM squad_membership_purchase_requests WHERE user_id = $1 AND idempotency_key = $2", [users[11].id, `invalidated-upgrade-${suffix}`]);
+    const guardedPurchaseRequest = await query("SELECT status FROM squad_membership_purchase_requests WHERE user_id = $1 AND idempotency_key = $2", [users[12].id, `guarded-purchase-${suffix}`]);
     assert.equal(deferredRequest.rows[0].status, 'settled');
     assert.equal(invalidatedRequest.rows[0].status, 'invalidated');
+    assert.equal(guardedPurchaseRequest.rows[0].status, 'pending');
+    assert.equal(settlementNotifications.some(notification => notification?.userId && notification.message?.includes('pending Squad upgrade could not be completed')), true);
     assert.equal(Number((await query("SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZP'", [users[10].id])).rows[0].balance), beforeDeferredBalance - 200);
     assert.equal(Number((await query("SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZP'", [users[11].id])).rows[0].balance), beforeInvalidationBalance);
     const deferredMemberships = await query("SELECT status, squad_id FROM squad_memberships WHERE user_id = $1 ORDER BY id", [users[10].id]);
