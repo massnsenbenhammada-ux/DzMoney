@@ -1,4 +1,5 @@
 const { withTransaction, query } = require('../db/pool');
+const { settlePendingRequestsForSquad, notifyDeferredMemberships } = require('./squad-membership-service');
 
 const ACTION_STATUS = Object.freeze({ suspend: 'suspended', ban: 'banned', activate: 'active' });
 
@@ -34,24 +35,29 @@ async function setAccountStatus({ userId, action, reason, evidence = null, idemp
   if (!key) throw new Error('idempotencyKey is required');
   if (key.length > 200) throw new Error('idempotencyKey is too long');
   if (!actorTelegramUserId) throw new Error('actorTelegramUserId is required');
-  return withTransaction(async client => {
+  let notificationUserIds = [];
+  const result = await withTransaction(async client => {
     const user = await client.query('SELECT id, account_status FROM users WHERE id = $1 FOR UPDATE', [userId]);
     if (!user.rowCount) throw new Error('User not found');
     const targetStatus = ACTION_STATUS[normalizedAction];
     const existing = await client.query('SELECT response FROM idempotency_records WHERE key = $1 FOR SHARE', [`admin-account-status:${key}`]);
     if (existing.rowCount) return { ...(existing.rows[0].response || {}), duplicate: true };
 
-    const membership = await client.query('SELECT id, status FROM squad_memberships WHERE user_id = $1 FOR UPDATE', [userId]);
+    const membership = await client.query('SELECT id, squad_id, status FROM squad_memberships WHERE user_id = $1 FOR UPDATE', [userId]);
+    const previousMembershipStatus = membership.rows[0]?.status || null;
     const membershipStatus = normalizedAction === 'ban' ? 'cancelled' : normalizedAction === 'suspend' ? 'suspended' : 'active';
     await client.query('UPDATE users SET account_status = $1, updated_at = NOW() WHERE id = $2', [targetStatus, userId]);
     if (membership.rowCount) await client.query('UPDATE squad_memberships SET status = $1 WHERE id = $2', [membershipStatus, membership.rows[0].id]);
+    if (membership.rowCount && membershipStatus !== previousMembershipStatus && (previousMembershipStatus === 'inactive' || membershipStatus === 'cancelled')) {
+      notificationUserIds.push(...await settlePendingRequestsForSquad(client, membership.rows[0].squad_id));
+    }
     const audit = {
       action: normalizedAction,
       reason: normalizedReason,
       evidence: evidence == null ? null : String(evidence).slice(0, 2000),
       previous_account_status: user.rows[0].account_status,
       new_account_status: targetStatus,
-      previous_membership_status: membership.rows[0]?.status || null,
+      previous_membership_status: previousMembershipStatus,
       new_membership_status: membership.rowCount ? membershipStatus : null,
       idempotency_key: key,
     };
@@ -60,10 +66,12 @@ async function setAccountStatus({ userId, action, reason, evidence = null, idemp
     await client.query(
       `INSERT INTO admin_audit_log(setting_key, old_value, new_value, actor_telegram_user_id)
        VALUES ($1, $2::jsonb, $3::jsonb, $4)`,
-      [`user.account_status:${userId}`, JSON.stringify({ accountStatus: user.rows[0].account_status, membershipStatus: membership.rows[0]?.status || null }), JSON.stringify(audit), actorTelegramUserId]
+      [`user.account_status:${userId}`, JSON.stringify({ accountStatus: user.rows[0].account_status, membershipStatus: previousMembershipStatus }), JSON.stringify(audit), actorTelegramUserId]
     );
     return response;
   });
+  if (!result.duplicate) await notifyDeferredMemberships(notificationUserIds);
+  return result;
 }
 
 module.exports = { getEnforcementState, setAccountStatus, requireAction, requireReason };

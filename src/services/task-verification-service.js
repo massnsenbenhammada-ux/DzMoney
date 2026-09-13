@@ -1,7 +1,7 @@
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
-const { activateOnVerifiedActivity } = require('./squad-membership-service');
+const { activateOnVerifiedActivity, settlePendingRequestsForSquad, notifyDeferredMemberships } = require('./squad-membership-service');
 const { startRotatedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
 const { verifyWithProvider } = require('./ad-provider-service');
 const { resolveVerificationConfig } = require('./task-verification-config');
@@ -141,7 +141,8 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
   const verifier = verifyTaskCompletion || resolveTrustedTaskVerifier({ config: resolvedConfig, userId: initialRow.user_id, telegramUserId: initialRow.telegram_user_id, userSubmittedUrl });
   const verifiedByTaskRule = await verifier({ attemptId, userSubmittedUrl });
   if (typeof verifiedByTaskRule !== 'boolean') throw new Error('Task verifier must return a boolean');
-  return withTransaction(async client => {
+  let notificationUserIds = [];
+  const result = await withTransaction(async client => {
     const row = await loadTaskVerificationAttempt(attemptId, true, client);
     const state = validateTaskVerificationState(row);
     if (state) return state;
@@ -159,7 +160,8 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
     const amounts = rewardAmounts(row);
     const reward = await creditActivityRewardOnClient(client, { idempotencyKey, userId: row.user_id, source: 'task', ...amounts, activityType: row.task_type, activityContext: 'task', modifiers: [], qualifyingVerifiedActivity: true });
     if (!reward.duplicate) await referralService.creditReferralLifetimeOnClient(client, { referredUserId: row.user_id, source: 'task', sourceReferenceId: attemptId, idempotencyKey: `referral-lifetime:task:${attemptId}`, baseReward: { coin: amounts.coin, dzx: amounts.dzx } });
-    await activateOnVerifiedActivity(client, row.user_id);
+    const activatedMembership = await activateOnVerifiedActivity(client, row.user_id);
+    if (activatedMembership) notificationUserIds.push(...await settlePendingRequestsForSquad(client, activatedMembership.squad_id));
     await client.query(`UPDATE task_attempts SET status='verified',verify_idempotency_key=$1,verified_at=NOW() WHERE id=$2`, [idempotencyKey, attemptId]);
     await client.query(`UPDATE task_verification_gates SET status='verified',verified_at=NOW() WHERE id=$1`, [row.gate_id]);
     if (campaign.verifiedCount !== null && campaign.verifiedCount + 1 >= Number(campaign.task.target)) {
@@ -167,6 +169,8 @@ async function finalizeTaskVerification({ attemptId, idempotencyKey, userSubmitt
     }
     return { duplicate: false, status: 'verified', rewarded: true, reward: amounts, transaction: reward.transaction };
   });
+  await notifyDeferredMemberships(notificationUserIds);
+  return result;
 }
 
 async function getTaskVerificationStatus({ attemptId, userId }) {

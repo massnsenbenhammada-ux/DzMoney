@@ -2,7 +2,7 @@ const { randomUUID } = require('crypto');
 const { withTransaction, query } = require('../db/pool');
 const { creditActivityRewardOnClient } = require('./economy-service');
 const referralService = require('./referral-service');
-const { activateOnVerifiedActivity } = require('./squad-membership-service');
+const { activateOnVerifiedActivity, settlePendingRequestsForSquad, notifyDeferredMemberships } = require('./squad-membership-service');
 const { startRotatedAdvertisementEventOnClient, markAdvertisementVerified } = require('./ad-event-service');
 const { getProviderForVerification, verifyWithProvider } = require('./ad-provider-service');
 
@@ -111,7 +111,8 @@ async function verifyDailyCheckinAd({ userId, adEventId, providerRegistry, provi
 async function finalizeDailyCheckin({ userId, claimIdempotencyKey }) {
   requiredId(userId, 'userId');
   requiredId(claimIdempotencyKey, 'claimIdempotencyKey');
-  return withTransaction(async client => {
+  let notificationUserIds = [];
+  const result = await withTransaction(async client => {
     const stateResult = await client.query('SELECT * FROM daily_checkins WHERE user_id=$1 FOR UPDATE', [userId]);
     if (!stateResult.rowCount) throw new Error('Daily Check-in claim not found');
     const state = stateResult.rows[0];
@@ -145,10 +146,13 @@ async function finalizeDailyCheckin({ userId, claimIdempotencyKey }) {
       });
     }
     if (reward.duplicate) return { duplicate: true, rewarded: false, reward };
-    await activateOnVerifiedActivity(client, userId);
+    const activatedMembership = await activateOnVerifiedActivity(client, userId);
+    if (activatedMembership) notificationUserIds.push(...await settlePendingRequestsForSquad(client, activatedMembership.squad_id));
     const updated = await client.query('UPDATE daily_checkins SET last_claimed_at=NOW(),updated_at=NOW() WHERE user_id=$1 RETURNING *', [userId]);
     return { duplicate: false, rewarded: true, reward, state: updated.rows[0] };
   });
+  await notifyDeferredMemberships(notificationUserIds);
+  return result;
 }
 
 module.exports = { startDailyCheckinClaim, verifyDailyCheckinAd, finalizeDailyCheckin, getDailyCheckinSettings, getDailyCheckinStatus };
