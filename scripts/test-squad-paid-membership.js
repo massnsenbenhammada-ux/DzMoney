@@ -1,9 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { getCurrentSquadTier } = require('../src/services/squad-membership-service');
+const { query } = require('../src/db/pool');
+const walletService = require('../src/services/wallet-service');
+const { getCurrentSquadTier, purchasePaidMembership } = require('../src/services/squad-membership-service');
 const { normalizeSetting } = require('../src/services/admin-squad-service');
 
 const TIERS = [
@@ -18,6 +21,24 @@ const TIERS = [
   { minMembers: 501, maxMembers: 1000, price: 7500 },
   { minMembers: 1001, maxMembers: null, price: 10000 },
 ];
+
+function testSuffix() {
+  return `${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
+}
+
+async function createUser(suffix, index, balance) {
+  const telegramUserId = String(800000000 + (Date.now() % 1000000) * 1000 + index);
+  const user = await walletService.createUser({ telegramUserId, username: `phase4_scope_${suffix}_${index}` });
+  await query("UPDATE wallet_accounts SET balance = $1 WHERE user_id = $2 AND currency = 'DZP'", [balance, user.id]);
+  return user;
+}
+
+async function cleanupUsers(userIds) {
+  if (!userIds.length) return;
+  await query('DELETE FROM squad_membership_purchase_requests WHERE user_id = ANY($1::bigint[])', [userIds]);
+  await query('DELETE FROM squad_memberships WHERE user_id = ANY($1::bigint[])', [userIds]);
+  await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [userIds]);
+}
 
 test('Phase 3 classifies every lower/upper/exact transition boundary', () => {
   const cases = [
@@ -74,4 +95,29 @@ test('paid membership cannot select a specific Squad directly from the HTTP rout
   const route = fs.readFileSync(path.join(__dirname, '../src/http/squad-routes.js'), 'utf8');
   assert.match(route, /membership\/purchase/);
   assert.doesNotMatch(route, /req\.body\?\.squadId.*membership/);
+});
+
+test('Phase 4 Option B: T2-T10 never pair pending requests or create a Squad', { skip: !process.env.DATABASE_URL }, async () => {
+  const suffix = testSuffix();
+  const users = [];
+  try {
+    for (let tierIndex = 1; tierIndex < TIERS.length; tierIndex += 1) {
+      const tier = TIERS[tierIndex];
+      const first = await createUser(suffix, tierIndex * 2, tier.price);
+      const second = await createUser(suffix, tierIndex * 2 + 1, tier.price);
+      users.push(first, second);
+      const idPrefix = `phase4-option-b-${tierIndex}-${suffix}`;
+
+      const firstResult = await purchasePaidMembership({ userId: first.id, maxMembers: tier.maxMembers, idempotencyKey: `${idPrefix}-first` });
+      const secondResult = await purchasePaidMembership({ userId: second.id, maxMembers: tier.maxMembers, idempotencyKey: `${idPrefix}-second` });
+
+      assert.equal(firstResult.status, 'pending', `T${tierIndex + 1} first request must remain pending`);
+      assert.equal(secondResult.status, 'pending', `T${tierIndex + 1} second request must remain pending`);
+      assert.equal((await query("SELECT COUNT(*)::int AS count FROM squad_membership_purchase_requests WHERE user_id = ANY($1::bigint[]) AND status = 'pending'", [[first.id, second.id]])).rows[0].count, 2);
+      assert.equal((await query('SELECT COUNT(*)::int AS count FROM squads WHERE owner_user_id = ANY($1::bigint[])', [[first.id, second.id]])).rows[0].count, 0);
+      assert.equal((await query("SELECT COUNT(*)::int AS count FROM ledger_transactions WHERE user_id = ANY($1::bigint[]) AND transaction_type = 'SQUAD_MEMBERSHIP_PURCHASE'", [[first.id, second.id]])).rows[0].count, 0);
+    }
+  } finally {
+    await cleanupUsers(users.map(user => user.id));
+  }
 });
