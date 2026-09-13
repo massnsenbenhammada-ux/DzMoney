@@ -9,7 +9,7 @@
 - **Phase 2 code scope:** 🟢 **CLOSED / COMPLETE** for the currently defined and implemented contracts.
 - **External provider dependencies:** 🟡 **PENDING_PROVIDER** for Special/Partner integrations and any future provider-specific evidence not yet supplied.
 - **Phase 3:** 🟢 **CLOSED / COMPLETE** for the accepted Referral contract.
-- **Phase 4:** 🟢 **Closed for the locked Squad implementation currently authorized.**
+- **Phase 4:** 🟢 **Closed** for the locked Squad implementation currently authorized. The later Admin Panel owns the App-Ban warning/review/enforcement control surface.
 - **Phase 5:** 🟢 **CLOSED / COMPLETE** for the locked Gaming contract. Exact-head CI passed, the final diff was reviewed, and production runtime verification passed without upstream errors on the deployed application commit. The later CI-only security fix does not alter runtime code.
 - **Phase 6:** ⏸️ **DEFERRED**. Packages remain unopened; no package purchasing UI/backend activation is authorized.
 - **Phase 7:** 🟢 Existing conversion-flow implementation is present in `main`; full later-phase contract status remains governed by its own validation evidence.
@@ -191,7 +191,7 @@ Never mark unvalidated work as completed.
 
 This addendum supersedes the earlier baseline statement that Phase 12 was \"Not started\". The historical statement predated the already-merged Phase 12 implementation lineage.
 
-The authoritative current state is the merged `main` lineage through PR #278, the exact-head CI evidence recorded above, and Railway deployment `b4febab1-3212-4d52-a6bf-4a8146ff39df`. No additional Phase 12 implementation gap was found during the final Dashboard → Admin controls → Task/Campaign → TON/Wallet audit.
+The authoritative current state is the merged `main` lineage through PR #278, the exact-head CI evidence recorded above, and Railway deployment `b4febab1-3212-4b42-9f37-0e99a57df4a1`. No additional Phase 12 implementation gap was found during the final Dashboard → Admin controls → Task/Campaign → TON/Wallet audit.
 
 ## 2026-09-07 Phase 13 Reconciliation Addendum
 
