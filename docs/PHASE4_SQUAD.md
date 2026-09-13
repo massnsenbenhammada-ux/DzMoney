@@ -1,9 +1,10 @@
 # Phase 4 — Squad
 
 **Specification status: LOCKED**  
-**Implementation status: CLOSED**
+**Project Phase 4 status: IN PROGRESS**  
+**Squad internal Phase 4 status: CLOSED**
 
-> **Phase-numbering guard:** **Project Phase 4** is the product-level Hierarchical Squad System milestone. The **Squad internal Phase 4** redesign slice is the paid/pending Option B scope. They must not be conflated.
+> **Phase-numbering guard:** **Project Phase 4** is the product-level Hierarchical Squad System milestone. The **Squad internal Phase 4** redesign slice is the paid/pending Option B scope. They must not be conflated. Closing the internal Phase 4 slice does **not** close Project Phase 4.
 
 The authoritative Phase 4 business contract is:
 
@@ -45,7 +46,22 @@ The merged implementation includes behavioral coverage for affordability, zero-c
 
 Economy/Ledger reconciliation at the validated implementation head reported zero negative wallets, zero DZP source mismatches, zero ledger mismatches, zero invalid ledger currencies, zero ledger-balance mismatches, and zero ledger-chain mismatches.
 
-The repository therefore has no remaining Project Phase 4 runtime implementation gap under the locked Option B contract. No Economy, Ledger, Verification, TON, API, or database repair is authorized from this reconciliation.
+This evidence closes **Squad internal Phase 4 — Paid Purchase + Tier-1 Waiting**. It does not close the product-level Project Phase 4 milestone because the Squad contract continues through later internal gates.
+
+## Squad internal phase boundary
+
+Project Phase 4 remains **IN PROGRESS** until the remaining internal Squad gates are independently accepted. The current contract defines the remaining internal sequence as:
+
+- **Internal Phase 5 — Persistent Interest Requests**
+- **Internal Phase 6 — Switch and Upgrade Semantic Gate**
+- **Internal Phase 7 — Modifier/Economy decision and implementation gate**
+- **Internal Phase 8 — Squad UX Contract (Design Only)**
+- **Internal Phase 9 — Squad UI Implementation Gate**
+- **Internal Phase 10 — Investigation and Validation Gate**
+
+These are internal Squad phases inside **Project Phase 4**. They must not be mapped to the product-level roadmap's Project Phases 5–10.
+
+Current status of the remaining internal phases is **NOT CLOSED by this document**. Their implementation/acceptance state must be established independently through Contract Lineage, implementation, tests, schema/migrations, callers, CI, and runtime evidence before any closure claim is made.
 
 ## Weekly Challenge accounting boundary
 
@@ -61,10 +77,10 @@ The existing `squad_membership.status` model already represents `suspended` and 
 
 Accordingly, the absence of the later Admin control surface is **not** a Project Phase 4 implementation blocker. Admin enforcement remains a later-phase control-surface dependency owned by the Admin Panel lineage.
 
-## Final Phase 4 gate
+## Final Project Phase 4 gate
 
-Project Phase 4 is recorded as **CLOSED** on the basis of merged implementation, behavioral validation, exact-head CI, economy/ledger reconciliation, and contract-lineage reconciliation. Future work must not reopen this phase unless new evidence demonstrates a concrete regression, contract contradiction, security/integrity defect, or newly authorized business requirement.
+Project Phase 4 remains **OPEN / IN PROGRESS**. The current evidence proves completion of the **Squad internal Phase 4** paid/pending Option B slice only. It does not authorize closure of the product-level Hierarchical Squad System milestone.
 
-The next project phase remains independently gated; closing Project Phase 4 does not authorize unrelated future-phase runtime work.
+No Economy, Ledger, Verification, TON, API, or database repair is authorized by this boundary correction. Future work must proceed through the remaining Squad internal phases under Constitution 54 and must not jump to Project Phase 5 Gaming merely because the internal Phase 4 slice is complete.
 
 Every future slice remains subject to Constitution 54: code, history, PR, CI, tracing, tests, documentation, issues, runtime/failure-history and final-diff gates before merge.
