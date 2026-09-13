@@ -126,17 +126,17 @@ async function ensureReferralSquadFormation({ referrerUserId, referredUserId }) 
 
 async function selectPaidMembershipTier(client, maxMembers) {
   const tiers = await getPaidMembershipTiers(client);
-  return tiers.find(tier => tier.maxMembers === maxMembers) || null;
+  return tiers.find(tier => tier.maxMembers === maxMembers) || (maxMembers === null ? tiers.find(tier => tier.maxMembers === null) : null);
 }
 
 async function selectEligibleSquad(client, tier, excludedSquadId = null) {
-  const result = await client.query(`SELECT s.id, COUNT(sm.id)::int AS member_count FROM squads s LEFT JOIN squad_memberships sm ON sm.squad_id = s.id AND sm.status IN ('active', 'inactive', 'suspended') WHERE ($3::bigint IS NULL OR s.id <> $3) GROUP BY s.id HAVING COUNT(sm.id) BETWEEN $1 AND $2 ORDER BY COUNT(sm.id) ASC, s.id ASC`, [tier.minMembers, tier.maxMembers, excludedSquadId]);
+  const result = await client.query(`SELECT s.id, COUNT(sm.id)::int AS member_count FROM squads s LEFT JOIN squad_memberships sm ON sm.squad_id = s.id AND sm.status IN ('active', 'inactive', 'suspended') WHERE ($3::bigint IS NULL OR s.id <> $3) GROUP BY s.id HAVING COUNT(sm.id) >= $1 AND ($2::int IS NULL OR COUNT(sm.id) <= $2) ORDER BY COUNT(sm.id) ASC, s.id ASC`, [tier.minMembers, tier.maxMembers, excludedSquadId]);
   for (const candidate of result.rows) {
     const locked = await client.query('SELECT id FROM squads WHERE id = $1 FOR UPDATE SKIP LOCKED', [candidate.id]);
     if (!locked.rowCount) continue;
     const count = await client.query(`SELECT COUNT(*)::int AS member_count FROM squad_memberships WHERE squad_id = $1 AND status IN ('active', 'inactive', 'suspended')`, [candidate.id]);
     const memberCount = Number(count.rows[0]?.member_count || 0);
-    if (memberCount >= tier.minMembers && memberCount <= tier.maxMembers) return locked.rows[0];
+    if (memberCount >= tier.minMembers && (tier.maxMembers === null || memberCount <= tier.maxMembers)) return locked.rows[0];
   }
   return null;
 }
@@ -238,32 +238,107 @@ async function upgradeSquadTier({ userId, newMaxMembers, idempotencyKey }) {
   });
 }
 
+async function lockPaidMembershipTier(client, tier) {
+  const key = `${tier.minMembers}:${tier.maxMembers === null ? 'unbounded' : tier.maxMembers}`;
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`squad-paid-membership:${key}`]);
+}
+
+async function getPendingPurchaseRequest(client, userId, idempotencyKey = null) {
+  if (idempotencyKey) {
+    const byKey = await client.query(`SELECT id, user_id, min_members, max_members, price, status, created_at, settled_at FROM squad_membership_purchase_requests WHERE user_id = $1 AND idempotency_key = $2 FOR UPDATE`, [userId, idempotencyKey]);
+    if (byKey.rows[0]) return byKey.rows[0];
+  }
+  const pending = await client.query(`SELECT id, user_id, min_members, max_members, price, status, created_at, settled_at FROM squad_membership_purchase_requests WHERE user_id = $1 AND status = 'pending' FOR UPDATE`, [userId]);
+  return pending.rows[0] || null;
+}
+
+async function getDzpBalanceForUpdate(client, userId) {
+  const result = await client.query(`SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZP' FOR UPDATE`, [userId]);
+  if (!result.rows[0]) throw new Error('DZP wallet not found');
+  return Number(result.rows[0].balance);
+}
+
+async function settlePaidMembershipRequest(client, request, tier, transactionKey) {
+  const squad = await selectEligibleSquad(client, tier);
+  if (!squad) return null;
+  const economy = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId: request.user_id, type: 'SQUAD_MEMBERSHIP_PURCHASE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership' }], metadata: { source: 'squad_membership', squad_id: squad.id, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers }, price: tier.price, purchase_request_id: request.id } });
+  if (economy.duplicate) throw new Error('Squad membership purchase transaction unexpectedly duplicated');
+  const membership = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`, [squad.id, request.user_id]);
+  await client.query(`UPDATE squad_membership_purchase_requests SET status = 'settled', settled_at = NOW() WHERE id = $1`, [request.id]);
+  return { membership: membership.rows[0], price: tier.price, tier, transaction: economy.transaction };
+}
+
 async function purchasePaidMembership({ userId, maxMembers, idempotencyKey }) {
   if (!userId) throw new Error('userId is required');
-  if (!Number.isInteger(maxMembers) || maxMembers <= 0) throw new Error('maxMembers must be a positive integer');
+  if (!(Number.isInteger(maxMembers) || maxMembers === null) || (Number.isInteger(maxMembers) && maxMembers <= 0)) throw new Error('maxMembers must be a positive integer or null for the unbounded tier');
   if (!idempotencyKey) throw new Error('idempotencyKey is required');
   return withTransaction(async client => {
     await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const tier = await selectPaidMembershipTier(client, maxMembers);
+    if (!tier) throw new Error('Requested Squad membership tier is unavailable');
+    await lockPaidMembershipTier(client, tier);
+
     const transactionKey = `squad-membership:${userId}:${idempotencyKey}`;
     const existingTransaction = await client.query('SELECT * FROM ledger_transactions WHERE idempotency_key = $1 FOR SHARE', [transactionKey]);
     if (existingTransaction.rowCount) {
       const metadata = existingTransaction.rows[0].metadata || {};
-      const requestedTier = await selectPaidMembershipTier(client, maxMembers);
-      if (!requestedTier || Number(metadata.price) !== requestedTier.price || Number(metadata.tier?.maxMembers) !== requestedTier.maxMembers) throw new Error('Idempotency key is bound to another Squad membership tier');
+      const sameTier = Number(metadata.tier?.minMembers) === tier.minMembers && (metadata.tier?.maxMembers === null ? tier.maxMembers === null : Number(metadata.tier?.maxMembers) === tier.maxMembers);
+      if (!sameTier) throw new Error('Idempotency key is bound to another Squad membership tier');
       const membership = await client.query(`SELECT id, squad_id, user_id, status FROM squad_memberships WHERE user_id = $1 AND status IN ('active', 'inactive', 'suspended')`, [userId]);
-      if (!membership.rowCount || String(metadata.squad_id) !== String(membership.rows[0].squad_id)) throw new Error('Existing Squad membership purchase cannot be reconciled');
-      return { duplicate: true, membership: membership.rows[0], price: Number(metadata.price), tier: metadata.tier };
+      if (!membership.rowCount) throw new Error('Existing Squad membership purchase cannot be reconciled');
+      return { duplicate: true, status: 'settled', membership: membership.rows[0], price: Number(metadata.price), tier: metadata.tier, transaction: existingTransaction.rows[0] };
     }
+
     const existingMembership = await client.query(`SELECT id FROM squad_memberships WHERE user_id = $1 AND status IN ('active', 'inactive', 'suspended') FOR UPDATE`, [userId]);
     if (existingMembership.rowCount) throw new Error('User already has an eligible Squad membership');
-    const tier = await selectPaidMembershipTier(client, maxMembers);
-    if (!tier) throw new Error('Requested Squad membership tier is unavailable');
+
+    let request = await getPendingPurchaseRequest(client, userId, idempotencyKey);
+    if (request) {
+      if (Number(request.min_members) !== tier.minMembers || (request.max_members === null ? tier.maxMembers !== null : Number(request.max_members) !== tier.maxMembers)) throw new Error('Idempotency key is bound to another Squad membership tier');
+      if (request.status === 'settled') throw new Error('Settled Squad membership request cannot be reconciled without its purchase transaction');
+      const balance = await getDzpBalanceForUpdate(client, userId);
+      if (balance < tier.price) throw new Error('Insufficient DZP balance for Squad membership');
+      const settled = await settlePaidMembershipRequest(client, request, tier, transactionKey);
+      if (settled) return { duplicate: false, status: 'settled', ...settled };
+      return { duplicate: true, status: 'pending', request: { id: request.id, created_at: request.created_at }, price: tier.price, tier };
+    }
+
+    const balance = await getDzpBalanceForUpdate(client, userId);
+    if (balance < tier.price) throw new Error('Insufficient DZP balance for Squad membership');
+
     const squad = await selectEligibleSquad(client, tier);
-    if (!squad) throw new Error('No Squad is currently available in the requested tier');
-    const economy = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId, type: 'SQUAD_MEMBERSHIP_PURCHASE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership' }], metadata: { source: 'squad_membership', squad_id: squad.id, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers }, price: tier.price } });
-    if (economy.duplicate) throw new Error('Squad membership purchase transaction unexpectedly duplicated');
-    const membership = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`, [squad.id, userId]);
-    return { duplicate: false, membership: membership.rows[0], price: tier.price, tier, transaction: economy.transaction };
+    if (squad) {
+      const economy = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId, type: 'SQUAD_MEMBERSHIP_PURCHASE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership' }], metadata: { source: 'squad_membership', squad_id: squad.id, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers }, price: tier.price } });
+      if (economy.duplicate) throw new Error('Squad membership purchase transaction unexpectedly duplicated');
+      const membership = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive') RETURNING id, squad_id, user_id, status`, [squad.id, userId]);
+      return { duplicate: false, status: 'settled', membership: membership.rows[0], price: tier.price, tier, transaction: economy.transaction };
+    }
+
+    if (tier.maxMembers !== 10) {
+      const created = await client.query(`INSERT INTO squad_membership_purchase_requests (user_id, idempotency_key, min_members, max_members, price, status) VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id, created_at`, [userId, idempotencyKey, tier.minMembers, tier.maxMembers, tier.price]);
+      return { duplicate: false, status: 'pending', request: created.rows[0], price: tier.price, tier };
+    }
+
+    const pending = await client.query(`SELECT id, user_id, min_members, max_members, price, status, created_at, settled_at, idempotency_key FROM squad_membership_purchase_requests WHERE min_members = $1 AND max_members IS NOT DISTINCT FROM $2 AND status = 'pending' ORDER BY created_at ASC, id ASC LIMIT 1 FOR UPDATE`, [tier.minMembers, tier.maxMembers]);
+    if (!pending.rows[0]) {
+      const created = await client.query(`INSERT INTO squad_membership_purchase_requests (user_id, idempotency_key, min_members, max_members, price, status) VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id, created_at`, [userId, idempotencyKey, tier.minMembers, tier.maxMembers, tier.price]);
+      return { duplicate: false, status: 'pending', request: created.rows[0], price: tier.price, tier };
+    }
+
+    const first = pending.rows[0];
+    const firstBalance = await getDzpBalanceForUpdate(client, first.user_id);
+    if (firstBalance < tier.price) throw new Error('Pending Squad membership request is no longer affordable');
+    const secondBalance = await getDzpBalanceForUpdate(client, userId);
+    if (secondBalance < tier.price) throw new Error('Insufficient DZP balance for Squad membership');
+
+    const squadResult = await client.query(`INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id, owner_user_id`, [first.user_id]);
+    const squadId = squadResult.rows[0].id;
+    const firstMembership = await postEconomyTransactionOnClient(client, { idempotencyKey: `squad-membership:${first.user_id}:${first.idempotency_key}`, userId: first.user_id, type: 'SQUAD_MEMBERSHIP_PURCHASE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership' }], metadata: { source: 'squad_membership', squad_id: squadId, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers }, price: tier.price, purchase_request_id: first.id } });
+    const secondMembership = await postEconomyTransactionOnClient(client, { idempotencyKey: transactionKey, userId, type: 'SQUAD_MEMBERSHIP_PURCHASE', movements: [{ currency: 'DZP', amount: -tier.price, source: 'squad_membership' }], metadata: { source: 'squad_membership', squad_id: squadId, tier: { minMembers: tier.minMembers, maxMembers: tier.maxMembers }, price: tier.price, purchase_request_id: 'current' } });
+    if (firstMembership.duplicate || secondMembership.duplicate) throw new Error('Squad membership purchase transaction unexpectedly duplicated');
+    const members = await client.query(`INSERT INTO squad_memberships (squad_id, user_id, status) VALUES ($1, $2, 'inactive'), ($1, $3, 'inactive') RETURNING id, squad_id, user_id, status`, [squadId, first.user_id, userId]);
+    await client.query(`UPDATE squad_membership_purchase_requests SET status = 'settled', settled_at = NOW() WHERE id = $1`, [first.id]);
+    return { duplicate: false, status: 'settled', membership: members.rows.find(row => String(row.user_id) === String(userId)), settledMemberships: members.rows, price: tier.price, tier, transaction: secondMembership.transaction, ownerUserId: first.user_id, settledRequestId: first.id };
   });
 }
 

@@ -15,7 +15,9 @@ function dailyAdvertisementDateFilter() { return " AND (completed_at + INTERVAL 
 router.get('/', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
   const membership = await query(`SELECT s.id AS squad_id, s.owner_user_id, COUNT(sm2.id) FILTER (WHERE sm2.status <> 'cancelled') AS member_count, sm.status AS membership_status FROM squad_memberships sm JOIN squads s ON s.id = sm.squad_id LEFT JOIN squad_memberships sm2 ON sm2.squad_id = s.id WHERE sm.user_id = $1 AND sm.status <> 'cancelled' GROUP BY s.id, s.owner_user_id, sm.status`, [userId]);
-  if (!membership.rows[0]) return res.json({ ok: true, squad: null });
+  const pendingResult = await query(`SELECT id, min_members, max_members, price, status, created_at, settled_at FROM squad_membership_purchase_requests WHERE user_id = $1 AND status = 'pending' ORDER BY created_at ASC, id ASC LIMIT 1`, [userId]);
+  const pending = pendingResult.rows[0] ? { id: String(pendingResult.rows[0].id), tier: { minMembers: Number(pendingResult.rows[0].min_members), maxMembers: pendingResult.rows[0].max_members === null ? null : Number(pendingResult.rows[0].max_members) }, price: Number(pendingResult.rows[0].price), status: pendingResult.rows[0].status, createdAt: pendingResult.rows[0].created_at, settledAt: pendingResult.rows[0].settled_at } : null;
+  if (!membership.rows[0]) return res.json({ ok: true, squad: null, pendingMembership: pending });
   const row = membership.rows[0];
   const memberCount = Number(row.member_count);
   const tiers = await getPaidMembershipTiers({ query: (...args) => query(...args) });
@@ -24,7 +26,7 @@ router.get('/', asyncRoute(async (req, res) => {
   const isUnbounded = tier?.maxMembers === null;
   const requiredMembers = tier && !isUnbounded ? tier.maxMembers : null;
   const progressPercent = requiredMembers ? Math.min(100, Math.round((memberCount / requiredMembers) * 100)) : null;
-  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount, membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId), tierLevel, currentTier: tier ? { minMembers: tier.minMembers, maxMembers: tier.maxMembers, unbounded: isUnbounded } : null, requiredMembers, progressPercent } });
+  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount, membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId), tierLevel, currentTier: tier ? { minMembers: tier.minMembers, maxMembers: tier.maxMembers, unbounded: isUnbounded } : null, requiredMembers, progressPercent }, pendingMembership: pending });
 }));
 
 router.get('/daily-state', asyncRoute(async (req, res) => { const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' }); const state = await getCurrentUserSquadState({ userId }); res.json({ ok: true, state }); }));
@@ -49,7 +51,29 @@ router.get('/ads', asyncRoute(async (req, res) => {
 }));
 
 router.get('/membership-tiers', asyncRoute(async (req, res) => { const tiers = await getPaidMembershipTiers({ query: (...args) => query(...args) }); res.json({ ok: true, tiers }); }));
-router.post('/membership/purchase', asyncRoute(async (req, res) => { const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' }); const keys = Object.keys(req.body || {}); if (keys.some(key => !['maxMembers', 'idempotencyKey'].includes(key))) return res.status(400).json({ ok: false, error: 'Unknown purchase fields' }); const maxMembers = Number(req.body?.maxMembers); const idempotencyKey = String(req.body?.idempotencyKey || ''); if (!Number.isInteger(maxMembers) || maxMembers <= 0 || !idempotencyKey) return res.status(400).json({ ok: false, error: 'maxMembers and idempotencyKey are required' }); const result = await purchasePaidMembership({ userId, maxMembers, idempotencyKey }); res.status(result.duplicate ? 200 : 201).json({ ok: true, duplicate: result.duplicate, membership: { ...result.membership, id: String(result.membership.id), squad_id: String(result.membership.squad_id), user_id: String(result.membership.user_id) }, price: result.price, tier: result.tier, transactionId: result.transaction ? String(result.transaction.id) : undefined }); }));
+router.post('/membership/purchase', asyncRoute(async (req, res) => {
+  const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, status: 'rejected', error: 'User not found' });
+  const keys = Object.keys(req.body || {}); if (keys.some(key => !['maxMembers', 'idempotencyKey'].includes(key))) return res.status(400).json({ ok: false, status: 'rejected', error: 'Unknown purchase fields' });
+  const rawMaxMembers = req.body?.maxMembers;
+  const maxMembers = rawMaxMembers === null ? null : Number(rawMaxMembers);
+  const idempotencyKey = String(req.body?.idempotencyKey || '');
+  if (!((maxMembers === null || (Number.isInteger(maxMembers) && maxMembers > 0)) && idempotencyKey)) return res.status(400).json({ ok: false, status: 'rejected', error: 'maxMembers and idempotencyKey are required' });
+  try {
+    const result = await purchasePaidMembership({ userId, maxMembers, idempotencyKey });
+    const response = { ok: true, status: result.status, duplicate: result.duplicate, price: result.price, tier: result.tier };
+    if (result.status === 'pending') response.pendingMembership = { id: String(result.request.id), createdAt: result.request.created_at };
+    if (result.status === 'settled') {
+      response.membership = { ...result.membership, id: String(result.membership.id), squad_id: String(result.membership.squad_id), user_id: String(result.membership.user_id) };
+      if (result.transaction) response.transactionId = String(result.transaction.id);
+      if (result.ownerUserId) response.ownerUserId = String(result.ownerUserId);
+    }
+    return res.status(result.status === 'pending' ? 202 : result.duplicate ? 200 : 201).json(response);
+  } catch (error) {
+    const rejection = ['Insufficient DZP balance for Squad membership', 'Pending Squad membership request is no longer affordable', 'User already has an eligible Squad membership', 'Requested Squad membership tier is unavailable', 'maxMembers must be a positive integer or null for the unbounded tier'].includes(error.message);
+    if (rejection) return res.status(400).json({ ok: false, status: 'rejected', error: error.message });
+    throw error;
+  }
+}));
 router.post('/membership/switch', asyncRoute(async (req, res) => { const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' }); const keys = Object.keys(req.body || {}); if (keys.some(key => key !== 'idempotencyKey')) return res.status(400).json({ ok: false, error: 'Unknown switch fields' }); const idempotencyKey = String(req.body?.idempotencyKey || ''); if (!idempotencyKey) return res.status(400).json({ ok: false, error: 'idempotencyKey is required' }); const result = await switchSquadWithinTier({ userId, idempotencyKey }); res.status(200).json({ ok: true, duplicate: result.duplicate, membership: { ...result.membership, id: String(result.membership.id), squad_id: String(result.membership.squad_id), user_id: String(result.membership.user_id) }, taxDzx: result.taxDzx, tier: result.tier, transactionId: result.transaction ? String(result.transaction.id) : undefined }); }));
 router.post('/membership/upgrade', asyncRoute(async (req, res) => { const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' }); const keys = Object.keys(req.body || {}); if (keys.some(key => !['newMaxMembers', 'idempotencyKey'].includes(key))) return res.status(400).json({ ok: false, error: 'Unknown upgrade fields' }); const newMaxMembers = Number(req.body?.newMaxMembers); const idempotencyKey = String(req.body?.idempotencyKey || ''); if (!Number.isInteger(newMaxMembers) || newMaxMembers <= 0 || !idempotencyKey) return res.status(400).json({ ok: false, error: 'newMaxMembers and idempotencyKey are required' }); const result = await upgradeSquadTier({ userId, newMaxMembers, idempotencyKey }); res.status(200).json({ ok: true, duplicate: result.duplicate, membership: { ...result.membership, id: String(result.membership.id), squad_id: String(result.membership.squad_id), user_id: String(result.membership.user_id) }, price: result.price, tier: result.tier, transactionId: result.transaction ? String(result.transaction.id) : undefined }); }));
 router.get('/invitations', asyncRoute(async (req, res) => { const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' }); const result = await query(`SELECT i.id, i.squad_id, i.inviter_user_id, i.status, i.created_at FROM squad_invitations i WHERE i.invitee_user_id = $1 AND i.status = 'pending' ORDER BY i.created_at DESC`, [userId]); res.json({ ok: true, invitations: result.rows.map(row => ({ id: String(row.id), squadId: String(row.squad_id), inviterUserId: String(row.inviter_user_id), status: row.status, createdAt: row.created_at })) }); }));
