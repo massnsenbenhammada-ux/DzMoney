@@ -1,0 +1,1 @@
+Repository hygiene covers duplicate leading numbers in migrations and ADR files.
