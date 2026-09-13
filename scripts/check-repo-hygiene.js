@@ -1,79 +1,44 @@
-#!/usr/bin/env node
-
 const fs = require('fs');
 const path = require('path');
-
 const ROOT = path.resolve(__dirname, '..');
 
-function collectNumberedFiles(directory, filenamePattern) {
-  if (!fs.existsSync(directory)) return [];
+function numberFromName(name, prefix) {
+  if (!name.startsWith(prefix)) return null;
+  const rest = name.slice(prefix.length);
+  let i = 0;
+  while (i < rest.length && rest.charCodeAt(i) >= 48 && rest.charCodeAt(i) <= 57) i += 1;
+  if (!i || (rest[i] !== '-' && rest[i] !== '_')) return null;
+  return Number.parseInt(rest.slice(0, i), 10);
+}
 
-  return fs
-    .readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && filenamePattern.test(entry.name))
-    .map((entry) => {
-      const match = entry.name.match(/^(\d+)(?:[-_])/);
-      return {
-        name: entry.name,
-        number: match ? Number.parseInt(match[1], 10) : null,
-      };
-    })
+function readNumbered(directory, prefix, extension) {
+  if (!fs.existsSync(directory)) return [];
+  return fs.readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(extension))
+    .map((entry) => ({ name: entry.name, number: numberFromName(entry.name, prefix) }))
     .filter((entry) => Number.isInteger(entry.number));
 }
 
-function findDuplicates(files) {
-  const byNumber = new Map();
-
-  for (const file of files) {
-    const existing = byNumber.get(file.number) || [];
-    existing.push(file.name);
-    byNumber.set(file.number, existing);
-  }
-
-  return [...byNumber.entries()]
-    .filter(([, names]) => names.length > 1)
-    .sort(([a], [b]) => a - b);
+function duplicates(files) {
+  const groups = new Map();
+  for (const file of files) groups.set(file.number, [...(groups.get(file.number) || []), file.name]);
+  return [...groups.entries()].filter(([, names]) => names.length > 1);
 }
 
-function nextAvailableNumber(files) {
-  const highest = files.reduce(
-    (max, file) => Math.max(max, file.number),
-    0,
-  );
-  return highest + 1;
+function check(label, directory, prefix, extension) {
+  const files = readNumbered(directory, prefix, extension);
+  const collisions = duplicates(files);
+  const next = files.reduce((max, file) => Math.max(max, file.number), 0) + 1;
+  console.log(`${label}: next available number ${String(next).padStart(4, '0')}`);
+  for (const [number, names] of collisions) console.error(`${label}: ${number}: ${names.join(', ')}`);
+  return collisions.length === 0;
 }
 
-function checkCategory(label, directory, filenamePattern) {
-  const files = collectNumberedFiles(directory, filenamePattern);
-  const duplicates = findDuplicates(files);
-  const next = nextAvailableNumber(files);
+const migrationsOk = check('Migrations', path.join(ROOT, 'migrations'), '', '.sql');
+const adrsOk = check('ADRs', path.join(ROOT, 'docs'), 'ADR-', '.md');
 
-  console.log(`${label}: ${files.length} numbered files; next available number: ${String(next).padStart(4, '0')}`);
-
-  if (duplicates.length === 0) return true;
-
-  console.error(`${label}: duplicate leading numbers detected:`);
-  for (const [number, names] of duplicates) {
-    console.error(`  ${String(number).padStart(4, '0')}: ${names.join(', ')}`);
-  }
-  return false;
-}
-
-const migrationOk = checkCategory(
-  'Migrations',
-  path.join(ROOT, 'migrations'),
-  /^\d+(?:[-_]).*\.sql$/,
-);
-
-const adrOk = checkCategory(
-  'ADRs',
-  path.join(ROOT, 'docs'),
-  /^ADR-\d+(?:[-_]).*\.md$/,
-);
-
-if (!migrationOk || !adrOk) {
-  console.error('Repository hygiene check failed: numbered files must not reuse the same leading number within their category.');
+if (!migrationsOk || !adrsOk) {
+  console.error('Repository hygiene check failed: duplicate leading number.');
   process.exit(1);
 }
-
 console.log('Repository hygiene check passed.');
