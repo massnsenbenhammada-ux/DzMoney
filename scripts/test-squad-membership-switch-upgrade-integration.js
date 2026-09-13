@@ -71,8 +71,9 @@ test('Squad switch and upgrade preserve atomic financial and membership invarian
     assert.equal(Number((await query("SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZP'", [users[11].id])).rows[0].balance), beforeInvalidationBalance);
     await query("UPDATE squad_memberships SET status = 'suspended' WHERE id = $1", [invalidationPurchase.membership.id]);
 
-    const targetMemberA = await walletService.createUser({ telegramUserId: `7${Date.now()}a`, username: `squad_target_a_${suffix.slice(0, 8)}` });
-    const targetMemberB = await walletService.createUser({ telegramUserId: `7${Date.now()}b`, username: `squad_target_b_${suffix.slice(0, 8)}` });
+    const now = Date.now();
+    const targetMemberA = await walletService.createUser({ telegramUserId: now + 1, username: `squad_target_a_${suffix.slice(0, 8)}` });
+    const targetMemberB = await walletService.createUser({ telegramUserId: now + 2, username: `squad_target_b_${suffix.slice(0, 8)}` });
     ids.push(targetMemberA.id, targetMemberB.id);
     const deferredTargetSquad = await createSquad(users[3].id, [users[4].id, users[5].id, users[6].id, users[7].id, users[8].id, users[9].id, users[12].id, users[14].id, targetMemberA.id, targetMemberB.id]);
     squadIds.push(deferredTargetSquad);
