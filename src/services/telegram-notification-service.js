@@ -2,6 +2,7 @@ const { query } = require('../db/pool');
 
 async function notifyUser({ userId, message, metadata = {} }) {
   if (!userId || !message) return { attempted: false, delivered: false, reason: 'invalid_input' };
+  if (process.env.NODE_ENV === 'test') return { attempted: false, delivered: false, reason: 'test_environment' };
   if (!process.env.BOT_TOKEN) {
     console.warn('[telegram-notification] BOT_TOKEN is not configured', metadata);
     return { attempted: false, delivered: false, reason: 'bot_token_missing' };
@@ -15,7 +16,8 @@ async function notifyUser({ userId, message, metadata = {} }) {
     const response = await fetch(`https://api.telegram.org/bot${process.env.BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: message })
+      body: JSON.stringify({ chat_id: chatId, text: message }),
+      signal: AbortSignal.timeout(5000)
     });
     const body = await response.json().catch(() => null);
     if (!response.ok || !body?.ok) {
