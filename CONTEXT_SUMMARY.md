@@ -2,7 +2,7 @@
 
 ## Authoritative snapshot
 
-- Current authoritative baseline is `main` after the merged Phase 4 milestones through PR #207.
+- Current authoritative baseline is `main` after the merged Phase 4 milestones through PR #355 and the reconciled Squad Option B implementation.
 - Documentation changes must use branch → PR → CI → review/authorization → merge.
 - GitHub `main`, merged code, tests, CI, migrations, ADRs and locked contracts are the implementation evidence. Open Issues/PRs are not proof of missing implementation.
 
@@ -10,8 +10,8 @@
 
 - Phase 2 — Activity / Ads / Tasks: code scope closed for currently defined contracts; provider-dependent evidence remains `PENDING_PROVIDER`.
 - Phase 3 — Referral: closed/complete for the accepted Referral contract.
-- Phase 4 — Squad: implementation in progress from the locked contract.
-- Later phases remain gated by phase isolation.
+- **Phase 4 — Squad: CLOSED for the locked Squad implementation currently authorized.**
+- Later phases remain independently gated by phase isolation.
 
 ## Validated architecture
 
@@ -24,7 +24,9 @@
 
 ## Phase 4 — Squad status
 
-Implemented and merged:
+Project Phase 4 is the product-level Hierarchical Squad System milestone. The current locked Squad redesign also contains an internal Phase 4 slice covering paid/pending Option B behavior. These two phase labels must not be conflated.
+
+Implemented and merged lineage includes:
 
 - PR #194 — system-created Squads and deterministic Owner assignment.
 - PR #195 — free membership invitation/acceptance/activation.
@@ -33,16 +35,24 @@ Implemented and merged:
 - PR #200 — Daily DZP Contribution + Modifier.
 - PR #202 — Weekly Challenge accounting/settlement.
 - PR #207 — canonical Economy proportional rounding correction and zero-share hardening for Weekly Challenge settlement.
+- PR #355 — paid membership affordability, persistent pending state, T1-only pending pairing, and T2–T10 persistent interest fallback under the locked Option B scope.
 
-PR #207 merge commit: `5202bd82578de8e06d60a1335977d20781ae4038`.
+PR #355 merge commit: `a5956497c3fb7cc13225a8b767d0e51de5d71f63`.
 
-The Weekly Challenge implementation supports the six locked scopes, exact seven-day UTC+1 windows, immutable configuration snapshots, current-cycle DZP contribution accounting, settlement-time eligibility, deterministic proportional allocation, canonical Economy fixed-point half-up rounding, exact configured reward totals, non-negative allocations and idempotent settlement.
+The final implementation lineage is behaviorally validated and exact-head CI passed. Economy/Ledger reconciliation reported zero negative wallets, zero DZP source mismatches, zero ledger mismatches, zero invalid ledger currencies, zero ledger-balance mismatches, and zero ledger-chain mismatches.
 
-## Remaining Phase 4 boundary
+The locked matching order is:
 
-The locked Squad contract requires App Ban to be able to terminate a Squad membership. The current repository has no authoritative App-Ban/Admin membership-termination boundary. Admin Panel is a later phase, and architecture rules prohibit introducing later-phase runtime services/routes/migrations early. Therefore this is recorded as a phase-boundary dependency, not as permission to invent a Squad endpoint or Admin subsystem.
+1. eligible existing Squad first;
+2. pending only as fallback;
+3. T1 may pair the first two affordable pending requests to form one Squad;
+4. T2–T10 never pair pending requests and never create a Squad from pending requests; they remain persistent zero-charge interest requests until an existing eligible Squad becomes available.
 
-The existing membership model represents `suspended` and `cancelled` states, and Challenge settlement respects membership eligibility. No separate suspension/ban subsystem is authorized without an authoritative upstream control surface.
+No remaining Project Phase 4 runtime implementation gap is recorded. Future work must not reopen this phase without concrete new evidence of regression, contract contradiction, security/integrity defect, or newly authorized business scope.
+
+## App Ban boundary
+
+App Ban is an administrative enforcement action, not an automatic Squad action. The existing membership model represents `suspended` and `cancelled` states and Challenge settlement respects membership eligibility. The later Admin Panel owns the authoritative warning/review/enforcement control surface. Its absence is **not** a Project Phase 4 blocker, and Phase 4 must not invent a duplicate Admin service, route, or enforcement system.
 
 ## Phase 2 evidence status
 
