@@ -10,8 +10,10 @@
 
 - Phase 2 — Activity / Ads / Tasks: code scope closed for currently defined contracts; provider-dependent evidence remains `PENDING_PROVIDER`.
 - Phase 3 — Referral: closed/complete for the accepted Referral contract.
-- **Phase 4 — Squad: CLOSED for the locked Squad implementation currently authorized.**
-- Later phases remain independently gated by phase isolation.
+- **Project Phase 4 — Squad / Hierarchical Squad System: IN PROGRESS.**
+- **Squad internal Phase 4 — Paid Purchase + Tier-1 Waiting / Option B: CLOSED.**
+- Squad internal Phases 5–10 remain independently gated inside Project Phase 4.
+- Later product phases remain independently gated by phase isolation; the completion of Squad internal Phase 4 does not authorize Project Phase 5 Gaming work.
 
 ## Validated architecture
 
@@ -22,11 +24,11 @@
 - Share with Friends uses the accepted Click Proof contract; no Telegram-native share attestation is claimed.
 - Squad is independent of Referral/Reward Pool and reuses existing Verified Activity and Economy/Ledger sources.
 
-## Phase 4 — Squad status
+## Project Phase 4 — Squad status
 
-Project Phase 4 is the product-level Hierarchical Squad System milestone. The current locked Squad redesign also contains an internal Phase 4 slice covering paid/pending Option B behavior. These two phase labels must not be conflated.
+Project Phase 4 is the product-level Hierarchical Squad System milestone. The current locked Squad redesign contains internal Squad Phases 0–10. These internal phase numbers must never be conflated with the product-level roadmap phases.
 
-Implemented and merged lineage includes:
+The current validated implementation lineage includes:
 
 - PR #194 — system-created Squads and deterministic Owner assignment.
 - PR #195 — free membership invitation/acceptance/activation.
@@ -39,7 +41,7 @@ Implemented and merged lineage includes:
 
 PR #355 merge commit: `a5956497c3fb7cc13225a8b767d0e51de5d71f63`.
 
-The final implementation lineage is behaviorally validated and exact-head CI passed. Economy/Ledger reconciliation reported zero negative wallets, zero DZP source mismatches, zero ledger mismatches, zero invalid ledger currencies, zero ledger-balance mismatches, and zero ledger-chain mismatches.
+The final paid/pending implementation lineage is behaviorally validated and exact-head CI passed. Economy/Ledger reconciliation reported zero negative wallets, zero DZP source mismatches, zero ledger mismatches, zero invalid ledger currencies, zero ledger-balance mismatches, and zero ledger-chain mismatches.
 
 The locked matching order is:
 
@@ -48,7 +50,20 @@ The locked matching order is:
 3. T1 may pair the first two affordable pending requests to form one Squad;
 4. T2–T10 never pair pending requests and never create a Squad from pending requests; they remain persistent zero-charge interest requests until an existing eligible Squad becomes available.
 
-No remaining Project Phase 4 runtime implementation gap is recorded. Future work must not reopen this phase without concrete new evidence of regression, contract contradiction, security/integrity defect, or newly authorized business scope.
+This evidence closes **Squad internal Phase 4 only**. It does **not** close Project Phase 4.
+
+## Squad internal phase sequence
+
+The governing Squad contract defines these remaining gates after internal Phase 4:
+
+- **Internal Phase 5 — Persistent Interest Requests**
+- **Internal Phase 6 — Switch and Upgrade Semantic Gate**
+- **Internal Phase 7 — Modifier/Economy decision and implementation gate**
+- **Internal Phase 8 — Squad UX Contract (Design Only)**
+- **Internal Phase 9 — Squad UI Implementation Gate**
+- **Internal Phase 10 — Investigation and Validation Gate**
+
+Their current completion state is not inferred from numbering. Each phase must be audited independently against its contract, implementation, tests, schema/migrations, callers, CI, and runtime evidence before it can be marked closed.
 
 ## App Ban boundary
 
