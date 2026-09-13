@@ -51,7 +51,8 @@ test('Phase 5 runtime contract is bounded, FIFO, scoped, non-recursive and post-
   const helperStart = membership.indexOf('async function settlePendingRequestsForSquad');
   const helperEnd = membership.indexOf('async function notifyDeferredMemberships', helperStart);
   assert.ok(helperStart >= 0 && helperEnd > helperStart);
-  assert.doesNotMatch(membership.slice(helperStart, helperEnd), /settlePendingRequestsForSquad\(client/);
+  const helperBody = membership.slice(membership.indexOf('{', helperStart) + 1, helperEnd);
+  assert.doesNotMatch(helperBody, /settlePendingRequestsForSquad\(client/);
   assert.match(membership, /PHASE5_NOTIFICATION/);
 });
 

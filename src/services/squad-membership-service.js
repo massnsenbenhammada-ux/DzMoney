@@ -296,6 +296,12 @@ async function settlePendingRequestsForSquad(client, squadId) {
   for (const request of pending.rows) {
     if (remainingCapacity !== null && settledCount >= remainingCapacity) break;
 
+    const existingMembership = await client.query(
+      `SELECT id FROM squad_memberships WHERE user_id = $1 AND status IN ('active', 'inactive', 'suspended') FOR UPDATE`,
+      [request.user_id]
+    );
+    if (existingMembership.rowCount) continue;
+
     const balance = await getDzpBalanceForUpdate(client, request.user_id);
     if (balance < tier.price) continue;
 
