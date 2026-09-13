@@ -51,8 +51,12 @@ function telegramInitData(telegramUserId) {
 
 const phase4Test = { skip: !process.env.DATABASE_URL };
 
+function testSuffix() {
+  return `${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
+}
+
 test('Phase 4: affordability, zero-charge pending, first-two settlement, owner, third join, and idempotency', phase4Test, async () => {
-  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const suffix = testSuffix();
   const users = [];
   const squads = [];
   try {
@@ -81,7 +85,7 @@ test('Phase 4: affordability, zero-charge pending, first-two settlement, owner, 
 });
 
 test('Phase 4: insufficient DZP rejects with no pending request and no Ledger mutation', phase4Test, async () => {
-  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const suffix = testSuffix();
   const user = await createUser(suffix, 1, 99);
   try {
     await assert.rejects(() => purchasePaidMembership({ userId: user.id, maxMembers: 10, idempotencyKey: 'insufficient' }), /Insufficient DZP balance/);
@@ -92,7 +96,7 @@ test('Phase 4: insufficient DZP rejects with no pending request and no Ledger mu
 });
 
 test('Phase 4: eligible-Squad-first priority beats an older pending request', phase4Test, async () => {
-  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const suffix = testSuffix();
   const users = [];
   const squads = [];
   try {
@@ -110,7 +114,7 @@ test('Phase 4: eligible-Squad-first priority beats an older pending request', ph
 });
 
 test('Phase 4: smallest eligible Squad uses deterministic id tie-break', phase4Test, async () => {
-  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const suffix = testSuffix();
   const users = [];
   const squads = [];
   try {
@@ -118,14 +122,14 @@ test('Phase 4: smallest eligible Squad uses deterministic id tie-break', phase4T
     const first = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [users[0].id]);
     const second = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [users[1].id]);
     squads.push(first.rows[0].id, second.rows[0].id);
-    await query("INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ($1,$2,'active'),($1,$3,'active'),($2,$4,'active'),($2,$5,'active')", [squads[0], users[0].id, users[1].id, users[2].id, users[3].id]);
+    await query("INSERT INTO squad_memberships (squad_id,user_id,status) VALUES ($1,$2,'active'),($1,$3,'active'),($4,$5,'active'),($4,$6,'active')", [squads[0], users[0].id, users[1].id, squads[1], users[2].id, users[3].id]);
     const result = await purchasePaidMembership({ userId: users[5].id, maxMembers: 10, idempotencyKey: 'smallest' });
     assert.equal(String(result.membership.squad_id), String(Math.min(...squads)));
   } finally { await cleanup({ userIds: users.map(user => user.id), squadIds: squads }); }
 });
 
 test('Phase 4: concurrent first/second/third requests produce one Squad and exactly one charge per user', phase4Test, async () => {
-  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const suffix = testSuffix();
   const users = [];
   const squads = [];
   try {
@@ -144,7 +148,7 @@ test('Phase 4: concurrent first/second/third requests produce one Squad and exac
 });
 
 test('Phase 4: T10 accepts a real Squad with 1001 live members', phase4Test, async () => {
-  const suffix = `${Date.now()}${Math.floor(Math.random() * 100000)}`;
+  const suffix = `${Date.now()}${crypto.randomBytes(6).toString('hex')}`;
   const users = [];
   const squads = [];
   try {
@@ -155,7 +159,7 @@ test('Phase 4: T10 accepts a real Squad with 1001 live members', phase4Test, asy
     users.push(...bulk.rows.map(row => ({ id: row.id })));
     const squad = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [owner.id]);
     squads.push(squad.rows[0].id);
-    await query("INSERT INTO squad_memberships (squad_id,user_id,status) SELECT $1,$2,'active' UNION ALL SELECT $1,id,'active' FROM users WHERE id=ANY($3::bigint[])", [squads[0], owner.id, bulk.rows.map(row => row.id)]);
+    await query("INSERT INTO squad_memberships (squad_id,user_id,status) SELECT $1::bigint,$2::bigint,'active' UNION ALL SELECT $1::bigint,id,'active' FROM users WHERE id=ANY($3::bigint[])", [squads[0], owner.id, bulk.rows.map(row => row.id)]);
     assert.equal((await query("SELECT COUNT(*)::int AS count FROM squad_memberships WHERE squad_id=$1 AND status <> 'cancelled'", [squads[0]])).rows[0].count, 1001);
     const result = await purchasePaidMembership({ userId: purchaser.id, maxMembers: null, idempotencyKey: 't10' });
     assert.equal(result.status, 'settled');
@@ -165,7 +169,7 @@ test('Phase 4: T10 accepts a real Squad with 1001 live members', phase4Test, asy
 });
 
 test('Phase 4: rollback removes charges, Ledger, new Squad, and memberships while preserving the original pending request', phase4Test, async () => {
-  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const suffix = testSuffix();
   const users = [];
   const squads = [];
   const triggerName = `phase4_rb_${Date.now()}`;
