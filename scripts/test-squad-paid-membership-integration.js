@@ -5,8 +5,16 @@ const { query, pool } = require('../src/db/pool');
 const walletService = require('../src/services/wallet-service');
 const { purchasePaidMembership } = require('../src/services/squad-membership-service');
 
+let testUserSequence = 0;
+
+function nextTelegramUserId() {
+  testUserSequence = (testUserSequence + 1) % 1000;
+  return String(700000000 + ((Date.now() % 10000000) * 1000) + testUserSequence);
+}
+
 async function createUser(suffix, index, balance = 0) {
-  const user = await walletService.createUser({ telegramUserId: `9${suffix}${index}`, username: `squad_phase4_${suffix}_${index}` });
+  const telegramUserId = nextTelegramUserId();
+  const user = await walletService.createUser({ telegramUserId, username: `squad_phase4_${suffix}_${index}` });
   await query("UPDATE wallet_accounts SET balance = $1 WHERE user_id = $2 AND currency = 'DZP'", [balance, user.id]);
   return user;
 }
@@ -143,7 +151,7 @@ test('Phase 4: T10 accepts a real Squad with 1001 live members', phase4Test, asy
     const owner = await createUser(suffix, 't10owner', 0);
     const purchaser = await createUser(suffix, 't10buyer', 10000);
     users.push(owner, purchaser);
-    const bulk = await query(`INSERT INTO users (telegram_user_id,username,first_name) SELECT ('8' || $1 || gs)::bigint,'squad_t10_member_' || gs,'T10' FROM generate_series(1,1000) AS gs RETURNING id`, [suffix]);
+    const bulk = await query(`INSERT INTO users (telegram_user_id,username,first_name) SELECT (8000000000000000 + gs)::bigint,'squad_t10_member_' || gs,'T10' FROM generate_series(1,1000) AS gs RETURNING id`);
     users.push(...bulk.rows.map(row => ({ id: row.id })));
     const squad = await query('INSERT INTO squads (owner_user_id) VALUES ($1) RETURNING id', [owner.id]);
     squads.push(squad.rows[0].id);
