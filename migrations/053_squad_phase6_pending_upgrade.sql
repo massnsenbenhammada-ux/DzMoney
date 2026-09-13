@@ -26,7 +26,7 @@ ALTER TABLE squad_membership_purchase_requests
   CHECK (
     (operation_type = 'purchase' AND current_membership_id IS NULL AND current_squad_id IS NULL)
     OR
-    (operation_type = 'upgrade' AND (current_membership_id IS NOT NULL OR current_squad_id IS NOT NULL))
+    (operation_type = 'upgrade' AND current_membership_id IS NOT NULL AND current_squad_id IS NOT NULL)
   );
 
 CREATE INDEX IF NOT EXISTS squad_membership_purchase_requests_upgrade_source_key
