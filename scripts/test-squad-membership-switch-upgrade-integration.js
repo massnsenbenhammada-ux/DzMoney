@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { query, pool } = require('../src/db/pool');
+const { withTransaction, query, pool } = require('../src/db/pool');
 const walletService = require('../src/services/wallet-service');
 const { purchasePaidMembership, switchSquadWithinTier, upgradeSquadTier, settlePendingRequestsForSquad } = require('../src/services/squad-membership-service');
 
@@ -76,8 +76,7 @@ test('Squad switch and upgrade preserve atomic financial and membership invarian
     ids.push(targetMemberA.id, targetMemberB.id);
     const deferredTargetSquad = await createSquad(users[3].id, [users[4].id, users[5].id, users[6].id, users[7].id, users[8].id, users[9].id, users[12].id, users[14].id, targetMemberA.id, targetMemberB.id]);
     squadIds.push(deferredTargetSquad);
-    const deferredNotifications = await settlePendingRequestsForSquad(await require('../src/db/pool').pool.connect(), deferredTargetSquad);
-    void deferredNotifications;
+    await withTransaction(client => settlePendingRequestsForSquad(client, deferredTargetSquad));
 
     const deferredRequest = await query("SELECT status FROM squad_membership_purchase_requests WHERE user_id = $1 AND idempotency_key = $2", [users[10].id, `deferred-upgrade-${suffix}`]);
     const invalidatedRequest = await query("SELECT status FROM squad_membership_purchase_requests WHERE user_id = $1 AND idempotency_key = $2", [users[11].id, `invalidated-upgrade-${suffix}`]);
@@ -92,8 +91,6 @@ test('Squad switch and upgrade preserve atomic financial and membership invarian
     assert.equal(invalidatedMemberships.rows.filter(row => row.status !== 'cancelled').length, 1);
     assert.equal(invalidatedMemberships.rows[0].status, 'suspended');
 
-    const higherTierSquad = await createSquad(users[3].id, [...users.slice(4, 13), users[14]]);
-    squadIds.push(higherTierSquad);
     await query("UPDATE wallet_accounts SET balance = 1000 WHERE user_id = $1 AND currency = 'DZP'", [users[13].id]);
     const beforeUpgrade = await query("SELECT balance FROM wallet_accounts WHERE user_id = $1 AND currency = 'DZP'", [users[13].id]);
     const upgraded = await upgradeSquadTier({ userId: users[13].id, newMaxMembers: 20, idempotencyKey: `upgrade-${suffix}` });
