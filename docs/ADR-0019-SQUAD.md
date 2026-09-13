@@ -11,6 +11,18 @@ This ADR is retained as historical contract lineage. It must not be used to rein
 
 The implemented runtime, database schema, and tests remain authoritative for behavior that has already been implemented; they do not silently redefine the locked future-phase business contract.
 
+## Phase 4 clarification — Tier-1 matching priority
+
+For the redesigned paid-membership flow, the priority is explicit and must be read in this order:
+
+1. **Eligible-Squad-first is always the first decision.** For the requested tier, if **any eligible Squad currently exists**, the purchaser is matched to that Squad immediately, regardless of how that Squad was originally formed (referral, prior paid membership, invitation, or another valid formation path). The backend chooses the eligible Squad with the fewest current live members, using deterministic tie-breaking and the existing transaction/locking discipline.
+2. **Pending pairing is fallback-only.** Only when **no eligible Squad exists at all** for the requested tier may the purchase enter the persistent pending path.
+3. A pending request waits specifically for another pending request of the **same requested tier** when the Phase 4 T1 pending-pairing contract applies. The earliest pending request becomes Owner when the new Squad is formed.
+4. The existence of an older pending request must **never override an eligible Squad that is currently available**. A later purchaser must join that eligible Squad rather than pair with the pending request.
+5. Pending creation is zero-charge and creates no Ledger burn. Settlement charges DZP only when an actual eligible match or pending-pair formation is available.
+
+This clarification is normative for Phase 4 review and is intended to remove ambiguity between **current eligible availability** and **pending interest**. It does not authorize a second matching system or a new notification/economic source of truth.
+
 ## Historical Context
 
 Earlier Squad material described a hierarchical ten-level model and a daily activation rule requiring both a member target and 50% activity. That design was later superseded by the reconciled Squad redesign documented in the master contract.
