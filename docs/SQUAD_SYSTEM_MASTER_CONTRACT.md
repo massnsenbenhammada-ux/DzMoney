@@ -1,8 +1,8 @@
 # DzMoney — Squad System Master Contract
 
-> **Status: Draft for Contract Reconciliation — Business/Design Source**
+> **Status: Accepted — Contract Locked through Phase 5**
 >
-> This document consolidates the current Squad business model and the decisions explicitly locked for the redesigned Squad roadmap. It is documentation only. It does not authorize runtime implementation by itself.
+> This document consolidates the current Squad business model and the decisions explicitly locked for the redesigned Squad roadmap. It is the accepted business/design source for the locked phases. It does not authorize implementation outside the phase gates defined below.
 >
 > **Authority order:** current GitHub implementation/schema/tests for implemented behavior; this document for the redesigned business contract once approved/merged. Any contradiction must be resolved by Contract Lineage before implementation.
 
@@ -334,6 +334,19 @@ Implement immediate matching when eligible and persistent zero-charge pending ma
 
 Implement persistent Tier 2+ interest requests, notification, and deferred settlement.
 
+**Locked Phase 5 settlement trigger lineage:** settlement is triggered only by an eligibility/capacity-changing membership event on the **specific existing Squad** whose membership state changed. It is not triggered by referral formation of a brand-new Squad and does not perform a global scan. Each triggering event performs exactly one bounded settlement pass for that Squad, limited by remaining eligible capacity and eligible pending requests, in `created_at ASC, id ASC` order. Memberships created by that settlement pass must not recursively trigger the same settlement path. The business transaction commits atomically before any notification attempt; notification is a non-authoritative post-commit side effect.
+
+The approved trigger semantics are:
+
+- `inactive → active`: trigger when the transition changes eligible/live capacity according to the membership contract;
+- `active → inactive`: trigger when the transition changes eligible/live capacity according to the membership contract;
+- `active → suspended`: do not trigger unless the transition actually frees eligible capacity elsewhere;
+- `cancelled` transitions: evaluate from the actual eligibility/capacity change, not from the status name alone.
+
+**Locked Phase 5 notification text:**
+
+`🎉 Good news! Your pending Squad membership request has been matched. Your membership is now active.`
+
 ### Phase 6 — Switch and Upgrade Semantic Gate
 
 Finalize and implement the redesigned Switch/Upgrade semantics, including the same interest-request mechanism when no eligible target exists.
@@ -495,7 +508,7 @@ Stop rather than patch when the active branch or exact HEAD is unclear; implemen
 
 ## Change record
 
-- **Master contract:** consolidated Squad business/design contract for reconciliation.
+- **Master contract:** accepted/locked through Phase 5; Phase 5 trigger lineage and notification wording are explicitly locked.
 - **Modifier:** `sqrt(TotalContributionDZP)` is the locked design direction.
 - **Multiplier:** exact runtime equation remains dependent on proven existing reward contract/implementation; no assumption is authorized.
 - **Phase 8–10:** UX design, UI implementation, and realistic investigation/validation are explicitly included as gated phases; documentation does not imply implementation.
