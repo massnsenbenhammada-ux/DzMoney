@@ -1,0 +1,1 @@
+اكمل  وفق الدستور 54 حتى النهاية دون التوقف لإعطائي حلول جزئية و الأهم دائما قبل تثبيت اي شيئ افحص التالي : Code Githistory PRs CIs Commits Tracing tests documentation issues Runtime failure history و عند التنفيذ اتبع هذه القواعد : YAGNI , KISS , DRY تجنب التضخم المعماري و سلاسل التصحيحات المتراكمة
