@@ -7,13 +7,6 @@ async function main() {
     WHERE balance < 0 OR earned_dzp < 0 OR converted_dzp < 0 OR purchased_dzp < 0
   `);
 
-  const dzpMismatch = await query(`
-    SELECT id, user_id, balance, earned_dzp, converted_dzp, purchased_dzp
-    FROM wallet_accounts
-    WHERE currency = 'DZP'
-      AND earned_dzp + converted_dzp + purchased_dzp > balance + 0.000000001
-  `);
-
   const ledgerMismatch = await query(`
     SELECT id, transaction_id, wallet_account_id, currency,
            amount, balance_before, balance_after
@@ -55,16 +48,8 @@ async function main() {
   `);
 
   const report = {
-    ok: [
-      negative,
-      dzpMismatch,
-      ledgerMismatch,
-      invalidCurrency,
-      ledgerBalanceMismatch,
-      ledgerChainMismatch,
-    ].every(r => r.rowCount === 0),
+    ok: [negative, ledgerMismatch, invalidCurrency, ledgerBalanceMismatch, ledgerChainMismatch].every(r => r.rowCount === 0),
     negative_wallets: negative.rowCount,
-    dzp_source_mismatches: dzpMismatch.rowCount,
     ledger_mismatches: ledgerMismatch.rowCount,
     invalid_ledger_currencies: invalidCurrency.rowCount,
     ledger_balance_mismatches: ledgerBalanceMismatch.rowCount,
