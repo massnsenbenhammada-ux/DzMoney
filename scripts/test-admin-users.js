@@ -56,7 +56,7 @@ test('Admin DZP grants are not reclassified into activity/conversion/purchase bu
 });
 
 test('DZP source buckets remain provenance fields rather than a spendability invariant', () => {
-  const migration = read('migrations/051_admin_grants_are_unbucketed.sql');
+  const migration = read('migrations/054_admin_grants_are_unbucketed.sql');
   assert.match(migration, /DROP CONSTRAINT IF EXISTS wallet_accounts_dzp_sources_not_abOVE_balance/i);
   const reconcile = read('scripts/reconcile-economy.js');
   assert.doesNotMatch(reconcile, /dzp_source_mismatches/);
