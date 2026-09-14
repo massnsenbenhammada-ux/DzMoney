@@ -132,6 +132,21 @@ async function main() {
     assert.equal(Number(afterPurchase.earned_dzp), 1);
     assert.equal(Number(afterPurchase.converted_dzp), 2);
 
+    await postEconomyTransaction({
+      idempotencyKey: `${marker}:spend-sourced-dzp`,
+      userId: user.id,
+      type: 'TEST_DZP_CONSUMPTION',
+      metadata: { source: 'test' },
+      movements: [{ currency: 'DZP', amount: -1, source: 'test_consumption' }],
+    });
+
+    state = await getUserWallets(user.id);
+    const afterSpend = state.find(w => w.currency === 'DZP');
+    assert.equal(Number(afterSpend.balance), 7);
+    assert.equal(Number(afterSpend.earned_dzp), 1);
+    assert.equal(Number(afterSpend.converted_dzp), 2);
+    assert.equal(Number(afterSpend.purchased_dzp), 5);
+
     await assert.rejects(
       () => postEconomyTransaction({
         idempotencyKey: `${marker}:overspend`,
@@ -149,7 +164,7 @@ async function main() {
        WHERE lt.user_id = $1`,
       [user.id]
     );
-    assert.equal(Number(ledger.rows[0].count), 9);
+    assert.equal(Number(ledger.rows[0].count), 10);
 
     const badBalances = await query(
       `SELECT COUNT(*)::int AS count
