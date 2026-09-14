@@ -2,7 +2,6 @@ const { query } = require('../db/pool');
 const { postEconomyTransaction } = require('./economy-service');
 
 const CURRENCIES = new Set(['COIN', 'DZX', 'DZP']);
-const DZP_BUCKETS = new Set(['earned_dzp', 'converted_dzp', 'purchased_dzp']);
 
 function normalizeLimit(value) {
   const limit = Number.parseInt(value, 10);
@@ -16,11 +15,10 @@ function requireReason(reason) {
   return value;
 }
 
-function validateAdjustment({ currency, amount, dzpSource }) {
+function validateAdjustment({ currency, amount }) {
   if (!CURRENCIES.has(currency)) throw new Error('Unsupported currency');
   if (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(String(amount || '').trim())) throw new Error('amount must be a valid decimal number');
   if (Number(amount) === 0) throw new Error('amount must be non-zero');
-  if (currency === 'DZP' && !DZP_BUCKETS.has(dzpSource)) throw new Error('dzpSource is required for DZP adjustments');
 }
 
 async function searchUsers(search, limit = 25) {
@@ -64,8 +62,8 @@ async function getUserProfile(userId) {
   };
 }
 
-async function adjustBalance({ userId, currency, amount, reason, dzpSource = null, idempotencyKey, actorTelegramUserId }) {
-  validateAdjustment({ currency, amount, dzpSource });
+async function adjustBalance({ userId, currency, amount, reason, idempotencyKey, actorTelegramUserId }) {
+  validateAdjustment({ currency, amount });
   const normalizedReason = requireReason(reason);
   const key = String(idempotencyKey || '').trim();
   if (!key) throw new Error('idempotencyKey is required');
@@ -77,13 +75,12 @@ async function adjustBalance({ userId, currency, amount, reason, dzpSource = nul
     idempotencyKey: key,
     userId: profile.user.id,
     type: 'ADMIN_BALANCE_ADJUSTMENT',
-    movements: [{ currency, amount: String(amount).trim(), source: 'admin_adjustment', ...(currency === 'DZP' ? { dzpBucket: dzpSource } : {}) }],
+    movements: [{ currency, amount: String(amount).trim(), source: 'admin_adjustment' }],
     metadata: {
       actor_telegram_user_id: String(actorTelegramUserId),
       reason: normalizedReason,
       currency,
       amount: String(amount).trim(),
-      ...(currency === 'DZP' ? { dzp_source: dzpSource } : {}),
     },
   });
 
