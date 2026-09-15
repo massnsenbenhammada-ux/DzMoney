@@ -39,11 +39,12 @@ function renderInvitationsShell() {
   return '<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">INBOX</span><h3>Invitations</h3></div></div><div id="squadInvitations" class="squad-invitations"><div class="squad-skeleton short"></div><div class="squad-skeleton long"></div></div></section>';
 }
 
-function renderSquad(squad, tiers = [], state = null, ads = null) {
+function renderSquad(squad, tiers = [], state = null, ads = null, pendingMembership = null) {
   const card = squadCard();
   if (!card) return;
   if (!squad) {
-    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>No Squad yet</h2><p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p></div>${renderSquadAds(ads)}${renderPaidMembership(tiers)}${renderInvitationsShell()}`;
+    const pending = pendingMembership ? '<p>Membership request is being processed. You will be notified once a squad is available.</p>' : '<p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p>';
+    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>${pendingMembership ? 'Membership pending' : 'No Squad yet'}</h2>${pending}</div>${renderSquadAds(ads)}${pendingMembership ? '' : renderPaidMembership(tiers)}${renderInvitationsShell()}`;
     loadInvitations();
     return;
   }
@@ -152,7 +153,8 @@ async function purchaseMembership(maxMembers) {
   const button = document.querySelector(`[data-squad-tier="${String(maxMembers)}"]`);
   if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
   try {
-    await api('/api/squad/membership/purchase', { method: 'POST', body: JSON.stringify({ maxMembers, idempotencyKey: crypto.randomUUID() }) });
+    const response = await api('/api/squad/membership/purchase', { method: 'POST', body: JSON.stringify({ maxMembers, idempotencyKey: crypto.randomUUID() }) });
+    if (response.pendingMembership) alert('Your membership request is being processed. You will be notified once a squad is available.');
     await loadSquad();
   } catch (error) {
     if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
@@ -183,7 +185,7 @@ async function loadSquad() {
   card.innerHTML = renderLoading();
   try {
     const [data, tiers, stateData, ads] = await Promise.all([api('/api/squad'), loadPaidTiers(), api('/api/squad/daily-state'), loadSquadAds()]);
-    renderSquad(data.squad || null, tiers, stateData.state || null, ads);
+    renderSquad(data.squad || null, tiers, stateData.state || null, ads, data.pendingMembership || null);
   } catch (error) {
     card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">!</div><span class="squad-eyebrow">TEMPORARILY UNAVAILABLE</span><h2>Squad unavailable</h2><p>${escapeHtml(error.message || 'Please try again later.')}</p></div>`;
   }
