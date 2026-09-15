@@ -3,6 +3,8 @@ const { query, withTransaction } = require('../db/pool');
 const DEFAULT_TARGET_PER_MEMBER = 10;
 const DEFAULT_VERIFIED_AD_TARGET = 10;
 const UTC_PLUS_ONE = 'Etc/GMT-1';
+const DECIMAL_SCALE = 1000000000n;
+const NUMERIC_PATTERN = /^\d+(?:\.\d+)?$/;
 
 function dayDate(value = null) {
   if (value) {
@@ -36,12 +38,38 @@ async function settingNumber(client, key, fallback) {
   return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
+function decimalToScaled(value) {
+  const text = String(value).trim();
+  if (!NUMERIC_PATTERN.test(text)) throw new Error('Invalid squad contribution');
+  const [integerPart, fractionPart = ''] = text.split('.');
+  if (integerPart.replace(/^0+/, '').length > 21 || fractionPart.length > 9) throw new Error('Squad contribution exceeds NUMERIC(30,9) precision');
+  return BigInt(integerPart) * DECIMAL_SCALE + BigInt(fractionPart.padEnd(9, '0') || '0');
+}
+
+function scaledToDecimal(value) {
+  const integerPart = value / DECIMAL_SCALE;
+  const fractionPart = String(value % DECIMAL_SCALE).padStart(9, '0').replace(/0+$/, '');
+  return `${integerPart}${fractionPart ? `.${fractionPart}` : ''}`;
+}
+
+function integerSqrt(value) {
+  if (value < 0n) throw new Error('Square root requires a non-negative value');
+  if (value < 2n) return value;
+  let x0 = 1n << BigInt(Math.ceil(value.toString(2).length / 2));
+  let x1 = (x0 + value / x0) >> 1n;
+  while (x1 < x0) {
+    x0 = x1;
+    x1 = (x0 + value / x0) >> 1n;
+  }
+  return x0;
+}
+
 function modifierRate(contribution) {
-  const value = Number(contribution);
-  if (value >= 10000) return '1';
-  if (value >= 5000) return '0.5';
-  if (value >= 1500) return '0.15';
-  return '0';
+  const scaledContribution = decimalToScaled(contribution);
+  if (scaledContribution <= 0n) return '0';
+  const sqrtScaled = integerSqrt(scaledContribution * DECIMAL_SCALE);
+  const rateScaled = (sqrtScaled + 50n) / 100n;
+  return scaledToDecimal(rateScaled);
 }
 
 async function ensureDailyState(client, squadId, day) {
