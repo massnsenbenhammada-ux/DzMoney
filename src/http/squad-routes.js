@@ -14,9 +14,10 @@ function dailyAdvertisementDateFilter() { return " AND (completed_at + INTERVAL 
 
 router.get('/', asyncRoute(async (req, res) => {
   const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' });
-  const membership = await query(`SELECT s.id AS squad_id, s.owner_user_id, COUNT(sm2.id) FILTER (WHERE sm2.status <> 'cancelled') AS member_count, sm.status AS membership_status FROM squad_memberships sm JOIN squads s ON s.id = sm.squad_id LEFT JOIN squad_memberships sm2 ON sm2.squad_id = s.id WHERE sm.user_id = $1 AND sm.status <> 'cancelled' GROUP BY s.id, s.owner_user_id, sm.status`, [userId]);
-  const pendingResult = await query(`SELECT id, min_members, max_members, price, status, created_at, settled_at FROM squad_membership_purchase_requests WHERE user_id = $1 AND status = 'pending' ORDER BY created_at ASC, id ASC LIMIT 1`, [userId]);
-  const pending = pendingResult.rows[0] ? { id: String(pendingResult.rows[0].id), tier: { minMembers: Number(pendingResult.rows[0].min_members), maxMembers: pendingResult.rows[0].max_members === null ? null : Number(pendingResult.rows[0].max_members) }, price: Number(pendingResult.rows[0].price), status: pendingResult.rows[0].status, createdAt: pendingResult.rows[0].created_at, settledAt: pendingResult.rows[0].settled_at } : null;
+  const membership = await query(`SELECT s.id AS squad_id, s.owner_user_id, COUNT(sm2.id) FILTER (WHERE sm2.status <> 'cancelled') AS member_count, sm.status AS membership_status, sm.joined_at FROM squad_memberships sm JOIN squads s ON s.id = sm.squad_id LEFT JOIN squad_memberships sm2 ON sm2.squad_id = s.id WHERE sm.user_id = $1 AND sm.status <> 'cancelled' GROUP BY s.id, s.owner_user_id, sm.status, sm.joined_at`, [userId]);
+  const pendingResult = await query(`SELECT id, min_members, max_members, price, status, created_at, settled_at, operation_type FROM squad_membership_purchase_requests WHERE user_id = $1 AND status = 'pending' ORDER BY created_at ASC, id ASC LIMIT 1`, [userId]);
+  const pendingRow = pendingResult.rows[0] || null;
+  const pending = pendingRow ? { id: String(pendingRow.id), operationType: pendingRow.operation_type, requestedTier: { minMembers: Number(pendingRow.min_members), maxMembers: pendingRow.max_members === null ? null : Number(pendingRow.max_members), unbounded: pendingRow.max_members === null }, tier: { minMembers: Number(pendingRow.min_members), maxMembers: pendingRow.max_members === null ? null : Number(pendingRow.max_members) }, price: Number(pendingRow.price), status: pendingRow.status, createdAt: pendingRow.created_at, settledAt: pendingRow.settled_at } : null;
   if (!membership.rows[0]) return res.json({ ok: true, squad: null, pendingMembership: pending });
   const row = membership.rows[0];
   const memberCount = Number(row.member_count);
@@ -26,7 +27,10 @@ router.get('/', asyncRoute(async (req, res) => {
   const isUnbounded = tier?.maxMembers === null;
   const requiredMembers = tier && !isUnbounded ? tier.maxMembers : null;
   const progressPercent = requiredMembers ? Math.min(100, Math.round((memberCount / requiredMembers) * 100)) : null;
-  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount, membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId), tierLevel, currentTier: tier ? { minMembers: tier.minMembers, maxMembers: tier.maxMembers, unbounded: isUnbounded } : null, requiredMembers, progressPercent }, pendingMembership: pending });
+  const purchase = await query(`SELECT metadata FROM ledger_transactions WHERE user_id = $1 AND transaction_type IN ('SQUAD_MEMBERSHIP_PURCHASE', 'SQUAD_MEMBERSHIP_UPGRADE') AND created_at >= $2 ORDER BY created_at ASC, id ASC LIMIT 1`, [userId, row.joined_at]);
+  const purchaseTier = purchase.rows[0]?.metadata?.tier || null;
+  const purchasedTier = purchaseTier && Number.isInteger(purchaseTier.minMembers) && (Number.isInteger(purchaseTier.maxMembers) || purchaseTier.maxMembers === null) ? { minMembers: purchaseTier.minMembers, maxMembers: purchaseTier.maxMembers, unbounded: purchaseTier.maxMembers === null } : null;
+  res.json({ ok: true, squad: { id: String(row.squad_id), ownerUserId: String(row.owner_user_id), memberCount, membershipStatus: row.membership_status, isOwner: Number(row.owner_user_id) === Number(userId), tierLevel, currentTier: tier ? { minMembers: tier.minMembers, maxMembers: tier.maxMembers, unbounded: isUnbounded } : null, purchasedTier, requiredMembers, progressPercent }, pendingMembership: pending });
 }));
 
 router.get('/daily-state', asyncRoute(async (req, res) => { const userId = await currentUserId(req); if (!userId) return res.status(404).json({ ok: false, error: 'User not found' }); const state = await getCurrentUserSquadState({ userId }); res.json({ ok: true, state }); }));
