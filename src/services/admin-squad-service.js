@@ -7,10 +7,10 @@ const SQUAD_SETTING_KEYS = new Set([
 ]);
 
 const MODIFIER_MAPPING = [
-  { contribution: 1500, modifier: 0.15 },
-  { contribution: 5000, modifier: 0.5 },
   { contribution: 10000, modifier: 1 },
-  { contribution: 15000, modifier: 1 },
+  { contribution: 75000, modifier: 2.738612787 },
+  { contribution: 100000, modifier: 3.16227766 },
+  { contribution: 500000, modifier: 7.071067812 },
 ];
 
 async function getSquadSettings() {
@@ -22,8 +22,9 @@ async function getSquadSettings() {
   return {
     settings: Object.fromEntries(result.rows.map(row => [row.key, row.value])),
     modifierMapping: MODIFIER_MAPPING,
-    modifierCurrencies: ['COIN', 'DZX'],
-    dzpModifierExcluded: true,
+    modifierCurrencies: ['COIN', 'DZX', 'DZP'],
+    dzpModifierExcluded: false,
+    modifierFormula: 'sqrt(Total Contribution DZP) / 100',
     source: 'Verified Activity',
   };
 }

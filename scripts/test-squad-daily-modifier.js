@@ -5,7 +5,7 @@ const walletService = require('../src/services/wallet-service');
 const { creditActivityReward } = require('../src/services/economy-service');
 const { getDailySquadState, getApplicableSquadModifierOnClient } = require('../src/services/squad-daily-state-service');
 
-test('daily modifier is mapped from contribution and applied only to D+1 qualifying activity', { skip: !process.env.DATABASE_URL }, async () => {
+test('daily modifier uses uncapped sqrt contribution and applies to all qualifying reward currencies on D+1', { skip: !process.env.DATABASE_URL }, async () => {
   const suffix = `${Date.now()}`;
   const ids = [];
   let squadId;
@@ -25,12 +25,16 @@ test('daily modifier is mapped from contribution and applied only to D+1 qualify
     nextDayDate.setUTCDate(nextDayDate.getUTCDate() + 1);
     const applicationDay = nextDayDate.toISOString().slice(0, 10);
     await query(`INSERT INTO activity_ad_events(user_id,context,external_ad_id,idempotency_key,started_at,completed_at,verified,metadata) VALUES($1,'task',$2,$3,NOW(),NOW(),TRUE,$4),($5,'task',$6,$7,NOW(),NOW(),TRUE,$8)`, [users[1].id, `verified-a-${suffix}`, `verified-a-${suffix}`, JSON.stringify({ task_id: 'fixture' }), users[2].id, `verified-b-${suffix}`, `verified-b-${suffix}`, JSON.stringify({ task_id: 'fixture' })]);
-    await creditActivityReward({ idempotencyKey: `modifier-a-${suffix}`, userId: users[1].id, source: 'task', coin: 0, dzx: 0, dzp: 1500, modifiers: [] });
+    await creditActivityReward({ idempotencyKey: `modifier-a-${suffix}`, userId: users[1].id, source: 'task', coin: 0, dzx: 0, dzp: 10000, modifiers: [] });
     await creditActivityReward({ idempotencyKey: `modifier-b-${suffix}`, userId: users[2].id, source: 'task', coin: 0, dzx: 0, dzp: 1, modifiers: [] });
-    await getDailySquadState({ squadId, day });
+    const state = await getDailySquadState({ squadId, day });
+
+    assert.equal(Number(state.dzpContribution), 10001);
+    const expectedRate = Math.sqrt(10001) / 100;
+    assert.ok(Math.abs(Number(state.modifierRate) - expectedRate) < 0.000000001);
 
     const applied = await withTransaction(client => getApplicableSquadModifierOnClient(client, { userId: users[1].id, day: applicationDay }));
-    assert.equal(Number(applied.rate), 0.15);
+    assert.ok(Math.abs(Number(applied.rate) - expectedRate) < 0.000000001);
     assert.equal(applied.contributor, true);
 
     const notContributor = await withTransaction(client => getApplicableSquadModifierOnClient(client, { userId: users[0].id, day: applicationDay }));
@@ -38,9 +42,10 @@ test('daily modifier is mapped from contribution and applied only to D+1 qualify
     assert.equal(notContributor.contributor, false);
 
     const reward = await creditActivityReward({ idempotencyKey: `modifier-reward-${suffix}`, userId: users[1].id, source: 'task', coin: 1000, dzx: 1, dzp: 1, modifiers: [], qualifyingVerifiedActivity: true, activityDay: applicationDay });
-    assert.equal(Number(reward.entries.find(entry => entry.currency === 'COIN').amount), 1150);
-    assert.equal(Number(reward.entries.find(entry => entry.currency === 'DZX').amount), 1.15);
-    assert.equal(Number(reward.entries.find(entry => entry.currency === 'DZP').amount), 1);
+    const expectedMultiplier = 1 + expectedRate;
+    assert.ok(Math.abs(Number(reward.entries.find(entry => entry.currency === 'COIN').amount) - 1000 * expectedMultiplier) < 0.000001);
+    assert.ok(Math.abs(Number(reward.entries.find(entry => entry.currency === 'DZX').amount) - expectedMultiplier) < 0.000000001);
+    assert.ok(Math.abs(Number(reward.entries.find(entry => entry.currency === 'DZP').amount) - expectedMultiplier) < 0.000000001);
   } finally {
     if (squadId) await query('DELETE FROM squads WHERE id=$1', [squadId]);
     if (ids.length) {
@@ -49,5 +54,4 @@ test('daily modifier is mapped from contribution and applied only to D+1 qualify
       await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [ids]);
     }
   }
-  await pool.end();
 });
