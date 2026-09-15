@@ -29,7 +29,7 @@ test('daily modifier uses uncapped sqrt contribution and applies to all qualifyi
     await creditActivityReward({ idempotencyKey: `modifier-b-${suffix}`, userId: users[2].id, source: 'task', coin: 0, dzx: 0, dzp: 1, modifiers: [] });
     const state = await getDailySquadState({ squadId, day });
 
-    assert.equal(state.dzpContribution, '10001');
+    assert.equal(Number(state.dzpContribution), 10001);
     const expectedRate = Math.sqrt(10001) / 100;
     assert.ok(Math.abs(Number(state.modifierRate) - expectedRate) < 0.000000001);
 
@@ -54,5 +54,4 @@ test('daily modifier uses uncapped sqrt contribution and applies to all qualifyi
       await query('DELETE FROM users WHERE id = ANY($1::bigint[])', [ids]);
     }
   }
-  await pool.end();
 });
