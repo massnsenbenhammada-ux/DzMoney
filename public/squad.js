@@ -7,9 +7,38 @@ function renderLoading() {
   return '<div class="squad-loading" aria-busy="true"><div class="squad-spin" aria-hidden="true"></div><div class="squad-skeleton short"></div><div class="squad-skeleton long"></div><div class="squad-skeleton long"></div></div>';
 }
 
+function formatTier(tier) {
+  if (!tier) return '—';
+  const level = Number(tier.level);
+  return Number.isInteger(level) && level > 0 ? `T${level}` : '—';
+}
+
+function formatTierRange(tier) {
+  if (!tier) return '';
+  const min = Number(tier.minMembers);
+  const max = tier.maxMembers === null ? null : Number(tier.maxMembers);
+  if (!Number.isInteger(min)) return '';
+  return max === null ? `${min}+ members` : `${min}–${max} members`;
+}
+
+function renderHowItWorks() {
+  return `<details class="squad-how-it-works"><summary>How it works</summary><div class="squad-how-copy"><p><strong>1. Join a Squad.</strong> You can join through referral formation, an Owner invitation, or paid membership.</p><p><strong>2. Your Squad grows.</strong> Current Tier follows the live member count. Growth does not make you repurchase your membership.</p><p><strong>3. Current Tier ≠ Purchased Tier.</strong> Current Tier is the Squad's live classification; Purchased Tier is the commercial tier recorded for your membership.</p><p><strong>4. Contribution & Modifier.</strong> Squad activity and the modifier are provided by the server. This screen only presents the server-provided state.</p><p><strong>5. Pending membership.</strong> If no eligible Squad is available, your request remains pending and 0 DZP is charged until settlement.</p><p><strong>6. Upgrade & Switch.</strong> Squad growth is not an automatic Upgrade. Upgrade and Switch are separate paid operations; an unavailable Upgrade target can remain pending.</p><p><strong>7. T10.</strong> T10 means 1000+ members. It is not a 1000-member capacity.</p></div></details>`;
+}
+
+function renderMembershipSemantics(squad, pendingMembership) {
+  const currentTier = squad?.currentTier || null;
+  const purchasedTier = squad?.purchasedTier || null;
+  const pending = pendingMembership || null;
+  const operationType = String(pending?.operationType || '').toLowerCase();
+  const requestedTier = pending?.requestedTier || null;
+  const pendingLabel = operationType === 'upgrade' ? 'Upgrade pending' : 'Membership pending';
+  const pendingText = pending ? `<div class="squad-semantic-pending"><strong>${pendingLabel}</strong><span>Requested ${formatTier(requestedTier)}${formatTierRange(requestedTier) ? ` · ${escapeHtml(formatTierRange(requestedTier))}` : ''}</span><small>No DZP is charged while the request is pending.</small></div>` : '';
+  return `<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">MEMBERSHIP STATUS</span><h3>Your tiers</h3></div></div><div class="squad-semantic-grid"><div class="squad-semantic-card"><span>Current Tier</span><strong>${formatTier(currentTier)}</strong><small>${escapeHtml(formatTierRange(currentTier) || 'Live Squad classification')}</small></div><div class="squad-semantic-card"><span>Purchased Tier</span><strong>${formatTier(purchasedTier)}</strong><small>${escapeHtml(formatTierRange(purchasedTier) || 'Recorded membership tier')}</small></div></div>${pendingText}</section>`;
+}
+
 function renderPaidMembership(tiers) {
   if (!tiers.length) return '';
-  return `<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">MEMBERSHIP</span><h3>Choose your Squad</h3></div></div><p>Select a tier. DzMoney chooses the smallest eligible Squad in that tier.</p><div class="squad-tier-grid">${tiers.map(tier => `<button type="button" class="squad-tier" data-squad-tier="${Number(tier.maxMembers)}"><span class="squad-tier-label">MEMBERSHIP TIER</span><span class="squad-tier-members">${Number(tier.minMembers)}–${Number(tier.maxMembers)} members</span><span class="squad-tier-price">${Number(tier.price)} DZP</span></button>`).join('')}</div></section>`;
+  return `<section class="squad-section"><div class="squad-daily-head"><div><span class="squad-eyebrow">MEMBERSHIP</span><h3>Choose your Squad</h3></div></div><p>Select a tier. DzMoney chooses the smallest eligible Squad in that tier.</p><div class="squad-tier-grid">${tiers.map(tier => `<button type="button" class="squad-tier" data-squad-tier="${tier.maxMembers === null ? 'unbounded' : Number(tier.maxMembers)}"><span class="squad-tier-label">${formatTier(tier)}</span><span class="squad-tier-members">${escapeHtml(formatTierRange(tier))}</span><span class="squad-tier-price">${Number(tier.price)} DZP</span></button>`).join('')}</div></section>`;
 }
 
 function renderDailyState(state) {
@@ -43,15 +72,15 @@ function renderSquad(squad, tiers = [], state = null, ads = null, pendingMembers
   const card = squadCard();
   if (!card) return;
   if (!squad) {
-    const pending = pendingMembership ? '<p>Membership request is being processed. You will be notified once a squad is available.</p>' : '<p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p>';
-    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>${pendingMembership ? 'Membership pending' : 'No Squad yet'}</h2>${pending}</div>${renderSquadAds(ads)}${pendingMembership ? '' : renderPaidMembership(tiers)}${renderInvitationsShell()}`;
+    const pending = pendingMembership ? `<p>${String(pendingMembership.operationType || '').toLowerCase() === 'upgrade' ? 'Upgrade request is pending.' : 'Membership request is being processed.'} ${pendingMembership.requestedTier ? `Requested ${formatTier(pendingMembership.requestedTier)}${formatTierRange(pendingMembership.requestedTier) ? ` · ${escapeHtml(formatTierRange(pendingMembership.requestedTier))}` : ''}.` : ''} You will be notified once settlement is possible.</p>` : '<p>Join a membership tier or wait for DzMoney to place you in an eligible Squad.</p>';
+    card.innerHTML = `<div class="squad-empty"><div class="squad-empty-icon" aria-hidden="true">◆</div><span class="squad-eyebrow">YOUR COMMUNITY</span><h2>${pendingMembership ? 'Membership pending' : 'No Squad yet'}</h2>${pending}${renderHowItWorks()}</div>${renderSquadAds(ads)}${pendingMembership ? '' : renderPaidMembership(tiers)}${renderInvitationsShell()}`;
     loadInvitations();
     return;
   }
   const membership = String(squad.membershipStatus || 'active');
   const owner = Boolean(squad.isOwner);
   const purchase = membership === 'cancelled' ? renderPaidMembership(tiers) : '';
-  card.innerHTML = `<div class="squad-hero"><div class="squad-hero-top"><div><span class="squad-eyebrow">SQUAD</span><h2 class="squad-number">#${escapeHtml(squad.id)}</h2></div>${owner ? '<span class="squad-owner-badge">OWNER</span>' : `<span class="squad-status active">${escapeHtml(membership)}</span>`}</div><div class="squad-stats"><div class="squad-stat"><strong>${Number(squad.memberCount)}</strong><span>Members</span></div><div class="squad-stat"><strong>${owner ? 'Owner' : 'Member'}</strong><span>Your role</span></div></div></div>${renderDailyState(state)}${renderSquadAds(ads)}${purchase}${renderInvitationsShell()}${owner ? '<section class="squad-section"><span class="squad-eyebrow">GROW YOUR SQUAD</span><h3>Invite a member</h3><p>Enter the member Telegram ID to send an invitation.</p><form id="squadInviteForm" class="squad-invite-form"><div class="squad-invite-row"><input class="squad-input" id="squadInviteTelegramId" inputmode="numeric" autocomplete="off" placeholder="Telegram user ID" aria-label="Invitee Telegram ID" required><button class="squad-btn primary" type="submit">Invite</button></div></form></section>' : ''}`;
+  card.innerHTML = `<div class="squad-hero"><div class="squad-hero-top"><div><span class="squad-eyebrow">SQUAD</span><h2 class="squad-number">#${escapeHtml(squad.id)}</h2></div>${owner ? '<span class="squad-owner-badge">OWNER</span>' : `<span class="squad-status active">${escapeHtml(membership)}</span>`}</div><div class="squad-stats"><div class="squad-stat"><strong>${Number(squad.memberCount)}</strong><span>Members</span></div><div class="squad-stat"><strong>${escapeHtml(formatTier(squad.currentTier))}</strong><span>Current Tier</span></div></div></div>${renderMembershipSemantics(squad, pendingMembership)}${renderDailyState(state)}${renderSquadAds(ads)}${purchase}${renderHowItWorks()}${renderInvitationsShell()}${owner ? '<section class="squad-section"><span class="squad-eyebrow">GROW YOUR SQUAD</span><h3>Invite a member</h3><p>Enter the member Telegram ID to send an invitation.</p><form id="squadInviteForm" class="squad-invite-form"><div class="squad-invite-row"><input class="squad-input" id="squadInviteTelegramId" inputmode="numeric" autocomplete="off" placeholder="Telegram user ID" aria-label="Invitee Telegram ID" required><button class="squad-btn primary" type="submit">Invite</button></div></form></section>' : ''}`;
   loadInvitations();
 }
 
@@ -153,7 +182,8 @@ async function purchaseMembership(maxMembers) {
   const button = document.querySelector(`[data-squad-tier="${String(maxMembers)}"]`);
   if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
   try {
-    const response = await api('/api/squad/membership/purchase', { method: 'POST', body: JSON.stringify({ maxMembers, idempotencyKey: crypto.randomUUID() }) });
+    const payload = { maxMembers: maxMembers === 'unbounded' ? null : maxMembers, idempotencyKey: crypto.randomUUID() };
+    const response = await api('/api/squad/membership/purchase', { method: 'POST', body: JSON.stringify(payload) });
     if (response.pendingMembership) alert('Your membership request is being processed. You will be notified once a squad is available.');
     await loadSquad();
   } catch (error) {
@@ -195,7 +225,7 @@ document.addEventListener('click', event => {
   const nav = event.target.closest('[data-go="squad"]');
   if (nav) setTimeout(loadSquad, 0);
   const tier = event.target.closest('[data-squad-tier]');
-  if (tier) purchaseMembership(Number(tier.dataset.squadTier));
+  if (tier) purchaseMembership(tier.dataset.squadTier);
   if (event.target.closest('[data-squad-ad]')) watchSquadAd();
   acceptInvitation(event);
 });
