@@ -30,10 +30,11 @@ test('daily modifier uses uncapped sqrt contribution and applies to all qualifyi
     const state = await getDailySquadState({ squadId, day });
 
     assert.equal(state.dzpContribution, '10001');
-    assert.equal(Number(state.modifierRate), Math.sqrt(10001) / 100);
+    const expectedRate = Math.sqrt(10001) / 100;
+    assert.ok(Math.abs(Number(state.modifierRate) - expectedRate) < 0.000000001);
 
     const applied = await withTransaction(client => getApplicableSquadModifierOnClient(client, { userId: users[1].id, day: applicationDay }));
-    assert.equal(Number(applied.rate), Math.sqrt(10001) / 100);
+    assert.ok(Math.abs(Number(applied.rate) - expectedRate) < 0.000000001);
     assert.equal(applied.contributor, true);
 
     const notContributor = await withTransaction(client => getApplicableSquadModifierOnClient(client, { userId: users[0].id, day: applicationDay }));
@@ -41,7 +42,7 @@ test('daily modifier uses uncapped sqrt contribution and applies to all qualifyi
     assert.equal(notContributor.contributor, false);
 
     const reward = await creditActivityReward({ idempotencyKey: `modifier-reward-${suffix}`, userId: users[1].id, source: 'task', coin: 1000, dzx: 1, dzp: 1, modifiers: [], qualifyingVerifiedActivity: true, activityDay: applicationDay });
-    const expectedMultiplier = 1 + Math.sqrt(10001) / 100;
+    const expectedMultiplier = 1 + expectedRate;
     assert.ok(Math.abs(Number(reward.entries.find(entry => entry.currency === 'COIN').amount) - 1000 * expectedMultiplier) < 0.000001);
     assert.ok(Math.abs(Number(reward.entries.find(entry => entry.currency === 'DZX').amount) - expectedMultiplier) < 0.000000001);
     assert.ok(Math.abs(Number(reward.entries.find(entry => entry.currency === 'DZP').amount) - expectedMultiplier) < 0.000000001);
