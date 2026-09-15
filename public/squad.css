@@ -430,3 +430,127 @@
   outline: 2px solid var(--text);
   outline-offset: 2px;
 }
+
+/* Phase 9 visual contract */
+.squad-semantic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.squad-semantic-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+}
+.squad-semantic-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.squad-semantic-card strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+.squad-semantic-card small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.squad-semantic-pending {
+  display: grid;
+  gap: 3px;
+  margin-top: 10px;
+  padding: 12px 13px;
+  border: 1px solid rgba(255, 184, 107, 0.28);
+  border-radius: 15px;
+  background: rgba(255, 184, 107, 0.07);
+}
+.squad-semantic-pending strong {
+  color: #ffb86b;
+  font-size: 12px;
+}
+.squad-semantic-pending span {
+  font-size: 12px;
+  font-weight: 700;
+}
+.squad-semantic-pending small {
+  color: var(--muted);
+  line-height: 1.4;
+}
+.squad-how-it-works {
+  margin-top: 12px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: hidden;
+}
+.squad-how-it-works summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+.squad-how-it-works summary::-webkit-details-marker {
+  display: none;
+}
+.squad-how-it-works summary::after {
+  content: '›';
+  color: var(--muted);
+  font-size: 20px;
+  transition: transform 0.2s ease;
+}
+.squad-how-it-works[open] summary::after {
+  transform: rotate(90deg);
+}
+.squad-how-it-works summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.squad-how-copy {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
+  border-top: 1px solid var(--line);
+}
+.squad-how-copy p {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.squad-how-copy strong {
+  color: var(--text);
+}
+@media (max-width: 359px) {
+  .squad-semantic-grid {
+    grid-template-columns: 1fr;
+  }
+  .squad-hero,
+  .squad-section,
+  .squad-empty {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .squad-how-it-works summary::after {
+    transition: none;
+  }
+}
