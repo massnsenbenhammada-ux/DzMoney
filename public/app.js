@@ -196,7 +196,13 @@ function renderTasks() { if (state.taskCategory) renderTaskCategory(state.taskCa
 async function loadTasks() {
   const container = $('tasksList');
   if (container) container.innerHTML = '<article class="info-card"><strong>Loading tasks…</strong></article>';
-  try { const data = await api('/api/tasks'); state.tasks = Array.isArray(data.tasks) ? data.tasks : []; renderTasks(); }
+  try {
+    const [data, creatorData] = await Promise.all([api('/api/tasks'), api('/api/tasks/creator')]);
+    const normalTasks = Array.isArray(data.tasks) ? data.tasks : [];
+    const creatorTasks = Array.isArray(creatorData.tasks) ? creatorData.tasks : [];
+    state.tasks = [...normalTasks, ...creatorTasks];
+    renderTasks();
+  }
   catch (error) { state.tasks = []; if (container) container.innerHTML = `<article class="info-card"><strong>Unable to load tasks</strong><p>${String(error.message || 'Please try again later.')}</p></article>`; }
 }
 async function waitForTaskVerification(attemptId) {
