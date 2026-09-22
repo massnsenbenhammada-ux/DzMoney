@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const crypto = require('crypto');
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 process.env.BOT_TOKEN = 'creator-campaign-reachability-test-token';
 
@@ -36,6 +38,12 @@ function request(server, method, path, body, initData) {
 (async () => {
   const { createTaskRouter } = require('../src/http/task-routes');
   const { createCreatorTaskRouter } = require('../src/http/creator-task-routes');
+  const appJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'app.js'), 'utf8');
+  const creatorJs = fs.readFileSync(path.join(__dirname, '..', 'public', 'creator-task.js'), 'utf8');
+  assert.match(appJs, /api\('\/api\/tasks\/creator'\)/);
+  assert.match(appJs, /state\.tasks = \[\.\.\.normalTasks, \.\.\.creatorTasks\]/);
+  assert.match(creatorJs, /api\('\/api\/creator\/tasks'\)/);
+  assert.match(creatorJs, /creatorCampaignDashboard/);
 
   const app = express();
   app.use(express.json());
