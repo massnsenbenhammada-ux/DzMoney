@@ -197,9 +197,15 @@ async function loadTasks() {
   const container = $('tasksList');
   if (container) container.innerHTML = '<article class="info-card"><strong>Loading tasks…</strong></article>';
   try {
-    const [data, creatorData] = await Promise.all([api('/api/tasks'), api('/api/tasks/creator')]);
+    const data = await api('/api/tasks');
     const normalTasks = Array.isArray(data.tasks) ? data.tasks : [];
-    const creatorTasks = Array.isArray(creatorData.tasks) ? creatorData.tasks : [];
+    let creatorTasks = [];
+    try {
+      const creatorData = await api('/api/tasks/creator');
+      creatorTasks = Array.isArray(creatorData.tasks) ? creatorData.tasks : [];
+    } catch {
+      creatorTasks = [];
+    }
     state.tasks = [...normalTasks, ...creatorTasks];
     renderTasks();
   }
