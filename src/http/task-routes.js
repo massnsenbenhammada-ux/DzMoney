@@ -46,6 +46,8 @@ function createTaskRouter({ wallet = walletService, tasks = taskService, verific
     res.json({ success: true, tasks: tasksList.filter(task => task.systemKey !== 'squad_ads') });
   }));
 
+  router.get('/creator', asyncRoute(async (req, res) => { const taskType = req.query.taskType === undefined ? null : String(req.query.taskType); const creatorTasks = await tasks.listActiveCreatorCampaigns({ taskType }); res.json({ success: true, tasks: creatorTasks }); }));
+
   router.post('/execute', sensitiveRateLimit, asyncRoute(async (req, res) => {
     const validationError = validateExecuteBody(req.body);
     if (validationError) return res.status(400).json({ ok: false, error: validationError });
