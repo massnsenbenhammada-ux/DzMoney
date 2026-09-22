@@ -57,6 +57,7 @@ function renderCreatorForm() {
   if (creatorTaskState.taskType === 'special') {
     form.innerHTML = `<div class="creator-form-shell"><section class="creator-section"><h2 class="creator-section-title">Task Category</h2>${categoryButtons('special')}<div class="creator-admin-note"><strong>Special / Partner</strong><span>Creator setup is handled by Admin.</span><span>Contact: @DzMoneyCustomer</span></div></section></div>`;
     bindCreatorCategories();
+    renderCreatorCampaignDashboard();
     return;
   }
   const pricing = creatorTaskState.contract?.campaignPricing || {};
