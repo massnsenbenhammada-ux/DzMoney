@@ -73,6 +73,10 @@ function createCreatorTaskRouter({ wallet = walletService, tasks = taskService, 
     res.json(await contractFor(tasks, req.params.taskType));
   }));
 
+  router.get('/', asyncRoute(async (req, res) => { const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null }); res.json({ ok: true, campaigns: await tasks.listCreatorCampaigns({ creatorId: user.id }) }); }));
+
+  router.get('/:taskId', asyncRoute(async (req, res) => { const taskId = Number(req.params.taskId); if (!Number.isInteger(taskId) || taskId <= 0) return res.status(400).json({ ok: false, error: 'taskId must be a positive integer' }); const user = await wallet.createUser({ telegramUserId: String(req.telegramUser.id), username: req.telegramUser.username || null, firstName: req.telegramUser.first_name || null, photoUrl: req.telegramUser.photo_url || null }); const campaign = await tasks.getCreatorCampaign({ creatorId: user.id, taskId }); if (!campaign) return res.status(404).json({ ok: false, error: 'Creator campaign not found' }); res.json({ ok: true, campaign }); }));
+
   router.post('/', createRateLimit({ windowMs: 60_000, max: 10 }), createValidationMiddleware(validateCreatorTaskBody), asyncRoute(async (req, res) => {
     const { taskType, title, description, target, config, idempotencyKey } = req.body;
     requireTaskType(taskType);
