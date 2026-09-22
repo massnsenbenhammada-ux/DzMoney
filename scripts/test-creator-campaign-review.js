@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const crypto = require('crypto');
 const { pool } = require('../src/db/pool');
 const { createUser } = require('../src/services/wallet-service');
 const { postEconomyTransaction } = require('../src/services/economy-service');
@@ -7,7 +8,7 @@ const { createCreatorCampaign, submitCreatorCampaignForReview, approveCreatorCam
 async function main() {
   let creator;
   let taskId;
-  const marker = `campaign-review-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const marker = `campaign-review-${Date.now()}-${crypto.randomUUID()}`;
   const creatorConfig = {
     campaignUrl: 'https://t.me/example_bot?start=campaign',
     verification: { method: 'click_proof' },
