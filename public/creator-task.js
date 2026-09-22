@@ -4,7 +4,8 @@ const creatorTaskState = {
   verification: 'click_proof',
   providerId: null,
   idempotencyKey: null,
-  createdTaskId: null
+  createdTaskId: null,
+  campaigns: []
 };
 
 function creatorEl(id) { return document.getElementById(id); }
@@ -47,12 +48,16 @@ function formatDZX(value) { return Number(value || 0).toLocaleString('en-US', { 
 function categoryButtons(active) {
   return `<div class="creator-category-grid">${[['game','Game'],['social','Social'],['web','Web'],['special','Special']].map(([key,label]) => `<button type="button" class="creator-category ${active === key ? 'active' : ''}" data-creator-category="${key}">${label}</button>`).join('')}</div>`;
 }
+function creatorStatusLabel(status) { return String(status || '').replace(/_/g, ' '); }
+function renderCreatorCampaignDashboard() { const form = creatorEl('creatorTaskForm'); if (!form) return; const existing = creatorEl('creatorCampaignDashboard'); if (existing) existing.remove(); const dashboard = document.createElement('section'); dashboard.id = 'creatorCampaignDashboard'; dashboard.className = 'creator-section'; dashboard.innerHTML = '<h2 class="creator-section-title">My Campaigns</h2><div class="creator-campaign-list"></div>'; const list = dashboard.querySelector('.creator-campaign-list'); if (!creatorTaskState.campaigns.length) list.innerHTML = '<article class="info-card"><strong>No campaigns yet</strong><p>Your created campaigns will appear here with status and progress.</p></article>'; else list.innerHTML = creatorTaskState.campaigns.map(campaign => { const progress = campaign.target > 0 ? Math.min(100, Math.round((campaign.verifiedCount / campaign.target) * 100)) : 0; const refund = campaign.refund ? `<small>Refund: ${formatDZX(campaign.refund.refundDZX)} DZX (tax ${formatDZX(campaign.refund.taxPercent)}%)</small>` : ''; return `<article class="info-card"><strong>${campaign.title}</strong><small>Status: ${creatorStatusLabel(campaign.status)}</small><small>Progress: ${campaign.verifiedCount}/${campaign.target} (${progress}%)</small><small>Remaining: ${campaign.remainingExecutions}</small><small>Reserved: ${campaign.campaignCostDZX === null ? '—' : formatDZX(campaign.campaignCostDZX) + ' DZX'}</small>${refund}</article>`; }).join(''); form.appendChild(dashboard); }
+async function loadCreatorCampaigns() { try { const data = await creatorApi('/api/creator/tasks'); creatorTaskState.campaigns = Array.isArray(data.campaigns) ? data.campaigns : []; } catch (error) { creatorTaskState.campaigns = []; creatorToast(error.message || 'Unable to load campaigns.'); } renderCreatorCampaignDashboard(); }
 function renderCreatorForm() {
   const form = creatorEl('creatorTaskForm');
   if (!form) return;
   if (creatorTaskState.taskType === 'special') {
     form.innerHTML = `<div class="creator-form-shell"><section class="creator-section"><h2 class="creator-section-title">Task Category</h2>${categoryButtons('special')}<div class="creator-admin-note"><strong>Special / Partner</strong><span>Creator setup is handled by Admin.</span><span>Contact: @DzMoneyCustomer</span></div></section></div>`;
     bindCreatorCategories();
+    renderCreatorCampaignDashboard();
     return;
   }
   const pricing = creatorTaskState.contract?.campaignPricing || {};
@@ -67,9 +72,10 @@ function renderCreatorForm() {
   if (!options.some(([key]) => key === creatorTaskState.verification)) creatorTaskState.verification = options[0][0];
   const provider = creatorTaskState.verification === 'bot_api' ? providerForSocial() : null;
   const total = price > 0 ? target * price : 0;
-  form.innerHTML = `<div class="creator-form-shell"><section class="creator-section"><h2 class="creator-section-title">Task Category</h2>${categoryButtons(creatorTaskState.taskType)}<label class="creator-field"><span>Title *</span><input id="creatorTitle" required maxlength="120" placeholder="Task title"></label><label class="creator-field"><span>Description (optional)</span><textarea id="creatorDescription" maxlength="500" placeholder="What should the user do?"></textarea></label><label class="creator-field"><span>Campaign URL *</span><input id="creatorCampaignUrl" type="url" required placeholder="https://example.com"><small>This is the target URL used by the selected verification method.</small></label><div class="creator-field"><span>Verification Method *</span><div class="creator-verification-grid">${options.map(([key,label,description]) => `<button type="button" class="creator-verification ${creatorTaskState.verification === key ? 'active' : ''}" data-creator-verification="${key}"><strong>${label}</strong><span>${description}</span></button>`).join('')}</div></div>${provider ? `<label class="creator-field"><span>${provider.fields[0]?.label || 'Telegram target'} *</span><input id="creatorProviderField_channel" required placeholder="@channel_username"><small>The channel or bot in the campaign URL is the verification target.</small></label>` : ''}<label class="creator-field"><span>Target (Executions) *</span><input id="creatorTarget" type="number" min="${minTarget}" step="${pricing.targetStep || 1}" value="${target}" required><small>Number of valid completions you want to receive.</small></label><label class="creator-field"><span>Target Company / Entity (optional)</span><input id="creatorTargetCompany" type="text" maxlength="120" placeholder="Search or select a company / entity"></label></section><section class="creator-section"><h2 class="creator-section-title">Pricing</h2><div class="creator-pricing"><div class="creator-price-cell"><span class="creator-price-label">Reference Price</span><strong class="creator-price-value">${price ? `${formatDZX(price)} DZX` : '—'}</strong><span class="creator-price-sub">/ per valid execution</span></div><div class="creator-price-cell"><span class="creator-price-label">Reference Campaign</span><strong class="creator-price-value">1,000 executions</strong><span class="creator-price-sub">= ${price ? `${formatDZX(price * 1000)} DZX` : '—'}</span></div><div class="creator-price-cell creator-price-total"><span class="creator-price-label">Total Campaign Price</span><strong class="creator-price-value">${total ? `${formatDZX(total)} DZX` : '—'}</strong><span class="creator-price-sub">(You will pay)</span></div></div><div class="creator-admin-note"><strong>Pricing is Admin-controlled.</strong>The displayed total is a preview; the backend remains authoritative.</div></section><div class="creator-actions"><button class="primary-btn" id="creatorSubmit" type="submit">Publish Task</button><button class="secondary-btn" id="creatorReviewSubmit" type="button" disabled>Review before publishing</button></div></div>`;
+  form.innerHTML = `<div class="creator-form-shell"><section class="creator-section"><h2 class="creator-section-title">Task Category</h2>${categoryButtons(creatorTaskState.taskType)}<label class="creator-field"><span>Title *</span><input id="creatorTitle" required maxlength="120" placeholder="Task title"></label><label class="creator-field"><span>Description (optional)</span><textarea id="creatorDescription" maxlength="500" placeholder="What should the user do?"></textarea></label><label class="creator-field"><span>Campaign URL *</span><input id="creatorCampaignUrl" type="url" required placeholder="https://example.com"><small>This is the target URL used by the selected verification method.</small></label><div class="creator-field"><span>Verification Method *</span><div class="creator-verification-grid">${options.map(([key,label,description]) => `<button type="button" class="creator-verification ${creatorTaskState.verification === key ? 'active' : ''}" data-creator-verification="${key}"><strong>${label}</strong><span>${description}</span></button>`).join('')}</div></div>${provider ? `<label class="creator-field"><span>${provider.fields[0]?.label || 'Telegram target'} *</span><input id="creatorProviderField_channel" required placeholder="@channel_username"><small>The channel or bot in the campaign URL is the verification target.</small></label>` : ''}<label class="creator-field"><span>Target (Executions) *</span><input id="creatorTarget" type="number" min="${minTarget}" step="${pricing.targetStep || 1}" value="${target}" required><small>Number of valid completions you want to receive.</small></label><label class="creator-field"><span>Target Company / Entity (optional)</span><input id="creatorTargetCompany" type="text" maxlength="120" placeholder="Search or select a company / entity"></label></section><section class="creator-section"><h2 class="creator-section-title">Pricing</h2><div class="creator-pricing"><div class="creator-price-cell"><span class="creator-price-label">Reference Price</span><strong class="creator-price-value">${price ? `${formatDZX(price)} DZX` : '—'}</strong><span class="creator-price-sub">/ per valid execution</span></div><div class="creator-price-cell"><span class="creator-price-label">Reference Campaign</span><strong class="creator-price-value">1,000 executions</strong><span class="creator-price-sub">= ${price ? `${formatDZX(price * 1000)} DZX` : '—'}</span></div><div class="creator-price-cell creator-price-total"><span class="creator-price-label">Total Campaign Price</span><strong class="creator-price-value">${total ? `${formatDZX(total)} DZX` : '—'}</strong><span class="creator-price-sub">(You will pay)</span></div></div><div class="creator-admin-note"><strong>Pricing is Admin-controlled.</strong>The displayed total is a preview; the backend remains authoritative.</div></section><div class="creator-actions"><button class="primary-btn" id="creatorSubmit" type="submit">Create Campaign</button><button class="secondary-btn" id="creatorReviewSubmit" type="button" disabled>Submit for Review</button></div></div>`;
   bindCreatorCategories();
   creatorEl('creatorTarget')?.addEventListener('input', updateCreatorCampaignCost);
+  renderCreatorCampaignDashboard();
   document.querySelectorAll('[data-creator-verification]').forEach(button => button.addEventListener('click', () => { creatorTaskState.verification = button.dataset.creatorVerification; renderCreatorForm(); }));
 }
 function bindCreatorCategories() {
@@ -119,7 +125,7 @@ async function createCreatorTask(event) {
   try {
     const result = await creatorApi('/api/creator/tasks', { method: 'POST', body: JSON.stringify({ taskType: creatorTaskState.taskType, title: creatorEl('creatorTitle').value.trim(), description: creatorEl('creatorDescription').value.trim() || null, target: Number(creatorEl('creatorTarget').value), config: creatorConfig(), idempotencyKey: creatorIdempotencyKey() }) });
     creatorTaskState.createdTaskId = result.task?.id || null;
-    creatorToast(`Task created. Reserved ${formatDZX(result.campaign?.campaignCostDZX)} DZX.`);
+    creatorToast(`Campaign created. Reserved ${formatDZX(result.campaign?.campaignCostDZX)} DZX.`);
     button.textContent = 'Task created';
     const review = creatorEl('creatorReviewSubmit'); if (review) review.disabled = !creatorTaskState.createdTaskId;
   } catch (error) { creatorToast(error.message || 'Unable to create task.'); button.disabled = false; }
@@ -128,8 +134,8 @@ async function submitCreatorTaskForReview(event) {
   event.preventDefault();
   if (!creatorTaskState.createdTaskId) return;
   const button = creatorEl('creatorReviewSubmit'); button.disabled = true;
-  try { const result = await creatorApi(`/api/creator/tasks/${encodeURIComponent(creatorTaskState.createdTaskId)}/submit`, { method: 'POST', body: '{}' }); creatorToast(result.task?.status === 'pending_review' ? 'Task submitted for review.' : 'Task submitted.'); }
-  catch (error) { creatorToast(error.message || 'Unable to submit task for review.'); button.disabled = false; }
+  try { const result = await creatorApi(`/api/creator/tasks/${encodeURIComponent(creatorTaskState.createdTaskId)}/submit`, { method: 'POST', body: '{}' }); creatorToast(result.task?.status === 'pending_review' ? 'Campaign submitted for review.' : 'Campaign submitted.'); await loadCreatorCampaigns(); }
+  catch (error) { creatorToast(error.message || 'Unable to submit campaign for review.'); button.disabled = false; }
 }
 function setCreatorPanelVisible(visible) {
   const list = creatorEl('tasksList');
@@ -138,7 +144,7 @@ function setCreatorPanelVisible(visible) {
   list.hidden = visible;
   panel.hidden = !visible;
   document.querySelectorAll('[data-task-mode]').forEach(tab => tab.classList.toggle('active', tab.dataset.taskMode === (visible ? 'creator' : 'tasks')));
-  if (visible && !creatorTaskState.contract) loadCreatorContract();
+  if (visible) { loadCreatorCampaigns(); if (!creatorTaskState.contract) loadCreatorContract(); }
 }
 document.addEventListener('submit', event => { if (event.target.id === 'creatorTaskForm') createCreatorTask(event); });
 document.addEventListener('click', event => {
@@ -146,5 +152,5 @@ document.addEventListener('click', event => {
   if (tab) { setCreatorPanelVisible(tab.dataset.taskMode === 'creator'); return; }
   if (event.target.closest('#creatorReviewSubmit')) submitCreatorTaskForReview(event);
 });
-window.addEventListener('load', () => { if (creatorEl('creatorTaskForm')) loadCreatorContract(); });
+window.addEventListener('load', () => { if (creatorEl('creatorTaskForm')) { loadCreatorCampaigns(); loadCreatorContract(); } });
 window.setCreatorPanelVisible = setCreatorPanelVisible;

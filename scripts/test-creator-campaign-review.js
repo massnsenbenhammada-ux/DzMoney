@@ -1,13 +1,14 @@
 const assert = require('node:assert/strict');
+const crypto = require('crypto');
 const { pool } = require('../src/db/pool');
 const { createUser } = require('../src/services/wallet-service');
 const { postEconomyTransaction } = require('../src/services/economy-service');
-const { createCreatorCampaign, submitCreatorCampaignForReview, approveCreatorCampaign, rejectCreatorCampaign } = require('../src/services/task-service');
+const { createCreatorCampaign, submitCreatorCampaignForReview, approveCreatorCampaign, rejectCreatorCampaign, listActiveTasks, listActiveCreatorCampaigns, listCreatorCampaigns } = require('../src/services/task-service');
 
 async function main() {
   let creator;
   let taskId;
-  const marker = `campaign-review-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const marker = `campaign-review-${Date.now()}-${crypto.randomUUID()}`;
   const creatorConfig = {
     campaignUrl: 'https://t.me/example_bot?start=campaign',
     verification: { method: 'click_proof' },
@@ -28,6 +29,23 @@ async function main() {
     assert.equal(pending.status, 'pending_review');
     const active = await approveCreatorCampaign(taskId);
     assert.equal(active.status, 'active');
+
+    const discovered = await listActiveCreatorCampaigns();
+    const discoveredCampaign = discovered.find(item => Number(item.id) === Number(taskId));
+    assert.ok(discoveredCampaign, 'approved creator campaign must be discoverable to executors');
+    assert.equal(discoveredCampaign.verifiedCount, 0);
+    assert.equal(discoveredCampaign.remainingExecutions, 10);
+    assert.equal(discoveredCampaign.isCreatorCampaign, true);
+
+    const normalCatalog = await listActiveTasks();
+    assert.ok(!normalCatalog.some(item => Number(item.id) === Number(taskId)), 'Creator campaigns must remain excluded from the normal task catalog');
+
+    const creatorView = await listCreatorCampaigns({ creatorId: creator.id });
+    const ownCampaign = creatorView.find(item => Number(item.id) === Number(taskId));
+    assert.ok(ownCampaign, 'creator must see own campaign lifecycle read model');
+    assert.equal(ownCampaign.status, 'active');
+    assert.equal(ownCampaign.campaignCostDZX, 90);
+    assert.equal(ownCampaign.verifiedCount, 0);
 
     const second = await createCreatorCampaign({ taskType: 'social', title: 'Rejected campaign', creatorId: creator.id, target: 1, idempotencyKey: `${marker}:rejected`, rewardCoin: 1000, rewardDzx: 1, rewardDzp: 1, verificationAdSeconds: 5, config: creatorConfig });
     try {
