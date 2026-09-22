@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 
 const {
   parseTestAll,
-  validateTestAll
+  validateTestAll,
+  validateRealStateCoverage,
+  REAL_STATE_REQUIREMENTS
 } = require('../scripts/test-governance');
 
 const existingRoot = require('node:path').resolve(__dirname, '..');
@@ -45,6 +47,34 @@ test('test governance rejects new duplicate entries and test:all recursion', () 
     'duplicate test entry: npm run test:alpha',
     'test:all must not recursively invoke itself'
   ]);
+});
+
+test('real-state governance requires executable Playwright gates in test:all', () => {
+  const requirement = REAL_STATE_REQUIREMENTS[0];
+  const packageJson = {
+    scripts: {
+      'test:all': ''
+    }
+  };
+
+  const errors = validateRealStateCoverage(packageJson, existingRoot);
+  assert.ok(errors.includes(`missing real-state gate script: ${requirement.script}`));
+  assert.ok(errors.some(error => error.includes('share-with-friends')));
+});
+
+test('real-state governance rejects contract-only commands', () => {
+  const requirement = REAL_STATE_REQUIREMENTS[0];
+  const packageJson = {
+    scripts: {
+      'test:all': `npm run ${requirement.script}`,
+      [requirement.script]: `node ./scripts/test-gaming.js`
+    }
+  };
+
+  const errors = validateRealStateCoverage(packageJson, existingRoot);
+  assert.ok(errors.includes(`real-state gate must execute Playwright: ${requirement.script}`));
+  assert.ok(errors.includes(`real-state gate must execute ${requirement.spec}: ${requirement.script}`));
+  assert.ok(errors.includes(`missing real-state E2E spec: ${requirement.spec}`));
 });
 
 test('current test:all preserves its known baseline duplicates', () => {
