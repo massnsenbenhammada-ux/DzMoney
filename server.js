@@ -49,5 +49,5 @@ if (monetagPostbackSecret) app.use('/api/ads/monetag/postback', createMonetagPos
 app.use('/api/ads/adsgram/reward', createAdsgramRewardRouter()); app.use('/api/ads/onclicka', createOnclickaPostbackRouter({ providerRegistry }));
 app.get('/', (_req, res) => { const html = indexHtml.replaceAll('__ASSET_VERSION__', assetVersion).replaceAll('__MONETAG_SCRIPTS__', monetagScriptsForClient().replaceAll('__ASSET_VERSION__', assetVersion)).replaceAll('__AD_PROVIDER_CONFIG__', JSON.stringify(clientAdConfig()).replace(/</g, '\\u003c')).replace('</head>', `<link rel="stylesheet" href="/premium-ui.css?v=${assetVersion}"></head>`).replace('</body>', `<script src="/premium-ui.js?v=${assetVersion}"></script><script src="/admin-entry.js?v=${assetVersion}"></script><script src="/adsgram-adapter-entry.js?v=${assetVersion}"></script></body>`); res.setHeader('Cache-Control', 'no-store'); res.type('html').send(html); });
 app.use((error, _req, res, _next) => { const status = Number(error.statusCode || 500); if (status >= 500) console.error(error); res.status(status).json({ ok: false, error: error.message || 'Internal server error' }); });
-if (require.main === module) app.listen(port, () => console.log(`DzMoney listening on ${port}`));
+if (require.main === module) app.listen(port, '0.0.0.0', () => console.log(`DzMoney listening on ${port}`));
 module.exports = app;
